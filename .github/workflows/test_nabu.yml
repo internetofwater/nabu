@@ -1,0 +1,37 @@
+name: Test Nabu Subcommand Options 
+on:
+  [  workflow_dispatch, pull_request ]
+jobs:
+  main:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.20'
+      - name: Install and Run Nabu Runtime Dependencies, Test Utils, and Setup Env.
+        run: |
+            echo "::group::Install/Run Nabu Runtime Dependencies"
+            mkdir -p $HOME/bin
+            curl https://dl.min.io/client/mc/release/linux-amd64/mc -o $HOME/bin/mc && chmod +x $HOME/bin/mc 
+            sh scripts/iow/start-minio.sh
+            sh scripts/iow/start-graphdb.sh 
+            echo "::endgroup::"
+      - name: Setup Environment
+        run: |
+            echo "::group::Setup Environment"
+            $HOME/bin/mc alias set myminio http://localhost:9000 amazingaccesskey amazingsecretkey
+            $HOME/bin/mc mb myminio/iow
+            echo "::endgroup::"
+      - name: Build and Run Gleaner Harvest As Input for Nabu
+        run: |
+            echo "::group::Build and Run Gleaner Harvest"
+            mkdir $HOME/build
+            cd $HOME/build 
+            git clone https://github.com/internetofwater/gleaner.gitthub.com/internetofwater/gleaner.git
+            cd gleaner
+            make && cp gleaner $HOME/bin
+            $HOME/scripts/iow/start-gleaner.sh $HOME/config/iow/gleanerconfig.sh              
+            echo "::endgroup::"  
+
+
