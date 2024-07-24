@@ -3,7 +3,7 @@
 set -e
 
 
-base_s3_path="myminio/iow/prov/"
+base_s3_path="myminio/iow/prov"
 
 
 function assert_count {
