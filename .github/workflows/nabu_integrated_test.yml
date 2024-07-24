@@ -23,13 +23,15 @@ jobs:
             $HOME/bin/mc alias set myminio http://localhost:9000 amazingaccesskey amazingsecretkey
             $HOME/bin/mc mb myminio/iow
             echo "::endgroup::"
-      - name: Build and Run Gleaner Harvest As Input for Nabu
+      - name: Build Gleaner 
         run: |
-            echo "::group::Build and Run Gleaner Harvest"
+            echo "::group::Build Gleaner"
             mkdir $HOME/build
-            cd $HOME/build 
-            git clone https://github.com/internetofwater/gleaner.gitthub.com/internetofwater/gleaner.git
-            cd gleaner
-            make && cp gleaner $HOME/bin
-            sh scripts/iow/start-gleaner.sh $HOME/config/iow/gleanerconfig.sh              
-            echo "::endgroup::"  
+            cd $HOME/build && git clone https://github.com/internetofwater/gleaner.git
+            cd gleaner && make && cp gleaner $HOME/bin
+            echo "::endgroup::" 
+      - name: Run Gleaner Harvest To Create Input For Nabu
+        run: |
+            echo "::group::Run Gleaner Harvest"
+            pwd
+            sh scripts/iow/start-gleaner.sh config/iow/gleanerconfig.yaml
