@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 docker run -d \
 	-p 7200:7200 \
 	--name graphdb \

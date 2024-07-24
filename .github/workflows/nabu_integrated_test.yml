@@ -33,5 +33,5 @@ jobs:
       - name: Run Gleaner Harvest To Create Input For Nabu
         run: |
             echo "::group::Run Gleaner Harvest"
-            pwd
             sh scripts/iow/start-gleaner.sh config/iow/gleanerconfig.yaml
+            $HOME/bin/mc mb ls myminio/iow/prov/refgages0

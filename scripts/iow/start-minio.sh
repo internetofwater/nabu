@@ -2,6 +2,8 @@
 
 # --rm
 # --memory
+set -e
+
 docker run -d \
    --rm \
    -p 9000:9000 \
