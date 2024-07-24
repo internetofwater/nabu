@@ -14,8 +14,8 @@ jobs:
             echo "::group::Install/Run Nabu Runtime Dependencies"
             mkdir -p $HOME/bin
             curl https://dl.min.io/client/mc/release/linux-amd64/mc -o $HOME/bin/mc && chmod +x $HOME/bin/mc 
-            sh $HOME/scripts/iow/start-minio.sh
-            sh $HOME/scripts/iow/start-graphdb.sh 
+            sh scripts/iow/start-minio.sh
+            sh scripts/iow/start-graphdb.sh 
             echo "::endgroup::"
       - name: Setup Environment
         run: |
@@ -31,5 +31,5 @@ jobs:
             git clone https://github.com/internetofwater/gleaner.gitthub.com/internetofwater/gleaner.git
             cd gleaner
             make && cp gleaner $HOME/bin
-            $HOME/scripts/iow/start-gleaner.sh $HOME/config/iow/gleanerconfig.sh              
+            sh scripts/iow/start-gleaner.sh $HOME/config/iow/gleanerconfig.sh              
             echo "::endgroup::"  
