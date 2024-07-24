@@ -4,14 +4,12 @@
 
 set -e # exit on error 
 
-TS=`date +%Y-%m-%dT%H.%M.%S`
-LOGDIR="$HOME/logs/$TS"
+#TS=`date +%Y-%m-%dT%H.%M.%S`
+#LOGDIR="$HOME/logs/$TS"
 
 
 
 
-mkdir -p $LOGDIR 
-cd $HOME
 
 GLEANERCONFIG_PATH=""
 
@@ -28,7 +26,7 @@ do
 	ERRFILE="$LOGDIR/gleaner-$src.err"
 
 	echo "harvesting source '$src'..."
-	bin/gleaner -log debug  -cfg $GLEANERCONFIG_PATH -source $src -rude # > $OUTFILE 2>$ERRFILE
+	gleaner -log debug  -cfg $GLEANERCONFIG_PATH -source $src -rude # > $OUTFILE 2>$ERRFILE
 done
 echo "complete!"
 
