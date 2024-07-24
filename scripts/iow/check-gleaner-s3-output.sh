@@ -20,7 +20,7 @@ function test_s3_filecount {
 	src_name="$1"
 	expect_count="$2"
 
-	s3_path="$base_path/$src_name"
+	s3_path="$base_s3_path/$src_name"
 	count=$($HOME/bin/mc ls $s3_path|grep '.jsonld'|wc -l)
 	assert_count $expect_count $count $s3_path
 
