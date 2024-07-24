@@ -35,4 +35,4 @@ jobs:
             echo "::group::Run Gleaner Harvest"
             sh scripts/iow/start-gleaner.sh config/iow/gleanerconfig.yaml
             $HOME/bin/mc  ls myminio/iow/prov/refgages0|grep '.jsonld'|wc -l
-            sh scripts/iow/check-gleaner-s3-output.sh
+            bash scripts/iow/check-gleaner-s3-output.sh
