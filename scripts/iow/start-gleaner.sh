@@ -15,7 +15,7 @@ cd $HOME
 
 GLEANERCONFIG_PATH=""
 
-if [  -z "$1 ]
+if [  -z "$1" ]
 then
   echo "Usage: $0 GLEANERCONFIG_PATH" && exit 1
 fi
