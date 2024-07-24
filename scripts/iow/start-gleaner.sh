@@ -26,7 +26,7 @@ do
 	ERRFILE="$LOGDIR/gleaner-$src.err"
 
 	echo "harvesting source '$src'..."
-	$HOME/bin/gleaner -log debug  -cfg $GLEANERCONFIG_PATH -source $src -rude # > $OUTFILE 2>$ERRFILE
+	$HOME/bin/gleaner -log info  -cfg $GLEANERCONFIG_PATH -source $src -rude # > $OUTFILE 2>$ERRFILE
 done
 echo "complete!"
 
