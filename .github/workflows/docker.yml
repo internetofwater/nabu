@@ -15,7 +15,7 @@ on:
 # https://github.com/marketplace/actions/publish-docker
 # https://github.com/docker/build-push-action
 env:
-  REGISTRY_IMAGE: nsfearthcube/nabu
+  REGISTRY_IMAGE: internetofwater/nabu
 
 jobs:
   build:
