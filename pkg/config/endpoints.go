@@ -46,37 +46,48 @@ func GetEndPointsConfig(v1 *viper.Viper) ([]EndPoint, error) {
 	err := v1.UnmarshalKey(subtreeKey, &endpointsCfg)
 	if err != nil {
 		log.Fatal("error when parsing ", subtreeKey, " config: ", err)
-		//No sources, so nothing to run
 	}
+
+	// Log the content of the parsed configuration
+	log.Printf("Config: %+v", endpointsCfg)
 
 	return endpointsCfg, err
 }
 
 func GetEndpoint(v1 *viper.Viper, set, servertype string) (ServiceMode, error) {
-	// TODO change the return to be this
 	sm := ServiceMode{}
 	var err error
 
 	epcfg, err := GetEndPointsConfig(v1)
 	if err != nil {
-		log.Fatalf("error getting endpoint node in config %v", err)
+		log.Fatalf("error getting endpoint node in config: %v", err)
 	}
 
-	// TODO if set nil
+	// If `set` is empty and there are multiple endpoints, log this and act accordingly
 	if set == "" && len(epcfg) != 1 {
-		// this is an error, they need to specify a service
+		log.Printf("Ambiguous service request. Multiple endpoints found, but no service specified.")
 	}
+
+	// If `set` is empty and only one endpoint exists, use that one
 	if set == "" && len(epcfg) == 1 {
 		set = epcfg[0].Service
+		log.Printf("Defaulting to the only available service: %s", set)
 	}
 
-	// loop through our endpointsfor the set and then loop through for the mode we want
+	log.Printf("Looking for: %s", set)
+
+	// Loop through the endpoints and check if `set` matches `Service`
 	for _, item := range epcfg {
+		log.Printf("Checking service: %s", item.Service)
 		if item.Service == set {
+			// Loop through the modes and check if `servertype` matches `Action`
 			for _, m := range item.Modes {
+				log.Printf("Checking action: %s", m.Action)
 				if m.Action == servertype {
-					// Now,collect the set and mode into a new
-					// ServiceMode struct so the approach is still spql.PROPERTY in the code
+					// Log Baseurl and Suffix values before constructing the URL
+					log.Printf("Found matching service and action. Baseurl: %s, Suffix: %s", item.Baseurl, m.Suffix)
+
+					// Construct URL and populate the ServiceMode struct
 					sm.Service = item.Service
 					sm.URL = item.Baseurl + m.Suffix
 					sm.Type = item.Type
@@ -85,17 +96,19 @@ func GetEndpoint(v1 *viper.Viper, set, servertype string) (ServiceMode, error) {
 					sm.Password = item.Password
 					sm.Accept = m.Accept
 					sm.Method = m.Method
+
+					// Log the full URL being set
+					log.Printf("Constructed URL: %s", sm.URL)
+
 					return sm, nil // return the item if found
 				}
 			}
 		}
 	}
 
-	// If at this point we don't have a SPARQL endpoint, then we might as well stop, there
-	// is not much Nabu can do
-	// TODO could also check that the URL is a valid http structure
+	// If `sm.URL` is still empty, log an error
 	if sm.URL == "" {
-		log.Fatalf("FATAL: error getting SPARQL endpoint node from config")
+		log.Fatalf("FATAL: error getting SPARQL endpoint node from config, sm.URL is empty")
 	}
 
 	return sm, err
