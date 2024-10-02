@@ -56,7 +56,7 @@ func MinioConnection(v1 *viper.Viper) (*minio.Client, error) {
 	var endpoint, accessKeyID, secretAccessKey string
 	var useSSL bool
 
-	if mcfg.Port == 0 {
+	if mcfg.Port == 0 || mcfg.Address == "storage.googleapis.com" {
 		endpoint = fmt.Sprintf("%s", mcfg.Address)
 		accessKeyID = mcfg.Accesskey
 		secretAccessKey = mcfg.Secretkey
