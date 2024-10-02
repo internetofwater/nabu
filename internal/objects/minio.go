@@ -86,7 +86,8 @@ func MinioConnection(v1 *viper.Viper) (*minio.Client, error) {
 			})
 	}
 
-	minioClient.IsOnline()
+	// minioClient.SetCustomTransport(&http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}})
+	log.Debug(minioClient.IsOnline())
 	if err != nil {
 		err = errors.New(err.Error() + fmt.Sprintf("connection info: endpoint: %v SSL: %v ", endpoint, useSSL))
 
