@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"fmt"
+
 	"github.com/gleanerio/nabu/internal/common"
 	"github.com/gleanerio/nabu/internal/objects"
 
@@ -28,7 +29,7 @@ func NabuMeili(v1 *viper.Viper) error {
 	common.InitLogging()
 	mc, err := objects.MinioConnection(v1)
 	if err != nil {
-		log.Fatal("cannot connect to minio: %s", err)
+		log.Fatalf("cannot connect to minio: %s", err)
 	}
 	return Meili(v1, mc)
 }

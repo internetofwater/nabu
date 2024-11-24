@@ -3,15 +3,16 @@ package prune
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+
 	"github.com/gleanerio/nabu/internal/graph"
 	"github.com/gleanerio/nabu/pkg/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/tidwall/gjson"
-	"io"
-	"net/http"
-	"net/url"
-	"strings"
 )
 
 func graphList(v1 *viper.Viper, prefix string) ([]string, error) {
@@ -39,7 +40,7 @@ func graphList(v1 *viper.Viper, prefix string) ([]string, error) {
 
 	//d := fmt.Sprintf("SELECT DISTINCT ?g WHERE {GRAPH ?g {?s ?p ?o} FILTER regex(str(?g), \"^%s\")}", gp)
 
-	d := fmt.Sprint("SELECT DISTINCT ?g WHERE {GRAPH ?g {?s ?p ?o} }")
+	d := "SELECT DISTINCT ?g WHERE {GRAPH ?g {?s ?p ?o} }"
 
 	log.Printf("Pattern: %s\n", gp)
 	log.Printf("SPARQL: %s\n", d)

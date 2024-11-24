@@ -38,13 +38,13 @@ func readSparqlConfig(viperSubtree *viper.Viper) (Sparql, error) {
 	for key, value := range sparqlTemplate {
 		viperSubtree.SetDefault(key, value)
 	}
-	viperSubtree.BindEnv("endpoint", "SPARQL_ENDPOINT")
-	viperSubtree.BindEnv("endpointBulk", "SPARQL_ENDPOINTBULK")
-	viperSubtree.BindEnv("endpointMethod", "SPARQL_ENDPOINTMETHOD")
-	viperSubtree.BindEnv("contentType", "SPARQL_CONTENTTYPE")
-	viperSubtree.BindEnv("authenticate", "SPARQL_AUTHENTICATE")
-	viperSubtree.BindEnv("username", "SPARQL_USERNAME")
-	viperSubtree.BindEnv("password", "SPARQL_PASSWORD")
+	_ = viperSubtree.BindEnv("endpoint", "SPARQL_ENDPOINT")
+	_ = viperSubtree.BindEnv("endpointBulk", "SPARQL_ENDPOINTBULK")
+	_ = viperSubtree.BindEnv("endpointMethod", "SPARQL_ENDPOINTMETHOD")
+	_ = viperSubtree.BindEnv("contentType", "SPARQL_CONTENTTYPE")
+	_ = viperSubtree.BindEnv("authenticate", "SPARQL_AUTHENTICATE")
+	_ = viperSubtree.BindEnv("username", "SPARQL_USERNAME")
+	_ = viperSubtree.BindEnv("password", "SPARQL_PASSWORD")
 
 	viperSubtree.AutomaticEnv()
 	// config already read. substree passed

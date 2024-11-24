@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+
 	"github.com/spf13/viper"
 )
 
@@ -27,11 +28,14 @@ func readImpleNetworkConfig(implementation_networkSubtress *viper.Viper) (ImplNe
 	for key, value := range implNetworkTemplate {
 		implementation_networkSubtress.SetDefault(key, value)
 	}
-	implementation_networkSubtress.BindEnv("orgname", "IMPLEMENTATION_NETWORK_ORGNAME")
+	err := implementation_networkSubtress.BindEnv("orgname", "IMPLEMENTATION_NETWORK_ORGNAME")
+	if err != nil {
+		return gleanerCfg, err
+	}
 
 	implementation_networkSubtress.AutomaticEnv()
 	// config already read. substree passed
-	err := implementation_networkSubtress.Unmarshal(&gleanerCfg)
+	err = implementation_networkSubtress.Unmarshal(&gleanerCfg)
 	if err != nil {
 		panic(fmt.Errorf("error when parsing gleaner config: %v", err))
 	}

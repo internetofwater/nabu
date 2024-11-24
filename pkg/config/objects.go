@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+
 	"github.com/spf13/viper"
 )
 
@@ -29,8 +30,8 @@ func ReadObjectsConfig(viperSubtree *viper.Viper) (Objects, error) {
 	for key, value := range sparqlTemplate {
 		viperSubtree.SetDefault(key, value)
 	}
-	viperSubtree.BindEnv("bucket", "MINIO_BUCKET")
-	viperSubtree.BindEnv("domain", "S3_DOMAIN")
+	_ = viperSubtree.BindEnv("bucket", "MINIO_BUCKET")
+	_ = viperSubtree.BindEnv("domain", "S3_DOMAIN")
 	viperSubtree.AutomaticEnv()
 	// config already read. substree passed
 	err := viperSubtree.Unmarshal(&objects)

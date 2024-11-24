@@ -49,9 +49,15 @@ func NtToNq(nt, ctx string) (string, error) {
 // It may not be needed/used in this code
 func makeQuad(t rdf.Triple, c string) (string, error) {
 	newctx, err := rdf.NewIRI(c) // this should be  c
+	if err != nil {
+		return "", err
+	}
 	ctx := rdf.Context(newctx)
 
-	q := rdf.Quad{t, ctx}
+	q := rdf.Quad{
+		Triple: t,
+		Ctx:    ctx,
+	}
 
 	buf := bytes.NewBufferString("")
 

@@ -105,14 +105,13 @@ func getLastThree(s string) string {
 }
 
 // getLastTwo from chatGPT
+// func getLastTwo(s string) string {
+// 	// Split the string on the ":" character.
+// 	parts := strings.Split(s, ":")
 
-func getLastTwo(s string) string {
-	// Split the string on the ":" character.
-	parts := strings.Split(s, ":")
+// 	// Get the last two elements.
+// 	lastTwo := parts[len(parts)-2:]
 
-	// Get the last two elements.
-	lastTwo := parts[len(parts)-2:]
-
-	// Join the last two elements and return the result.
-	return strings.Join(lastTwo, ":")
-}
+// 	// Join the last two elements and return the result.
+// 	return strings.Join(lastTwo, ":")
+// }

@@ -63,9 +63,9 @@ func GetEndpoint(v1 *viper.Viper, set, servertype string) (ServiceMode, error) {
 	}
 
 	// TODO if set nil
-	if set == "" && len(epcfg) != 1 {
-		// this is an error, they need to specify a service
-	}
+	// if set == "" && len(epcfg) != 1 {
+	// 	// this is an error, they need to specify a service
+	// }
 	if set == "" && len(epcfg) == 1 {
 		set = epcfg[0].Service
 	}
