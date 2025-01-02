@@ -42,6 +42,7 @@ func ToJSONArray(name, bucket, prefix string, mc *minio.Client) error {
 		defer func(pw *io.PipeWriter) {
 			err := pw.Close()
 			if err != nil {
+				log.Error(err)
 			}
 		}(pw)
 
@@ -70,7 +71,7 @@ func ToJSONArray(name, bucket, prefix string, mc *minio.Client) error {
 
 			// Meili start  this could be an external "mod" function
 			// Build ID entry to support meilie and since this ID is used only to associate a record back to the graph
-			s := string(b.Bytes())
+			s := b.String()
 
 			fp := filepath.Base(object.Key)
 			nns := strings.TrimSuffix(fp, path.Ext(fp))

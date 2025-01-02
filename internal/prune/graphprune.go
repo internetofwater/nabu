@@ -49,7 +49,7 @@ func Snip(v1 *viper.Viper, mc *minio.Client) error {
 		for x := range oa {
 			g, err := graph.MakeURN(v1, oa[x])
 			if err != nil {
-				log.Error("MakeURN error: %v\n", err)
+				log.Errorf("MakeURN error: %v\n", err)
 			}
 			oam[g] = oa[x] // key (URN)= value (object prefixpath)
 		}
@@ -57,7 +57,7 @@ func Snip(v1 *viper.Viper, mc *minio.Client) error {
 		// make an array of just the values for use with findMissing and difference functions
 		// we have in this package
 		var oag []string // array of all keys
-		for k, _ := range oam {
+		for k := range oam {
 			oag = append(oag, k)
 		}
 
@@ -79,11 +79,11 @@ func Snip(v1 *viper.Viper, mc *minio.Client) error {
 				log.Infof("Removed graph: %s\n", d[x])
 				_, err = graph.Drop(v1, d[x])
 				if err != nil {
-					log.Error("Progress bar update issue: %v\n", err)
+					log.Errorf("Progress bar update issue: %v\n", err)
 				}
 				err = bar.Add(1)
 				if err != nil {
-					log.Error("Progress bar update issue: %v\n", err)
+					log.Errorf("Progress bar update issue: %v\n", err)
 				}
 			}
 		}
@@ -108,11 +108,11 @@ func Snip(v1 *viper.Viper, mc *minio.Client) error {
 				log.Tracef("Add graph: %s  %s \n", m[x], np)
 				_, err := objects.PipeLoad(v1, mc, bucketName, np, spql.URL)
 				if err != nil {
-					log.Error("prune -> pipeLoad %v\n", err)
+					log.Errorf("prune -> pipeLoad %v\n", err)
 				}
 				err = bar2.Add(1)
 				if err != nil {
-					log.Error("Progress bar update issue: %v\n", err)
+					log.Errorf("Progress bar update issue: %v\n", err)
 				}
 			}
 		}

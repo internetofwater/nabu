@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/gleanerio/nabu/internal/objects"
 	"github.com/gleanerio/nabu/pkg/config"
 	"github.com/meilisearch/meilisearch-go"
 	log "github.com/sirupsen/logrus"
-	"os"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/spf13/viper"
@@ -35,14 +36,14 @@ func ObjectAssembly(v1 *viper.Viper, mc *minio.Client) error {
 
 	for p := range pa {
 		log.Printf("ToJSONArray for %s", pa[p])
-		ToJSONArray(name, bucketName, pa[p], mc)
+		err = ToJSONArray(name, bucketName, pa[p], mc)
 		if err != nil {
 			return err
 		}
 	}
 
 	for p := range pa {
-		log.Printf("dofunc for %s  %s", p, fmt.Sprintf("%s/%s", pa[p], name))
+		log.Printf("dofunc for %v  %s", p, fmt.Sprintf("%s/%s", pa[p], name))
 		// will need a function call at some point to work with the new object
 		r, err := docfunc(v1, mc, msc, bucketName, fmt.Sprintf("%s/%s", pa[p], name), "endpoint")
 		if err != nil {
@@ -82,7 +83,10 @@ func docfunc(v1 *viper.Viper, mc *minio.Client, msc *meilisearch.Client, bucketN
 
 	var doc interface{} // why was this a map[string]interface{} before?  bulk vs single..  doesn't seem so..
 	//json.Unmarshal([]byte(value), &doc)
-	json.Unmarshal(b, &doc)
+	err = json.Unmarshal(b, &doc)
+	if err != nil {
+		return nil, err
+	}
 
 	r, err := msc.Index("iow").AddDocuments(doc, "id")
 	if err != nil {

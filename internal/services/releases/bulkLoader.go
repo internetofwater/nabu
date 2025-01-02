@@ -2,6 +2,7 @@ package releases
 
 import (
 	"fmt"
+
 	log "github.com/sirupsen/logrus"
 
 	"errors"
@@ -39,7 +40,7 @@ func BulkRelease(v1 *viper.Viper, mc *minio.Client) error {
 		} else if contains(sp, "prov") {
 			name_latest = fmt.Sprintf("%s_prov.nq", baseName(path.Base(srcname))) // ex: counties0_prov.nq
 		} else if contains(sp, "orgs") {
-			name_latest = fmt.Sprint("organizations.nq") // ex: counties0_org.nq
+			name_latest = "organizations.nq" // ex: counties0_org.nq
 			fmt.Println(bucketName)
 			fmt.Println(name_latest)
 			err = objects.PipeCopy(v1, mc, name_latest, bucketName, "orgs", "graphs/latest") // have this function return the object name and path, easy to load and remove then

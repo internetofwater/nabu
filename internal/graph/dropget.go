@@ -3,12 +3,13 @@ package graph
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+
 	"github.com/gleanerio/nabu/pkg/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 )
 
 // DropGet removes a graph
@@ -46,7 +47,7 @@ func DropGet(v1 *viper.Viper, g string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Error("response Body:", string(body))
 		log.Error("response Status:", resp.Status)

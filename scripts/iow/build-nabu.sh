@@ -15,11 +15,11 @@ cd nabu
 case "$(go env GOARCH)" in 
 amd64)
   make nabu    
-  cp nabu $HOME/bin
+  cp cmd/nabu/nabu $HOME/bin/nabu
   ;;
 arm64)
   make nabu.m2.linux 
-  cp nabu_m2_linux $HOME/bin/nabu
+  cp cmd/nabu/nabu_m2_linux $HOME/bin/nabu
   ;;
 *) 
    # go handles multiarch (also) but script doesn't support/need now

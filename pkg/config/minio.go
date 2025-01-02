@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+
 	"github.com/spf13/viper"
 )
 
@@ -39,14 +40,14 @@ func ReadMinioConfig(minioSubtress *viper.Viper) (Minio, error) {
 	for key, value := range MinioTemplate {
 		minioSubtress.SetDefault(key, value)
 	}
-	minioSubtress.BindEnv("address", "MINIO_ADDRESS")
-	minioSubtress.BindEnv("port", "MINIO_PORT")
-	minioSubtress.BindEnv("ssl", "MINIO_USE_SSL")
-	minioSubtress.BindEnv("accesskey", "MINIO_ACCESS_KEY")
-	minioSubtress.BindEnv("secretkey", "MINIO_SECRET_KEY")
-	minioSubtress.BindEnv("secretkey", "MINIO_SECRET_KEY")
-	minioSubtress.BindEnv("bucket", "MINIO_BUCKET")
-	minioSubtress.BindEnv("region", "MINIO_REGION")
+	_ = minioSubtress.BindEnv("address", "MINIO_ADDRESS")
+	_ = minioSubtress.BindEnv("port", "MINIO_PORT")
+	_ = minioSubtress.BindEnv("ssl", "MINIO_USE_SSL")
+	_ = minioSubtress.BindEnv("accesskey", "MINIO_ACCESS_KEY")
+	_ = minioSubtress.BindEnv("secretkey", "MINIO_SECRET_KEY")
+	_ = minioSubtress.BindEnv("secretkey", "MINIO_SECRET_KEY")
+	_ = minioSubtress.BindEnv("bucket", "MINIO_BUCKET")
+	_ = minioSubtress.BindEnv("region", "MINIO_REGION")
 	minioSubtress.AutomaticEnv()
 	// config already read. substree passed
 	err := minioSubtress.Unmarshal(&minioCfg)

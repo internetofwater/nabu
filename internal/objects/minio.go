@@ -57,7 +57,7 @@ func MinioConnection(v1 *viper.Viper) (*minio.Client, error) {
 	var useSSL bool
 
 	if mcfg.Port == 0 {
-		endpoint = fmt.Sprintf("%s", mcfg.Address)
+		endpoint = mcfg.Address
 		accessKeyID = mcfg.Accesskey
 		secretAccessKey = mcfg.Secretkey
 		useSSL = mcfg.Ssl

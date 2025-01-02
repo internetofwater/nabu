@@ -44,6 +44,7 @@ func PipeCopy(v1 *viper.Viper, mc *minio.Client, name, bucket, prefix, destprefi
 		defer func(pw *io.PipeWriter) {
 			err := pw.Close()
 			if err != nil {
+				log.Error(err)
 			}
 		}(pw)
 
@@ -82,7 +83,7 @@ func PipeCopy(v1 *viper.Viper, mc *minio.Client, name, bucket, prefix, destprefi
 				log.Println(err)
 			}
 
-			s := string(b.Bytes())
+			s := b.String()
 
 			nq := ""
 			//log.Println("Calling JSONLDtoNQ")

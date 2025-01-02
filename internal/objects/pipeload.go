@@ -2,10 +2,11 @@ package objects
 
 import (
 	"bufio"
-	"github.com/gleanerio/nabu/pkg/config"
 	"mime"
 	"path/filepath"
 	"strings"
+
+	"github.com/gleanerio/nabu/pkg/config"
 
 	log "github.com/sirupsen/logrus"
 
@@ -22,7 +23,7 @@ func PipeLoad(v1 *viper.Viper, mc *minio.Client, bucket, object, spql string) ([
 	//s2c := strings.Replace(object, "/", ":", -1)
 	g, err := graph.MakeURN(v1, object)
 	if err != nil {
-		log.Error("gets3Bytes %v\n", err)
+		log.Errorf("gets3Bytes %v\n", err)
 		// should this just return. since on this error things are not good
 	}
 
@@ -38,7 +39,7 @@ func PipeLoad(v1 *viper.Viper, mc *minio.Client, bucket, object, spql string) ([
 
 	b, _, err := GetS3Bytes(mc, bucket, object)
 	if err != nil {
-		log.Error("gets3Bytes %v\n", err)
+		log.Errorf("gets3Bytes %v\n", err)
 		// should this just return. Do we have an object?
 	}
 
@@ -53,12 +54,12 @@ func PipeLoad(v1 *viper.Viper, mc *minio.Client, bucket, object, spql string) ([
 		//log.Info("Convert JSON-LD file to nq")
 		nt, err = graph.JSONLDToNQ(v1, string(b))
 		if err != nil {
-			log.Error("JSONLDToNQ err: %s", err)
+			log.Errorf("JSONLDToNQ err: %s", err)
 		}
 	} else {
 		nt, _, err = graph.NQToNTCtx(string(b))
 		if err != nil {
-			log.Error("nqToNTCtx err: %s", err)
+			log.Errorf("nqToNTCtx err: %s", err)
 		}
 	}
 
@@ -92,18 +93,18 @@ func PipeLoad(v1 *viper.Viper, mc *minio.Client, bucket, object, spql string) ([
 		lc = lc + 1
 		sg = append(sg, scanner.Text())
 		if lc == 10000 { // use line count, since byte len might break inside a triple statement..   it's an OK proxy
-			log.Trace("Subgraph of %d lines", len(sg))
+			log.Tracef("Subgraph of %d lines", len(sg))
 			// TODO..  upload what we have here, modify the call code to upload these sections
 			_, err = graph.Insert(g, strings.Join(sg, "\n"), spql, sprql.Username, sprql.Password, sprql.Authenticate) // convert []string to strings joined with new line to form a RDF NT set
 			if err != nil {
-				log.Error("Insert err: %s", err)
+				log.Errorf("Insert err: %s", err)
 			}
 			sg = nil // clear the array
 			lc = 0   // reset the counter
 		}
 	}
 	if lc > 0 {
-		log.Trace("Subgraph (out of scanner) of %d lines", len(sg))
+		log.Tracef("Subgraph (out of scanner) of %d lines", len(sg))
 		_, err = graph.Insert(g, strings.Join(sg, "\n"), spql, sprql.Username, sprql.Password, sprql.Authenticate) // convert []string to strings joined with new line to form a RDF NT set
 	}
 

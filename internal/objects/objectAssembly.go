@@ -2,6 +2,7 @@ package objects
 
 import (
 	"context"
+
 	"github.com/gleanerio/nabu/pkg/config"
 	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"
@@ -13,6 +14,9 @@ import (
 // ObjectAssembly collects the objects from a bucket to load
 func ObjectAssembly(v1 *viper.Viper, mc *minio.Client) error {
 	objs, err := config.GetObjectsConfig(v1)
+	if err != nil {
+		return err
+	}
 	//spql, err := config.GetSparqlConfig(v1)
 	ep := v1.GetString("flags.endpoint")
 	spql, err := config.GetEndpoint(v1, ep, "bulk")
@@ -51,7 +55,10 @@ func ObjectAssembly(v1 *viper.Viper, mc *minio.Client) error {
 			if err != nil {
 				log.Error(err)
 			}
-			bar.Add(1)
+			err = bar.Add(1)
+			if err != nil {
+				log.Error(err)
+			}
 			// log.Println(string(s)) // get "s" on pipeload and send to a log file
 		}
 	}

@@ -2,12 +2,12 @@ package graph
 
 import (
 	"bytes"
-	"fmt"
+	"io"
+	"net/http"
+
 	"github.com/gleanerio/nabu/pkg/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"io/ioutil"
-	"net/http"
 )
 
 // CLEAR removes ALL graphs
@@ -22,7 +22,7 @@ func Clear(v1 *viper.Viper) ([]byte, error) {
 		log.Error(err)
 	}
 
-	d := fmt.Sprint("CLEAR ALL")
+	d := "CLEAR ALL"
 
 	pab := []byte(d)
 
@@ -41,7 +41,7 @@ func Clear(v1 *viper.Viper) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Error("response Body:", string(body))
 		log.Error("response Status:", resp.Status)

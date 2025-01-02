@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -39,7 +39,7 @@ func IsGraph(spql, g string) (bool, error) {
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(strings.Repeat("ERROR", 5))
 		log.Println("response Status:", resp.Status)
@@ -48,7 +48,10 @@ func IsGraph(spql, g string) (bool, error) {
 	}
 
 	ask := Ask{}
-	json.Unmarshal(body, &ask)
+	err = json.Unmarshal(body, &ask)
+	if err != nil {
+		return false, err
+	}
 
 	return ask.Boolean, err
 }

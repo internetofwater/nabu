@@ -58,7 +58,10 @@ func init() {
 	//log.Println("EarthCube Nabu")
 	common.InitLogging()
 
-	mime.AddExtensionType(".jsonld", "application/ld+json")
+	err := mime.AddExtensionType(".jsonld", "application/ld+json")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	akey := os.Getenv("MINIO_ACCESS_KEY")
 	skey := os.Getenv("MINIO_SECRET_KEY")
@@ -103,7 +106,7 @@ func initConfig() {
 		//viperVal.SetConfigFile(cfgFile)
 		viperVal, err = config.ReadNabuConfig(filepath.Base(cfgFile), filepath.Dir(cfgFile))
 		if err != nil {
-			log.Fatal("cannot read config %s", err)
+			log.Fatalf("cannot read config %s", err)
 		}
 	} else {
 		// Find home directory.
@@ -117,7 +120,7 @@ func initConfig() {
 		//viperVal.SetConfigName("nabu")
 		viperVal, err = config.ReadNabuConfig(nabuConfName, path.Join(cfgPath, cfgName))
 		if err != nil {
-			log.Fatal("cannot read config %s", err)
+			log.Fatalf("cannot read config %s", err)
 		}
 	}
 
@@ -127,7 +130,7 @@ func initConfig() {
 
 	mc, err = objects.MinioConnection(viperVal)
 	if err != nil {
-		log.Fatal("cannot connect to minio: %s", err)
+		log.Fatalf("cannot connect to minio: %s", err)
 	}
 
 	err = common.ConnCheck(mc)
@@ -138,7 +141,7 @@ func initConfig() {
 
 	bucketVal, err = config.GetBucketName(viperVal)
 	if err != nil {
-		log.Fatal("cannot read bucketname from : %s ", err)
+		log.Fatalf("cannot read bucketname from : %s ", err)
 	}
 	// Override prefix in config if flag set
 	//if isFlagPassed("prefix") {

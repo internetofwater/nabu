@@ -3,7 +3,7 @@ package graph
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	log "github.com/sirupsen/logrus"
@@ -48,7 +48,7 @@ func Insert(g, nt, spql, username, password string, auth bool) (string, error) {
 		log.Infof("response Headers: %s", resp.Header)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	// log.Println(string(body))
 	if err != nil {
 		log.Error("response Body:", string(body))
