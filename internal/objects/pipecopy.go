@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/viper"
 
 	"nabu/internal/graph"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/minio/minio-go/v7"
@@ -57,7 +58,7 @@ func PipeCopy(v1 *viper.Viper, mc *minio.Client, name, bucket, prefix, destprefi
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		lenCh := mc.ListObjects(ctx, bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: isRecursive})
-		for _ = range lenCh {
+		for range lenCh {
 			clen = clen + 1
 		}
 		if clen == 1 {
