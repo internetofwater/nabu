@@ -11,5 +11,6 @@ func TestGraphdbInit(t *testing.T) {
 
 	graphdb, err := NewGraphDBContainer()
 	require.NoError(t, err)
-	defer (*graphdb.Container).Terminate(context.Background())
+	err = (*graphdb.Container).Terminate(context.Background())
+	require.NoError(t, err)
 }
