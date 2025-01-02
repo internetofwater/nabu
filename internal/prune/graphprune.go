@@ -6,11 +6,45 @@ import (
 	"nabu/internal/graph"
 	"nabu/internal/objects"
 	"nabu/pkg/config"
+
 	"github.com/minio/minio-go/v7"
 	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
+
+// difference returns the elements in `a` that aren't in `b`.
+func difference(a, b []string) []string {
+	mb := make(map[string]struct{}, len(b))
+	for _, x := range b {
+		mb[x] = struct{}{}
+	}
+	var diff []string
+	for _, x := range a {
+		if _, found := mb[x]; !found {
+			diff = append(diff, x)
+		}
+	}
+	return diff
+}
+
+func findMissing(a, b []string) []string {
+	// Create a map to store the elements of ga.
+	gaMap := make(map[string]bool)
+	for _, s := range b {
+		gaMap[s] = true
+	}
+
+	// Iterate through a and add any elements that are not in b to the result slice.
+	var result []string
+	for _, s := range a {
+		if !gaMap[s] {
+			result = append(result, s)
+		}
+	}
+
+	return result
+}
 
 // Snip removes graphs in TS not in object store
 func Snip(v1 *viper.Viper, mc *minio.Client) error {

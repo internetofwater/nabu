@@ -1,21 +1,20 @@
 package graph
 
 import (
-	"nabu/testHelpers"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func Test_IsGraph(t *testing.T) {
-	graphdb, err := testHelpers.NewGraphDBContainer()
+func Test_GraphExists(t *testing.T) {
+	graphdb, err := NewGraphDBContainer()
 	require.NoError(t, err)
-	isGraph, err := IsGraph(graphdb.FullEndpoint, "dummy")
+	isGraph, err := graphdb.Client.GraphExists("dummy")
 
 	require.Equal(t, false, isGraph)
 	require.NoError(t, err)
 
-	isGraph, err = IsGraph(graphdb.FullEndpoint, "")
+	isGraph, err = graphdb.Client.GraphExists("")
 
 	require.Equal(t, false, isGraph)
 	require.NoError(t, err)

@@ -12,7 +12,6 @@ import (
 )
 
 func Bulk(v1 *viper.Viper, mc *minio.Client) error {
-	//err := bulk.ObjectAssembly(v1, mc)
 	err := bulk.BulkAssembly(v1, mc)
 
 	if err != nil {

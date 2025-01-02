@@ -1,4 +1,4 @@
-package testHelpers
+package graph
 
 import (
 	"context"
@@ -8,12 +8,12 @@ import (
 )
 
 type GraphDBContainer struct {
-	MappedPort   int
-	Host         string
-	FullEndpoint string
-	Container    *testcontainers.Container
+	mappedPort int
+	Container  *testcontainers.Container
+	Client     GraphDbClient
 }
 
+// Spin up a local graphdb container and the associated client
 func NewGraphDBContainer() (GraphDBContainer, error) {
 
 	ctx := context.Background()
@@ -44,6 +44,6 @@ func NewGraphDBContainer() (GraphDBContainer, error) {
 	if err != nil {
 		return GraphDBContainer{}, err
 	}
-
-	return GraphDBContainer{MappedPort: port.Int(), Host: "http://" + host, FullEndpoint: "http://" + host + ":" + port.Port(), Container: &graphdbC}, nil
+	client := GraphDbClient{Endpoint: "http://" + host + ":" + port.Port()}
+	return GraphDBContainer{Client: client, mappedPort: port.Int(), Container: &graphdbC}, nil
 }

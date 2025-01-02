@@ -12,6 +12,7 @@ import (
 	"nabu/internal/common"
 	"nabu/internal/objects"
 	"nabu/pkg/config"
+
 	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -44,19 +45,6 @@ func Execute() {
 }
 
 func init() {
-	//LOG_FILE := "nabu.log" // log to custom file
-	//logFile, err := os.OpenFile(LOG_FILE, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
-	//if err != nil {
-	//log.Panic(err)
-	//return
-	//}
-	////defer logFile.Close()
-
-	//log.SetOutput(logFile) // Set log out put and enjoy :)
-
-	//log.SetFlags(log.Lshortfile | log.LstdFlags) // optional: log date-time, filename, and line number
-	//log.Println("Logging to custom file")
-	//log.Println("EarthCube Nabu")
 	common.InitLogging()
 
 	err := mime.AddExtensionType(".jsonld", "application/ld+json")
@@ -68,15 +56,8 @@ func init() {
 	skey := os.Getenv("MINIO_SECRET_KEY")
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
 	rootCmd.PersistentFlags().StringVar(&prefixVal, "prefix", "", "prefix to run. use source in future.")
-	// This needs to be done right... there are prov/source milled/source
-	// will need a custom validator to say, hey use prefix.
-	//	rootCmd.PersistentFlags().StringVar(&prefixVal, "source", "", "prefix to run. Consistency with glcon commend")
 
-	// Enpoint Server setting var
 	rootCmd.PersistentFlags().StringVar(&endpointVal, "endpoint", "", "end point server set for the SPARQL endpoints")
 
 	rootCmd.PersistentFlags().StringVar(&cfgPath, "cfgPath", "configs", "base location for config files (default is configs/)")
@@ -93,9 +74,6 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVar(&sslVal, "ssl", false, "Use SSL boolean")
 	rootCmd.PersistentFlags().BoolVar(&dangerousVal, "dangerous", false, "Use dangerous mode boolean")
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
