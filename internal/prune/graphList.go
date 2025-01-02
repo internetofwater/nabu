@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/gleanerio/nabu/internal/graph"
-	"github.com/gleanerio/nabu/pkg/config"
+	"nabu/internal/graph"
+	"nabu/pkg/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/tidwall/gjson"

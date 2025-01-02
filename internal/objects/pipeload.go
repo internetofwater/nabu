@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gleanerio/nabu/pkg/config"
+	"nabu/pkg/config"
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/gleanerio/nabu/internal/graph"
+	"nabu/internal/graph"
 	"github.com/minio/minio-go/v7"
 	"github.com/spf13/viper"
 )

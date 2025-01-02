@@ -12,29 +12,29 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Ask holds results from SPARQL ASK
-type Ask struct {
+// ask holds results from the http query
+type ask struct {
 	Head    string `json:"head"`
 	Boolean bool   `json:"boolean"`
 }
 
 // IsGraph return true is exists
-func IsGraph(spql, g string) (bool, error) {
-	d := fmt.Sprintf("ASK WHERE { GRAPH <%s> { ?s ?p ?o } }", g)
+func IsGraph(spql, graph string) (bool, error) {
+	d := fmt.Sprintf("ASK WHERE { GRAPH <%s> { ?s ?p ?o } }", graph)
 
 	pab := []byte("")
 	params := url.Values{}
 	params.Add("query", d)
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", spql, params.Encode()), bytes.NewBuffer(pab))
 	if err != nil {
-		log.Println(err)
+		return false, err
 	}
 	req.Header.Set("Accept", "application/sparql-results+json")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Println(err)
+		return false, err
 	}
 
 	defer resp.Body.Close()
@@ -45,9 +45,14 @@ func IsGraph(spql, g string) (bool, error) {
 		log.Println("response Status:", resp.Status)
 		log.Println("response Headers:", resp.Header)
 		log.Println("response Body:", string(body))
+		return false, err
 	}
 
-	ask := Ask{}
+	if string(body) == "Not Acceptable\n" {
+		return false, nil
+	}
+
+	ask := ask{}
 	err = json.Unmarshal(body, &ask)
 	if err != nil {
 		return false, err

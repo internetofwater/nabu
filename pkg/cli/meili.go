@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gleanerio/nabu/pkg"
+	"nabu/pkg"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"

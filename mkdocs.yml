@@ -6,12 +6,11 @@ site_name: Nabu
 theme: 'readthedocs'
 plugins:
   - search
-  - literate-nav
 # the literate nav rules described, here: https://oprypin.github.io/mkdocs-literate-nav/reference.html
 # and here: https://github.com/oprypin/mkdocs-literate-nav
 
 # the nav: is needed for the multidocs to work: https://github.com/jdoiro3/mkdocs-multirepo-plugin
 nav:
   - Home: README.md
-  - '*/'
+  - '**/'
   - '*.md'

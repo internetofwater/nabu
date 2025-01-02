@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gleanerio/nabu/internal/objects"
-	"github.com/gleanerio/nabu/pkg/config"
+	"nabu/internal/objects"
+	"nabu/pkg/config"
 	"github.com/spf13/viper"
 
 	"github.com/minio/minio-go/v7"

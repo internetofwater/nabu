@@ -1,11 +1,11 @@
 package pkg
 
 import (
-	"github.com/gleanerio/nabu/internal/common"
-	"github.com/gleanerio/nabu/internal/services/bulk"
+	"nabu/internal/common"
+	"nabu/internal/services/bulk"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/gleanerio/nabu/internal/objects"
+	"nabu/internal/objects"
 	"github.com/spf13/viper"
 
 	"github.com/minio/minio-go/v7"

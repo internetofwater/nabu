@@ -141,7 +141,7 @@ nabu bulk --cfg ./example.yaml
 The _release_ command is used to build out release graphs.  These are the entire
 set of objects associated with a provider, rolled up in one file.  These are done 
 as nquads with the named graph following the pattern as defined in the ADR
-[0001-URN-decision](https://github.com/gleanerio/nabu/blob/dev/decisions/0001-URN-decision.md).
+[0001-URN-decision](https://nabu/blob/dev/decisions/0001-URN-decision.md).
 
 
 To build a release graphs for a specified source in the objects-prefix node

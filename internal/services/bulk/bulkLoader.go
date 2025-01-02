@@ -6,8 +6,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/gleanerio/nabu/internal/objects"
-	"github.com/gleanerio/nabu/pkg/config"
+	"nabu/internal/objects"
+	"nabu/pkg/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
