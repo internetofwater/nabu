@@ -1,9 +1,9 @@
 package pkg
 
 import (
-	"github.com/gleanerio/nabu/internal/common"
-	"github.com/gleanerio/nabu/internal/objects"
-	"github.com/gleanerio/nabu/internal/services/releases"
+	"nabu/internal/common"
+	"nabu/internal/objects"
+	"nabu/internal/services/releases"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/viper"

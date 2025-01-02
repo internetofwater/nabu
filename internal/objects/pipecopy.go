@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/gleanerio/nabu/internal/graph"
+	"nabu/internal/graph"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/minio/minio-go/v7"

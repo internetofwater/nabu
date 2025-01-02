@@ -61,7 +61,7 @@ jobs:
       - id: binary
         name: build
         run: |
-          go build -o nabu -ldflags "-s -w -X main.VERSION=${{ env.VERSION }} -X github.com/gleanerio/nabu/pkg.VERSION=${{ env.VERSION }}"
+          go build -o nabu -ldflags "-s -w -X main.VERSION=${{ env.VERSION }} -X nabu/pkg.VERSION=${{ env.VERSION }}"
         working-directory: ./cmd/nabu
         env:
           GOOS: ${{matrix.goss}}

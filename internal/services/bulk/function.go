@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gleanerio/nabu/pkg/config"
+	"nabu/pkg/config"
 
-	"github.com/gleanerio/nabu/internal/graph"
+	"nabu/internal/graph"
 
-	"github.com/gleanerio/nabu/internal/objects"
+	"nabu/internal/objects"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gleanerio/nabu/internal/objects"
-	"github.com/gleanerio/nabu/pkg/config"
+	"nabu/internal/objects"
+	"nabu/pkg/config"
 	"github.com/meilisearch/meilisearch-go"
 	log "github.com/sirupsen/logrus"
 

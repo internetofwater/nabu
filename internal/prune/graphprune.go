@@ -3,9 +3,9 @@ package prune
 import (
 	"fmt"
 
-	"github.com/gleanerio/nabu/internal/graph"
-	"github.com/gleanerio/nabu/internal/objects"
-	"github.com/gleanerio/nabu/pkg/config"
+	"nabu/internal/graph"
+	"nabu/internal/objects"
+	"nabu/pkg/config"
 	"github.com/minio/minio-go/v7"
 	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"

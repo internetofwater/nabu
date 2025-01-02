@@ -1,9 +1,10 @@
 package cli
 
 import (
-	"github.com/gleanerio/nabu/pkg"
-	log "github.com/sirupsen/logrus"
 	"os"
+
+	"nabu/pkg"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
 )
@@ -12,7 +13,8 @@ import (
 var pruneCmd = &cobra.Command{
 	Use:   "prune",
 	Short: "nabu prune command",
-	Long:  `(not implemented)This will read the configs/{cfgPath}/gleaner file, and try to connect to the minio server`,
+	// NOTE: this is marked as not implemented in the upstream, but appears to be implemented here
+	Long: `This will read the configs/{cfgPath}/gleaner file, and try to connect to the minio server`,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Println("Prune call started")
 		err := pkg.Prune(viperVal, mc)

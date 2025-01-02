@@ -2,7 +2,7 @@ package cli
 
 import (
 	"fmt"
-	"github.com/gleanerio/nabu/pkg"
+	"nabu/pkg"
 	log "github.com/sirupsen/logrus"
 	"os"
 

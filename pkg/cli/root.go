@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"mime"
@@ -8,9 +9,9 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/gleanerio/nabu/internal/common"
-	"github.com/gleanerio/nabu/internal/objects"
-	"github.com/gleanerio/nabu/pkg/config"
+	"nabu/internal/common"
+	"nabu/internal/objects"
+	"nabu/pkg/config"
 	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -133,7 +134,7 @@ func initConfig() {
 		log.Fatalf("cannot connect to minio: %s", err)
 	}
 
-	err = common.ConnCheck(mc)
+	_, err = mc.ListBuckets(context.Background())
 	if err != nil {
 		err = errors.New(err.Error() + fmt.Sprintf(" Ignore that. It's not the bucket. check config/minio: address, port, ssl. connection info: endpoint: %v ", mc.EndpointURL()))
 		log.Fatal("cannot connect to minio: ", err)
