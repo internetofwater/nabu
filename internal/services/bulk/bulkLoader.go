@@ -6,7 +6,7 @@ import (
 	"path"
 	"strings"
 
-	"nabu/internal/objects"
+	"nabu/internal/graph"
 	"nabu/pkg/config"
 
 	log "github.com/sirupsen/logrus"
@@ -25,7 +25,7 @@ func BulkAssembly(v1 *viper.Viper, mc *minio.Client) error {
 
 	for p := range pa {
 		name := fmt.Sprintf("%s_bulk.rdf", baseName(path.Base(pa[p])))
-		err = objects.PipeCopy(v1, mc, name, bucketName, pa[p], "scratch") // have this function return the object name and path, easy to load and remove then
+		err = graph.PipeCopy(v1, mc, name, bucketName, pa[p], "scratch") // have this function return the object name and path, easy to load and remove then
 		//err = objects.MillerNG(name, bucketName, pa[p], mc) // have this function return the object name and path, easy to load and remove then
 		if err != nil {
 			return err

@@ -4,6 +4,7 @@ import (
 	"nabu/internal/common"
 	"nabu/internal/objects"
 	"nabu/internal/services/releases"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/viper"
@@ -12,7 +13,6 @@ import (
 )
 
 func Release(v1 *viper.Viper, mc *minio.Client) error {
-	//err := bulk.ObjectAssembly(v1, mc)
 	err := releases.BulkRelease(v1, mc)
 
 	if err != nil {

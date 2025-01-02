@@ -1,9 +1,10 @@
-package objects
+package graph
 
 import (
 	"context"
 
 	"nabu/pkg/config"
+
 	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// ObjectAssembly collects the objects from a bucket to load
+// Collects the objects from a bucket to load
 func ObjectAssembly(v1 *viper.Viper, mc *minio.Client) error {
 	objs, err := config.GetObjectsConfig(v1)
 	if err != nil {
@@ -51,7 +52,7 @@ func ObjectAssembly(v1 *viper.Viper, mc *minio.Client) error {
 		log.Infof("%s:%s object count: %d\n", bucketName, pa[p], len(oa))
 		bar := progressbar.Default(int64(len(oa)))
 		for item := range oa {
-			_, err := PipeLoad(v1, mc, bucketName, oa[item], spql.URL)
+			_, err := PipeLoad(mc, bucketName, oa[item], spql.URL)
 			if err != nil {
 				log.Error(err)
 			}

@@ -3,7 +3,6 @@ package objects
 import (
 	"bytes"
 	"context"
-	"nabu/pkg/config"
 
 	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
@@ -56,27 +55,25 @@ func (m *MinioClientWrapper) Copy(v1 *viper.Viper, srcbucket, srcobject, dstbuck
 
 	return nil
 }
-func (m *MinioClientWrapper) GetObjects(prefixes []string) ([]string, error) {
+func (m *MinioClientWrapper) GetObjects(bucketName string, prefixes []string) ([]string, error) {
 	oa := []string{}
 
-	for p := range prefixes {
+	for _, prefix := range prefixes {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		bucketName, _ := config.GetBucketName(v1)
-		objectCh := m.Client.ListObjects(ctx, bucketName, minio.ListObjectsOptions{Prefix: pa[p], Recursive: true})
+		objectCh := m.Client.ListObjects(ctx, bucketName, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
 
 		for object := range objectCh {
 			if object.Err != nil {
 				log.Println(object.Err)
 				return oa, object.Err
 			}
-			// fmt.Println(object)
 			oa = append(oa, object.Key)
 		}
-		log.Printf("%s:%s object count: %d\n", bucketName, pa[p], len(oa))
+		log.Printf("%s:%s object count: %d\n", bucketName, prefix, len(oa))
 	}
 
-	return oa, err
+	return oa, nil
 }
 
 // GetS3Bytes simply pulls the byes of an object from the store

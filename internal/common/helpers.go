@@ -3,17 +3,14 @@ package common
 import (
 	"context"
 	"log"
-	"nabu/pkg/config"
 	"sync"
 
 	"github.com/minio/minio-go/v7"
-	"github.com/spf13/viper"
 )
 
-func ObjectList(v1 *viper.Viper, mc *minio.Client, prefix string) ([]string, error) {
+func ObjectList(bucketName string, mc *minio.Client, prefix string) ([]string, error) {
 	//objs := v1.GetStringMapString("objects")
 	//objs,_ := config.GetObjectsConfig(v1)
-	bucketName, _ := config.GetBucketName(v1)
 
 	// My go func controller vars
 	semaphoreChan := make(chan struct{}, 1) // a blocking channel to keep concurrency under control (1 == single thread)

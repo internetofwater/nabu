@@ -1,4 +1,4 @@
-package common
+package graph
 
 import (
 	"bufio"
@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"nabu/internal/common"
 	"strings"
 	"sync"
 
@@ -89,7 +90,7 @@ func PipeCopy(v1 *viper.Viper, mc *minio.Client, name, bucket, prefix, destprefi
 			if strings.HasSuffix(object.Key, ".nq") {
 				nq = jsonldString
 			} else {
-				nq, err = JsonldToNQ(jsonldString)
+				nq, err = common.JsonldToNQ(jsonldString)
 				if err != nil {
 					log.Println(err)
 					return
@@ -101,19 +102,19 @@ func PipeCopy(v1 *viper.Viper, mc *minio.Client, name, bucket, prefix, destprefi
 			if sf {
 				snq = nq //  just pass through the RDF without trying to Skolemize since we ar a single fil
 			} else {
-				snq, err = Skolemization(nq, object.Key)
+				snq, err = common.Skolemization(nq, object.Key)
 				if err != nil {
 					return
 				}
 			}
 
 			// 1) get graph URI
-			ctx, err := MakeURN(object.Key)
+			ctx, err := common.MakeURN(object.Key)
 			if err != nil {
 				return
 			}
 			// 2) convert NT to NQ
-			csnq, err := NtToNq(snq, ctx)
+			csnq, err := common.NtToNq(snq, ctx)
 			if err != nil {
 				return
 			}

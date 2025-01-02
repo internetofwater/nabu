@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Test the GraphDB container will spin up so our tests can use it
 func TestGraphdbInit(t *testing.T) {
 
 	graphdb, err := NewGraphDBContainer()

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"nabu/internal/common"
-	"nabu/pkg/config"
 	"net/http"
 	"net/url"
 	"strings"
@@ -211,7 +210,7 @@ func (graphClient *GraphDbClient) ListNamedGraphs(prefix string) ([]string, erro
 	//	return ga, err
 	//}
 
-	gp, err := MakeURNPrefix(prefix)
+	gp, err := common.MakeURNPrefix(prefix)
 	if err != nil {
 		log.Println(err)
 		return ga, err
@@ -315,23 +314,21 @@ func findMissing(a, b []string) []string {
 	return result
 }
 
+// Get rid of graphs in the triplestore that are not in the object store
 func (gdc *GraphDbClient) Snip(mc *minio.Client, bucketName string) error {
 	var pa []string
-	if err != nil {
-		log.Error(err)
-	}
 	pa = objs.Prefix
 
 	for p := range pa {
 		// collect the objects associated with the source
-		oa, err := common.ObjectList(v1, mc, pa[p])
+		oa, err := common.ObjectList(bucketName, mc, pa[p])
 		if err != nil {
 			log.Error(err)
 			return err
 		}
 
 		// collect the named graphs from graph associated with the source
-		ga, err := graphList(v1, pa[p])
+		ga, err := gdc.ListNamedGraphs(pa[p])
 		if err != nil {
 			log.Error(err)
 			return err
@@ -345,7 +342,7 @@ func (gdc *GraphDbClient) Snip(mc *minio.Client, bucketName string) error {
 		// This is OK since all KV pairs involve unique keys and unique values
 		var oam = map[string]string{}
 		for x := range oa {
-			g, err := graph.MakeURN(v1, oa[x])
+			g, err := common.MakeURN(oa[x])
 			if err != nil {
 				log.Errorf("MakeURN error: %v\n", err)
 			}
@@ -375,7 +372,7 @@ func (gdc *GraphDbClient) Snip(mc *minio.Client, bucketName string) error {
 			bar := progressbar.Default(int64(len(d)))
 			for x := range d {
 				log.Infof("Removed graph: %s\n", d[x])
-				_, err = graph.Drop(v1, d[x])
+				_, err = gdc.DropGraph(d[x])
 				if err != nil {
 					log.Errorf("Progress bar update issue: %v\n", err)
 				}
@@ -384,12 +381,6 @@ func (gdc *GraphDbClient) Snip(mc *minio.Client, bucketName string) error {
 					log.Errorf("Progress bar update issue: %v\n", err)
 				}
 			}
-		}
-
-		ep := v1.GetString("flags.endpoint")
-		spql, err := config.GetEndpoint(v1, ep, "bulk")
-		if err != nil {
-			log.Error(err)
 		}
 
 		//// load new ones
@@ -404,7 +395,11 @@ func (gdc *GraphDbClient) Snip(mc *minio.Client, bucketName string) error {
 			for x := range m {
 				np := oam[m[x]]
 				log.Tracef("Add graph: %s  %s \n", m[x], np)
-				_, err := objects.PipeLoad(v1, mc, bucketName, np, spql.URL)
+
+				panic("not implemented")
+
+				bytes := make([]byte, 0)
+				_, err := gdc.PipeLoad(bytes, bucketName, np)
 				if err != nil {
 					log.Errorf("prune -> pipeLoad %v\n", err)
 				}
