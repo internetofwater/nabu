@@ -84,14 +84,14 @@ func PipeCopy(v1 *viper.Viper, mc *minio.Client, name, bucket, prefix, destprefi
 				log.Println(err)
 			}
 
-			s := b.String()
+			jsonldString := b.String()
 
 			nq := ""
 			//log.Println("Calling JSONLDtoNQ")
 			if strings.HasSuffix(object.Key, ".nq") {
-				nq = s
+				nq = jsonldString
 			} else {
-				nq, err = graph.JSONLDToNQ(v1, s)
+				nq, err = graph.JsonldToNQ(jsonldString)
 				if err != nil {
 					log.Println(err)
 					return
@@ -110,7 +110,7 @@ func PipeCopy(v1 *viper.Viper, mc *minio.Client, name, bucket, prefix, destprefi
 			}
 
 			// 1) get graph URI
-			ctx, err := graph.MakeURN(v1, object.Key)
+			ctx, err := graph.MakeURN(object.Key)
 			if err != nil {
 				return
 			}

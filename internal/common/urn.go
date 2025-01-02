@@ -1,19 +1,16 @@
-package graph
+package common
 
 import (
 	"fmt"
 	"path/filepath"
 	"strings"
 
-	"nabu/pkg/config"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 // MakeURN formats a URN following the ADR 0001-URN-decision.md  which at the
 // time of this coding resulted in     urn:{program}:{organization}:{provider}:{sha}
-func MakeURN(v1 *viper.Viper, s string) (string, error) {
-	gcfg, _ := config.GetImplNetworkConfig(v1)
+func MakeURN(s string) (string, error) {
 
 	var (
 		g   string // build the URN for the graph context string we use
@@ -27,7 +24,7 @@ func MakeURN(v1 *viper.Viper, s string) (string, error) {
 		s3c = getLastThree(check)
 	}
 
-	g = fmt.Sprintf("urn:gleaner.io:%s:%s", gcfg.Orgname, s3c) // form the URN
+	g = fmt.Sprintf("urn:gleaner.io:%s:%s", "iow", s3c) // form the URN
 
 	//fmt.Printf("=MakeURN===========> %s \n\n", g)
 
@@ -38,8 +35,7 @@ func MakeURN(v1 *viper.Viper, s string) (string, error) {
 // time of this coding resulted in   urn:{engine}:{implnet}:{source}:{type}:{sha}
 // the "prefix" version only returns the prefix part of the urn, for use in the prune
 // command
-func MakeURNPrefix(v1 *viper.Viper, prefix string) (string, error) {
-	gcfg, _ := config.GetImplNetworkConfig(v1)
+func MakeURNPrefix(prefix string) (string, error) {
 
 	var (
 		g   string // build the URN for the graph context string we use
@@ -47,12 +43,12 @@ func MakeURNPrefix(v1 *viper.Viper, prefix string) (string, error) {
 	)
 
 	if prefix == "orgs" {
-		g = fmt.Sprintf("urn:gleaner.io:%s:orgs", gcfg.Orgname)
+		g = fmt.Sprintf("urn:gleaner.io:%s:orgs", "iow")
 
 	} else {
 		check := prefixTransform(prefix)
 		ps := strings.Split(check, "/")
-		g = fmt.Sprintf("urn:gleaner.io:%s:%s:%s", gcfg.Orgname, ps[len(ps)-1], ps[len(ps)-2])
+		g = fmt.Sprintf("urn:gleaner.io:%s:%s:%s", "iow", ps[len(ps)-1], ps[len(ps)-2])
 	}
 
 	//fmt.Printf("=Prefix===========> %s \n\n", g)

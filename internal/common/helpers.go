@@ -1,12 +1,13 @@
-package objects
+package common
 
 import (
 	"context"
+	"log"
 	"nabu/pkg/config"
-	"github.com/minio/minio-go/v7"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"sync"
+
+	"github.com/minio/minio-go/v7"
+	"github.com/spf13/viper"
 )
 
 func ObjectList(v1 *viper.Viper, mc *minio.Client, prefix string) ([]string, error) {

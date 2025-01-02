@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"nabu/internal/graph"
+
 	"github.com/minio/minio-go/v7"
 	"github.com/spf13/viper"
 )
@@ -21,7 +22,7 @@ func PipeLoad(v1 *viper.Viper, mc *minio.Client, bucket, object, spql string) ([
 	//log.Info("Loading %s \n", object)
 
 	//s2c := strings.Replace(object, "/", ":", -1)
-	g, err := graph.MakeURN(v1, object)
+	g, err := graph.MakeURN(object)
 	if err != nil {
 		log.Errorf("gets3Bytes %v\n", err)
 		// should this just return. since on this error things are not good
@@ -52,7 +53,7 @@ func PipeLoad(v1 *viper.Viper, mc *minio.Client, bucket, object, spql string) ([
 	// if strings.Contains(object, ".jsonld") { // TODO explore why this hack is needed and the mimetype for JSON-LD is not returned
 	if strings.Compare(mt, "application/ld+json") == 0 {
 		//log.Info("Convert JSON-LD file to nq")
-		nt, err = graph.JSONLDToNQ(v1, string(b))
+		nt, err = graph.JsonldToNQ(string(b))
 		if err != nil {
 			log.Errorf("JSONLDToNQ err: %s", err)
 		}

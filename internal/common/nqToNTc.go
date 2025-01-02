@@ -1,10 +1,11 @@
-package graph
+package common
 
 import (
 	"bytes"
 	"errors"
-	log "github.com/sirupsen/logrus"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/knakk/rdf"
 )

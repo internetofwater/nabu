@@ -1,11 +1,12 @@
-package graph
+package common
 
 import (
 	"bufio"
 	"bytes"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/rs/xid"
 )

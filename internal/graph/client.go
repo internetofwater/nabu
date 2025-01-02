@@ -5,11 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"nabu/internal/common"
+	"nabu/pkg/config"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/minio/minio-go/v7"
+	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"
+	"github.com/tidwall/gjson"
 )
 
 type GraphDbMethods interface {
@@ -193,4 +198,223 @@ func (graphClient *GraphDbClient) GraphExists(graph string) (bool, error) {
 	}
 
 	return ask.Boolean, err
+}
+
+func (graphClient *GraphDbClient) ListNamedGraphs(prefix string) ([]string, error) {
+	log.Debug("Getting list of named graphs")
+
+	var ga []string
+
+	//bucketName, err := config.GetBucketName(v1)
+	//if err != nil {
+	//	log.Println(err)
+	//	return ga, err
+	//}
+
+	gp, err := MakeURNPrefix(prefix)
+	if err != nil {
+		log.Println(err)
+		return ga, err
+	}
+
+	//d := fmt.Sprintf("SELECT DISTINCT ?g WHERE {GRAPH ?g {?s ?p ?o} FILTER regex(str(?g), \"^%s\")}", gp)
+
+	d := "SELECT DISTINCT ?g WHERE {GRAPH ?g {?s ?p ?o} }"
+
+	log.Printf("Pattern: %s\n", gp)
+	log.Printf("SPARQL: %s\n", d)
+	//log.Printf("Accept: %s\n", spql.Accept)
+	//log.Printf("URL: %s\n", spql.URL)
+
+	pab := []byte("")
+	params := url.Values{}
+	params.Add("query", d)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", graphClient.Endpoint, params.Encode()), bytes.NewBuffer(pab))
+	if err != nil {
+		log.Println(err)
+	}
+
+	// These headers
+	req.Header.Set("Accept", "application/sparql-results+json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println(err)
+	}
+
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			log.Printf("Error closing response body: %v", err)
+		}
+	}()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(strings.Repeat("ERROR", 5))
+		log.Println("response Status:", resp.Status)
+		log.Println("response Headers:", resp.Header)
+		log.Println("response Body:", string(body))
+	}
+
+	// debugging calls
+	//fmt.Println("response Body:", string(body))
+	//err = ioutil.WriteFile("body.txt", body, 0644)
+	//if err != nil {
+	//	fmt.Println("An error occurred:", err)
+	//	return ga, err
+	//}
+
+	result := gjson.Get(string(body), "results.bindings.#.g.value")
+	result.ForEach(func(key, value gjson.Result) bool {
+		ga = append(ga, value.String())
+		return true // keep iterating
+	})
+
+	var gaf []string
+	for _, str := range ga {
+		if strings.HasPrefix(str, gp) { // check if string has prefix
+			gaf = append(gaf, str) // if yes, add it to newArray
+		}
+	}
+
+	return gaf, nil
+}
+
+// difference returns the elements in `a` that aren't in `b`.
+func difference(a, b []string) []string {
+	mb := make(map[string]struct{}, len(b))
+	for _, x := range b {
+		mb[x] = struct{}{}
+	}
+	var diff []string
+	for _, x := range a {
+		if _, found := mb[x]; !found {
+			diff = append(diff, x)
+		}
+	}
+	return diff
+}
+
+func findMissing(a, b []string) []string {
+	// Create a map to store the elements of ga.
+	gaMap := make(map[string]bool)
+	for _, s := range b {
+		gaMap[s] = true
+	}
+
+	// Iterate through a and add any elements that are not in b to the result slice.
+	var result []string
+	for _, s := range a {
+		if !gaMap[s] {
+			result = append(result, s)
+		}
+	}
+
+	return result
+}
+
+func (gdc *GraphDbClient) Snip(mc *minio.Client, bucketName string) error {
+	var pa []string
+	if err != nil {
+		log.Error(err)
+	}
+	pa = objs.Prefix
+
+	for p := range pa {
+		// collect the objects associated with the source
+		oa, err := common.ObjectList(v1, mc, pa[p])
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		// collect the named graphs from graph associated with the source
+		ga, err := graphList(v1, pa[p])
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+
+		// convert the object names to the URN pattern used in the graph
+		// and make a map where key = URN, value = object name
+		// NOTE:  since later we want to look up the object based the URN
+		// we will do it this way since mapswnat you to know a key, not a value, when
+		// querying them.
+		// This is OK since all KV pairs involve unique keys and unique values
+		var oam = map[string]string{}
+		for x := range oa {
+			g, err := graph.MakeURN(v1, oa[x])
+			if err != nil {
+				log.Errorf("MakeURN error: %v\n", err)
+			}
+			oam[g] = oa[x] // key (URN)= value (object prefixpath)
+		}
+
+		// make an array of just the values for use with findMissing and difference functions
+		// we have in this package
+		var oag []string // array of all keys
+		for k := range oam {
+			oag = append(oag, k)
+		}
+
+		//compare lists, anything IN graph not in objects list should be removed
+		d := difference(ga, oag)  // return items in ga that are NOT in oag, we should remove these
+		m := findMissing(oag, ga) // return items from oag we need to add
+
+		fmt.Printf("Current graph items: %d  Cuurent object items: %d\n", len(ga), len(oag))
+		fmt.Printf("Orphaned items to remove: %d\n", len(d))
+		fmt.Printf("Missing items to add: %d\n", len(m))
+
+		log.WithFields(log.Fields{"prefix": pa[p], "graph items": len(ga), "object items": len(oag), "difference": len(d),
+			"missing": len(m)}).Info("Nabu Prune")
+
+		// For each in d will delete that graph
+		if len(d) > 0 {
+			bar := progressbar.Default(int64(len(d)))
+			for x := range d {
+				log.Infof("Removed graph: %s\n", d[x])
+				_, err = graph.Drop(v1, d[x])
+				if err != nil {
+					log.Errorf("Progress bar update issue: %v\n", err)
+				}
+				err = bar.Add(1)
+				if err != nil {
+					log.Errorf("Progress bar update issue: %v\n", err)
+				}
+			}
+		}
+
+		ep := v1.GetString("flags.endpoint")
+		spql, err := config.GetEndpoint(v1, ep, "bulk")
+		if err != nil {
+			log.Error(err)
+		}
+
+		//// load new ones
+		//spql, err := config.GetSparqlConfig(v1)
+		//if err != nil {
+		//	log.Error("prune -> config.GetSparqlConfig %v\n", err)
+		//}
+
+		if len(m) > 0 {
+			bar2 := progressbar.Default(int64(len(m)))
+			log.Info("uploading missing %n objects", len(m))
+			for x := range m {
+				np := oam[m[x]]
+				log.Tracef("Add graph: %s  %s \n", m[x], np)
+				_, err := objects.PipeLoad(v1, mc, bucketName, np, spql.URL)
+				if err != nil {
+					log.Errorf("prune -> pipeLoad %v\n", err)
+				}
+				err = bar2.Add(1)
+				if err != nil {
+					log.Errorf("Progress bar update issue: %v\n", err)
+				}
+			}
+		}
+	}
+
+	return nil
 }

@@ -5,22 +5,15 @@ import (
 	"fmt"
 
 	"nabu/pkg/config"
+
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
-type Entry struct {
-	Bucketname string
-	Key        string
-	Urlval     string
-	Sha1val    string
-	Jld        string
-}
-
 // MinioConnection Set up minio and initialize client
-func MinioConnection(v1 *viper.Viper) (*minio.Client, error) {
+func NewMinioClientWrapper(v1 *viper.Viper) (*MinioClientWrapper, error) {
 	//mcfg := v1.GetStringMapString("minio")
 
 	mcfg, err := config.GetMinioConfig(v1)
@@ -93,5 +86,5 @@ func MinioConnection(v1 *viper.Viper) (*minio.Client, error) {
 		log.Fatalln(err)
 		return nil, err
 	}
-	return minioClient, err
+	return &MinioClientWrapper{Client: minioClient}, err
 }
