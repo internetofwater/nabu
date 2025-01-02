@@ -1,4 +1,4 @@
-package objects
+package common
 
 import (
 	"bufio"
@@ -10,8 +10,6 @@ import (
 	"sync"
 
 	"github.com/spf13/viper"
-
-	"nabu/internal/graph"
 
 	log "github.com/sirupsen/logrus"
 
@@ -38,7 +36,7 @@ func PipeCopy(v1 *viper.Viper, mc *minio.Client, name, bucket, prefix, destprefi
 	defer close(doneCh)           // Indicate to our routine to exit cleanly upon return.
 	isRecursive := true
 
-	//log.Printf("Bulkfile name: %s_graph.nq", name)
+	//log.Printf("Bulkfile name: %s_nq", name)
 
 	go func() {
 		defer lwg.Done()
@@ -91,7 +89,7 @@ func PipeCopy(v1 *viper.Viper, mc *minio.Client, name, bucket, prefix, destprefi
 			if strings.HasSuffix(object.Key, ".nq") {
 				nq = jsonldString
 			} else {
-				nq, err = graph.JsonldToNQ(jsonldString)
+				nq, err = JsonldToNQ(jsonldString)
 				if err != nil {
 					log.Println(err)
 					return
@@ -103,19 +101,19 @@ func PipeCopy(v1 *viper.Viper, mc *minio.Client, name, bucket, prefix, destprefi
 			if sf {
 				snq = nq //  just pass through the RDF without trying to Skolemize since we ar a single fil
 			} else {
-				snq, err = graph.Skolemization(nq, object.Key)
+				snq, err = Skolemization(nq, object.Key)
 				if err != nil {
 					return
 				}
 			}
 
 			// 1) get graph URI
-			ctx, err := graph.MakeURN(object.Key)
+			ctx, err := MakeURN(object.Key)
 			if err != nil {
 				return
 			}
 			// 2) convert NT to NQ
-			csnq, err := graph.NtToNq(snq, ctx)
+			csnq, err := NtToNq(snq, ctx)
 			if err != nil {
 				return
 			}

@@ -1,4 +1,4 @@
-package objects
+package common
 
 import (
 	"bufio"
@@ -10,8 +10,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"nabu/internal/graph"
-
 	"github.com/minio/minio-go/v7"
 	"github.com/spf13/viper"
 )
@@ -22,7 +20,7 @@ func PipeLoad(v1 *viper.Viper, mc *minio.Client, bucket, object, spql string) ([
 	//log.Info("Loading %s \n", object)
 
 	//s2c := strings.Replace(object, "/", ":", -1)
-	g, err := graph.MakeURN(object)
+	g, err := MakeURN(object)
 	if err != nil {
 		log.Errorf("gets3Bytes %v\n", err)
 		// should this just return. since on this error things are not good
@@ -53,19 +51,19 @@ func PipeLoad(v1 *viper.Viper, mc *minio.Client, bucket, object, spql string) ([
 	// if strings.Contains(object, ".jsonld") { // TODO explore why this hack is needed and the mimetype for JSON-LD is not returned
 	if strings.Compare(mt, "application/ld+json") == 0 {
 		//log.Info("Convert JSON-LD file to nq")
-		nt, err = graph.JsonldToNQ(string(b))
+		nt, err = JsonldToNQ(string(b))
 		if err != nil {
 			log.Errorf("JSONLDToNQ err: %s", err)
 		}
 	} else {
-		nt, _, err = graph.NQToNTCtx(string(b))
+		nt, _, err = NQToNTCtx(string(b))
 		if err != nil {
 			log.Errorf("nqToNTCtx err: %s", err)
 		}
 	}
 
 	// drop any graph we are going to load..  we assume we are doing those due to an update...
-	_, err = graph.Drop(v1, g)
+	_, err = Drop(v1, g)
 	if err != nil {
 		log.Error(err)
 	}
@@ -96,7 +94,7 @@ func PipeLoad(v1 *viper.Viper, mc *minio.Client, bucket, object, spql string) ([
 		if lc == 10000 { // use line count, since byte len might break inside a triple statement..   it's an OK proxy
 			log.Tracef("Subgraph of %d lines", len(sg))
 			// TODO..  upload what we have here, modify the call code to upload these sections
-			_, err = graph.Insert(g, strings.Join(sg, "\n"), spql, sprql.Username, sprql.Password, sprql.Authenticate) // convert []string to strings joined with new line to form a RDF NT set
+			_, err = Insert(g, strings.Join(sg, "\n"), spql, sprql.Username, sprql.Password, sprql.Authenticate) // convert []string to strings joined with new line to form a RDF NT set
 			if err != nil {
 				log.Errorf("Insert err: %s", err)
 			}
@@ -106,7 +104,7 @@ func PipeLoad(v1 *viper.Viper, mc *minio.Client, bucket, object, spql string) ([
 	}
 	if lc > 0 {
 		log.Tracef("Subgraph (out of scanner) of %d lines", len(sg))
-		_, err = graph.Insert(g, strings.Join(sg, "\n"), spql, sprql.Username, sprql.Password, sprql.Authenticate) // convert []string to strings joined with new line to form a RDF NT set
+		_, err = Insert(g, strings.Join(sg, "\n"), spql, sprql.Username, sprql.Password, sprql.Authenticate) // convert []string to strings joined with new line to form a RDF NT set
 	}
 
 	return []byte("remove me"), err
