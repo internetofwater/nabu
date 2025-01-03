@@ -1,13 +1,21 @@
 package cli
 
 import (
-	"os"
-
-	"nabu/pkg"
+	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
+
+func prune(v1 *viper.Viper, mc *minio.Client) error {
+	log.Info("Prune graphs in triplestore not in objectVal store")
+	err := prune.Snip(v1, mc)
+	if err != nil {
+		log.Error(err)
+	}
+	return err
+}
 
 // checkCmd represents the check command
 var pruneCmd = &cobra.Command{
@@ -17,25 +25,13 @@ var pruneCmd = &cobra.Command{
 	Long: `This will read the configs/{cfgPath}/gleaner file, and try to connect to the minio server`,
 	Run: func(cmd *cobra.Command, args []string) {
 		log.Println("Prune call started")
-		err := pkg.Prune(viperVal, mc)
+		err := prune(viperVal, mc)
 		if err != nil {
 			log.Fatal(err)
-			os.Exit(1)
 		}
-		os.Exit(0)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(pruneCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// checkCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// checkCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

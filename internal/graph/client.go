@@ -10,9 +10,12 @@ import (
 	"net/url"
 	"strings"
 
+	"nabu/pkg/config"
+
 	"github.com/minio/minio-go/v7"
 	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/tidwall/gjson"
 )
 
@@ -28,6 +31,19 @@ type GraphDbClient struct {
 	username string
 	Endpoint string
 	GraphDbMethods
+}
+
+func NewGraphDbClient(v1 *viper.Viper) (*GraphDbClient, error) {
+	conf, err := config.ReadSparqlConfig(v1)
+	if err != nil {
+		return nil, err
+	}
+	return &GraphDbClient{
+		Endpoint: conf.Endpoint,
+		password: conf.Password,
+		username: conf.Username,
+	}, nil
+
 }
 
 func (graphClient *GraphDbClient) Insert(graph, data string, auth bool) (string, error) {
@@ -315,20 +331,18 @@ func findMissing(a, b []string) []string {
 }
 
 // Get rid of graphs in the triplestore that are not in the object store
-func (gdc *GraphDbClient) Snip(mc *minio.Client, bucketName string) error {
-	var pa []string
-	pa = objs.Prefix
+func (gdc *GraphDbClient) Snip(mc *minio.Client, bucketName string, prefixes []string) error {
 
-	for p := range pa {
+	for p := range prefixes {
 		// collect the objects associated with the source
-		oa, err := common.ObjectList(bucketName, mc, pa[p])
+		oa, err := common.ObjectList(bucketName, mc, prefixes[p])
 		if err != nil {
 			log.Error(err)
 			return err
 		}
 
 		// collect the named graphs from graph associated with the source
-		ga, err := gdc.ListNamedGraphs(pa[p])
+		ga, err := gdc.ListNamedGraphs(prefixes[p])
 		if err != nil {
 			log.Error(err)
 			return err
@@ -364,7 +378,7 @@ func (gdc *GraphDbClient) Snip(mc *minio.Client, bucketName string) error {
 		fmt.Printf("Orphaned items to remove: %d\n", len(d))
 		fmt.Printf("Missing items to add: %d\n", len(m))
 
-		log.WithFields(log.Fields{"prefix": pa[p], "graph items": len(ga), "object items": len(oag), "difference": len(d),
+		log.WithFields(log.Fields{"prefix": prefixes[p], "graph items": len(ga), "object items": len(oag), "difference": len(d),
 			"missing": len(m)}).Info("Nabu Prune")
 
 		// For each in d will delete that graph
@@ -374,7 +388,7 @@ func (gdc *GraphDbClient) Snip(mc *minio.Client, bucketName string) error {
 				log.Infof("Removed graph: %s\n", d[x])
 				_, err = gdc.DropGraph(d[x])
 				if err != nil {
-					log.Errorf("Progress bar update issue: %v\n", err)
+					log.Errorf("Drop graph issue: %v\n", err)
 				}
 				err = bar.Add(1)
 				if err != nil {
@@ -396,7 +410,7 @@ func (gdc *GraphDbClient) Snip(mc *minio.Client, bucketName string) error {
 				np := oam[m[x]]
 				log.Tracef("Add graph: %s  %s \n", m[x], np)
 
-				panic("not implemented")
+				panic("not implemented. make sure we loop over and pipe load each")
 
 				bytes := make([]byte, 0)
 				_, err := gdc.PipeLoad(bytes, bucketName, np)
@@ -410,6 +424,5 @@ func (gdc *GraphDbClient) Snip(mc *minio.Client, bucketName string) error {
 			}
 		}
 	}
-
 	return nil
 }

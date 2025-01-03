@@ -1,13 +1,21 @@
 package cli
 
 import (
-	"os"
-
-	"nabu/pkg"
+	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
+
+func release(v1 *viper.Viper, mc *minio.Client) error {
+	err := releases.BulkRelease(v1, mc)
+
+	if err != nil {
+		log.Error(err)
+	}
+	return err
+}
 
 // checkCmd represents the check command
 var releaseCmd = &cobra.Command{
@@ -15,25 +23,13 @@ var releaseCmd = &cobra.Command{
 	Short: "nabu release command",
 	Long:  `Generate releases for the indexes sources and also a master release`,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := pkg.Release(viperVal, mc)
+		err := release(viperVal, mc)
 		if err != nil {
-			log.Println(err) // was log.Fatal which seems odd
-			os.Exit(1)
+			log.Fatal(err)
 		}
-		os.Exit(0)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(releaseCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// checkCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// checkCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

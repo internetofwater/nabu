@@ -1,11 +1,20 @@
 package config
 
-import "github.com/spf13/viper"
+import (
+	"path/filepath"
+	"strings"
+
+	"github.com/spf13/viper"
+)
 
 var nabuTemplate = map[string]interface{}{
 	"minio":   MinioTemplate,
 	"sparql":  sparqlTemplate,
 	"objects": ObjectTemplate,
+}
+
+func fileNameWithoutExtTrimSuffix(fileName string) string {
+	return strings.TrimSuffix(fileName, filepath.Ext(fileName))
 }
 
 func ReadNabuConfig(filename string, cfgPath string) (*viper.Viper, error) {

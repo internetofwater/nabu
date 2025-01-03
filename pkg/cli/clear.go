@@ -1,14 +1,37 @@
 package cli
 
 import (
-	"nabu/pkg"
+	"nabu/internal/graph"
 
 	"os"
 
+	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
+
+func clear(v1 *viper.Viper, mc *minio.Client) error {
+	log.Info("Nabu started with mode: clear")
+
+	d := v1.GetBool("flags.dangerous")
+
+	if d {
+		log.Println("dangerous mode is enabled")
+		graph := graph.GraphDbClient{}
+		_, err := graph.Clear(v1)
+		if err != nil {
+			log.Error(err)
+			return err
+		}
+	} else {
+		log.Println("dangerous mode must be set to true to run this")
+		return nil
+	}
+
+	return nil
+}
 
 // checkCmd represents the check command
 var ClearCmd = &cobra.Command{
@@ -16,7 +39,7 @@ var ClearCmd = &cobra.Command{
 	Short: "nabu clear command",
 	Long:  `Removes all graphs from a SPARQL endpoint `,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := pkg.Clear(viperVal, mc)
+		err := clear(viperVal, mc)
 		if err != nil {
 			log.Fatal(err)
 			os.Exit(1)
@@ -27,14 +50,4 @@ var ClearCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(ClearCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// checkCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// checkCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

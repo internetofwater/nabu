@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"nabu/pkg/config"
+
 	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -17,7 +18,7 @@ func Objects(v1 *viper.Viper, mc *minio.Client) error {
 		return err
 	}
 
-	objCfg, _ := config.GetObjectsConfig(v1)
+	objCfg, _ := config.GetConfigForS3Objects(v1)
 	pa := objCfg.Prefix
 
 	for p := range pa {

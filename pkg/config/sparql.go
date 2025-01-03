@@ -28,12 +28,7 @@ var sparqlTemplate = map[string]interface{}{
 	},
 }
 
-func DEPRECATEDGetSparqlConfig(viperConfig *viper.Viper) (Sparql, error) {
-	sub := viperConfig.Sub("sparql")
-	return readSparqlConfig(sub)
-}
-
-func readSparqlConfig(viperSubtree *viper.Viper) (Sparql, error) {
+func ReadSparqlConfig(viperSubtree *viper.Viper) (Sparql, error) {
 	var sparql Sparql
 	for key, value := range sparqlTemplate {
 		viperSubtree.SetDefault(key, value)
