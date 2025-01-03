@@ -12,10 +12,11 @@ type GraphDBContainer struct {
 	mappedPort int
 	Container  *testcontainers.Container
 	Client     GraphDbClient
+	baseUrl    string
 }
 
 // Spin up a local graphdb container and the associated client
-func NewGraphDBContainer() (GraphDBContainer, error) {
+func NewGraphDBContainer(repository string) (GraphDBContainer, error) {
 
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
@@ -46,14 +47,14 @@ func NewGraphDBContainer() (GraphDBContainer, error) {
 		return GraphDBContainer{}, err
 	}
 	sparqlConfig := config.Sparql{
-		Endpoint:       "http://" + host + ":" + port.Port(),
-		EndpointBulk:   "http://" + host + ":" + port.Port(),
+		Endpoint:       "http://" + host + ":" + port.Port() + "/repositories/" + repository,
+		EndpointBulk:   "http://" + host + ":" + port.Port() + "/repositories/" + repository + "/_bulk",
 		EndpointMethod: "GET",
 		ContentType:    "application/sparql-results+xml",
 		Authenticate:   false,
 		Username:       "",
 		Password:       "",
 	}
-	client := GraphDbClient{SparqlConf: sparqlConfig}
+	client := GraphDbClient{SparqlConf: sparqlConfig, BaseUrl: "http://" + host + ":" + port.Port()}
 	return GraphDBContainer{Client: client, mappedPort: port.Int(), Container: &graphdbC}, nil
 }

@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"nabu/internal/common"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"nabu/pkg/config"
@@ -26,6 +29,7 @@ type GraphDbMethods interface {
 
 type GraphDbClient struct {
 	SparqlConf config.Sparql
+	BaseUrl    string
 	GraphDbMethods
 }
 
@@ -39,6 +43,58 @@ func NewGraphDbClient(v1 *viper.Viper) (*GraphDbClient, error) {
 		SparqlConf: conf,
 	}, nil
 
+}
+
+func (g *GraphDbClient) CreateRepository(ttlConfigPath string) error {
+	// Open the TTL config file
+	file, err := os.Open(ttlConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to open TTL config file: %w", err)
+	}
+	defer file.Close()
+
+	// Create a buffer and multipart writer
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// Add the file part
+	part, err := writer.CreateFormFile("config", filepath.Base(ttlConfigPath))
+	if err != nil {
+		return fmt.Errorf("failed to create form file: %w", err)
+	}
+
+	// Copy the file content into the form file part
+	if _, err = io.Copy(part, file); err != nil {
+		return fmt.Errorf("failed to copy file content: %w", err)
+	}
+
+	// Close the multipart writer to finalize the body
+	if err = writer.Close(); err != nil {
+		return fmt.Errorf("failed to close writer: %w", err)
+	}
+
+	// Create the HTTP request
+	url := fmt.Sprintf("%s/rest/repositories", g.BaseUrl)
+	req, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// Send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check the response
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body) // Optional: Read response body for debugging
+		return fmt.Errorf("failed to create repository, status: %d, response: %s", resp.StatusCode, string(body))
+	}
+	return nil
 }
 
 // Create a graph in the database. Returns an error if it already exists or cannot be made
@@ -201,8 +257,8 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 
 // holds results from the http query
 type ask struct {
-	Head    string `json:"head"`
-	Boolean bool   `json:"boolean"`
+	Head    map[string]interface{} `json:"head"`    // Map for flexible JSON object
+	Boolean bool                   `json:"boolean"` // Boolean value
 }
 
 // Check if a graph exists in the graph database
@@ -227,6 +283,10 @@ func (graphClient *GraphDbClient) GraphExists(graph string) (bool, error) {
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 {
+		return false, fmt.Errorf("response Status: %s with error %s", resp.Status, string(body))
+	}
+
 	if err != nil {
 		log.Println(strings.Repeat("ERROR", 5))
 		log.Println("response Status:", resp.Status)
