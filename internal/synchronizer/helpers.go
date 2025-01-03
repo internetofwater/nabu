@@ -1,5 +1,7 @@
 package synchronizer
 
+import "strings"
+
 // returns the elements in `a` that aren't in `b`.
 func difference(a, b []string) []string {
 	mb := make(map[string]struct{}, len(b))
@@ -33,4 +35,21 @@ func findMissing(a, b []string) []string {
 	}
 
 	return result
+}
+
+func baseName(s string) string {
+	n := strings.LastIndexByte(s, '.')
+	if n == -1 {
+		return s
+	}
+	return s[:n]
+}
+
+func contains(array []string, str string) bool {
+	for _, a := range array {
+		if a == str {
+			return true
+		}
+	}
+	return false
 }

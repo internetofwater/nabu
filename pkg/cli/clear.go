@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"nabu/internal/graph"
+	"nabu/internal/synchronizer/graph"
 
 	"os"
 

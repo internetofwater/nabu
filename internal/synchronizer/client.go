@@ -12,6 +12,7 @@ import (
 	"nabu/internal/synchronizer/graph"
 	"nabu/internal/synchronizer/objects"
 	"nabu/pkg/config"
+	"net/http"
 	"path"
 	"path/filepath"
 	"strings"
@@ -29,21 +30,41 @@ type SynchronizerClient struct {
 	graphClient *graph.GraphDbClient
 	s3Client    *objects.MinioClientWrapper
 	bucketName  string
+	objConfig   config.Objects
+}
+
+// Generate a new SynchronizerClient from the viper config
+func NewSynchronizerClient(v1 *viper.Viper) (*SynchronizerClient, error) {
+	graphClient, err := graph.NewGraphDbClient(v1)
+	if err != nil {
+		return nil, err
+	}
+	s3Client, err := objects.NewMinioClientWrapper(v1)
+	if err != nil {
+		return nil, err
+	}
+	bucketName, _ := config.GetBucketName(v1)
+	objCfg, err := config.GetConfigForS3Objects(v1)
+	if err != nil {
+		return nil, err
+	}
+	return &SynchronizerClient{graphClient: graphClient, s3Client: s3Client, bucketName: bucketName, objConfig: objCfg}, nil
 }
 
 // Get rid of graphs in the triplestore that are not in the object store
-func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(prefixes []string) error {
+func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3() error {
+	prefixes := synchronizer.objConfig.Prefixes
 
-	for p := range prefixes {
+	for _, prefix := range prefixes {
 		// collect the objects associated with the source
-		oa, err := common.ObjectList(synchronizer.bucketName, synchronizer.s3Client.Client, prefixes[p])
+		oa, err := common.ObjectList(synchronizer.bucketName, synchronizer.s3Client.Client, prefix)
 		if err != nil {
 			log.Error(err)
 			return err
 		}
 
 		// collect the named graphs from graph associated with the source
-		ga, err := synchronizer.graphClient.ListNamedGraphs(prefixes[p])
+		ga, err := synchronizer.graphClient.ListNamedGraphs(prefix)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -79,7 +100,7 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(prefixes []string) e
 		fmt.Printf("Orphaned items to remove: %d\n", len(d))
 		fmt.Printf("Missing items to add: %d\n", len(m))
 
-		log.WithFields(log.Fields{"prefix": prefixes[p], "graph items": len(ga), "object items": len(oag), "difference": len(d),
+		log.WithFields(log.Fields{"prefix": prefix, "graph items": len(ga), "object items": len(oag), "difference": len(d),
 			"missing": len(m)}).Info("Nabu Prune")
 
 		// For each in d will delete that graph
@@ -114,7 +135,7 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(prefixes []string) e
 				panic("not implemented. make sure we loop over and pipe load each")
 
 				bytes := make([]byte, 0)
-				_, err := synchronizer.PipeLoad(bytes, synchronizer.bucketName, np)
+				_, err := synchronizer.PipeLoad(bytes, np)
 				if err != nil {
 					log.Errorf("prune -> pipeLoad %v\n", err)
 				}
@@ -129,7 +150,7 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(prefixes []string) e
 }
 
 // Reads from an object and loads directly into a triplestore
-func (synchronizer *SynchronizerClient) PipeLoad(bytes []byte, bucket, object string) ([]byte, error) {
+func (synchronizer *SynchronizerClient) PipeLoad(bytes []byte, object string) ([]byte, error) {
 	// build our quad/graph from the object path
 
 	g, err := common.MakeURN(object)
@@ -204,26 +225,15 @@ func (synchronizer *SynchronizerClient) PipeLoad(bytes []byte, bucket, object st
 	return []byte{}, err
 }
 
-func (synchronizer *SynchronizerClient) ObjectAssembly(v1 *viper.Viper, mc *minio.Client) error {
-	objs, err := config.GetConfigForS3Objects(v1)
-	if err != nil {
-		return err
-	}
+func (synchronizer *SynchronizerClient) ObjectAssembly() error {
 
-	var pa = objs.Prefix
-
-	//if strings.Contains(strings.Join(pa, ","), s) {
-	//	fmt.Println(s, "is in the array")
-	//}
-
-	for p := range pa {
+	for _, prefix := range synchronizer.objConfig.Prefixes {
 		oa := []string{}
 
 		// NEW
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		bucketName, _ := config.GetBucketName(v1)
-		objectCh := mc.ListObjects(ctx, bucketName, minio.ListObjectsOptions{Prefix: pa[p], Recursive: true})
+		objectCh := synchronizer.s3Client.Client.ListObjects(ctx, synchronizer.bucketName, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
 
 		for object := range objectCh {
 			if object.Err != nil {
@@ -234,12 +244,12 @@ func (synchronizer *SynchronizerClient) ObjectAssembly(v1 *viper.Viper, mc *mini
 			oa = append(oa, object.Key)
 		}
 
-		log.Infof("%s:%s object count: %d\n", bucketName, pa[p], len(oa))
+		log.Infof("%s:%s object count: %d\n", synchronizer.bucketName, prefix, len(oa))
 		bar := progressbar.Default(int64(len(oa)))
-		for item := range oa {
+		for _, item := range oa {
 
 			panic("not implemented, make sure pipeload takes proper bytes")
-			_, err := g.PipeLoad([]byte{}, bucketName, oa[item])
+			_, err := synchronizer.PipeLoad([]byte{}, item)
 			if err != nil {
 				log.Error(err)
 			}
@@ -251,7 +261,7 @@ func (synchronizer *SynchronizerClient) ObjectAssembly(v1 *viper.Viper, mc *mini
 		}
 	}
 
-	return err
+	return nil
 }
 
 // PipeCopy writes a new object based on an prefix, this function assumes the objects are valid when concatenated
@@ -387,56 +397,52 @@ func (synchronizer *SynchronizerClient) PipeCopy(name, prefix, destprefix string
 	return nil
 }
 
-// BulkAssembly collects the objects from a bucket to load
-func (m *MinioClientWrapper) BulkAssembly(v1 *viper.Viper) error {
-	bucketName, _ := config.GetBucketName(v1)
-	objCfg, _ := config.GetConfigForS3Objects(v1)
-	pa := objCfg.Prefix
+// // BulkAssembly collects the objects from a bucket to load
+// func (m *MinioClientWrapper) BulkAssembly(v1 *viper.Viper) error {
+// 	bucketName, _ := config.GetBucketName(v1)
+// 	objCfg, _ := config.GetConfigForS3Objects(v1)
+// 	pa := objCfg.Prefix
 
-	var err error
+// 	var err error
 
-	for p := range pa {
-		name := fmt.Sprintf("%s_bulk.rdf", baseName(path.Base(pa[p])))
-		err = graph.PipeCopy(v1, m.Client, name, bucketName, pa[p], "scratch") // have this function return the object name and path, easy to load and remove then
-		//err = objects.MillerNG(name, bucketName, pa[p], mc) // have this function return the object name and path, easy to load and remove then
-		if err != nil {
-			return err
-		}
-	}
+// 	for p := range pa {
+// 		name := fmt.Sprintf("%s_bulk.rdf", baseName(path.Base(pa[p])))
+// 		err = graph.PipeCopy(v1, m.Client, name, bucketName, pa[p], "scratch") // have this function return the object name and path, easy to load and remove then
+// 		//err = objects.MillerNG(name, bucketName, pa[p], mc) // have this function return the object name and path, easy to load and remove then
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
 
-	for p := range pa {
-		name := fmt.Sprintf("%s_bulk.rdf", baseName(path.Base(pa[p])))
-		_, err := m.BulkLoad(v1, bucketName, fmt.Sprintf("/scratch/%s", name))
-		if err != nil {
-			log.Println(err)
-		}
-	}
+// 	for p := range pa {
+// 		name := fmt.Sprintf("%s_bulk.rdf", baseName(path.Base(pa[p])))
+// 		_, err := m.BulkLoad(v1, bucketName, fmt.Sprintf("/scratch/%s", name))
+// 		if err != nil {
+// 			log.Println(err)
+// 		}
+// 	}
 
-	// TODO  remove the temporary object?
-	for p := range pa {
-		//name := fmt.Sprintf("%s_bulk.rdf", pa[p])
-		name := fmt.Sprintf("%s_bulk.rdf", baseName(path.Base(pa[p])))
-		opts := minio.RemoveObjectOptions{}
-		err = m.Client.RemoveObject(context.Background(), bucketName, fmt.Sprintf("%s/%s", pa[p], name), opts)
-		if err != nil {
-			fmt.Println(err)
-			return err
-		}
-	}
+// 	// TODO  remove the temporary object?
+// 	for p := range pa {
+// 		//name := fmt.Sprintf("%s_bulk.rdf", pa[p])
+// 		name := fmt.Sprintf("%s_bulk.rdf", baseName(path.Base(pa[p])))
+// 		opts := minio.RemoveObjectOptions{}
+// 		err = m.Client.RemoveObject(context.Background(), bucketName, fmt.Sprintf("%s/%s", pa[p], name), opts)
+// 		if err != nil {
+// 			fmt.Println(err)
+// 			return err
+// 		}
+// 	}
 
-	return err
-}
+// 	return err
+// }
 
-func (m *MinioClientWrapper) BulkRelease(v1 *viper.Viper) error {
+func (synchronizer *SynchronizerClient) BulkRelease(v1 *viper.Viper) error {
 	log.Println("Release:BulkAssembly")
-	bucketName, _ := config.GetBucketName(v1)
-	objCfg, _ := config.GetObjectsConfig(v1)
-	pa := objCfg.Prefix
-
 	var err error
 
-	for p := range pa {
-		sp := strings.Split(pa[p], "/")
+	for _, prefix := range synchronizer.objConfig.Prefixes {
+		sp := strings.Split(prefix, "/")
 		srcname := strings.Join(sp[1:], "__")
 		spj := strings.Join(sp, "__")
 
@@ -450,9 +456,9 @@ func (m *MinioClientWrapper) BulkRelease(v1 *viper.Viper) error {
 			name_latest = fmt.Sprintf("%s_prov.nq", baseName(path.Base(srcname))) // ex: counties0_prov.nq
 		} else if contains(sp, "orgs") {
 			name_latest = "organizations.nq" // ex: counties0_org.nq
-			fmt.Println(bucketName)
+			fmt.Println(synchronizer.bucketName)
 			fmt.Println(name_latest)
-			err = objects.PipeCopy(v1, mc, name_latest, bucketName, "orgs", "graphs/latest") // have this function return the object name and path, easy to load and remove then
+			err = synchronizer.PipeCopy(name_latest, "orgs", "graphs/latest") // have this function return the object name and path, easy to load and remove then
 			if err != nil {
 				return err
 			}
@@ -462,7 +468,7 @@ func (m *MinioClientWrapper) BulkRelease(v1 *viper.Viper) error {
 		}
 
 		// Make a release graph that will be stored in graphs/latest as {provider}_release.nq
-		err = objects.PipeCopy(v1, mc, name_latest, bucketName, pa[p], "graphs/latest") // have this function return the object name and path, easy to load and remove then
+		err = synchronizer.PipeCopy(name_latest, prefix, "graphs/latest") // have this function return the object name and path, easy to load and remove then
 		if err != nil {
 			return err
 		}
@@ -474,8 +480,71 @@ func (m *MinioClientWrapper) BulkRelease(v1 *viper.Viper) error {
 		// TODO  review the issue of archive and latest being hard coded.
 		name := fmt.Sprintf("%s/%s/%s_%s_release.nq", "graphs/archive", srcname, baseName(path.Base(spj)), t.Format(layout))
 		latest_fullpath := fmt.Sprintf("%s/%s", "graphs/latest", name_latest)
-		err = objects.Copy(v1, mc, bucketName, latest_fullpath, bucketName, strings.Replace(name, "latest", "archive", 1))
+		err = synchronizer.s3Client.Copy(synchronizer.bucketName, latest_fullpath, synchronizer.bucketName, strings.Replace(name, "latest", "archive", 1))
 	}
+
+	return err
+}
+
+// Loads a stored release graph into the graph database
+func (synchronizer *SynchronizerClient) BulkLoad(item string) error {
+
+	b, _, err := synchronizer.s3Client.GetS3Bytes(synchronizer.bucketName, item)
+	if err != nil {
+		return err
+	}
+
+	// NOTE:   commented out, but left.  Since we are loading quads, no need for a graph.
+	// If (when) we add back in ntriples as a version, this could be used to build a graph for
+	// All the triples in the bulk file to then load as triples + general context (graph)
+	// Review if this graph g should b here since we are loading quads
+	// I don't think it should b.   validate with all the tested triple stores
+	//bn := strings.Replace(bucketName, ".", ":", -1) // convert to urn : values, buckets with . are not valid IRIs
+	g, err := common.MakeURN(item)
+	if err != nil {
+		log.Errorf("gets3Bytes %v\n", err)
+		return err // Assume return. since on this error things are not good?
+	}
+	url := fmt.Sprintf("%s?graph=%s", synchronizer.graphClient.SparqlConf.Endpoint, g)
+
+	// check if JSON-LD and convert to RDF
+	if strings.Contains(item, ".jsonld") {
+		nb, err := common.JsonldToNQ(string(b))
+		if err != nil {
+			return err
+		}
+		b = []byte(nb)
+	}
+
+	req, err := http.NewRequest(synchronizer.graphClient.SparqlConf.EndpointMethod, url, bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", synchronizer.graphClient.SparqlConf.ContentType) // needs to be x-nquads for blaze, n-quads for jena and graphdb
+	req.Header.Set("User-Agent", "EarthCube_DataBot/1.0")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Error(err)
+		}
+	}(resp.Body)
+
+	log.Println(resp)
+	body, err := io.ReadAll(resp.Body) // return body if you want to debugg test with it
+	if err != nil {
+		log.Println(string(body))
+		return err
+	}
+
+	// report
+	log.Println(string(body))
+	log.Printf("success: %s : %d  : %s\n", item, len(b), synchronizer.graphClient.SparqlConf.Endpoint)
 
 	return err
 }

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	"nabu/internal/common"
-	"nabu/internal/objects"
+	"nabu/internal/synchronizer/objects"
 	"nabu/pkg/config"
 
 	"github.com/minio/minio-go/v7"

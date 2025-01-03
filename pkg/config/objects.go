@@ -7,9 +7,9 @@ import (
 )
 
 type Objects struct {
-	Bucket string //`mapstructure:"MINIO_BUCKET"`
-	Domain string //`mapstructure:"MINIO_DOMAIN"`
-	Prefix []string
+	Bucket   string //`mapstructure:"MINIO_BUCKET"`
+	Domain   string //`mapstructure:"MINIO_DOMAIN"`
+	Prefixes []string
 }
 
 var ObjectTemplate = map[string]interface{}{

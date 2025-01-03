@@ -12,8 +12,6 @@ import (
 
 	"nabu/pkg/config"
 
-	"github.com/minio/minio-go/v7"
-	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/tidwall/gjson"
@@ -27,9 +25,7 @@ type GraphDbMethods interface {
 }
 
 type GraphDbClient struct {
-	password string
-	username string
-	Endpoint string
+	SparqlConf config.Sparql
 	GraphDbMethods
 }
 
@@ -40,9 +36,7 @@ func NewGraphDbClient(v1 *viper.Viper) (*GraphDbClient, error) {
 		return nil, err
 	}
 	return &GraphDbClient{
-		Endpoint: conf.Endpoint,
-		password: conf.Password,
-		username: conf.Username,
+		SparqlConf: conf,
 	}, nil
 
 }
@@ -59,7 +53,7 @@ func (graphClient *GraphDbClient) Insert(graph, data string, auth bool) (string,
 	pab = append(pab, []byte(data)...)
 	pab = append(pab, uab...)
 
-	req, err := http.NewRequest("POST", graphClient.Endpoint, bytes.NewBuffer(pab)) // PUT for any of the servers?
+	req, err := http.NewRequest("POST", graphClient.SparqlConf.Endpoint, bytes.NewBuffer(pab)) // PUT for any of the servers?
 	if err != nil {
 		log.Error(err)
 		return "", err
@@ -69,7 +63,7 @@ func (graphClient *GraphDbClient) Insert(graph, data string, auth bool) (string,
 	req.Header.Set("Accept", "application/x-trig")              // graphdb
 
 	if auth {
-		req.SetBasicAuth(graphClient.username, graphClient.password)
+		req.SetBasicAuth(graphClient.SparqlConf.Username, graphClient.SparqlConf.Password)
 	}
 
 	client := &http.Client{}
@@ -108,7 +102,7 @@ func (graphClient *GraphDbClient) DropGraph(graph string) ([]byte, error) {
 	pab := []byte(d)
 
 	//req, err := http.NewRequest("POST", spql["endpoint"], bytes.NewBuffer(pab))
-	req, err := http.NewRequest("POST", graphClient.Endpoint, bytes.NewBuffer(pab))
+	req, err := http.NewRequest("POST", graphClient.SparqlConf.Endpoint, bytes.NewBuffer(pab))
 	if err != nil {
 		log.Error(err)
 	}
@@ -141,7 +135,7 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 
 	pab := []byte(d)
 
-	req, err := http.NewRequest("POST", graphClient.Endpoint, bytes.NewBuffer(pab))
+	req, err := http.NewRequest("POST", graphClient.SparqlConf.Endpoint, bytes.NewBuffer(pab))
 	if err != nil {
 		log.Error(err)
 		return err
@@ -182,7 +176,7 @@ func (graphClient *GraphDbClient) GraphExists(graph string) (bool, error) {
 	pab := []byte("")
 	params := url.Values{}
 	params.Add("query", d)
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", graphClient.Endpoint, params.Encode()), bytes.NewBuffer(pab))
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", graphClient.SparqlConf.Endpoint, params.Encode()), bytes.NewBuffer(pab))
 	if err != nil {
 		return false, err
 	}
@@ -248,7 +242,7 @@ func (graphClient *GraphDbClient) ListNamedGraphs(prefix string) ([]string, erro
 	pab := []byte("")
 	params := url.Values{}
 	params.Add("query", d)
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", graphClient.Endpoint, params.Encode()), bytes.NewBuffer(pab))
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", graphClient.SparqlConf.Endpoint, params.Encode()), bytes.NewBuffer(pab))
 	if err != nil {
 		log.Println(err)
 	}

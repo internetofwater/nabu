@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"nabu/internal/synchronizer"
+
 	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 
@@ -10,7 +12,11 @@ import (
 
 func prune(v1 *viper.Viper, mc *minio.Client) error {
 	log.Info("Prune graphs in triplestore not in objectVal store")
-	err := prune.Snip(v1, mc)
+	client, err := synchronizer.NewSynchronizerClient(v1)
+	if err != nil {
+		return err
+	}
+	err = client.RemoveGraphsNotInS3()
 	if err != nil {
 		log.Error(err)
 	}

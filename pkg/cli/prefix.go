@@ -1,22 +1,21 @@
 package cli
 
 import (
-	"nabu/internal/graph"
+	"nabu/internal/synchronizer"
 
-	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-func prefix(v1 *viper.Viper, mc *minio.Client) error {
+func prefix(v1 *viper.Viper) error {
 	log.Info("Nabu started with mode: prefix")
-	client, err := graph.NewGraphDbClient(v1)
+	client, err := synchronizer.NewSynchronizerClient(v1)
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = client.ObjectAssembly(v1, mc)
+	err = client.ObjectAssembly()
 
 	if err != nil {
 		log.Error(err)
@@ -30,7 +29,7 @@ var PrefixCmd = &cobra.Command{
 	Short: "nabu prefix command",
 	Long:  `Load graphs from prefix to triplestore`,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := prefix(viperVal, mc)
+		err := prefix(viperVal)
 		if err != nil {
 			log.Fatal(err)
 		}

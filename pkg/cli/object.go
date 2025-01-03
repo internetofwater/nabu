@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"nabu/internal/synchronizer"
 	"os"
 
 	"github.com/minio/minio-go/v7"
@@ -13,21 +14,15 @@ import (
 
 func object(v1 *viper.Viper, mc *minio.Client, bucket string, object string) error {
 	fmt.Println("Load graph object to triplestore")
-	//	spql, _ := config.GetSparqlConfig(v1)
-	//	if bucket == "" {
-	//		bucket, _ = config.GetBucketName(v1)
-	//	}
-	//	s, err := objects.PipeLoad(v1, mc, bucket, object, spql.Endpoint)
-	//	if err != nil {
-	//		log.Error(err)
-	//	}
-
-	s, err := bulk.BulkLoad(v1, mc, bucket, object)
+	client, err := synchronizer.NewSynchronizerClient(v1)
+	if err != nil {
+		return err
+	}
+	err = client.BulkLoad(object)
 	if err != nil {
 		log.Println(err)
 	}
 
-	log.Trace(string(s))
 	return err
 }
 

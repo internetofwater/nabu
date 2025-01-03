@@ -2,6 +2,7 @@ package graph
 
 import (
 	"context"
+	"nabu/pkg/config"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -44,6 +45,15 @@ func NewGraphDBContainer() (GraphDBContainer, error) {
 	if err != nil {
 		return GraphDBContainer{}, err
 	}
-	client := GraphDbClient{Endpoint: "http://" + host + ":" + port.Port()}
+	sparqlConfig := config.Sparql{
+		Endpoint:       "http://" + host + ":" + port.Port(),
+		EndpointBulk:   "http://" + host + ":" + port.Port(),
+		EndpointMethod: "POST",
+		ContentType:    "application/sparql-results+xml",
+		Authenticate:   false,
+		Username:       "",
+		Password:       "",
+	}
+	client := GraphDbClient{SparqlConf: sparqlConfig}
 	return GraphDBContainer{Client: client, mappedPort: port.Int(), Container: &graphdbC}, nil
 }
