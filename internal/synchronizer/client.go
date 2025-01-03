@@ -209,7 +209,7 @@ func (synchronizer *SynchronizerClient) PipeLoad(bytes []byte, object string) ([
 		if lc == 10000 { // use line count, since byte len might break inside a triple statement..   it's an OK proxy
 			log.Tracef("Subgraph of %d lines", len(sg))
 			// TODO..  upload what we have here, modify the call code to upload these sections
-			_, err = synchronizer.graphClient.Insert(g, strings.Join(sg, "\n"), false) // convert []string to strings joined with new line to form a RDF NT set
+			err = synchronizer.graphClient.Insert(g, strings.Join(sg, "\n"), false) // convert []string to strings joined with new line to form a RDF NT set
 			if err != nil {
 				log.Errorf("Insert err: %s", err)
 			}
@@ -219,7 +219,7 @@ func (synchronizer *SynchronizerClient) PipeLoad(bytes []byte, object string) ([
 	}
 	if lc > 0 {
 		log.Tracef("Subgraph (out of scanner) of %d lines", len(sg))
-		_, err = synchronizer.graphClient.Insert(g, strings.Join(sg, "\n"), false) // convert []string to strings joined with new line to form a RDF NT set
+		err = synchronizer.graphClient.Insert(g, strings.Join(sg, "\n"), false) // convert []string to strings joined with new line to form a RDF NT set
 	}
 
 	return []byte{}, err

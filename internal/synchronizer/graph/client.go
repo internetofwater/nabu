@@ -41,22 +41,56 @@ func NewGraphDbClient(v1 *viper.Viper) (*GraphDbClient, error) {
 
 }
 
-// Insert data into the triplestore
-func (graphClient *GraphDbClient) Insert(graph, data string, auth bool) (string, error) {
+// Create a graph in the database. Returns an error if it already exists or cannot be made
+func (graphClient *GraphDbClient) CreateGraph(graph string) error {
+	d := fmt.Sprintf("CREATE GRAPH <%s> ", graph)
+	pab := []byte(d)
 
-	p := "INSERT DATA { "
-	pab := []byte(p)
-	gab := []byte(fmt.Sprintf(" graph <%s>  { ", graph))
-	u := " } }"
-	uab := []byte(u)
-	pab = append(pab, gab...)
-	pab = append(pab, []byte(data)...)
-	pab = append(pab, uab...)
-
-	req, err := http.NewRequest("POST", graphClient.SparqlConf.Endpoint, bytes.NewBuffer(pab)) // PUT for any of the servers?
+	req, err := http.NewRequest("POST", graphClient.SparqlConf.Endpoint, bytes.NewBuffer(pab))
 	if err != nil {
 		log.Error(err)
-		return "", err
+		return err
+	}
+	req.Header.Set("Content-Type", "application/sparql-update")
+	// req.Header.Set("Content-Type", "application/sparql-results+xml")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	defer resp.Body.Close()
+	res, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	if resp.StatusCode >= 400 {
+		log.Error(string(res))
+		return fmt.Errorf("error creating graph: %s", string(res))
+	}
+
+	return nil
+}
+
+// Insert data into the triplestore
+func (graphClient *GraphDbClient) Insert(graph, data string, auth bool) error {
+
+	log.Debugf("Inserting data into graph: %s", graph)
+	startReq := "INSERT DATA { "
+	StartReqBytes := []byte(startReq)
+	graphBytes := []byte(fmt.Sprintf(" graph <%s>  { ", graph))
+	endReq := " } }"
+	endReqBytes := []byte(endReq)
+	fullReq := append(StartReqBytes, graphBytes...)
+	fullReq = append(fullReq, []byte(data)...)
+	fullReq = append(fullReq, endReqBytes...)
+
+	req, err := http.NewRequest("POST", graphClient.SparqlConf.Endpoint, bytes.NewBuffer(fullReq)) // PUT for any of the servers?
+	if err != nil {
+		log.Error(err)
+		return err
 	}
 
 	req.Header.Set("Content-Type", "application/sparql-update") // graphdb  blaze and jena  alt might be application/sparql-results+xml
@@ -71,16 +105,17 @@ func (graphClient *GraphDbClient) Insert(graph, data string, auth bool) (string,
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Error(err)
-		return "", err
+		return err
 	}
 	defer resp.Body.Close()
 
-	log.Tracef("response Status: %s", resp.Status)
-	log.Tracef("response Headers: %s", resp.Header)
 	// TODO just string check for 200 or 204 rather than try to match
 	if resp.Status != "200 OK" && resp.Status != "204 No Content" && resp.Status != "204 " {
-		log.Infof("response Status: %s", resp.Status)
-		log.Infof("response Headers: %s", resp.Header)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("response Status: %s with error %s", resp.Status, err)
+		}
+		return fmt.Errorf("response Status: %s with error %s", resp.Status, string(body))
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -89,9 +124,10 @@ func (graphClient *GraphDbClient) Insert(graph, data string, auth bool) (string,
 		log.Error("response Body:", string(body))
 		log.Error("response Status:", resp.Status)
 		log.Error("response Headers:", resp.Header)
+		return err
 	}
 
-	return resp.Status, err
+	return nil
 
 }
 

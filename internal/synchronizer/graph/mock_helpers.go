@@ -48,7 +48,7 @@ func NewGraphDBContainer() (GraphDBContainer, error) {
 	sparqlConfig := config.Sparql{
 		Endpoint:       "http://" + host + ":" + port.Port(),
 		EndpointBulk:   "http://" + host + ":" + port.Port(),
-		EndpointMethod: "POST",
+		EndpointMethod: "GET",
 		ContentType:    "application/sparql-results+xml",
 		Authenticate:   false,
 		Username:       "",
