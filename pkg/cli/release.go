@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"nabu/internal/objects"
+
 	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 
@@ -9,7 +11,11 @@ import (
 )
 
 func release(v1 *viper.Viper, mc *minio.Client) error {
-	err := releases.BulkRelease(v1, mc)
+	client, err := objects.NewMinioClientWrapper(v1)
+	if err != nil {
+		return err
+	}
+	err := client.BulkRelease(v1, mc)
 
 	if err != nil {
 		log.Error(err)

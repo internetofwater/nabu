@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"io"
 	"nabu/internal/common"
-	"nabu/internal/graph"
+	"nabu/internal/synchronizer/graph"
 	"nabu/pkg/config"
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
@@ -206,52 +207,4 @@ func (m *MinioClientWrapper) BulkLoad(v1 *viper.Viper, bucketName string, item s
 	log.Printf("success: %s : %d  : %s\n", item, len(b), ep)
 
 	return string(body), err
-}
-
-// BulkAssembly collects the objects from a bucket to load
-func (m *MinioClientWrapper) BulkAssembly(v1 *viper.Viper) error {
-	bucketName, _ := config.GetBucketName(v1)
-	objCfg, _ := config.GetConfigForS3Objects(v1)
-	pa := objCfg.Prefix
-
-	var err error
-
-	for p := range pa {
-		name := fmt.Sprintf("%s_bulk.rdf", baseName(path.Base(pa[p])))
-		err = graph.PipeCopy(v1, m.Client, name, bucketName, pa[p], "scratch") // have this function return the object name and path, easy to load and remove then
-		//err = objects.MillerNG(name, bucketName, pa[p], mc) // have this function return the object name and path, easy to load and remove then
-		if err != nil {
-			return err
-		}
-	}
-
-	for p := range pa {
-		name := fmt.Sprintf("%s_bulk.rdf", baseName(path.Base(pa[p])))
-		_, err := m.BulkLoad(v1, bucketName, fmt.Sprintf("/scratch/%s", name))
-		if err != nil {
-			log.Println(err)
-		}
-	}
-
-	// TODO  remove the temporary object?
-	for p := range pa {
-		//name := fmt.Sprintf("%s_bulk.rdf", pa[p])
-		name := fmt.Sprintf("%s_bulk.rdf", baseName(path.Base(pa[p])))
-		opts := minio.RemoveObjectOptions{}
-		err = m.Client.RemoveObject(context.Background(), bucketName, fmt.Sprintf("%s/%s", pa[p], name), opts)
-		if err != nil {
-			fmt.Println(err)
-			return err
-		}
-	}
-
-	return err
-}
-
-func baseName(s string) string {
-	n := strings.LastIndexByte(s, '.')
-	if n == -1 {
-		return s
-	}
-	return s[:n]
 }

@@ -20,7 +20,7 @@ func clear(v1 *viper.Viper, mc *minio.Client) error {
 	if d {
 		log.Println("dangerous mode is enabled")
 		graph := graph.GraphDbClient{}
-		_, err := graph.Clear(v1)
+		err := graph.ClearAllGraphs()
 		if err != nil {
 			log.Error(err)
 			return err

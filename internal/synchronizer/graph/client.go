@@ -33,6 +33,7 @@ type GraphDbClient struct {
 	GraphDbMethods
 }
 
+// Create a new client struct to connect to the triplestore
 func NewGraphDbClient(v1 *viper.Viper) (*GraphDbClient, error) {
 	conf, err := config.ReadSparqlConfig(v1)
 	if err != nil {
@@ -46,6 +47,7 @@ func NewGraphDbClient(v1 *viper.Viper) (*GraphDbClient, error) {
 
 }
 
+// Insert data into the triplestore
 func (graphClient *GraphDbClient) Insert(graph, data string, auth bool) (string, error) {
 
 	p := "INSERT DATA { "
@@ -99,7 +101,7 @@ func (graphClient *GraphDbClient) Insert(graph, data string, auth bool) (string,
 
 }
 
-// DropGraph removes a graph from the graph database
+// remove a graph from the graph database
 func (graphClient *GraphDbClient) DropGraph(graph string) ([]byte, error) {
 
 	d := fmt.Sprintf("DROP GRAPH <%s> ", graph)
@@ -133,6 +135,7 @@ func (graphClient *GraphDbClient) DropGraph(graph string) ([]byte, error) {
 	return body, err
 }
 
+// Remove all graphs from the graph database
 func (graphClient *GraphDbClient) ClearAllGraphs() error {
 	d := "CLEAR ALL"
 
@@ -215,6 +218,7 @@ func (graphClient *GraphDbClient) GraphExists(graph string) (bool, error) {
 	return ask.Boolean, err
 }
 
+// Get rid of graphs in the triplestore that are not in the object store
 func (graphClient *GraphDbClient) ListNamedGraphs(prefix string) ([]string, error) {
 	log.Debug("Getting list of named graphs")
 
@@ -295,134 +299,4 @@ func (graphClient *GraphDbClient) ListNamedGraphs(prefix string) ([]string, erro
 	}
 
 	return gaf, nil
-}
-
-// difference returns the elements in `a` that aren't in `b`.
-func difference(a, b []string) []string {
-	mb := make(map[string]struct{}, len(b))
-	for _, x := range b {
-		mb[x] = struct{}{}
-	}
-	var diff []string
-	for _, x := range a {
-		if _, found := mb[x]; !found {
-			diff = append(diff, x)
-		}
-	}
-	return diff
-}
-
-func findMissing(a, b []string) []string {
-	// Create a map to store the elements of ga.
-	gaMap := make(map[string]bool)
-	for _, s := range b {
-		gaMap[s] = true
-	}
-
-	// Iterate through a and add any elements that are not in b to the result slice.
-	var result []string
-	for _, s := range a {
-		if !gaMap[s] {
-			result = append(result, s)
-		}
-	}
-
-	return result
-}
-
-// Get rid of graphs in the triplestore that are not in the object store
-func (gdc *GraphDbClient) Snip(mc *minio.Client, bucketName string, prefixes []string) error {
-
-	for p := range prefixes {
-		// collect the objects associated with the source
-		oa, err := common.ObjectList(bucketName, mc, prefixes[p])
-		if err != nil {
-			log.Error(err)
-			return err
-		}
-
-		// collect the named graphs from graph associated with the source
-		ga, err := gdc.ListNamedGraphs(prefixes[p])
-		if err != nil {
-			log.Error(err)
-			return err
-		}
-
-		// convert the object names to the URN pattern used in the graph
-		// and make a map where key = URN, value = object name
-		// NOTE:  since later we want to look up the object based the URN
-		// we will do it this way since mapswnat you to know a key, not a value, when
-		// querying them.
-		// This is OK since all KV pairs involve unique keys and unique values
-		var oam = map[string]string{}
-		for x := range oa {
-			g, err := common.MakeURN(oa[x])
-			if err != nil {
-				log.Errorf("MakeURN error: %v\n", err)
-			}
-			oam[g] = oa[x] // key (URN)= value (object prefixpath)
-		}
-
-		// make an array of just the values for use with findMissing and difference functions
-		// we have in this package
-		var oag []string // array of all keys
-		for k := range oam {
-			oag = append(oag, k)
-		}
-
-		//compare lists, anything IN graph not in objects list should be removed
-		d := difference(ga, oag)  // return items in ga that are NOT in oag, we should remove these
-		m := findMissing(oag, ga) // return items from oag we need to add
-
-		fmt.Printf("Current graph items: %d  Cuurent object items: %d\n", len(ga), len(oag))
-		fmt.Printf("Orphaned items to remove: %d\n", len(d))
-		fmt.Printf("Missing items to add: %d\n", len(m))
-
-		log.WithFields(log.Fields{"prefix": prefixes[p], "graph items": len(ga), "object items": len(oag), "difference": len(d),
-			"missing": len(m)}).Info("Nabu Prune")
-
-		// For each in d will delete that graph
-		if len(d) > 0 {
-			bar := progressbar.Default(int64(len(d)))
-			for x := range d {
-				log.Infof("Removed graph: %s\n", d[x])
-				_, err = gdc.DropGraph(d[x])
-				if err != nil {
-					log.Errorf("Drop graph issue: %v\n", err)
-				}
-				err = bar.Add(1)
-				if err != nil {
-					log.Errorf("Progress bar update issue: %v\n", err)
-				}
-			}
-		}
-
-		//// load new ones
-		//spql, err := config.GetSparqlConfig(v1)
-		//if err != nil {
-		//	log.Error("prune -> config.GetSparqlConfig %v\n", err)
-		//}
-
-		if len(m) > 0 {
-			bar2 := progressbar.Default(int64(len(m)))
-			log.Info("uploading missing %n objects", len(m))
-			for x := range m {
-				np := oam[m[x]]
-				log.Tracef("Add graph: %s  %s \n", m[x], np)
-
-				panic("not implemented. make sure we loop over and pipe load each")
-
-				bytes := make([]byte, 0)
-				_, err := gdc.PipeLoad(bytes, bucketName, np)
-				if err != nil {
-					log.Errorf("prune -> pipeLoad %v\n", err)
-				}
-				err = bar2.Add(1)
-				if err != nil {
-					log.Errorf("Progress bar update issue: %v\n", err)
-				}
-			}
-		}
-	}
-	return nil
 }

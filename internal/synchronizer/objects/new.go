@@ -22,30 +22,6 @@ func NewMinioClientWrapper(v1 *viper.Viper) (*MinioClientWrapper, error) {
 		return nil, err
 	}
 
-	//endpoint := fmt.Sprintf("%s:%s", mcfg["address"], mcfg["port"])
-	//accessKeyID := mcfg["accesskey"]
-	//secretAccessKey := mcfg["secretkey"]
-	//useSSL, err := strconv.ParseBool(fmt.Sprintf("%s", mcfg["useSSL"]))
-	//endpoint := fmt.Sprintf("%s:%d", mcfg.Address, mcfg.Port)
-	//accessKeyID := mcfg.Accesskey
-	//secretAccessKey := mcfg.Secretkey
-	//useSSL := mcfg.Ssl
-
-	// minioClient, err := minio.New(endpoint, accessKeyID, secretAccessKey, true)
-
-	//minioClient, err := minio.New(endpoint, &minio.Options{Creds: credentials.NewStaticV4(accessKeyID, secretAccessKey, ""), Secure: useSSL})
-	//if err != nil {
-	//	err = errors.New(err.Error() + fmt.Sprintf("connection info: endpoint: %v SSL: %v ", endpoint, useSSL))
-	//
-	//	log.Fatalln(err)
-	//	return nil, err
-	//}
-
-	// minioClient.SetCustomTransport(&http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}})
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-
 	var endpoint, accessKeyID, secretAccessKey string
 	var useSSL bool
 
@@ -70,7 +46,7 @@ func NewMinioClientWrapper(v1 *viper.Viper) (*MinioClientWrapper, error) {
 				Secure: useSSL,
 			})
 	} else {
-		log.Println("info: region set for GCS or AWS, may cause issues with minio")
+		log.Warn("region set for GCS or AWS, may cause issues with minio")
 		region := mcfg.Region
 		minioClient, err = minio.New(endpoint,
 			&minio.Options{Creds: credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),

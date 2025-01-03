@@ -30,7 +30,7 @@ var prefixVal, endpointVal string
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "nabu",
-	Short: "nabu ",
+	Short: "nabu",
 	Long: `nabu
 `,
 	// Uncomment the following line if your bare application
@@ -107,14 +107,14 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 
-	mc, err = objects.MinioConnection(viperVal)
+	mc, err := objects.NewMinioClientWrapper(viperVal)
 	if err != nil {
 		log.Fatalf("cannot connect to minio: %s", err)
 	}
 
-	_, err = mc.ListBuckets(context.Background())
+	_, err = mc.Client.ListBuckets(context.Background())
 	if err != nil {
-		err = errors.New(err.Error() + fmt.Sprintf(" Ignore that. It's not the bucket. check config/minio: address, port, ssl. connection info: endpoint: %v ", mc.EndpointURL()))
+		err = errors.New(err.Error() + fmt.Sprintf(" Ignore that. It's not the bucket. check config/minio: address, port, ssl. connection info: endpoint: %v ", mc.Client.EndpointURL()))
 		log.Fatal("cannot connect to minio: ", err)
 	}
 
