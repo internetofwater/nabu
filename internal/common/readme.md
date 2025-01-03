@@ -1,0 +1,1 @@
+This directory defines code that is used by both the graph and s3 client so that it can be used and tested in both packages without import cycles

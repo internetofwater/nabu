@@ -2,14 +2,29 @@ package cli
 
 import (
 	"fmt"
-	"nabu/pkg"
-	log "github.com/sirupsen/logrus"
+	"nabu/internal/synchronizer"
 	"os"
 
+	"github.com/minio/minio-go/v7"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-//var bucket, objectVal string
+func object(v1 *viper.Viper, mc *minio.Client, bucket string, object string) error {
+	fmt.Println("Load graph object to triplestore")
+	client, err := synchronizer.NewSynchronizerClient(v1)
+	if err != nil {
+		return err
+	}
+	err = client.BulkLoad(object)
+	if err != nil {
+		log.Println(err)
+	}
+
+	return err
+}
 
 // checkCmd represents the check command
 var objectCmd = &cobra.Command{
@@ -21,7 +36,7 @@ var objectCmd = &cobra.Command{
 		if len(args) > 0 {
 			objectVal := args[0]
 
-			err := pkg.Object(viperVal, mc, bucketVal, objectVal)
+			err := object(viperVal, mc, bucketVal, objectVal)
 			if err != nil {
 				log.Fatal(err)
 				os.Exit(1)
