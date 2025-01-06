@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"nabu/internal/synchronizer"
 
 	log "github.com/sirupsen/logrus"
@@ -11,12 +10,11 @@ import (
 )
 
 func object(v1 *viper.Viper, object string) error {
-	fmt.Println("Load graph object to triplestore")
 	client, err := synchronizer.NewSynchronizerClient(v1)
 	if err != nil {
 		return err
 	}
-	err = client.BulkLoad(object)
+	err = client.UploadNqFileToTriplestore(object)
 	if err != nil {
 		log.Println(err)
 	}
@@ -28,18 +26,16 @@ func object(v1 *viper.Viper, object string) error {
 var objectCmd = &cobra.Command{
 	Use:   "object",
 	Short: "nabu object command",
-	Long:  `Load graph object to triplestore`,
+	Long:  `Load a single n-quads graph object from s3 into the triplestore`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("object called")
 		if len(args) > 0 {
 			objectVal := args[0]
-
 			err := object(viperVal, objectVal)
 			if err != nil {
 				log.Fatal(err)
 			}
 		} else {
-			log.Fatal("must have an argument nabu object objectId")
+			log.Fatal("must have exactly one argument which is the object to load")
 		}
 
 	},

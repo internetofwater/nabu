@@ -37,7 +37,7 @@ func findMissing(a, b []string) []string {
 	return result
 }
 
-func baseName(s string) string {
+func getTextBeforeDot(s string) string {
 	n := strings.LastIndexByte(s, '.')
 	if n == -1 {
 		return s

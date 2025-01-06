@@ -19,7 +19,7 @@ func (suite *GraphDbClientSuite) SetupSuite() {
 	suite.graphdb = graphdb
 	t := suite.T()
 	configPath := "./test_data/iow-config.ttl"
-	err = suite.graphdb.Client.CreateRepository(configPath)
+	err = suite.graphdb.Client.CreateRepositoryIfNotExists(configPath)
 	require.NoError(t, err)
 }
 

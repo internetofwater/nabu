@@ -10,16 +10,19 @@ import (
 
 // Wrapper to allow us to extend the minio client struct with new methods
 type MinioClientWrapper struct {
+	// Base client for accessing minio
 	Client *minio.Client
+	// Default bucket to use for operations. Used to avoid having to pass it as a parameter
+	DefaultBucket string
 }
 
-// Remove is the generic object collection function
-func (m *MinioClientWrapper) Remove(bucket, object string) error {
+// Remove an object from the store
+func (m *MinioClientWrapper) Remove(object string) error {
 	opts := minio.RemoveObjectOptions{
 		GovernanceBypass: true,
 	}
 
-	err := m.Client.RemoveObject(context.Background(), bucket, object, opts)
+	err := m.Client.RemoveObject(context.Background(), m.DefaultBucket, object, opts)
 	if err != nil {
 		log.Error(err)
 		return err
@@ -28,10 +31,9 @@ func (m *MinioClientWrapper) Remove(bucket, object string) error {
 	return err
 }
 
-// Copy is the generic object collection function
+// Copy objects. Can be to either the same bucket or a different bucket
 func (m *MinioClientWrapper) Copy(srcbucket, srcobject, dstbucket, dstobject string) error {
 
-	// Use-case 1: Simple copy object with no conditions.
 	// Source object
 	srcOpts := minio.CopySrcOptions{
 		Bucket: srcbucket,
@@ -55,64 +57,72 @@ func (m *MinioClientWrapper) Copy(srcbucket, srcobject, dstbucket, dstobject str
 
 	return nil
 }
-func (m *MinioClientWrapper) GetObjects(bucketName string, prefixes []string) ([]string, error) {
-	oa := []string{}
 
+func (m *MinioClientWrapper) NumberOfMatchingObjects(prefixes []string) (int, error) {
+	count := 0
 	for _, prefix := range prefixes {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		objectCh := m.Client.ListObjects(ctx, bucketName, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
+		objectCh := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
 
 		for object := range objectCh {
 			if object.Err != nil {
 				log.Println(object.Err)
-				return oa, object.Err
+				return count, object.Err
 			}
-			oa = append(oa, object.Key)
+			count++
 		}
-		log.Printf("%s:%s object count: %d\n", bucketName, prefix, len(oa))
+		log.Printf("%s:%s object count: %d\n", m.DefaultBucket, prefix, count)
 	}
-
-	return oa, nil
+	return count, nil
 }
 
-// GetS3Bytes simply pulls the byes of an object from the store
-func (m *MinioClientWrapper) GetS3Bytes(bucket, object string) ([]byte, string, error) {
-	fo, err := m.Client.GetObject(context.Background(), bucket, object, minio.GetObjectOptions{})
+// Return a list of object names in a bucket
+func (m *MinioClientWrapper) GetObjects(prefixes []string) ([]minio.ObjectInfo, error) {
+	objectArray := []minio.ObjectInfo{}
+
+	for _, prefix := range prefixes {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		objectCh := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
+
+		for object := range objectCh {
+			if object.Err != nil {
+				log.Println(object.Err)
+				return objectArray, object.Err
+			}
+			objectArray = append(objectArray, object)
+		}
+		log.Printf("%s:%s object count: %d\n", m.DefaultBucket, prefix, len(objectArray))
+	}
+
+	return objectArray, nil
+}
+
+// Get the byes of an object from the store
+func (m *MinioClientWrapper) GetObjectAsBytes(object string) ([]byte, error) {
+	fileObject, err := m.Client.GetObject(context.Background(), m.DefaultBucket, object, minio.GetObjectOptions{})
 	if err != nil {
 		log.Info(err)
-		return nil, "", err
+		return nil, err
 	}
-	defer fo.Close()
+	defer fileObject.Close()
 
-	oi, err := fo.Stat()
+	_, err = fileObject.Stat()
 	if err != nil {
-		log.Infof("Issue with reading an object:  %s%s", bucket, object)
+		log.Infof("Issue with reading an object:  %s%s", m.DefaultBucket, object)
+		return nil, err
 	}
-
-	dgraph := ""
-	if len(oi.Metadata["X-Amz-Meta-Dgraph"]) > 0 {
-		dgraph = oi.Metadata["X-Amz-Meta-Dgraph"][0]
-	}
-
-	// fmt.Printf("%s %s %s \n", urlval, sha1val, resuri)
-
-	// TODO  set an upper byte size  limit here and return error if the size is too big
-	// TODO  why was this done, return size too and let the calling function worry about it...????
-	//sz := oi.Size        // what type is this...
-	//if sz > 1073741824 { // if bigger than 1 GB (which is very small) move on
-	//	return nil, "", errors.New("gets3bytes says file above processing size threshold")
-	//}
 
 	buf := new(bytes.Buffer)
-	_, err = buf.ReadFrom(fo)
+	_, err = buf.ReadFrom(fileObject)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	bb := buf.Bytes() // Does a complete copy of the bytes in the buffer.
+	bufferBytes := buf.Bytes() // Does a complete copy of the bytes in the buffer.
 
-	return bb, dgraph, err
+	return bufferBytes, err
 }
 
 // BulkLoad

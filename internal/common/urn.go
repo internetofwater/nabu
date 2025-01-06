@@ -8,10 +8,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// MakeURN formats a URN following the ADR 0001-URN-decision.md  which at the
-// time of this coding resulted in     urn:{program}:{organization}:{provider}:{sha}
+// MakeURN formats a URN following urn:{program}:{organization}:{provider}:{sha}
 func MakeURN(s string) (string, error) {
-
 	var (
 		g   string // build the URN for the graph context string we use
 		err error

@@ -1,7 +1,6 @@
 package objects
 
 import (
-	"errors"
 	"fmt"
 
 	"nabu/pkg/config"
@@ -14,28 +13,22 @@ import (
 
 // MinioConnection Set up minio and initialize client
 func NewMinioClientWrapper(v1 *viper.Viper) (*MinioClientWrapper, error) {
-	//mcfg := v1.GetStringMapString("minio")
 
 	mcfg, err := config.GetMinioConfig(v1)
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
-
-	var endpoint, accessKeyID, secretAccessKey string
-	var useSSL bool
+	var endpoint string
 
 	if mcfg.Port == 0 {
 		endpoint = mcfg.Address
-		accessKeyID = mcfg.Accesskey
-		secretAccessKey = mcfg.Secretkey
-		useSSL = mcfg.Ssl
 	} else {
 		endpoint = fmt.Sprintf("%s:%d", mcfg.Address, mcfg.Port)
-		accessKeyID = mcfg.Accesskey
-		secretAccessKey = mcfg.Secretkey
-		useSSL = mcfg.Ssl
 	}
+	accessKeyID := mcfg.Accesskey
+	secretAccessKey := mcfg.Secretkey
+	useSSL := mcfg.Ssl
 
 	var minioClient *minio.Client
 
@@ -55,12 +48,5 @@ func NewMinioClientWrapper(v1 *viper.Viper) (*MinioClientWrapper, error) {
 			})
 	}
 
-	minioClient.IsOnline()
-	if err != nil {
-		err = errors.New(err.Error() + fmt.Sprintf("connection info: endpoint: %v SSL: %v ", endpoint, useSSL))
-
-		log.Fatalln(err)
-		return nil, err
-	}
-	return &MinioClientWrapper{Client: minioClient}, err
+	return &MinioClientWrapper{Client: minioClient, DefaultBucket: mcfg.Bucket}, err
 }

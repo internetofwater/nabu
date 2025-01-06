@@ -1,9 +1,7 @@
 package cli
 
 import (
-	"nabu/internal/synchronizer/graph"
-
-	"os"
+	"nabu/internal/synchronizer"
 
 	log "github.com/sirupsen/logrus"
 
@@ -18,15 +16,16 @@ func clear(v1 *viper.Viper) error {
 
 	if d {
 		log.Println("dangerous mode is enabled")
-		graph := graph.GraphDbClient{}
-		err := graph.ClearAllGraphs()
+		synchronizerClient, err := synchronizer.NewSynchronizerClient(v1)
 		if err != nil {
-			log.Error(err)
+			return err
+		}
+		err = synchronizerClient.GraphClient.ClearAllGraphs()
+		if err != nil {
 			return err
 		}
 	} else {
-		log.Println("dangerous mode must be set to true to run this")
-		return nil
+		log.Fatal("dangerous mode must be set to true to run this")
 	}
 
 	return nil
@@ -41,9 +40,7 @@ var ClearCmd = &cobra.Command{
 		err := clear(viperVal)
 		if err != nil {
 			log.Fatal(err)
-			os.Exit(1)
 		}
-		os.Exit(0)
 	},
 }
 

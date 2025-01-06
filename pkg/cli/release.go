@@ -14,7 +14,8 @@ func release(v1 *viper.Viper) error {
 	if err != nil {
 		return err
 	}
-	err = client.BulkRelease(v1)
+	prefixes := []string{}
+	err = client.GenerateNqReleaseAndArchiveOld(prefixes)
 
 	if err != nil {
 		log.Error(err)
@@ -22,11 +23,10 @@ func release(v1 *viper.Viper) error {
 	return err
 }
 
-// checkCmd represents the check command
 var releaseCmd = &cobra.Command{
 	Use:   "release",
 	Short: "nabu release command",
-	Long:  `Generate releases for the indexes sources and also a master release`,
+	Long:  `Generate static file nq releases for the indexes sources and also a master release`,
 	Run: func(cmd *cobra.Command, args []string) {
 		err := release(viperVal)
 		if err != nil {

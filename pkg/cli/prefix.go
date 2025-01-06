@@ -15,7 +15,8 @@ func prefix(v1 *viper.Viper) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = client.ObjectAssembly()
+	prefixes := []string{}
+	err = client.CopyAllPrefixedObjToTriplestore(prefixes)
 
 	if err != nil {
 		log.Error(err)
@@ -27,7 +28,7 @@ func prefix(v1 *viper.Viper) error {
 var PrefixCmd = &cobra.Command{
 	Use:   "prefix ",
 	Short: "nabu prefix command",
-	Long:  `Load graphs from prefix to triplestore`,
+	Long:  `Load graphs in s3 with a specific prefix into the triplestore`,
 	Run: func(cmd *cobra.Command, args []string) {
 		err := prefix(viperVal)
 		if err != nil {

@@ -64,7 +64,7 @@ func NewGraphDbClient(v1 *viper.Viper) (*GraphDbClient, error) {
 
 }
 
-func (graphClient *GraphDbClient) CreateRepository(ttlConfigPath string) error {
+func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath string) error {
 	// Open the TTL config file
 	file, err := os.Open(ttlConfigPath)
 	if err != nil {
@@ -108,9 +108,19 @@ func (graphClient *GraphDbClient) CreateRepository(ttlConfigPath string) error {
 	}
 	defer resp.Body.Close()
 
-	// Check the response
-	if resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body) // Optional: Read response body for debugging
+	if resp.StatusCode == 400 {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read response body: %w", err)
+		}
+		bodyStr := string(bodyBytes)
+		if strings.Contains(bodyStr, "already exists") {
+			log.Warn("Repository already exists so skipping creation")
+			return nil
+		}
+		return fmt.Errorf("failed to create repository, status: %d, response: %s", resp.StatusCode, bodyStr)
+	} else if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to create repository, status: %d, response: %s", resp.StatusCode, string(body))
 	}
 	return nil
@@ -148,7 +158,7 @@ func (graphClient *GraphDbClient) CreateGraph(graph string) error {
 	return nil
 }
 
-// Insert data into the triplestore
+// Insert triples into the triplestore by listing them in the standard triple format and specifying an associated graph
 func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, graphURI string) error {
 
 	log.Debugf("Inserting data into graph: %s", graphURI)
@@ -192,7 +202,6 @@ func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, gr
 	}
 
 	body, err := io.ReadAll(resp.Body)
-	// log.Println(string(body))
 	if err != nil {
 		log.Error("response Body:", string(body))
 		log.Error("response Status:", resp.Status)
@@ -204,7 +213,7 @@ func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, gr
 
 }
 
-// remove a graph from the graph database
+// Remove a graph entirely from the graph database
 func (graphClient *GraphDbClient) DropGraph(graph string) error {
 
 	d := fmt.Sprintf("DROP GRAPH <%s> ", graph)
@@ -272,7 +281,7 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 	return err
 }
 
-// holds results from the http query
+// holds results from the sparql ASK query
 type ask struct {
 	Head    map[string]interface{} `json:"head"`    // Map for flexible JSON object
 	Boolean bool                   `json:"boolean"` // Boolean value
@@ -289,7 +298,6 @@ func (graphClient *GraphDbClient) GraphExists(graph string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	// req.Header.Set("Accept", "application/sparql-results+json")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -337,8 +345,6 @@ func (graphClient *GraphDbClient) ListNamedGraphs(prefix string) ([]string, erro
 		return ga, err
 	}
 
-	//d := fmt.Sprintf("SELECT DISTINCT ?g WHERE {GRAPH ?g {?s ?p ?o} FILTER regex(str(?g), \"^%s\")}", gp)
-
 	d := "SELECT DISTINCT ?g WHERE {GRAPH ?g {?s ?p ?o} }"
 
 	log.Printf("Pattern: %s\n", gp)
@@ -351,7 +357,6 @@ func (graphClient *GraphDbClient) ListNamedGraphs(prefix string) ([]string, erro
 		log.Println(err)
 	}
 
-	// These headers
 	req.Header.Set("Accept", "application/sparql-results+json")
 
 	client := &http.Client{}
@@ -374,14 +379,6 @@ func (graphClient *GraphDbClient) ListNamedGraphs(prefix string) ([]string, erro
 		log.Println("response Headers:", resp.Header)
 		log.Println("response Body:", string(body))
 	}
-
-	// debugging calls
-	//fmt.Println("response Body:", string(body))
-	//err = ioutil.WriteFile("body.txt", body, 0644)
-	//if err != nil {
-	//	fmt.Println("An error occurred:", err)
-	//	return ga, err
-	//}
 
 	result := gjson.Get(string(body), "results.bindings.#.g.value")
 	result.ForEach(func(key, value gjson.Result) bool {
