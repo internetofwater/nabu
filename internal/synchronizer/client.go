@@ -108,7 +108,7 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3() error {
 			bar := progressbar.Default(int64(len(d)))
 			for x := range d {
 				log.Infof("Removed graph: %s\n", d[x])
-				_, err = synchronizer.graphClient.DropGraph(d[x])
+				err = synchronizer.graphClient.DropGraph(d[x])
 				if err != nil {
 					log.Errorf("Drop graph issue: %v\n", err)
 				}
@@ -159,7 +159,6 @@ func (synchronizer *SynchronizerClient) PipeLoad(bytes []byte, object string) ([
 		// should this just return. since on this error things are not good
 	}
 
-
 	// TODO, use the mimetype or suffix in general to select the path to load    or overload from the config file?
 	// check the object string
 	mt := mime.TypeByExtension(filepath.Ext(object))
@@ -181,7 +180,7 @@ func (synchronizer *SynchronizerClient) PipeLoad(bytes []byte, object string) ([
 	}
 
 	// drop any graph we are going to load..  we assume we are doing those due to an update...
-	_, err = synchronizer.graphClient.DropGraph(g)
+	err = synchronizer.graphClient.DropGraph(g)
 	if err != nil {
 		log.Error(err)
 	}
@@ -205,7 +204,7 @@ func (synchronizer *SynchronizerClient) PipeLoad(bytes []byte, object string) ([
 		if lc == 10000 { // use line count, since byte len might break inside a triple statement..   it's an OK proxy
 			log.Tracef("Subgraph of %d lines", len(sg))
 			// TODO..  upload what we have here, modify the call code to upload these sections
-			err = synchronizer.graphClient.Insert(g, strings.Join(sg, "\n"), false) // convert []string to strings joined with new line to form a RDF NT set
+			err = synchronizer.graphClient.InsertWithNamedGraph(g, strings.Join(sg, "\n")) // convert []string to strings joined with new line to form a RDF NT set
 			if err != nil {
 				log.Errorf("Insert err: %s", err)
 			}
@@ -215,7 +214,7 @@ func (synchronizer *SynchronizerClient) PipeLoad(bytes []byte, object string) ([
 	}
 	if lc > 0 {
 		log.Tracef("Subgraph (out of scanner) of %d lines", len(sg))
-		err = synchronizer.graphClient.Insert(g, strings.Join(sg, "\n"), false) // convert []string to strings joined with new line to form a RDF NT set
+		err = synchronizer.graphClient.InsertWithNamedGraph(g, strings.Join(sg, "\n")) // convert []string to strings joined with new line to form a RDF NT set
 	}
 
 	return []byte{}, err

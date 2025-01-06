@@ -28,7 +28,7 @@ type TriplestoreMethods interface {
 	InsertWithNamedGraph(data TriplesAsText, graphURI string) string
 
 	// ClearAllGraphs clears all graphs in the triplestore.
-	DropAllGraphs() error
+	ClearAllGraphs() error
 
 	// Checks if a specified graph exists in the triplestore.
 	GraphExists(graph string) (bool, error)
@@ -239,7 +239,7 @@ func (graphClient *GraphDbClient) DropGraph(graph string) error {
 }
 
 // Remove all triples from all graphs but keep the graphs themselves
-func (graphClient *GraphDbClient) DropAllGraphs() error {
+func (graphClient *GraphDbClient) ClearAllGraphs() error {
 	d := "CLEAR ALL"
 
 	pab := []byte(d)
