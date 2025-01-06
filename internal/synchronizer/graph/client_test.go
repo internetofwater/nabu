@@ -23,9 +23,9 @@ func (suite *GraphDbClientSuite) SetupSuite() {
 	require.NoError(t, err)
 }
 
-func (suite *GraphDbClientSuite) Test_GraphExists() {
+func (suite *GraphDbClientSuite) TestGraphExists() {
 	t := suite.T()
-	isGraph, err := suite.graphdb.Client.GraphExists("http://example.org/graph/test")
+	isGraph, err := suite.graphdb.Client.GraphExists("http://example.org/DUMMY_GRAPH")
 
 	require.Equal(t, false, isGraph)
 	require.NoError(t, err)
@@ -33,23 +33,47 @@ func (suite *GraphDbClientSuite) Test_GraphExists() {
 	// try a malformed query, make sure it errors
 	_, err = suite.graphdb.Client.GraphExists("")
 	require.Error(t, err)
-
+	require.Contains(t, err.Error(), "MALFORMED QUERY")
 }
 
-func (suite *GraphDbClientSuite) TestCreateGraph() {
+func (suite *GraphDbClientSuite) TestInsert() {
+	graph := "http://example.org/graph/test"
+	data := `
+	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .
+	<http://example.org/resource/2> <http://example.org/property/name> "Bob" .
+`
 	t := suite.T()
 
-	client := suite.graphdb.Client
-
-	testGraphName := "http://example.org/graph/test"
-
-	err := client.CreateGraph(testGraphName)
+	err := suite.graphdb.Client.InsertWithNamedGraph(data, graph)
 	require.NoError(t, err)
 
-	res, err := client.GraphExists("dummyGraph")
+	graphExists, err := suite.graphdb.Client.GraphExists(graph)
 	require.NoError(t, err)
-	require.True(t, res)
+	require.True(t, graphExists)
+}
 
+func (suite *GraphDbClientSuite) TestDropGraph() {
+
+	graph := "http://example.org/graph/test"
+	t := suite.T()
+
+	// insert data with the graph
+	data := `
+	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .`
+
+	err := suite.graphdb.Client.InsertWithNamedGraph(data, graph)
+	require.NoError(t, err)
+
+	graphExists, err := suite.graphdb.Client.GraphExists(graph)
+	require.NoError(t, err)
+	require.True(t, graphExists)
+
+	err = suite.graphdb.Client.DropGraph(graph)
+	require.NoError(t, err)
+
+	graphExists, err = suite.graphdb.Client.GraphExists(graph)
+	require.NoError(t, err)
+	require.False(t, graphExists)
 }
 
 // Run the entire test suite

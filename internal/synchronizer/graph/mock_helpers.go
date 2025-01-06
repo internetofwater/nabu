@@ -2,6 +2,7 @@ package graph
 
 import (
 	"context"
+	"fmt"
 	"nabu/pkg/config"
 
 	"github.com/testcontainers/testcontainers-go"
@@ -12,7 +13,6 @@ type GraphDBContainer struct {
 	mappedPort int
 	Container  *testcontainers.Container
 	Client     GraphDbClient
-	baseUrl    string
 }
 
 // Spin up a local graphdb container and the associated client
@@ -21,6 +21,7 @@ func NewGraphDBContainer(repository string) (GraphDBContainer, error) {
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
 		Image:        "khaller/graphdb-free",
+		Name:         "graphdbTestcontainer", // the name used for ryuk cleanup
 		ExposedPorts: []string{"7200/tcp"},
 		// We use a regex here since graphdb adds additional context info at the
 		// start of the log message like the date / time
@@ -29,6 +30,7 @@ func NewGraphDBContainer(repository string) (GraphDBContainer, error) {
 	graphdbC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
+		Reuse:            true,
 	})
 
 	if err != nil {
@@ -47,14 +49,20 @@ func NewGraphDBContainer(repository string) (GraphDBContainer, error) {
 		return GraphDBContainer{}, err
 	}
 	sparqlConfig := config.Sparql{
-		Endpoint:       "http://" + host + ":" + port.Port() + "/repositories/" + repository,
-		EndpointBulk:   "http://" + host + ":" + port.Port() + "/repositories/" + repository + "/_bulk",
+		Endpoint:       "http://" + host + ":" + port.Port(),
+		EndpointBulk:   "http://" + host + ":" + port.Port(),
 		EndpointMethod: "GET",
 		ContentType:    "application/sparql-results+xml",
 		Authenticate:   false,
 		Username:       "",
 		Password:       "",
 	}
-	client := GraphDbClient{SparqlConf: sparqlConfig, BaseUrl: "http://" + host + ":" + port.Port()}
+	client := GraphDbClient{
+		SparqlConf:         sparqlConfig,
+		BaseUrl:            fmt.Sprintf("http://%s:%s", host, port.Port()),
+		BaseRepositoryUrl:  fmt.Sprintf("http://%s:%s/repositories/%s", host, port.Port(), repository),
+		BaseRESTUrl:        fmt.Sprintf("http://%s:%s/rest", host, port.Port()),
+		BaseSparqlQueryUrl: fmt.Sprintf("http://%s:%s/repositories/%s/statements", host, port.Port(), repository),
+	}
 	return GraphDBContainer{Client: client, mappedPort: port.Int(), Container: &graphdbC}, nil
 }

@@ -159,10 +159,6 @@ func (synchronizer *SynchronizerClient) PipeLoad(bytes []byte, object string) ([
 		// should this just return. since on this error things are not good
 	}
 
-	if err != nil {
-		log.Errorf("gets3Bytes %v\n", err)
-		// should this just return. Do we have an object?
-	}
 
 	// TODO, use the mimetype or suffix in general to select the path to load    or overload from the config file?
 	// check the object string
