@@ -3,16 +3,14 @@ package cli
 import (
 	"fmt"
 	"nabu/internal/synchronizer"
-	"os"
 
-	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-func object(v1 *viper.Viper, mc *minio.Client, bucket string, object string) error {
+func object(v1 *viper.Viper, object string) error {
 	fmt.Println("Load graph object to triplestore")
 	client, err := synchronizer.NewSynchronizerClient(v1)
 	if err != nil {
@@ -36,15 +34,12 @@ var objectCmd = &cobra.Command{
 		if len(args) > 0 {
 			objectVal := args[0]
 
-			err := object(viperVal, mc, bucketVal, objectVal)
+			err := object(viperVal, objectVal)
 			if err != nil {
 				log.Fatal(err)
-				os.Exit(1)
 			}
-			os.Exit(0)
 		} else {
 			log.Fatal("must have an argument nabu object objectId")
-			os.Exit(1)
 		}
 
 	},

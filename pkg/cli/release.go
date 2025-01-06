@@ -3,14 +3,13 @@ package cli
 import (
 	"nabu/internal/synchronizer"
 
-	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-func release(v1 *viper.Viper, mc *minio.Client) error {
+func release(v1 *viper.Viper) error {
 	client, err := synchronizer.NewSynchronizerClient(v1)
 	if err != nil {
 		return err
@@ -29,7 +28,7 @@ var releaseCmd = &cobra.Command{
 	Short: "nabu release command",
 	Long:  `Generate releases for the indexes sources and also a master release`,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := release(viperVal, mc)
+		err := release(viperVal)
 		if err != nil {
 			log.Fatal(err)
 		}

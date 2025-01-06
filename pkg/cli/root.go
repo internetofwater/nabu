@@ -13,7 +13,6 @@ import (
 	"nabu/internal/synchronizer/objects"
 	"nabu/pkg/config"
 
-	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
@@ -24,7 +23,6 @@ var cfgFile, cfgName, cfgPath, nabuConfName string
 var minioVal, portVal, accessVal, secretVal, bucketVal string
 var sslVal, dangerousVal bool
 var viperVal *viper.Viper
-var mc *minio.Client
 var prefixVal, endpointVal string
 
 // rootCmd represents the base command when called without any subcommands

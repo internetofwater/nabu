@@ -5,14 +5,13 @@ import (
 
 	"os"
 
-	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-func clear(v1 *viper.Viper, mc *minio.Client) error {
+func clear(v1 *viper.Viper) error {
 	log.Info("Nabu started with mode: clear")
 
 	d := v1.GetBool("flags.dangerous")
@@ -39,7 +38,7 @@ var ClearCmd = &cobra.Command{
 	Short: "nabu clear command",
 	Long:  `Removes all graphs from a SPARQL endpoint `,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := clear(viperVal, mc)
+		err := clear(viperVal)
 		if err != nil {
 			log.Fatal(err)
 			os.Exit(1)
