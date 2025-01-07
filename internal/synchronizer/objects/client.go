@@ -47,13 +47,11 @@ func (m *MinioClientWrapper) Copy(srcbucket, srcobject, dstbucket, dstobject str
 	}
 
 	// Copy object call
-	uploadInfo, err := m.Client.CopyObject(context.Background(), dstOpts, srcOpts)
+	_, err := m.Client.CopyObject(context.Background(), dstOpts, srcOpts)
 	if err != nil {
 		log.Println(err)
 		return err
 	}
-
-	log.Println("Successfully copied object:", uploadInfo)
 
 	return nil
 }

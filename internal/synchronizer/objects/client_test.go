@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/minio/minio-go/v7"
@@ -32,6 +33,13 @@ func (suite *S3ClientSuite) SetupSuite() {
 // both with and without prefixes
 func (suite *S3ClientSuite) TestNumberOfMatchedObjects() {
 	t := suite.T()
+
+	// remove all objects from the bucket before testing
+	// that way we know we are starting from 0 items
+	for object := range suite.minioContainer.ClientWrapper.Client.ListObjects(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, minio.ListObjectsOptions{}) {
+		err := suite.minioContainer.ClientWrapper.Client.RemoveObject(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, object.Key, minio.RemoveObjectOptions{})
+		require.NoError(t, err)
+	}
 
 	// Insert test data into MinIO
 	insertTestData := func(prefix string, count int) {
@@ -80,50 +88,137 @@ func (suite *S3ClientSuite) TestNumberOfMatchedObjects() {
 	require.Equal(t, testPrefixedObjects+otherPrefixedObjects, matchedObjects)
 }
 
-func (t *S3ClientSuite) TestRemove() {
+// make sure that we can remove objects from the minio bucket
+func (suite *S3ClientSuite) TestRemove() {
 
-	// reset the bucket before testing remove so we
-	//  dont have any artifacts from previous runs
-	err := t.minioContainer.ClientWrapper.Client.RemoveBucket(context.Background(), t.minioContainer.ClientWrapper.DefaultBucket)
-	require.NoError(t.T(), err)
-
-	err = t.minioContainer.ClientWrapper.Client.MakeBucket(context.Background(), t.minioContainer.ClientWrapper.DefaultBucket, minio.MakeBucketOptions{})
-	require.NoError(t.T(), err)
+	// Validate the number of matched objects
+	// before inserting so we dont need to wipe the bucket
+	beforeInsert, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
+	require.NoError(suite.T(), err)
 
 	// Insert test data into MinIO
 	insertTestData := func(count int) {
 		objectData := []byte("test data")
 		for i := 0; i < count; i++ {
-			objectName := "test-object-" + fmt.Sprint(i)
-			_, err := t.minioContainer.ClientWrapper.Client.PutObject(
+			objectName := "removable-object-" + fmt.Sprint(i)
+			_, err := suite.minioContainer.ClientWrapper.Client.PutObject(
 				context.Background(),
-				t.minioContainer.ClientWrapper.DefaultBucket,
+				suite.minioContainer.ClientWrapper.DefaultBucket,
 				objectName,
 				bytes.NewReader(objectData),
 				int64(len(objectData)),
 				minio.PutObjectOptions{},
 			)
-			require.NoError(t.T(), err)
+			require.NoError(suite.T(), err)
 		}
 	}
 
-	const objects = 10
+	const newObjects = 10
 	// Insert objects
-	insertTestData(objects)
+	insertTestData(newObjects)
 
 	// Validate the number of matched objects
-	matchedObjects, err := t.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
-	require.NoError(t.T(), err)
-	require.Equal(t.T(), objects, matchedObjects)
+	matchedObjectsAfterInsert, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), newObjects+beforeInsert, matchedObjectsAfterInsert)
 
 	// Remove an object
-	err = t.minioContainer.ClientWrapper.Remove("test-object-0")
-	require.NoError(t.T(), err)
+	err = suite.minioContainer.ClientWrapper.Remove("removable-object-0")
+	require.NoError(suite.T(), err)
 
 	// Validate the number of matched objects
-	matchedObjects, err = t.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
-	require.NoError(t.T(), err)
-	require.Equal(t.T(), objects-1, matchedObjects)
+	matchedObjectsAfterInsert, err = suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), beforeInsert+newObjects-1, matchedObjectsAfterInsert)
+}
+
+// Make sure that we can retrieve object info from a given bucket
+func (suite *S3ClientSuite) TestGetObjects() {
+
+	// Validate the number of matched objects
+	// before inserting so we dont need to wipe the bucket
+	beforeInsert, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
+	require.NoError(suite.T(), err)
+
+	// Insert test data into MinIO
+	insertTestData := func(count int) {
+		for i := 0; i < count; i++ {
+			objectData := []byte(fmt.Sprintf("test data %d", i))
+
+			objectName := "get-object-" + fmt.Sprint(i)
+			_, err := suite.minioContainer.ClientWrapper.Client.PutObject(
+				context.Background(),
+				suite.minioContainer.ClientWrapper.DefaultBucket,
+				objectName,
+				bytes.NewReader(objectData),
+				int64(len(objectData)),
+				minio.PutObjectOptions{},
+			)
+			require.NoError(suite.T(), err)
+		}
+	}
+
+	const newObjects = 10
+	// Insert objects
+	insertTestData(newObjects)
+
+	// get the objects
+	objects, err := suite.minioContainer.ClientWrapper.GetObjects([]string{""})
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), newObjects+beforeInsert, len(objects))
+
+	// get the first key and use that to get the data from within that object
+	firstKey := objects[0].Key
+	object, err := suite.minioContainer.ClientWrapper.Client.GetObject(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, firstKey, minio.GetObjectOptions{})
+	require.NoError(suite.T(), err)
+	// check the data
+	data, err := io.ReadAll(object)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), "test data 0", string(data))
+
+}
+
+// Make sure that we can copy data between the same bucket
+func (suite *S3ClientSuite) TestCopyBetweenBuckets() {
+
+	// check the number of items in the default bucket
+	_, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
+	require.NoError(suite.T(), err)
+
+	testObj := "test-object-for-copy-test"
+
+	// Insert one item into minio as a test
+	_, err = suite.minioContainer.ClientWrapper.Client.PutObject(
+		context.Background(),
+		suite.minioContainer.ClientWrapper.DefaultBucket,
+		testObj,
+		bytes.NewReader([]byte(testObj)),
+		int64(len(testObj)),
+		minio.PutObjectOptions{},
+	)
+	require.NoError(suite.T(), err)
+
+	newBucket := "new-bucket"
+	// make a new bucket
+	err = suite.minioContainer.ClientWrapper.Client.MakeBucket(context.Background(), newBucket, minio.MakeBucketOptions{})
+	require.NoError(suite.T(), err)
+
+	// copy the object to the new bucket
+	err = suite.minioContainer.ClientWrapper.Copy(
+		suite.minioContainer.ClientWrapper.DefaultBucket,
+		testObj,
+		suite.minioContainer.ClientWrapper.DefaultBucket,
+		testObj+"2",
+	)
+	require.NoError(suite.T(), err)
+
+	// get the data in testObj2 and make sure it is the same as testObj
+	object, err := suite.minioContainer.ClientWrapper.Client.GetObject(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, testObj+"2", minio.GetObjectOptions{})
+	require.NoError(suite.T(), err)
+	// check the data
+	data, err := io.ReadAll(object)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), testObj, string(data))
 }
 
 // Run the entire test suite
