@@ -9,17 +9,17 @@ import (
 	"github.com/spf13/viper"
 )
 
-func object(v1 *viper.Viper, object string) error {
+func object(v1 *viper.Viper, objectName string) error {
 	client, err := synchronizer.NewSynchronizerClient(v1)
 	if err != nil {
 		return err
 	}
-	err = client.UploadNqFileToTriplestore(object)
+	err = client.UploadNqFileToTriplestore(objectName)
 	if err != nil {
-		log.Println(err)
+		return err
 	}
 
-	return err
+	return nil
 }
 
 // checkCmd represents the check command

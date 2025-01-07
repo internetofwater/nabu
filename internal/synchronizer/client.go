@@ -122,6 +122,7 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(prefixes []string) e
 			err = synchronizer.UpsertDataForGraph(objBytes, graphObjectName)
 			if err != nil {
 				log.Errorf("prune -> pipeLoad %v\n", err)
+				return err
 			}
 		}
 	}
@@ -135,7 +136,6 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(prefixes []string) e
 // Takes in the raw bytes which represent rdf data and the associated
 // named triplestore.
 func (synchronizer *SynchronizerClient) UpsertDataForGraph(rawJsonldOrNqBytes []byte, objectName string) error {
-	// build our quad/graph from the object path
 
 	graphName, err := common.MakeURN(objectName)
 	if err != nil {
@@ -252,7 +252,7 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefixes
 }
 
 // writes a new object based on an prefix, this function assumes the objects are valid when concatenated
-func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(name, prefix, destprefix string) error {
+func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName, srcPrefix, destPrefix string) error {
 
 	pipeReader, pipeWriter := io.Pipe()       // TeeReader of use?
 	pipeTransferWorkGroup := sync.WaitGroup{} // work group for the pipe writes...
@@ -265,7 +265,7 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(name, pref
 	// Write the nq files to the pipe
 	go func() {
 		defer pipeTransferWorkGroup.Done()
-		err := getObjectsAndWriteToPipe(synchronizer, destprefix, pipeWriter)
+		err := getObjectsAndWriteToPipe(synchronizer, destPrefix, pipeWriter)
 		if err != nil {
 			log.Error(err)
 		}
@@ -274,7 +274,7 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(name, pref
 	// read the nq files from the pipe and copy them to minio
 	go func() {
 		defer pipeTransferWorkGroup.Done()
-		_, err := synchronizer.s3Client.Client.PutObject(context.Background(), synchronizer.bucketName, fmt.Sprintf("%s/%s", destprefix, name), pipeReader, -1, minio.PutObjectOptions{})
+		_, err := synchronizer.s3Client.Client.PutObject(context.Background(), synchronizer.bucketName, fmt.Sprintf("%s/%s", destPrefix, objectName), pipeReader, -1, minio.PutObjectOptions{})
 		//_, err := mc.PutObject(context.Background(), bucket, fmt.Sprintf("%s/%s", prefix, name), pr, -1, minio.PutObjectOptions{})
 		if err != nil {
 			log.Error(err)
@@ -344,9 +344,9 @@ func (synchronizer *SynchronizerClient) GenerateNqReleaseAndArchiveOld(prefixes 
 }
 
 // Loads a single stored release graph into the graph database
-func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqFilePath string) error {
+func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 string) error {
 
-	byt, err := synchronizer.s3Client.GetObjectAsBytes(nqFilePath)
+	byt, err := synchronizer.s3Client.GetObjectAsBytes(nqPathInS3)
 	if err != nil {
 		return err
 	}
@@ -357,14 +357,14 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqFilePath str
 	// Review if this graph g should b here since we are loading quads
 	// I don't think it should b.   validate with all the tested triple stores
 	//bn := strings.Replace(bucketName, ".", ":", -1) // convert to urn : values, buckets with . are not valid IRIs
-	g, err := common.MakeURN(nqFilePath)
+	g, err := common.MakeURN(nqPathInS3)
 	if err != nil {
 		return err
 	}
 	url := fmt.Sprintf("%s?graph=%s", synchronizer.GraphClient.SparqlConf.Endpoint, g)
 
 	// if the file is jsonld make it nquads before it is uploaded
-	if strings.Contains(nqFilePath, ".jsonld") {
+	if strings.Contains(nqPathInS3, ".jsonld") {
 		convertedNq, err := common.JsonldToNQ(string(byt))
 		if err != nil {
 			return err
@@ -393,7 +393,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqFilePath str
 
 	// report
 	log.Println(string(body))
-	log.Printf("success: %s : %d  : %s\n", nqFilePath, len(byt), synchronizer.GraphClient.SparqlConf.Endpoint)
+	log.Printf("success: %s : %d  : %s\n", nqPathInS3, len(byt), synchronizer.GraphClient.SparqlConf.Endpoint)
 
 	return err
 }

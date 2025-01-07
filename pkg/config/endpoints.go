@@ -46,7 +46,6 @@ func GetEndPointsConfig(v1 *viper.Viper) ([]EndPoint, error) {
 	err := v1.UnmarshalKey(subtreeKey, &endpointsCfg)
 	if err != nil {
 		log.Fatal("error when parsing ", subtreeKey, " config: ", err)
-		//No sources, so nothing to run
 	}
 
 	return endpointsCfg, err

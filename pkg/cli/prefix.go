@@ -2,6 +2,7 @@ package cli
 
 import (
 	"nabu/internal/synchronizer"
+	"nabu/pkg/config"
 
 	log "github.com/sirupsen/logrus"
 
@@ -15,11 +16,14 @@ func prefix(v1 *viper.Viper) error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	prefixes := []string{}
-	err = client.CopyAllPrefixedObjToTriplestore(prefixes)
+	objConfig, err := config.GetConfigForS3Objects(v1)
+	if err != nil {
+		return err
+	}
+	err = client.CopyAllPrefixedObjToTriplestore(objConfig.Prefixes)
 
 	if err != nil {
-		log.Error(err)
+		return err
 	}
 	return err
 }

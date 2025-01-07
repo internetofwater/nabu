@@ -2,6 +2,7 @@ package cli
 
 import (
 	"nabu/internal/synchronizer"
+	"nabu/pkg/config"
 
 	log "github.com/sirupsen/logrus"
 
@@ -15,8 +16,11 @@ func prune(v1 *viper.Viper) error {
 	if err != nil {
 		return err
 	}
-
-	err = client.RemoveGraphsNotInS3()
+	objConfig, err := config.GetConfigForS3Objects(v1)
+	if err != nil {
+		return err
+	}
+	err = client.RemoveGraphsNotInS3(objConfig.Prefixes)
 	if err != nil {
 		log.Error(err)
 	}

@@ -12,9 +12,9 @@ import (
 func clear(v1 *viper.Viper) error {
 	log.Info("Nabu started with mode: clear")
 
-	d := v1.GetBool("flags.dangerous")
+	dangerous := v1.GetBool("flags.dangerous")
 
-	if d {
+	if dangerous {
 		log.Println("dangerous mode is enabled")
 		synchronizerClient, err := synchronizer.NewSynchronizerClient(v1)
 		if err != nil {

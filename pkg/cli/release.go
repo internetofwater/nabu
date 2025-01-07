@@ -2,6 +2,7 @@ package cli
 
 import (
 	"nabu/internal/synchronizer"
+	"nabu/pkg/config"
 
 	log "github.com/sirupsen/logrus"
 
@@ -14,8 +15,12 @@ func release(v1 *viper.Viper) error {
 	if err != nil {
 		return err
 	}
-	prefixes := []string{}
-	err = client.GenerateNqReleaseAndArchiveOld(prefixes)
+	objConfig, err := config.GetConfigForS3Objects(v1)
+	if err != nil {
+		return err
+	}
+
+	err = client.GenerateNqReleaseAndArchiveOld(objConfig.Prefixes)
 
 	if err != nil {
 		log.Error(err)
