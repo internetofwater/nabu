@@ -15,6 +15,7 @@ func prune(v1 *viper.Viper) error {
 	if err != nil {
 		return err
 	}
+
 	err = client.RemoveGraphsNotInS3()
 	if err != nil {
 		log.Error(err)

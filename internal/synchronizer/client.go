@@ -9,8 +9,8 @@ import (
 	"io"
 	"mime"
 	"nabu/internal/common"
-	"nabu/internal/synchronizer/graph"
 	"nabu/internal/synchronizer/objects"
+	"nabu/internal/synchronizer/triplestore"
 	"nabu/pkg/config"
 	"net/http"
 	"path"
@@ -27,7 +27,7 @@ import (
 // Client to perform operations that synchronize the graph database with the object store
 type SynchronizerClient struct {
 	// the client used for communicating with the triplestore
-	GraphClient *graph.GraphDbClient
+	GraphClient *triplestore.GraphDbClient
 	// the client used for communicating with s3
 	s3Client *objects.MinioClientWrapper
 	// default bucket in the s3 that is used for synchronization
@@ -37,7 +37,7 @@ type SynchronizerClient struct {
 
 // Generate a new SynchronizerClient from the viper config
 func NewSynchronizerClient(v1 *viper.Viper) (*SynchronizerClient, error) {
-	graphClient, err := graph.NewGraphDbClient(v1)
+	graphClient, err := triplestore.NewGraphDbClient(v1)
 	if err != nil {
 		return nil, err
 	}
@@ -54,19 +54,18 @@ func NewSynchronizerClient(v1 *viper.Viper) (*SynchronizerClient, error) {
 }
 
 // Get rid of graphs in the triplestore that are not in the object store
-func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3() error {
-	prefixes := synchronizer.objConfig.Prefixes
+func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(prefixes []string) error {
 
 	for _, prefix := range prefixes {
 		// collect the objects associated with the source
-		oa, err := common.ObjectList(synchronizer.bucketName, synchronizer.s3Client.Client, prefix)
+		objectNamesInS3, err := common.ObjectList(synchronizer.bucketName, synchronizer.s3Client.Client, prefix)
 		if err != nil {
 			log.Error(err)
 			return err
 		}
 
 		// collect the named graphs from graph associated with the source
-		ga, err := synchronizer.GraphClient.ListNamedGraphs(prefix)
+		graphsInTriplestore, err := synchronizer.GraphClient.ListNamedGraphs(prefix)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -78,58 +77,51 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3() error {
 		// we will do it this way since mapswnat you to know a key, not a value, when
 		// querying them.
 		// This is OK since all KV pairs involve unique keys and unique values
-		var oam = map[string]string{}
-		for x := range oa {
-			g, err := common.MakeURN(oa[x])
+		var s3UrnToAssociatedObjName = map[string]string{}
+		// create a list of just the names so we can diff against it
+		var s3ObjGraphNames []string
+		for _, objectName := range objectNamesInS3 {
+			s3ObjUrn, err := common.MakeURN(objectName)
 			if err != nil {
-				log.Errorf("MakeURN error: %v\n", err)
+				return err
 			}
-			oam[g] = oa[x] // key (URN)= value (object prefixpath)
-		}
-
-		// make an array of just the values for use with findMissing and difference functions
-		// we have in this package
-		var oag []string // array of all keys
-		for k := range oam {
-			oag = append(oag, k)
+			s3UrnToAssociatedObjName[s3ObjUrn] = objectName // key (URN)= value (object prefixpath)
+			s3ObjGraphNames = append(s3ObjGraphNames, s3ObjUrn)
 		}
 
 		//compare lists, anything IN graph not in objects list should be removed
-		d := difference(ga, oag)  // return items in ga that are NOT in oag, we should remove these
-		m := findMissing(oag, ga) // return items from oag we need to add
+		triplestoreGraphsNotInS3 := difference(graphsInTriplestore, s3ObjGraphNames)  // return items in ga that are NOT in oag, we should remove these
+		s3GraphsNotInTriplestore := findMissing(s3ObjGraphNames, graphsInTriplestore) // return items from oag we need to add
 
-		fmt.Printf("Current graph items: %d  Cuurent object items: %d\n", len(ga), len(oag))
-		fmt.Printf("Orphaned items to remove: %d\n", len(d))
-		fmt.Printf("Missing items to add: %d\n", len(m))
+		fmt.Printf("Current graph items: %d  Cuurent object items: %d\n", len(graphsInTriplestore), len(s3ObjGraphNames))
+		fmt.Printf("Orphaned items to remove: %d\n", len(triplestoreGraphsNotInS3))
+		fmt.Printf("Missing items to add: %d\n", len(s3GraphsNotInTriplestore))
 
-		log.WithFields(log.Fields{"prefix": prefix, "graph items": len(ga), "object items": len(oag), "difference": len(d),
-			"missing": len(m)}).Info("Nabu Prune")
+		log.WithFields(log.Fields{"prefix": prefix, "graph items": len(graphsInTriplestore), "object items": len(s3ObjGraphNames), "difference": len(triplestoreGraphsNotInS3),
+			"missing": len(s3GraphsNotInTriplestore)}).Info("Nabu Prune")
 
-		// For each in d will delete that graph
-		for x := range d {
-			log.Infof("Removed graph: %s\n", d[x])
-			err = synchronizer.GraphClient.DropGraph(d[x])
+		// All graphs not in s3 should be removed since s3 is the source of truth
+		for _, graph := range triplestoreGraphsNotInS3 {
+			log.Infof("Removed graph: %s\n", graph)
+			err = synchronizer.GraphClient.DropGraph(graph)
 			if err != nil {
 				log.Errorf("Drop graph issue: %v\n", err)
-			}
-			if err != nil {
-				log.Errorf("Progress bar update issue: %v\n", err)
+				return err
 			}
 		}
 
-		for x := range m {
-			np := oam[m[x]]
-			log.Tracef("Add graph: %s  %s \n", m[x], np)
+		for _, graphUrnName := range s3GraphsNotInTriplestore {
+			graphObjectName := s3UrnToAssociatedObjName[graphUrnName]
+			log.Tracef("Add graph: %s  %s \n", graphUrnName, graphObjectName)
 
-			panic("not implemented. make sure we loop over and pipe load each")
+			objBytes, err := synchronizer.s3Client.GetObjectAsBytes(graphObjectName)
+			if err != nil {
+				return err
+			}
 
-			bytes := make([]byte, 0)
-			err := synchronizer.UpsertDataForGraph(bytes, np)
+			err = synchronizer.UpsertDataForGraph(objBytes, graphObjectName)
 			if err != nil {
 				log.Errorf("prune -> pipeLoad %v\n", err)
-			}
-			if err != nil {
-				log.Errorf("Progress bar update issue: %v\n", err)
 			}
 		}
 	}
@@ -138,8 +130,10 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3() error {
 
 // Put data into the triplestore, associated with a graph
 // If the graph already exists, it will be dropped first to prevent duplications
+// THe upload process is chunking to prevent loading super large nq files all at once
+//
 // Takes in the raw bytes which represent rdf data and the associated
-// named graph.
+// named triplestore.
 func (synchronizer *SynchronizerClient) UpsertDataForGraph(rawJsonldOrNqBytes []byte, objectName string) error {
 	// build our quad/graph from the object path
 
@@ -239,12 +233,17 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefixes
 
 		log.Infof("%d objects found for prefix: %s:%s", len(objKeys), synchronizer.bucketName, prefix)
 
-		for _, item := range objKeys {
+		for _, graphName := range objKeys {
 
-			panic("not implemented, make sure pipeload takes proper bytes")
-			err := synchronizer.UpsertDataForGraph([]byte{}, item)
+			objBytes, err := synchronizer.s3Client.GetObjectAsBytes(graphName)
+			if err != nil {
+				return err
+			}
+
+			err = synchronizer.UpsertDataForGraph(objBytes, graphName)
 			if err != nil {
 				log.Error(err)
+				return err
 			}
 		}
 	}
@@ -352,7 +351,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqFilePath str
 		return err
 	}
 
-	// NOTE:   commented out, but left.  Since we are loading quads, no need for a graph.
+	// NOTE:   commented out, but left.  Since we are loading quads, no need for a triplestore.
 	// If (when) we add back in ntriples as a version, this could be used to build a graph for
 	// All the triples in the bulk file to then load as triples + general context (graph)
 	// Review if this graph g should b here since we are loading quads
