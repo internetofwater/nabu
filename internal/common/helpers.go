@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"log"
 	"sync"
 
 	"github.com/minio/minio-go/v7"
@@ -38,7 +37,5 @@ func ObjectList(bucketName string, mc *minio.Client, prefix string) ([]string, e
 		wg.Wait()
 	}
 
-	// log.Printf("%s:%s object count: %d\n", objs["bucket"], prefix, len(oa))
-	log.Printf("%s:%s object count: %d\n", bucketName, prefix, len(oa))
 	return oa, nil
 }

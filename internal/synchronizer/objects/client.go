@@ -58,6 +58,8 @@ func (m *MinioClientWrapper) Copy(srcbucket, srcobject, dstbucket, dstobject str
 	return nil
 }
 
+// Return the number of objects that match a given prefix within the
+// specified bucket
 func (m *MinioClientWrapper) NumberOfMatchingObjects(prefixes []string) (int, error) {
 	count := 0
 	for _, prefix := range prefixes {
@@ -72,7 +74,6 @@ func (m *MinioClientWrapper) NumberOfMatchingObjects(prefixes []string) (int, er
 			}
 			count++
 		}
-		log.Printf("%s:%s object count: %d\n", m.DefaultBucket, prefix, count)
 	}
 	return count, nil
 }
@@ -93,7 +94,6 @@ func (m *MinioClientWrapper) GetObjects(prefixes []string) ([]minio.ObjectInfo, 
 			}
 			objectArray = append(objectArray, object)
 		}
-		log.Printf("%s:%s object count: %d\n", m.DefaultBucket, prefix, len(objectArray))
 	}
 
 	return objectArray, nil
