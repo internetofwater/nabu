@@ -11,8 +11,8 @@ import (
 // MakeURN formats a URN following urn:{program}:{organization}:{provider}:{sha}
 func MakeURN(s string) (string, error) {
 	var (
-		g   string // build the URN for the graph context string we use
-		err error
+		graphName string // build the URN for the graph context string we use
+		err       error
 	)
 	s3c := ""
 	check := prefixTransform(s) // change "summoned" to "data" if summoned is in the object prefix
@@ -22,11 +22,9 @@ func MakeURN(s string) (string, error) {
 		s3c = getLastThree(check)
 	}
 
-	g = fmt.Sprintf("urn:gleaner.io:%s:%s", "iow", s3c) // form the URN
+	graphName = fmt.Sprintf("urn:gleaner.io:%s:%s", "iow", s3c) // form the URN
 
-	//fmt.Printf("=MakeURN===========> %s \n\n", g)
-
-	return g, err
+	return graphName, err
 }
 
 // MakeURNPrefix formats a URN following the ADR 0001-URN-decision.md  which at the

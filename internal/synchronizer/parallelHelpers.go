@@ -13,6 +13,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// This file contains functions that are ran within
+// a goroutine and are refactored out for clarity
+// This file does not necessarily contain all parallel fns
+// but it mainly used for organization
+
+// Get objects from the s3 store, convert them into the proper
+// nq format, then write them to the pipe so another goroutine
+// can use them
 func getObjectsAndWriteToPipe(synchronizer *SynchronizerClient, prefix string, pipeWriter *io.PipeWriter) error {
 	defer func(pw *io.PipeWriter) {
 		err := pw.Close()

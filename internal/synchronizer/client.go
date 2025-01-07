@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/minio/minio-go/v7"
-	"github.com/schollz/progressbar/v3"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -107,114 +106,117 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3() error {
 			"missing": len(m)}).Info("Nabu Prune")
 
 		// For each in d will delete that graph
-		if len(d) > 0 {
-			bar := progressbar.Default(int64(len(d)))
-			for x := range d {
-				log.Infof("Removed graph: %s\n", d[x])
-				err = synchronizer.GraphClient.DropGraph(d[x])
-				if err != nil {
-					log.Errorf("Drop graph issue: %v\n", err)
-				}
-				err = bar.Add(1)
-				if err != nil {
-					log.Errorf("Progress bar update issue: %v\n", err)
-				}
+		for x := range d {
+			log.Infof("Removed graph: %s\n", d[x])
+			err = synchronizer.GraphClient.DropGraph(d[x])
+			if err != nil {
+				log.Errorf("Drop graph issue: %v\n", err)
+			}
+			if err != nil {
+				log.Errorf("Progress bar update issue: %v\n", err)
 			}
 		}
 
-		if len(m) > 0 {
-			bar2 := progressbar.Default(int64(len(m)))
-			log.Info("uploading missing %n objects", len(m))
-			for x := range m {
-				np := oam[m[x]]
-				log.Tracef("Add graph: %s  %s \n", m[x], np)
+		for x := range m {
+			np := oam[m[x]]
+			log.Tracef("Add graph: %s  %s \n", m[x], np)
 
-				panic("not implemented. make sure we loop over and pipe load each")
+			panic("not implemented. make sure we loop over and pipe load each")
 
-				bytes := make([]byte, 0)
-				_, err := synchronizer.PipeLoad(bytes, np)
-				if err != nil {
-					log.Errorf("prune -> pipeLoad %v\n", err)
-				}
-				err = bar2.Add(1)
-				if err != nil {
-					log.Errorf("Progress bar update issue: %v\n", err)
-				}
+			bytes := make([]byte, 0)
+			err := synchronizer.UpsertDataForGraph(bytes, np)
+			if err != nil {
+				log.Errorf("prune -> pipeLoad %v\n", err)
+			}
+			if err != nil {
+				log.Errorf("Progress bar update issue: %v\n", err)
 			}
 		}
 	}
 	return nil
 }
 
-// Reads from an object and loads directly into a triplestore
-func (synchronizer *SynchronizerClient) PipeLoad(bytes []byte, object string) ([]byte, error) {
+// Put data into the triplestore, associated with a graph
+// If the graph already exists, it will be dropped first to prevent duplications
+// Takes in the raw bytes which represent rdf data and the associated
+// named graph.
+func (synchronizer *SynchronizerClient) UpsertDataForGraph(rawJsonldOrNqBytes []byte, objectName string) error {
 	// build our quad/graph from the object path
 
-	g, err := common.MakeURN(object)
+	graphName, err := common.MakeURN(objectName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// TODO, use the mimetype or suffix in general to select the path to load    or overload from the config file?
 	// check the object string
-	mt := mime.TypeByExtension(filepath.Ext(object))
+	mt := mime.TypeByExtension(filepath.Ext(objectName))
 	//log.Printf("Object: %s reads as mimetype: %s", object, mt) // application/ld+json
-	nt := ""
+	nTriples := ""
 
 	if strings.Compare(mt, "application/ld+json") == 0 {
-		nt, err = common.JsonldToNQ(string(bytes))
+		nTriples, err = common.JsonldToNQ(string(rawJsonldOrNqBytes))
 		if err != nil {
 			log.Errorf("JSONLDToNQ err: %s", err)
-			return nil, err
+			return err
 		}
 	} else {
-		nt, _, err = common.NQToNTCtx(string(bytes))
+		nTriples, _, err = common.NQToNTCtx(string(rawJsonldOrNqBytes))
 		if err != nil {
 			log.Errorf("nqToNTCtx err: %s", err)
-			return nil, err
+			return err
 		}
 	}
 
 	// drop any graph we are going to load..  we assume we are doing those due to an update...
-	err = synchronizer.GraphClient.DropGraph(g)
+	err = synchronizer.GraphClient.DropGraph(graphName)
 	if err != nil {
 		log.Error(err)
-		return nil, err
+		return err
 	}
 
 	// If the graph is a quad already..   we need to make it triples
 	// so we can load with "our" context.
 	// Note: We are tossing source prov for out prov
 
-	log.Tracef("Graph loading as: %s\n", g)
+	log.Tracef("Graph loading as: %s\n", graphName)
 
 	// TODO if array is too large, need to split it and load parts
 	// Let's declare 10k lines the largest we want to send in.
-	log.Tracef("Graph size: %d\n", len(nt))
+	log.Tracef("Graph size: %d\n", len(nTriples))
 
-	scanner := bufio.NewScanner(strings.NewReader(nt))
-	lc := 0
-	sg := []string{}
-	for scanner.Scan() {
-		lc = lc + 1
-		sg = append(sg, scanner.Text())
-		if lc == 10000 { // use line count, since byte len might break inside a triple statement..   it's an OK proxy
-			log.Tracef("Subgraph of %d lines", len(sg))
-			// TODO..  upload what we have here, modify the call code to upload these sections
-			err = synchronizer.GraphClient.InsertWithNamedGraph(g, strings.Join(sg, "\n")) // convert []string to strings joined with new line to form a RDF NT set
+	const maxSizeBeforeSplit = 10000
+
+	tripleScanner := bufio.NewScanner(strings.NewReader(nTriples))
+	lineCount := 0
+	tripleArray := []string{}
+	// TODO PARALLELIZE
+	for tripleScanner.Scan() {
+		lineCount = lineCount + 1
+		tripleArray = append(tripleArray, tripleScanner.Text())
+		if lineCount == maxSizeBeforeSplit { // use line count, since byte len might break inside a triple statement..   it's an OK proxy
+			log.Tracef("Subgraph of %d lines", len(tripleArray))
+			err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphName) // convert []string to strings joined with new line to form a RDF NT set
 			if err != nil {
 				log.Errorf("Insert err: %s", err)
+				return err
 			}
-			sg = nil // clear the array
-			lc = 0   // reset the counter
+			tripleArray = []string{}
+			lineCount = 0
 		}
 	}
-	if lc > 0 {
-		log.Tracef("Subgraph (out of scanner) of %d lines", len(sg))
-		err = synchronizer.GraphClient.InsertWithNamedGraph(g, strings.Join(sg, "\n")) // convert []string to strings joined with new line to form a RDF NT set
+	// We previously used a scanner which splits triples into multiple lines
+	// If there are triples left over after finishing that loop, we still need to load
+	// them in even if the total amount remaining is less than our max threshold for loading
+	if len(tripleArray) > 0 {
+		log.Tracef("Subgraph (out of scanner) of %d lines", len(tripleArray))
+		err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphName) // convert []string to strings joined with new line to form a RDF NT set
+		if err != nil {
+			return err
+		}
 	}
 
-	return []byte{}, err
+	return err
 }
 
 // Gets all graphs with a specific prefix and loads them into the triplestore
@@ -240,7 +242,7 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefixes
 		for _, item := range objKeys {
 
 			panic("not implemented, make sure pipeload takes proper bytes")
-			_, err := synchronizer.PipeLoad([]byte{}, item)
+			err := synchronizer.UpsertDataForGraph([]byte{}, item)
 			if err != nil {
 				log.Error(err)
 			}
@@ -253,9 +255,9 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefixes
 // writes a new object based on an prefix, this function assumes the objects are valid when concatenated
 func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(name, prefix, destprefix string) error {
 
-	pipeReader, pipeWriter := io.Pipe() // TeeReader of use?
-	waitGroup := sync.WaitGroup{}       // work group for the pipe writes...
-	waitGroup.Add(2)
+	pipeReader, pipeWriter := io.Pipe()       // TeeReader of use?
+	pipeTransferWorkGroup := sync.WaitGroup{} // work group for the pipe writes...
+	pipeTransferWorkGroup.Add(2)              // We add 2 since there is a write to the pipe and a read from the pipe
 
 	// params for list objects calls
 	doneCh := make(chan struct{}) // , N) Create a done channel to control 'ListObjectsV2' go routine.
@@ -263,7 +265,7 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(name, pref
 
 	// Write the nq files to the pipe
 	go func() {
-		defer waitGroup.Done()
+		defer pipeTransferWorkGroup.Done()
 		err := getObjectsAndWriteToPipe(synchronizer, destprefix, pipeWriter)
 		if err != nil {
 			log.Error(err)
@@ -272,7 +274,7 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(name, pref
 
 	// read the nq files from the pipe and copy them to minio
 	go func() {
-		defer waitGroup.Done()
+		defer pipeTransferWorkGroup.Done()
 		_, err := synchronizer.s3Client.Client.PutObject(context.Background(), synchronizer.bucketName, fmt.Sprintf("%s/%s", destprefix, name), pipeReader, -1, minio.PutObjectOptions{})
 		//_, err := mc.PutObject(context.Background(), bucket, fmt.Sprintf("%s/%s", prefix, name), pr, -1, minio.PutObjectOptions{})
 		if err != nil {
@@ -281,7 +283,7 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(name, pref
 		}
 	}()
 
-	waitGroup.Wait() // wait for the pipe read writes to finish
+	pipeTransferWorkGroup.Wait() // wait for the pipe read writes to finish
 	err := pipeWriter.Close()
 	if err != nil {
 		return err

@@ -14,18 +14,18 @@ import (
 func NQToNTCtx(inquads string) (string, string, error) {
 	// loop on tr and make a set of triples
 	ntr := []rdf.Triple{}
-	g := ""
+	graphName := ""
 
 	dec := rdf.NewQuadDecoder(strings.NewReader(inquads), rdf.NQuads)
 	tr, err := dec.DecodeAll()
 	if err != nil {
 		log.Printf("Error decoding triples: %v\n", err)
-		return "", g, err
+		return "", graphName, err
 	}
 
 	// check we have triples
 	if len(tr) < 1 {
-		return "", g, errors.New("no triple")
+		return "", graphName, errors.New("no triple")
 	}
 
 	for i := range tr {
@@ -38,7 +38,7 @@ func NQToNTCtx(inquads string) (string, string, error) {
 	// use the quad.  However, for most cases the quad is not important to us, it's local provenance, so we would still replace
 	// it with our provenance (context)
 	ctx := tr[0].Ctx
-	g = ctx.String()
+	graphName = ctx.String()
 
 	// TODO output
 	outtriples := ""
@@ -55,5 +55,5 @@ func NQToNTCtx(inquads string) (string, string, error) {
 		tb.WriteString(ntr[k].Serialize(rdf.NTriples))
 	}
 
-	return tb.String(), g, err
+	return tb.String(), graphName, err
 }
