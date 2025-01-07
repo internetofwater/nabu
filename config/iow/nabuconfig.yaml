@@ -1,0 +1,63 @@
+---
+minio:
+  address: localhost
+  port: 9000
+  accesskey: amazingaccesskey
+  secretkey: amazingsecretkey
+  bucket: iow
+  ssl: false
+  region: null
+implementation_network:
+  orgname: iow
+context:
+  cache: true
+  strict: true
+contextmaps:
+  - prefix: https://schema.org/
+    file: config/iow/schemaorg-current-https.jsonld
+  - prefix: http://schema.org/
+    file: config/iow/schemaorg-current-http.jsonld
+objects:
+  domain: us-east-1
+  prefix:
+endpoints:
+  - service: iow_data
+    baseurl: http://localhost:7200/repositories/iow
+    type: graphdb
+    authenticate: false
+    username: admin
+    password: jfpw
+    modes:
+      - action: sparql
+        suffix:  # no suffix needed for GraphDB
+        accept: application/sparql-results+json
+        method: GET
+      - action: update
+        suffix: /statements
+        accept: application/sparql-update
+        method: POST
+      - action: bulk
+        suffix: /statements
+        accept: text/x-nquads
+        method: POST
+  - service: iow_prov
+    baseurl: http://localhost:7200/repositories/iowprov
+    type: graphdb
+    authenticate: false
+    username: admin
+    password: jfpw
+    modes:
+      - action: sparql
+        suffix:  # no suffix needed for GraphDB
+        accept: application/sparql-results+json
+        method: GET
+      - action: update
+        suffix: /statements
+        accept: application/sparql-update
+        method: POST
+      - action: bulk
+        suffix: /statements
+        accept: text/x-nquads
+        method: POST
+
+
