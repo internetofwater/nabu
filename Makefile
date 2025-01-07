@@ -4,13 +4,10 @@ DOCKERVER :=`cat VERSION`
 VERSION :=`cat VERSION`
    
 nabu:
-	cd cmd/$(BINARY); \
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 env go build -o $(BINARY) 
 
 nabu.m2.linux:
-	cd cmd/$(BINARY) ; \
 	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 env go build  -o $(BINARY)_m2_linux;\
-    cp $(BINARY)_m2_linux ../../
 
 docker:
 	podman build  --tag="fils/nabu:$(VERSION)"  --file=./build/Dockerfile .
