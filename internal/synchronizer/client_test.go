@@ -31,6 +31,6 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 
 }
 
-func TestSyncheronizerClientSuite(t *testing.T) {
+func TestSynchronizerClientSuite(t *testing.T) {
 	suite.Run(t, new(SynchronizerClientSuite))
 }

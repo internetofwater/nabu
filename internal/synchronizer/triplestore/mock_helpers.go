@@ -16,7 +16,7 @@ type GraphDBContainer struct {
 }
 
 // Spin up a local graphdb container and the associated client
-func NewGraphDBContainer(repository string) (GraphDBContainer, error) {
+func NewGraphDBContainer(repositoryName string) (GraphDBContainer, error) {
 
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
@@ -60,9 +60,9 @@ func NewGraphDBContainer(repository string) (GraphDBContainer, error) {
 	client := GraphDbClient{
 		SparqlConf:         sparqlConfig,
 		BaseUrl:            fmt.Sprintf("http://%s:%s", host, port.Port()),
-		BaseRepositoryUrl:  fmt.Sprintf("http://%s:%s/repositories/%s", host, port.Port(), repository),
+		BaseRepositoryUrl:  fmt.Sprintf("http://%s:%s/repositories/%s", host, port.Port(), repositoryName),
 		BaseRESTUrl:        fmt.Sprintf("http://%s:%s/rest", host, port.Port()),
-		BaseSparqlQueryUrl: fmt.Sprintf("http://%s:%s/repositories/%s/statements", host, port.Port(), repository),
+		BaseSparqlQueryUrl: fmt.Sprintf("http://%s:%s/repositories/%s/statements", host, port.Port(), repositoryName),
 	}
 	return GraphDBContainer{Client: client, mappedPort: port.Int(), Container: &graphdbC}, nil
 }
