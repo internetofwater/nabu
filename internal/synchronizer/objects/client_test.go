@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+// Wrapper struct to store a handle to the container for all
 type S3ClientSuite struct {
 	suite.Suite
 	minioContainer MinioContainer

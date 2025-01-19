@@ -12,7 +12,9 @@ import (
 type MinioClientWrapper struct {
 	// Base client for accessing minio
 	Client *minio.Client
-	// Default bucket to use for operations. Used to avoid having to pass it as a parameter
+	// Default bucket to use for operations.
+	// Specified here to avoid having to pass it as a parameter to every operation
+	// since we are only using one bucket
 	DefaultBucket string
 }
 

@@ -332,9 +332,9 @@ func (synchronizer *SynchronizerClient) GenerateNqReleaseAndArchiveOld(prefixes 
 
 		// Copy the "latest" graph just made to archive with a date
 		// This means the graph in latests is a duplicate of the most recently dated version in archive/{provider}
-		const layout = "2000-01-02-15-04-05"
+		const timeFormat = "2000-01-02-15-04-05"
 		t := time.Now()
-		name := fmt.Sprintf("%s/%s/%s_%s_release.nq", "graphs/archive", srcname, getTextBeforeDot(path.Base(spj)), t.Format(layout))
+		name := fmt.Sprintf("%s/%s/%s_%s_release.nq", "graphs/archive", srcname, getTextBeforeDot(path.Base(spj)), t.Format(timeFormat))
 		latest_fullpath := fmt.Sprintf("%s/%s", "graphs/latest", name_latest)
 		// TODO PARALLELIZE
 		err = synchronizer.s3Client.Copy(synchronizer.bucketName, latest_fullpath, synchronizer.bucketName, strings.Replace(name, "latest", "archive", 1))
