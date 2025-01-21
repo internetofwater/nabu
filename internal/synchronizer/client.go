@@ -142,10 +142,7 @@ func (synchronizer *SynchronizerClient) UpsertDataForGraph(rawJsonldOrNqBytes []
 		return err
 	}
 
-	// TODO, use the mimetype or suffix in general to select the path to load    or overload from the config file?
-	// check the object string
 	mt := mime.TypeByExtension(filepath.Ext(objectName))
-	//log.Printf("Object: %s reads as mimetype: %s", object, mt) // application/ld+json
 	nTriples := ""
 
 	if strings.Compare(mt, "application/ld+json") == 0 {
@@ -162,7 +159,7 @@ func (synchronizer *SynchronizerClient) UpsertDataForGraph(rawJsonldOrNqBytes []
 		}
 	}
 
-	// drop any graph we are going to load..  we assume we are doing those due to an update...
+	// drop any graph we are going to load..  we assume we are doing those due to an update
 	err = synchronizer.GraphClient.DropGraph(graphName)
 	if err != nil {
 		log.Error(err)
@@ -391,7 +388,6 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 		return err
 	}
 
-	// report
 	log.Println(string(body))
 	log.Printf("success: %s : %d  : %s\n", nqPathInS3, len(byt), synchronizer.GraphClient.SparqlConf.Endpoint)
 

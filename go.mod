@@ -11,7 +11,7 @@ require (
 	github.com/piprate/json-gold v0.5.0
 	github.com/rs/xid v1.2.1
 	github.com/sirupsen/logrus v1.9.3
-	github.com/spf13/cobra v1.6.1
+	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.9.0
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.34.0

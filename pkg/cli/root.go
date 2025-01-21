@@ -86,15 +86,6 @@ func initConfig() {
 			log.Fatalf("cannot read config %s", err)
 		}
 	} else {
-		// Find home directory.
-		//home, err := os.UserHomeDir()
-		//cobra.CheckErr(err)
-		//
-		//// Search config in home directory with name "nabu" (without extension).
-		//viperVal.AddConfigPath(home)
-		//viperVal.AddConfigPath(path.Join(cfgPath, cfgName))
-		//viperVal.SetConfigType("yaml")
-		//viperVal.SetConfigName("nabu")
 		viperVal, err = config.ReadNabuConfig(nabuConfName, path.Join(cfgPath, cfgName))
 		if err != nil {
 			log.Fatalf("cannot read config %s", err)
