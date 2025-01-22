@@ -15,7 +15,7 @@ RUN apk add openssl certbot curl --no-cache \
 RUN mkdir /nabu
 RUN mkdir /nabu/config
 RUN mkdir /nabu/assets
-ADD ./cmd/nabu/nabu /nabu/
+ADD ./nabu /nabu/
 ADD ./assets /nabu/assets
 
 RUN mkdir /assets
