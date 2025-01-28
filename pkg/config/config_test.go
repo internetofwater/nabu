@@ -1,12 +1,18 @@
 package config
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 // test reading in a sample config
 
 func TestReadConfig(t *testing.T) {
 
-	configPath := "../config/iow/nabuconfig.yaml"
+	configPath := "../../config/iow"
 
-	ReadNabuConfig(configPath, configPath)
+	_, err := ReadNabuConfig("nabuconfig.yaml", configPath)
+	require.NoError(t, err)
+
 }

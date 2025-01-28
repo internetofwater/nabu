@@ -1,0 +1,58 @@
+name: Test Full Geoconnex Pipeline
+
+on:
+  workflow_dispatch: # Allows manual triggering of the workflow
+  push:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push-temp-image:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Generate Unique Image Tag
+        id: vars
+        run: echo "tag=tmp-${{ github.sha }}" >> $GITHUB_ENV
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: internetofwater/nabu:${{ env.tag }}
+
+  run-e2e-tests:
+    needs: build-and-push-temp-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Run Geoconnex Scheduler to simulate a full crawl"
+        uses: internetofwater/scheduler@main
+        with:
+          nabu_image: internetofwater/nabu:${{ env.tag }}
+          gleaner_image: internetofwater/gleaner:latest
+
+  # cleanup-temp-image:
+  #   needs: run-e2e-tests
+  #   runs-on: ubuntu-latest
+  #   if: always() # Ensures this runs even if previous jobs fail
+  #   steps:
+  #     - name: Log in to Docker Hub
+  #       uses: docker/login-action@v2
+  #       with:
+  #         username: ${{ secrets.DOCKERHUB_USERNAME }}
+  #         password: ${{ secrets.DOCKERHUB_TOKEN }}
