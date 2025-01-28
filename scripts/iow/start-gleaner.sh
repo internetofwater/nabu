@@ -1,17 +1,5 @@
 #!/bin/sh
-
-
-
 set -e # exit on error 
-
-#TS=`date +%Y-%m-%dT%H.%M.%S`
-#LOGDIR="$HOME/logs/$TS"
-
-
-
-
-
-GLEANERCONFIG_PATH=""
 
 if [  -z "$1" ]
 then
@@ -26,7 +14,7 @@ do
 	ERRFILE="$LOGDIR/gleaner-$src.err"
 
 	echo "harvesting source '$src'..."
-	$HOME/gleaner --cfg $GLEANERCONFIG_PATH --source $src --rude # > $OUTFILE 2>$ERRFILE
+	$HOME/gleaner --cfg $GLEANERCONFIG_PATH --source $src
 done
-echo "complete!"
+echo "completed gleaner harvest!"
 

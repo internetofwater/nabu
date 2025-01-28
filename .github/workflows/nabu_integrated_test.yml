@@ -26,7 +26,6 @@ jobs:
       - name: Build Gleaner and Nabu 
         run: |
             echo "::group::Build Gleaner"
-            sudo apt install make
             sh scripts/iow/build-gleaner.sh
             sh scripts/iow/build-nabu.sh
             echo "::endgroup::" 
@@ -34,7 +33,7 @@ jobs:
         run: |
             echo "::group::Run Gleaner Harvest"
             sh scripts/iow/start-gleaner.sh config/iow/gleanerconfig.yaml
-            $HOME/bin/mc  ls myminio/iow/prov/refgages0|grep '.jsonld'|wc -l
+            $HOME/bin/mc ls myminio/iow/prov/refgages0 | grep '.jsonld' | wc -l
             bash scripts/iow/check-gleaner-s3-output.sh
       - name: Test Nabu Release
         run: |
