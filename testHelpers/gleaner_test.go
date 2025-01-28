@@ -11,5 +11,5 @@ func TestGleanerContainerVersion(t *testing.T) {
 	require.NoError(t, err)
 	result, err := gleaner.Run("--help")
 	require.NoError(t, err)
-	require.Contains(t, result, "Gleaner")
+	require.Contains(t, result.Stdout, "gleaner")
 }
