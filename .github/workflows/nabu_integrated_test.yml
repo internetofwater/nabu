@@ -39,7 +39,7 @@ jobs:
       - name: Test Nabu Release
         run: |
             echo "::group::Test Nabu Release"
-            $HOME/bin/nabu release --cfg config/iow/nabuconfig.yaml  --prefix prov/refgages0
+            $HOME/nabu release --cfg config/iow/nabuconfig.yaml  --prefix prov/refgages0
             $HOME/bin/mc cat myminio/iow/graphs/latest/refgages0_prov.nq | wc -l
       - name: Cleanup Environment
         if: ${{ always() }}

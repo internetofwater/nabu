@@ -14,7 +14,7 @@ fi
 cd gleaner 
 case "$(go env GOARCH)" in 
 amd64)
-  go build -o gleaner
+  go build -o $HOME/gleaner
   ;;
 arm64)
   make gleaner.m2.linux 
