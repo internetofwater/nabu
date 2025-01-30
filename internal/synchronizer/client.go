@@ -93,9 +93,9 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(prefixes []string) e
 		triplestoreGraphsNotInS3 := difference(graphsInTriplestore, s3ObjGraphNames)  // return items in ga that are NOT in oag, we should remove these
 		s3GraphsNotInTriplestore := findMissing(s3ObjGraphNames, graphsInTriplestore) // return items from oag we need to add
 
-		fmt.Printf("Current graph items: %d  Cuurent object items: %d\n", len(graphsInTriplestore), len(s3ObjGraphNames))
-		fmt.Printf("Orphaned items to remove: %d\n", len(triplestoreGraphsNotInS3))
-		fmt.Printf("Missing items to add: %d\n", len(s3GraphsNotInTriplestore))
+		log.Infof("Current graph items: %d  Cuurent object items: %d\n", len(graphsInTriplestore), len(s3ObjGraphNames))
+		log.Infof("Orphaned items to remove: %d\n", len(triplestoreGraphsNotInS3))
+		log.Infof("Missing items to add: %d\n", len(s3GraphsNotInTriplestore))
 
 		log.WithFields(log.Fields{"prefix": prefix, "graph items": len(graphsInTriplestore), "object items": len(s3ObjGraphNames), "difference": len(triplestoreGraphsNotInS3),
 			"missing": len(s3GraphsNotInTriplestore)}).Info("Nabu Prune")
@@ -121,7 +121,6 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(prefixes []string) e
 
 			err = synchronizer.UpsertDataForGraph(objBytes, graphObjectName)
 			if err != nil {
-				log.Errorf("prune -> pipeLoad %v\n", err)
 				return err
 			}
 		}
