@@ -42,7 +42,8 @@ func (suite *GleanerContainerSuite) SetupSuite() {
 }
 
 func (suite *GleanerContainerSuite) TearDownSuite() {
-	testcontainers.TerminateContainer(*suite.minioContainer.Container)
+	err := testcontainers.TerminateContainer(*suite.minioContainer.Container)
+	require.NoError(suite.T(), err)
 	testcontainers.CleanupNetwork(suite.T(), suite.network)
 }
 
