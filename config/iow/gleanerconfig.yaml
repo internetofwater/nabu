@@ -4,6 +4,7 @@ minio:
   accessKey: amazingaccesskey
   secretKey: amazingsecretkey
   ssl: false
+  region: us
   bucket: iow
 gleaner:
   runid: iow # this will be the bucket the output is placed in...

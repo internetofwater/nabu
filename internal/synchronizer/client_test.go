@@ -18,7 +18,15 @@ type SynchronizerClientSuite struct {
 }
 
 func (suite *SynchronizerClientSuite) SetupSuite() {
-	minioContainer, err := objects.NewMinioContainer("minioadmin", "minioadmin", "gleanerbucket")
+
+	config := objects.MinioContainerConfig{
+		Username:      "minioadmin",
+		Password:      "minioadmin",
+		DefaultBucket: "gleanerbucket",
+		ContainerName: "synchronizer_test_minio",
+	}
+
+	minioContainer, err := objects.NewMinioContainer(config)
 	suite.Require().NoError(err)
 	suite.minioContainer = minioContainer
 

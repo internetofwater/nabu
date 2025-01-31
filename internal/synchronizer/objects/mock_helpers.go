@@ -48,8 +48,15 @@ func getUIURL(container *testcontainers.Container, ctx context.Context) (string,
 	return fmt.Sprintf("%s:%s", host, ui.Port()), nil
 }
 
+type MinioContainerConfig struct {
+	Username      string
+	Password      string
+	DefaultBucket string
+	ContainerName string
+}
+
 // Spin up a local minio container
-func NewMinioContainer(username, password, defaultBucket string) (MinioContainer, error) {
+func NewMinioContainer(config MinioContainerConfig) (MinioContainer, error) {
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
 		Image: "minio/minio:latest",
@@ -57,11 +64,16 @@ func NewMinioContainer(username, password, defaultBucket string) (MinioContainer
 		ExposedPorts: []string{"9000/tcp", "9001/tcp"},
 		WaitingFor:   wait.ForHTTP("/minio/health/live").WithPort("9000"),
 		Env: map[string]string{
-			"MINIO_ROOT_USER":     username,
-			"MINIO_ROOT_PASSWORD": password,
+			"MINIO_ROOT_USER":     config.Username,
+			"MINIO_ROOT_PASSWORD": config.Password,
 		},
+		Networks: []string{"nabu_test_network"},
 		// We need to expose the console at 9001 to access the UI
 		Cmd: []string{"server", "/data", "--console-address", ":9001"},
+	}
+
+	if config.ContainerName != "" {
+		req.Name = config.ContainerName
 	}
 
 	genericContainerReq := testcontainers.GenericContainerRequest{
@@ -83,7 +95,7 @@ func NewMinioContainer(username, password, defaultBucket string) (MinioContainer
 	}
 
 	mc, err := minio.New(url, &minio.Options{
-		Creds:  credentials.NewStaticV4(username, password, ""),
+		Creds:  credentials.NewStaticV4(config.Username, config.Password, ""),
 		Secure: false,
 	})
 	if err != nil {
@@ -97,7 +109,7 @@ func NewMinioContainer(username, password, defaultBucket string) (MinioContainer
 
 	return MinioContainer{
 		Container:     &genericContainer,
-		ClientWrapper: &MinioClientWrapper{Client: mc, DefaultBucket: defaultBucket},
+		ClientWrapper: &MinioClientWrapper{Client: mc, DefaultBucket: config.DefaultBucket},
 		mappedHttpUrl: url,
 		mappedUIUrl:   mappedUI,
 	}, nil
