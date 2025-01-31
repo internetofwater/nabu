@@ -26,10 +26,11 @@ func NewGleanerContainer(configPath string, cmd []string, networkName string) (G
 				ContainerFilePath: "/app/gleanerconfig.yaml",
 			},
 		},
-		// Wait for the harvest to finish
+		// wait for the crawl to finish so our tests operate on the full data
 		WaitingFor: wait.ForExit(),
 		Cmd:        fullCmd,
-		Networks:   []string{networkName},
+		// Entrypoint: []string{"/bin/sh", "-c", "while true; do sleep 30; done"}, <-- used for debugging if we need to go inside to inspect the network
+		Networks: []string{networkName},
 	}
 
 	genericContainerReq := testcontainers.GenericContainerRequest{
@@ -39,7 +40,7 @@ func NewGleanerContainer(configPath string, cmd []string, networkName string) (G
 
 	genericContainer, err := testcontainers.GenericContainer(ctx, genericContainerReq)
 	if err != nil {
-		return GleanerContainer{}, fmt.Errorf("generic container: %w", err)
+		return GleanerContainer{}, fmt.Errorf("failed launching gleaner container: %w", err)
 	}
 
 	return GleanerContainer{Container: genericContainer}, nil

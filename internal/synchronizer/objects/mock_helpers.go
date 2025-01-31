@@ -23,11 +23,16 @@ type MinioContainer struct {
 }
 
 type MinioContainerConfig struct {
-	Username      string
-	Password      string
+	// the username for the minio container
+	Username string
+	// the password for the minio container
+	Password string
+	// the name of the default bucket in minio for all operations
 	DefaultBucket string
+	// the name of the container being spun up
 	ContainerName string
-	Network       string
+	// the network that the container uses; leave blank to use default
+	Network string
 }
 
 // Spin up a local minio container
@@ -35,7 +40,7 @@ func NewMinioContainer(config MinioContainerConfig) (MinioContainer, error) {
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
 		Image: "minio/minio:latest",
-		// expose the UI with 9001
+		// expose the API with 9000 and the UI with 9001
 		ExposedPorts: []string{"9000/tcp", "9001/tcp"},
 		WaitingFor:   wait.ForHTTP("/minio/health/live").WithPort("9000"),
 		Env: map[string]string{
@@ -51,6 +56,7 @@ func NewMinioContainer(config MinioContainerConfig) (MinioContainer, error) {
 	}
 	if config.Network != "" {
 		req.Networks = []string{config.Network}
+		req.NetworkAliases = map[string][]string{config.Network: {config.ContainerName}}
 	}
 
 	genericContainerReq := testcontainers.GenericContainerRequest{
@@ -62,12 +68,6 @@ func NewMinioContainer(config MinioContainerConfig) (MinioContainer, error) {
 	if err != nil {
 		return MinioContainer{}, fmt.Errorf("generic container: %w", err)
 	}
-
-	// networks, err := genericContainer.Networks(ctx)
-	// if err != nil {
-	// 	return MinioContainer{}, fmt.Errorf("get networks: %w", err)
-	// }
-	// log.Printf("Networks: %v\n", networks)
 
 	hostname, err := genericContainer.Host(ctx)
 	if err != nil {

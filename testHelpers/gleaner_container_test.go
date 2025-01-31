@@ -27,7 +27,9 @@ func (suite *GleanerContainerSuite) SetupSuite() {
 	suite.network = net
 
 	minioConfig := objects.MinioContainerConfig{
-		ContainerName: "gleaner_test_minio",
+		// note that the container name must be a full word with no special characters
+		// this appears to mess with the docker network somehow and prevents connecting
+		ContainerName: "gleanerTestMinio",
 		Username:      "amazingaccesskey",
 		Password:      "amazingsecretkey",
 		DefaultBucket: "iow",
@@ -37,6 +39,11 @@ func (suite *GleanerContainerSuite) SetupSuite() {
 	suite.Require().NoError(err)
 	suite.minioContainer = minioContainer
 
+}
+
+func (suite *GleanerContainerSuite) TearDownSuite() {
+	testcontainers.TerminateContainer(*suite.minioContainer.Container)
+	testcontainers.CleanupNetwork(suite.T(), suite.network)
 }
 
 func (suite *GleanerContainerSuite) TestGleanerContainerHelpMsg() {
@@ -55,7 +62,7 @@ func (suite *GleanerContainerSuite) TestGleanerHarvest() {
 	t := suite.T()
 	gleaner, err := NewGleanerContainer("../config/iow/gleanerconfig.yaml", []string{
 		"--source", "cdss0",
-		"--address", "172.20.0.2",
+		"--address", "gleanerTestMinio",
 		"--setup",
 		"--port", "9000",
 	}, suite.network.Name)
@@ -74,10 +81,14 @@ func (suite *GleanerContainerSuite) TestGleanerHarvest() {
 	require.NoError(t, err)
 	require.Equal(t, 0, state.ExitCode, string(logBytes))
 
-	objs, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"orgs/"})
+	orgsObjs, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"orgs/"})
 	require.NoError(t, err)
-	require.Equal(t, objs, 1)
-
+	require.Equal(t, orgsObjs, 1)
+	summonedObjs, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"summoned/cdss0/"})
+	require.NoError(t, err)
+	provObjs, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"prov/cdss0/"})
+	require.NoError(t, err)
+	require.Equal(t, summonedObjs, provObjs)
 }
 
 func TestGleanerContainerSuite(t *testing.T) {
