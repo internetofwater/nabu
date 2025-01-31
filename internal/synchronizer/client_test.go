@@ -107,12 +107,12 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 	require.NoError(t, err)
 	require.Equal(t, sourcesInSitemap, summonedObjs)
 
-	// err = suite.client.CopyAllPrefixedObjToTriplestore([]string{"summoned/cdss0"})
-	// require.NoError(t, err)
+	err = suite.client.CopyAllPrefixedObjToTriplestore([]string{"orgs"})
+	require.NoError(t, err)
 
-	// graphs, err := suite.client.GraphClient.ListNamedGraphs("")
-	// require.NoError(t, err)
-	// require.Len(t, graphs, sourcesInSitemap)
+	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs")
+	require.NoError(t, err)
+	require.Len(t, graphs, 1)
 
 }
 

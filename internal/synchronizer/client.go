@@ -68,7 +68,7 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(prefixes []string) e
 		}
 
 		// collect the named graphs from graph associated with the source
-		graphsInTriplestore, err := synchronizer.GraphClient.ListNamedGraphs(prefix)
+		graphsInTriplestore, err := synchronizer.GraphClient.NamedGraphsAssociatedWithS3Prefix(prefix)
 		if err != nil {
 			log.Error(err)
 			return err

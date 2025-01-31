@@ -334,7 +334,7 @@ func (graphClient *GraphDbClient) GraphExists(graph string) (bool, error) {
 }
 
 // Get list of graphs in the triplestore
-func (graphClient *GraphDbClient) ListNamedGraphs(prefix string) ([]string, error) {
+func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix string) ([]string, error) {
 	log.Debug("Getting list of named graphs")
 
 	var ga []string
@@ -374,10 +374,9 @@ func (graphClient *GraphDbClient) ListNamedGraphs(prefix string) ([]string, erro
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Println(strings.Repeat("ERROR", 5))
-		log.Println("response Status:", resp.Status)
-		log.Println("response Headers:", resp.Header)
-		log.Println("response Body:", string(body))
+		log.Error("response Status:", resp.Status)
+		log.Error("response Headers:", resp.Header)
+		log.Error("response Body:", string(body))
 	}
 
 	result := gjson.Get(string(body), "results.bindings.#.g.value")
