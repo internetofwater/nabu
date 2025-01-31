@@ -12,40 +12,14 @@ import (
 
 // A struct to represent the minio container
 type MinioContainer struct {
-	// the url to the container http endpoint
-	mappedHttpUrl string
-	// the url to the container's ui. Useful for debugging if the container is paused
-	mappedUIUrl string
 	// the container itself. used for testcontainer cleanup
 	Container *testcontainers.Container
+	Hostname  string
+	APIPort   int
+	UIPort    int
 	// the minio client for interacting with this client. This uses our custom
 	// client with the helper methods we need for nabu
 	ClientWrapper *MinioClientWrapper
-}
-
-func getAPIURL(container *testcontainers.Container, ctx context.Context) (string, error) {
-	host, err := (*container).Host(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	api, err := (*container).MappedPort(ctx, "9000/tcp")
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s:%s", host, api.Port()), nil
-}
-
-func getUIURL(container *testcontainers.Container, ctx context.Context) (string, error) {
-	host, err := (*container).Host(ctx)
-	if err != nil {
-		return "", err
-	}
-	ui, err := (*container).MappedPort(ctx, "9001/tcp")
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s:%s", host, ui.Port()), nil
 }
 
 type MinioContainerConfig struct {
@@ -53,6 +27,7 @@ type MinioContainerConfig struct {
 	Password      string
 	DefaultBucket string
 	ContainerName string
+	Network       string
 }
 
 // Spin up a local minio container
@@ -67,13 +42,15 @@ func NewMinioContainer(config MinioContainerConfig) (MinioContainer, error) {
 			"MINIO_ROOT_USER":     config.Username,
 			"MINIO_ROOT_PASSWORD": config.Password,
 		},
-		Networks: []string{"nabu_test_network"},
 		// We need to expose the console at 9001 to access the UI
 		Cmd: []string{"server", "/data", "--console-address", ":9001"},
 	}
 
 	if config.ContainerName != "" {
 		req.Name = config.ContainerName
+	}
+	if config.Network != "" {
+		req.Networks = []string{config.Network}
 	}
 
 	genericContainerReq := testcontainers.GenericContainerRequest{
@@ -86,13 +63,28 @@ func NewMinioContainer(config MinioContainerConfig) (MinioContainer, error) {
 		return MinioContainer{}, fmt.Errorf("generic container: %w", err)
 	}
 
-	minioContainer := MinioContainer{Container: &genericContainer}
+	// networks, err := genericContainer.Networks(ctx)
+	// if err != nil {
+	// 	return MinioContainer{}, fmt.Errorf("get networks: %w", err)
+	// }
+	// log.Printf("Networks: %v\n", networks)
 
-	url, err := getAPIURL(minioContainer.Container, ctx)
-
+	hostname, err := genericContainer.Host(ctx)
 	if err != nil {
-		return MinioContainer{}, fmt.Errorf("get api url: %w", err)
+		return MinioContainer{}, fmt.Errorf("get hostname: %w", err)
 	}
+
+	apiPort, err := genericContainer.MappedPort(ctx, "9000/tcp")
+	if err != nil {
+		return MinioContainer{}, fmt.Errorf("get api port: %w", err)
+	}
+
+	uiPort, err := genericContainer.MappedPort(ctx, "9001/tcp")
+	if err != nil {
+		return MinioContainer{}, fmt.Errorf("get ui port: %w", err)
+	}
+
+	url := fmt.Sprintf("%s:%d", hostname, apiPort.Int())
 
 	mc, err := minio.New(url, &minio.Options{
 		Creds:  credentials.NewStaticV4(config.Username, config.Password, ""),
@@ -102,15 +94,11 @@ func NewMinioContainer(config MinioContainerConfig) (MinioContainer, error) {
 		return MinioContainer{}, fmt.Errorf("minio client: %w", err)
 	}
 
-	mappedUI, err := getUIURL(minioContainer.Container, ctx)
-	if err != nil {
-		return MinioContainer{}, fmt.Errorf("get ui url: %w", err)
-	}
-
 	return MinioContainer{
 		Container:     &genericContainer,
 		ClientWrapper: &MinioClientWrapper{Client: mc, DefaultBucket: config.DefaultBucket},
-		mappedHttpUrl: url,
-		mappedUIUrl:   mappedUI,
+		Hostname:      hostname,
+		APIPort:       apiPort.Int(),
+		UIPort:        uiPort.Int(),
 	}, nil
 }

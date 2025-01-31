@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 type GleanerContainer struct {
@@ -12,21 +13,23 @@ type GleanerContainer struct {
 }
 
 // Create a handle to a struct which allows for easy handling of the minio container
-func NewGleanerContainer(configPath string, cmd []string) (GleanerContainer, error) {
+func NewGleanerContainer(configPath string, cmd []string, networkName string) (GleanerContainer, error) {
 	ctx := context.Background()
 
 	fullCmd := append([]string{"--cfg", "/app/gleanerconfig.yaml"}, cmd...)
 
 	req := testcontainers.ContainerRequest{
 		Image: "internetofwater/gleaner:latest",
-		Cmd:   fullCmd,
 		Files: []testcontainers.ContainerFile{
 			{
 				HostFilePath:      configPath,
 				ContainerFilePath: "/app/gleanerconfig.yaml",
 			},
 		},
-		Networks: []string{"nabu_test_network"},
+		// Wait for the harvest to finish
+		WaitingFor: wait.ForExit(),
+		Cmd:        fullCmd,
+		Networks:   []string{networkName},
 	}
 
 	genericContainerReq := testcontainers.GenericContainerRequest{
