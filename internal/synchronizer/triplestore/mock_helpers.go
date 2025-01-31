@@ -16,7 +16,7 @@ type GraphDBContainer struct {
 }
 
 // Spin up a local graphdb container and the associated client
-func NewGraphDBContainer(repositoryName string) (GraphDBContainer, error) {
+func NewGraphDBContainer(repositoryName string, configPath string) (GraphDBContainer, error) {
 
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
@@ -64,5 +64,11 @@ func NewGraphDBContainer(repositoryName string) (GraphDBContainer, error) {
 		BaseRESTUrl:        fmt.Sprintf("http://%s:%s/rest", host, port.Port()),
 		BaseSparqlQueryUrl: fmt.Sprintf("http://%s:%s/repositories/%s/statements", host, port.Port(), repositoryName),
 	}
+
+	err = client.CreateRepositoryIfNotExists(configPath)
+	if err != nil {
+		return GraphDBContainer{}, fmt.Errorf("failed to create repository when initializing graphdb container: %w", err)
+	}
+
 	return GraphDBContainer{Client: client, mappedPort: port.Int(), Container: &graphdbC}, nil
 }

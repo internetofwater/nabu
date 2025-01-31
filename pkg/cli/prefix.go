@@ -12,7 +12,7 @@ import (
 
 func prefix(v1 *viper.Viper) error {
 	log.Info("Nabu started with mode: prefix")
-	client, err := synchronizer.NewSynchronizerClient(v1)
+	client, err := synchronizer.NewSynchronizerClientFromViper(v1)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -12,7 +12,7 @@ import (
 
 func prune(v1 *viper.Viper) error {
 	log.Info("Prune graphs in triplestore not in objectVal store")
-	client, err := synchronizer.NewSynchronizerClient(v1)
+	client, err := synchronizer.NewSynchronizerClientFromViper(v1)
 	if err != nil {
 		return err
 	}

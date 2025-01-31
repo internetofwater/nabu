@@ -16,7 +16,7 @@ func clear(v1 *viper.Viper) error {
 
 	if dangerous {
 		log.Println("dangerous mode is enabled")
-		synchronizerClient, err := synchronizer.NewSynchronizerClient(v1)
+		synchronizerClient, err := synchronizer.NewSynchronizerClientFromViper(v1)
 		if err != nil {
 			return err
 		}

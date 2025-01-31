@@ -29,7 +29,7 @@ func getObjectsAndWriteToPipe(synchronizer *SynchronizerClient, prefix string, p
 		}
 	}(pipeWriter)
 
-	matches, err := synchronizer.s3Client.NumberOfMatchingObjects([]string{prefix})
+	matches, err := synchronizer.S3Client.NumberOfMatchingObjects([]string{prefix})
 	if err != nil {
 		return err
 	}
@@ -40,14 +40,14 @@ func getObjectsAndWriteToPipe(synchronizer *SynchronizerClient, prefix string, p
 	}
 	log.Printf("\nChannel/object length: %d\n", matches)
 
-	objects, err := synchronizer.s3Client.GetObjects([]string{prefix})
+	objects, err := synchronizer.S3Client.GetObjects([]string{prefix})
 	if err != nil {
 		return err
 	}
 
 	for _, object := range objects {
 
-		retrievedObject, err := synchronizer.s3Client.Client.GetObject(context.Background(), synchronizer.s3Client.DefaultBucket, object.Key, minio.GetObjectOptions{})
+		retrievedObject, err := synchronizer.S3Client.Client.GetObject(context.Background(), synchronizer.S3Client.DefaultBucket, object.Key, minio.GetObjectOptions{})
 		if err != nil {
 			return err
 		}

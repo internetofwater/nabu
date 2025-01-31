@@ -3,13 +3,21 @@ package testhelpers
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 type GleanerContainer struct {
+	// the handle to the container
 	Container testcontainers.Container
+	// the exit code of the gleaner executable
+	ExitCode int
+	// the string output from the container
+	Logs string
+	// the name of the container; useful for debugging and looking into logs on docker desktop
+	Name string
 }
 
 // Create a handle to a struct which allows for easy handling of the minio container
@@ -43,6 +51,26 @@ func NewGleanerContainer(configPath string, cmd []string, networkName string) (G
 		return GleanerContainer{}, fmt.Errorf("failed launching gleaner container: %w", err)
 	}
 
-	return GleanerContainer{Container: genericContainer}, nil
+	logs, err := genericContainer.Logs(ctx)
+	if err != nil {
+		return GleanerContainer{}, fmt.Errorf("failed getting logs from gleaner container: %w", err)
+	}
+	logBytes, err := io.ReadAll(logs)
+	defer logs.Close()
+	if err != nil {
+		return GleanerContainer{}, fmt.Errorf("failed reading logs from gleaner container: %w", err)
+	}
+
+	state, err := genericContainer.State(ctx)
+	if err != nil {
+		return GleanerContainer{}, fmt.Errorf("failed getting state from gleaner container: %w", err)
+	}
+
+	inspectResult, err := genericContainer.Inspect(ctx)
+	if err != nil {
+		return GleanerContainer{}, fmt.Errorf("failed getting name from gleaner container: %w", err)
+	}
+
+	return GleanerContainer{Container: genericContainer, ExitCode: state.ExitCode, Logs: string(logBytes), Name: inspectResult.Name}, nil
 
 }

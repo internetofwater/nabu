@@ -29,14 +29,17 @@ type SynchronizerClient struct {
 	// the client used for communicating with the triplestore
 	GraphClient *triplestore.GraphDbClient
 	// the client used for communicating with s3
-	s3Client *objects.MinioClientWrapper
+	S3Client *objects.MinioClientWrapper
 	// default bucket in the s3 that is used for synchronization
 	bucketName string
-	objConfig  config.Objects
+}
+
+func NewSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *objects.MinioClientWrapper, bucketName string) SynchronizerClient {
+	return SynchronizerClient{GraphClient: graphClient, S3Client: s3Client, bucketName: bucketName}
 }
 
 // Generate a new SynchronizerClient from the viper config
-func NewSynchronizerClient(v1 *viper.Viper) (*SynchronizerClient, error) {
+func NewSynchronizerClientFromViper(v1 *viper.Viper) (*SynchronizerClient, error) {
 	graphClient, err := triplestore.NewGraphDbClient(v1)
 	if err != nil {
 		return nil, err
@@ -45,20 +48,20 @@ func NewSynchronizerClient(v1 *viper.Viper) (*SynchronizerClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	bucketName, _ := config.GetBucketName(v1)
-	objCfg, err := config.GetConfigForS3Objects(v1)
+	bucketName, err := config.GetBucketName(v1)
 	if err != nil {
 		return nil, err
 	}
-	return &SynchronizerClient{GraphClient: graphClient, s3Client: s3Client, bucketName: bucketName, objConfig: objCfg}, nil
+
+	return &SynchronizerClient{GraphClient: graphClient, S3Client: s3Client, bucketName: bucketName}, nil
 }
 
-// Get rid of graphs in the triplestore that are not in the object store
+// Get rid of graphs with specif in the triplestore that are not in the object store
 func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(prefixes []string) error {
 
 	for _, prefix := range prefixes {
 		// collect the objects associated with the source
-		objectNamesInS3, err := common.ObjectList(synchronizer.bucketName, synchronizer.s3Client.Client, prefix)
+		objectNamesInS3, err := common.ObjectList(synchronizer.bucketName, synchronizer.S3Client.Client, prefix)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -114,7 +117,7 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(prefixes []string) e
 			graphObjectName := s3UrnToAssociatedObjName[graphUrnName]
 			log.Tracef("Add graph: %s  %s \n", graphUrnName, graphObjectName)
 
-			objBytes, err := synchronizer.s3Client.GetObjectAsBytes(graphObjectName)
+			objBytes, err := synchronizer.S3Client.GetObjectAsBytes(graphObjectName)
 			if err != nil {
 				return err
 			}
@@ -217,7 +220,7 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefixes
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		objectCh := synchronizer.s3Client.Client.ListObjects(ctx, synchronizer.bucketName, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
+		objectCh := synchronizer.S3Client.Client.ListObjects(ctx, synchronizer.bucketName, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
 
 		for object := range objectCh {
 			if object.Err != nil {
@@ -231,7 +234,7 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefixes
 
 		for _, graphName := range objKeys {
 
-			objBytes, err := synchronizer.s3Client.GetObjectAsBytes(graphName)
+			objBytes, err := synchronizer.S3Client.GetObjectAsBytes(graphName)
 			if err != nil {
 				return err
 			}
@@ -270,7 +273,7 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 	// read the nq files from the pipe and copy them to minio
 	go func() {
 		defer pipeTransferWorkGroup.Done()
-		_, err := synchronizer.s3Client.Client.PutObject(context.Background(), synchronizer.bucketName, fmt.Sprintf("%s/%s", destPrefix, objectName), pipeReader, -1, minio.PutObjectOptions{})
+		_, err := synchronizer.S3Client.Client.PutObject(context.Background(), synchronizer.bucketName, fmt.Sprintf("%s/%s", destPrefix, objectName), pipeReader, -1, minio.PutObjectOptions{})
 		//_, err := mc.PutObject(context.Background(), bucket, fmt.Sprintf("%s/%s", prefix, name), pr, -1, minio.PutObjectOptions{})
 		if err != nil {
 			log.Error(err)
@@ -333,7 +336,7 @@ func (synchronizer *SynchronizerClient) GenerateNqReleaseAndArchiveOld(prefixes 
 		name := fmt.Sprintf("%s/%s/%s_%s_release.nq", "graphs/archive", srcname, getTextBeforeDot(path.Base(spj)), t.Format(timeFormat))
 		latest_fullpath := fmt.Sprintf("%s/%s", "graphs/latest", name_latest)
 		// TODO PARALLELIZE
-		err = synchronizer.s3Client.Copy(synchronizer.bucketName, latest_fullpath, synchronizer.bucketName, strings.Replace(name, "latest", "archive", 1))
+		err = synchronizer.S3Client.Copy(synchronizer.bucketName, latest_fullpath, synchronizer.bucketName, strings.Replace(name, "latest", "archive", 1))
 	}
 
 	return err
@@ -342,7 +345,7 @@ func (synchronizer *SynchronizerClient) GenerateNqReleaseAndArchiveOld(prefixes 
 // Loads a single stored release graph into the graph database
 func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 string) error {
 
-	byt, err := synchronizer.s3Client.GetObjectAsBytes(nqPathInS3)
+	byt, err := synchronizer.S3Client.GetObjectAsBytes(nqPathInS3)
 	if err != nil {
 		return err
 	}

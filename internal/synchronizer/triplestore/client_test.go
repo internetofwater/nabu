@@ -14,13 +14,9 @@ type GraphDbClientSuite struct {
 
 // Setup common dependencies before starting the test suite
 func (suite *GraphDbClientSuite) SetupSuite() {
-	graphdb, err := NewGraphDBContainer("iow")
+	graphdb, err := NewGraphDBContainer("iow", "./testdata/iow-config.ttl")
 	require.NoError(suite.T(), err)
 	suite.graphdb = graphdb
-	t := suite.T()
-	configPath := "./test_data/iow-config.ttl"
-	err = suite.graphdb.Client.CreateRepositoryIfNotExists(configPath)
-	require.NoError(t, err)
 }
 
 func (suite *GraphDbClientSuite) TestGraphExists() {

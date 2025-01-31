@@ -333,7 +333,7 @@ func (graphClient *GraphDbClient) GraphExists(graph string) (bool, error) {
 	return ask.Boolean, err
 }
 
-// Get rid of graphs in the triplestore that are not in the object store
+// Get list of graphs in the triplestore
 func (graphClient *GraphDbClient) ListNamedGraphs(prefix string) ([]string, error) {
 	log.Debug("Getting list of named graphs")
 

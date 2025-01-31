@@ -11,7 +11,7 @@ import (
 )
 
 func release(v1 *viper.Viper) error {
-	client, err := synchronizer.NewSynchronizerClient(v1)
+	client, err := synchronizer.NewSynchronizerClientFromViper(v1)
 	if err != nil {
 		return err
 	}
