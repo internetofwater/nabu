@@ -67,12 +67,12 @@ func (suite *GleanerContainerSuite) TestGleanerHarvest() {
 	require.NoError(t, err)
 	logs, err := gleaner.Container.Logs(context.Background())
 	require.NoError(t, err)
-	_, err = io.ReadAll(logs)
+	logBytes, err := io.ReadAll(logs)
 	defer logs.Close() // Close after reading
 	require.NoError(t, err)
 	state, err := gleaner.Container.State(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 0, state.ExitCode, logs)
+	require.Equal(t, 0, state.ExitCode, string(logBytes))
 
 	objs, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"orgs/"})
 	require.NoError(t, err)
