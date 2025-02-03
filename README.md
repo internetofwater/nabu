@@ -1,5 +1,7 @@
 # Nabu
 
+This repository is a fork of the gleanerio Nabu project. This fork refactored and trimmed code to make it easier to run e2e tests for Geoconnex.
+
 ## About
 
 Nabu's main goal is to load/synchronize a collection of RDF graphs (for example JSON-LD document) in an 

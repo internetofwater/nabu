@@ -1,6 +1,7 @@
 name: Test Nabu Subcommand Options 
-on:
-  [  workflow_dispatch, pull_request ]
+
+on: [push]
+ 
 jobs:
   main:
     runs-on: ubuntu-22.04
@@ -8,7 +9,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.23'
       - name: Install and Run Nabu Runtime Dependencies, Test Utils, and Setup Env.
         run: |
             echo "::group::Install/Run Nabu Runtime Dependencies"
@@ -26,7 +27,6 @@ jobs:
       - name: Build Gleaner and Nabu 
         run: |
             echo "::group::Build Gleaner"
-            sudo apt install make
             sh scripts/iow/build-gleaner.sh
             sh scripts/iow/build-nabu.sh
             echo "::endgroup::" 
@@ -34,12 +34,12 @@ jobs:
         run: |
             echo "::group::Run Gleaner Harvest"
             sh scripts/iow/start-gleaner.sh config/iow/gleanerconfig.yaml
-            $HOME/bin/mc  ls myminio/iow/prov/refgages0|grep '.jsonld'|wc -l
+            $HOME/bin/mc ls myminio/iow/prov/refgages0 | grep '.jsonld' | wc -l
             bash scripts/iow/check-gleaner-s3-output.sh
       - name: Test Nabu Release
         run: |
             echo "::group::Test Nabu Release"
-            $HOME/bin/nabu release --cfg config/iow/nabuconfig.yaml  --prefix prov/refgages0
+            $HOME/nabu release --cfg config/iow/nabuconfig.yaml  --prefix prov/refgages0
             $HOME/bin/mc cat myminio/iow/graphs/latest/refgages0_prov.nq | wc -l
       - name: Cleanup Environment
         if: ${{ always() }}

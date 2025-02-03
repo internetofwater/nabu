@@ -7,9 +7,9 @@ import (
 )
 
 type Objects struct {
-	Bucket string //`mapstructure:"MINIO_BUCKET"`
-	Domain string //`mapstructure:"MINIO_DOMAIN"`
-	Prefix []string
+	Bucket   string //`mapstructure:"MINIO_BUCKET"`
+	Domain   string //`mapstructure:"MINIO_DOMAIN"`
+	Prefixes []string
 }
 
 var ObjectTemplate = map[string]interface{}{
@@ -20,21 +20,17 @@ var ObjectTemplate = map[string]interface{}{
 	},
 }
 
-func GetObjectsConfig(viperConfig *viper.Viper) (Objects, error) {
+func GetConfigForS3Objects(viperConfig *viper.Viper) (Objects, error) {
 	sub := viperConfig.Sub("objects")
-	return ReadObjectsConfig(sub)
-}
-
-func ReadObjectsConfig(viperSubtree *viper.Viper) (Objects, error) {
 	var objects Objects
 	for key, value := range sparqlTemplate {
-		viperSubtree.SetDefault(key, value)
+		sub.SetDefault(key, value)
 	}
-	_ = viperSubtree.BindEnv("bucket", "MINIO_BUCKET")
-	_ = viperSubtree.BindEnv("domain", "S3_DOMAIN")
-	viperSubtree.AutomaticEnv()
+	_ = sub.BindEnv("bucket", "MINIO_BUCKET")
+	_ = sub.BindEnv("domain", "S3_DOMAIN")
+	sub.AutomaticEnv()
 	// config already read. substree passed
-	err := viperSubtree.Unmarshal(&objects)
+	err := sub.Unmarshal(&objects)
 	if err != nil {
 		panic(fmt.Errorf("error when parsing servers s3  config: %v", err))
 	}

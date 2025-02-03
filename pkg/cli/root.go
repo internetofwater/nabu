@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 
 	"nabu/internal/common"
-	"nabu/internal/objects"
+	"nabu/internal/synchronizer/objects"
 	"nabu/pkg/config"
-	"github.com/minio/minio-go/v7"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
@@ -23,40 +23,20 @@ var cfgFile, cfgName, cfgPath, nabuConfName string
 var minioVal, portVal, accessVal, secretVal, bucketVal string
 var sslVal, dangerousVal bool
 var viperVal *viper.Viper
-var mc *minio.Client
 var prefixVal, endpointVal string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "nabu",
-	Short: "nabu ",
-	Long: `nabu
-`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	Short: "nabu",
+	Long:  `nabu`,
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	cobra.CheckErr(rootCmd.Execute())
 }
 
 func init() {
-	//LOG_FILE := "nabu.log" // log to custom file
-	//logFile, err := os.OpenFile(LOG_FILE, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
-	//if err != nil {
-	//log.Panic(err)
-	//return
-	//}
-	////defer logFile.Close()
-
-	//log.SetOutput(logFile) // Set log out put and enjoy :)
-
-	//log.SetFlags(log.Lshortfile | log.LstdFlags) // optional: log date-time, filename, and line number
-	//log.Println("Logging to custom file")
-	//log.Println("EarthCube Nabu")
 	common.InitLogging()
 
 	err := mime.AddExtensionType(".jsonld", "application/ld+json")
@@ -68,15 +48,8 @@ func init() {
 	skey := os.Getenv("MINIO_SECRET_KEY")
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
 	rootCmd.PersistentFlags().StringVar(&prefixVal, "prefix", "", "prefix to run. use source in future.")
-	// This needs to be done right... there are prov/source milled/source
-	// will need a custom validator to say, hey use prefix.
-	//	rootCmd.PersistentFlags().StringVar(&prefixVal, "source", "", "prefix to run. Consistency with glcon commend")
 
-	// Enpoint Server setting var
 	rootCmd.PersistentFlags().StringVar(&endpointVal, "endpoint", "", "end point server set for the SPARQL endpoints")
 
 	rootCmd.PersistentFlags().StringVar(&cfgPath, "cfgPath", "configs", "base location for config files (default is configs/)")
@@ -93,9 +66,6 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVar(&sslVal, "ssl", false, "Use SSL boolean")
 	rootCmd.PersistentFlags().BoolVar(&dangerousVal, "dangerous", false, "Use dangerous mode boolean")
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -110,15 +80,6 @@ func initConfig() {
 			log.Fatalf("cannot read config %s", err)
 		}
 	} else {
-		// Find home directory.
-		//home, err := os.UserHomeDir()
-		//cobra.CheckErr(err)
-		//
-		//// Search config in home directory with name "nabu" (without extension).
-		//viperVal.AddConfigPath(home)
-		//viperVal.AddConfigPath(path.Join(cfgPath, cfgName))
-		//viperVal.SetConfigType("yaml")
-		//viperVal.SetConfigName("nabu")
 		viperVal, err = config.ReadNabuConfig(nabuConfName, path.Join(cfgPath, cfgName))
 		if err != nil {
 			log.Fatalf("cannot read config %s", err)
@@ -129,14 +90,14 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 
-	mc, err = objects.MinioConnection(viperVal)
+	mc, err := objects.NewMinioClientWrapper(viperVal)
 	if err != nil {
 		log.Fatalf("cannot connect to minio: %s", err)
 	}
 
-	_, err = mc.ListBuckets(context.Background())
+	_, err = mc.Client.ListBuckets(context.Background())
 	if err != nil {
-		err = errors.New(err.Error() + fmt.Sprintf(" Ignore that. It's not the bucket. check config/minio: address, port, ssl. connection info: endpoint: %v ", mc.EndpointURL()))
+		err = errors.New(err.Error() + fmt.Sprintf(" Ignore that. It's not the bucket. check config/minio: address, port, ssl. connection info: endpoint: %v ", mc.Client.EndpointURL()))
 		log.Fatal("cannot connect to minio: ", err)
 	}
 

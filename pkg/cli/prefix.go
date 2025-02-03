@@ -1,40 +1,45 @@
 package cli
 
 import (
-	"nabu/pkg"
-
-	"os"
+	"nabu/internal/synchronizer"
+	"nabu/pkg/config"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-// checkCmd represents the check command
+func prefix(v1 *viper.Viper) error {
+	log.Info("Nabu started with mode: prefix")
+	client, err := synchronizer.NewSynchronizerClientFromViper(v1)
+	if err != nil {
+		log.Fatal(err)
+	}
+	objConfig, err := config.GetConfigForS3Objects(v1)
+	if err != nil {
+		return err
+	}
+	err = client.CopyAllPrefixedObjToTriplestore(objConfig.Prefixes)
+
+	if err != nil {
+		return err
+	}
+	return err
+}
+
 var PrefixCmd = &cobra.Command{
-	Use:   "prefix ",
+	Use:   "prefix",
 	Short: "nabu prefix command",
-	Long:  `Load graphs from prefix to triplestore`,
+	Long:  `Load graphs in s3 with a specific prefix into the triplestore`,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := pkg.Prefix(viperVal, mc)
+		err := prefix(viperVal)
 		if err != nil {
 			log.Fatal(err)
-			os.Exit(1)
 		}
-		os.Exit(0)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(PrefixCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// checkCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// checkCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

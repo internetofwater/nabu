@@ -1,0 +1,41 @@
+package common
+
+import (
+	"context"
+	"sync"
+
+	"github.com/minio/minio-go/v7"
+)
+
+func ObjectList(bucketName string, mc *minio.Client, prefix string) ([]string, error) {
+	//objs := v1.GetStringMapString("objects")
+	//objs,_ := config.GetObjectsConfig(v1)
+
+	// My go func controller vars
+	semaphoreChan := make(chan struct{}, 1) // a blocking channel to keep concurrency under control (1 == single thread)
+	defer close(semaphoreChan)
+	wg := sync.WaitGroup{} // a wait group enables the main process a wait for goroutines to finish
+
+	// params for list objects calls
+	doneCh := make(chan struct{}) // , N) Create a done channel to control 'ListObjectsV2' go routine.
+	defer close(doneCh)           // Indicate to our routine to exit cleanly upon return.
+	// isRecursive := true
+
+	oa := []string{}
+
+	// for object := range mc.ListObjectsV2(objs["bucket"], objs["prefix"], isRecursive, doneCh) {
+	// for object := range mc.ListObjects(context.Background(), objs["bucket"],
+	for object := range mc.ListObjects(context.Background(), bucketName,
+		minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
+
+		wg.Add(1)
+		go func(object minio.ObjectInfo) {
+			oa = append(oa, object.Key) // WARNING  append is not always thread safe..   wg of 1 till I address this
+			wg.Done()                   // tell the wait group that we be done
+			<-semaphoreChan
+		}(object)
+		wg.Wait()
+	}
+
+	return oa, nil
+}

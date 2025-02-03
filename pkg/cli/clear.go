@@ -1,40 +1,49 @@
 package cli
 
 import (
-	"nabu/pkg"
-
-	"os"
+	"nabu/internal/synchronizer"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
+
+func clear(v1 *viper.Viper) error {
+	log.Info("Nabu started with mode: clear")
+
+	dangerous := v1.GetBool("flags.dangerous")
+
+	if dangerous {
+		log.Println("dangerous mode is enabled")
+		synchronizerClient, err := synchronizer.NewSynchronizerClientFromViper(v1)
+		if err != nil {
+			return err
+		}
+		err = synchronizerClient.GraphClient.ClearAllGraphs()
+		if err != nil {
+			return err
+		}
+	} else {
+		log.Fatal("dangerous mode must be set to true to run this")
+	}
+
+	return nil
+}
 
 // checkCmd represents the check command
 var ClearCmd = &cobra.Command{
-	Use:   "clear ",
+	Use:   "clear",
 	Short: "nabu clear command",
 	Long:  `Removes all graphs from a SPARQL endpoint `,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := pkg.Clear(viperVal, mc)
+		err := clear(viperVal)
 		if err != nil {
 			log.Fatal(err)
-			os.Exit(1)
 		}
-		os.Exit(0)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(ClearCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// checkCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// checkCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

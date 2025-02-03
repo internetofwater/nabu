@@ -14,8 +14,7 @@ fi
 cd nabu 
 case "$(go env GOARCH)" in 
 amd64)
-  make nabu    
-  cp nabu $HOME/bin/nabu
+  go build -o $HOME/nabu
   ;;
 arm64)
   make nabu.m2.linux 

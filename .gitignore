@@ -5,3 +5,4 @@ nabu
 **/*.log
 **/.idea/**
 **/.fleet/**
+__debug_bin*
