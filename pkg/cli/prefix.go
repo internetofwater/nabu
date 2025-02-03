@@ -28,7 +28,6 @@ func prefix(v1 *viper.Viper) error {
 	return err
 }
 
-// checkCmd represents the check command
 var PrefixCmd = &cobra.Command{
 	Use:   "prefix ",
 	Short: "nabu prefix command",

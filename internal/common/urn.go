@@ -10,46 +10,35 @@ import (
 
 // MakeURN formats a URN following urn:{program}:{organization}:{provider}:{sha}
 func MakeURN(s string) (string, error) {
-	var (
-		graphName string // build the URN for the graph context string we use
-		err       error
-	)
-	s3c := ""
 	check := prefixTransform(s) // change "summoned" to "data" if summoned is in the object prefix
 	if strings.Contains(check, "orgs/") {
-		s3c = check
+		return fmt.Sprintf("urn:gleaner.io:%s:%s", "iow", check), nil
 	} else {
-		s3c = getLastThree(check)
+		s3c, err := getLastThree(check)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("urn:gleaner.io:%s:%s", "iow", s3c), nil
 	}
-
-	graphName = fmt.Sprintf("urn:gleaner.io:%s:%s", "iow", s3c) // form the URN
-
-	return graphName, err
 }
 
-// MakeURNPrefix formats a URN following the ADR 0001-URN-decision.md  which at the
+// MakeURNFromS3Prefix formats a URN following the ADR 0001-URN-decision.md  which at the
 // time of this coding resulted in   urn:{engine}:{implnet}:{source}:{type}:{sha}
 // the "prefix" version only returns the prefix part of the urn, for use in the prune
 // command
-func MakeURNPrefix(prefix string) (string, error) {
-
-	var (
-		g   string // build the URN for the graph context string we use
-		err error
-	)
+func MakeURNFromS3Prefix(prefix string) (string, error) {
 
 	if prefix == "orgs" {
-		g = fmt.Sprintf("urn:gleaner.io:%s:orgs", "iow")
-
+		return fmt.Sprintf("urn:gleaner.io:%s:orgs", "iow"), nil
 	} else {
 		check := prefixTransform(prefix)
 		ps := strings.Split(check, "/")
-		g = fmt.Sprintf("urn:gleaner.io:%s:%s:%s", "iow", ps[len(ps)-1], ps[len(ps)-2])
+		if len(ps) < 2 {
+			return "", fmt.Errorf("error in input prefix. You must have at least two / in the prefix")
+		}
+		return fmt.Sprintf("urn:gleaner.io:%s:%s:%s", "iow", ps[len(ps)-1], ps[len(ps)-2]), nil
+
 	}
-
-	//fmt.Printf("=Prefix===========> %s \n\n", g)
-
-	return g, err
 }
 
 // prefixTransform  In this code, the prefix will be coming in with something like
@@ -60,6 +49,8 @@ func MakeURNPrefix(prefix string) (string, error) {
 // this means that the string "summoned" needs to be mapped to "data".  However,
 // we use prov for both the path in the S3 and the URN structure.  So in this
 // location we need to convert summoned to prov
+
+// NOTE from Colton: this method seems unnecessary
 func prefixTransform(str string) string {
 	if !strings.Contains(str, "summoned/") {
 		return str
@@ -70,12 +61,16 @@ func prefixTransform(str string) string {
 
 // getLastThree
 // split the string and take last two segments, but flip to match URN for ADR 0001-URN-decision.md
-func getLastThree(s string) string {
+func getLastThree(s string) (string, error) {
 	extension := filepath.Ext(s) // remove the extension regardless of what it is
-	s = strings.TrimSuffix(s, extension)
+	trimmedString := strings.TrimSuffix(s, extension)
 
-	sr := strings.Replace(s, "/", ":", -1) // replace / with :
-	parts := strings.Split(sr, ":")        // Split the string on the ":" character.
+	sr := strings.Replace(trimmedString, "/", ":", -1) // replace / with :
+	parts := strings.Split(sr, ":")                    // Split the string on the ":" character.
+
+	if len(parts) < 3 {
+		return "", fmt.Errorf("error in urn formation trying to split on object prefix. Not enough slashes delimeters in %s", s)
+	}
 
 	lastThree := parts[len(parts)-3:] // Get the last three elements.
 
@@ -93,17 +88,5 @@ func getLastThree(s string) string {
 
 	s2c := strings.Join(lastThree, ":")
 
-	return s2c
+	return s2c, nil
 }
-
-// getLastTwo from chatGPT
-// func getLastTwo(s string) string {
-// 	// Split the string on the ":" character.
-// 	parts := strings.Split(s, ":")
-
-// 	// Get the last two elements.
-// 	lastTwo := parts[len(parts)-2:]
-
-// 	// Join the last two elements and return the result.
-// 	return strings.Join(lastTwo, ":")
-// }

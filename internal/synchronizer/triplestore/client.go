@@ -288,8 +288,8 @@ type ask struct {
 }
 
 // Check if a graph exists in the graph database
-func (graphClient *GraphDbClient) GraphExists(graph string) (bool, error) {
-	d := fmt.Sprintf("ASK WHERE { GRAPH <%s> { ?s ?p ?o } }", graph)
+func (graphClient *GraphDbClient) GraphExists(graphURN string) (bool, error) {
+	d := fmt.Sprintf("ASK WHERE { GRAPH <%s> { ?s ?p ?o } }", graphURN)
 
 	pab := []byte("")
 	params := url.Values{}
@@ -339,19 +339,19 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 
 	var ga []string
 
-	gp, err := common.MakeURNPrefix(prefix)
+	gp, err := common.MakeURNFromS3Prefix(prefix)
 	if err != nil {
 		log.Println(err)
 		return ga, err
 	}
 
-	d := "SELECT DISTINCT ?g WHERE {GRAPH ?g {?s ?p ?o} }"
+	query := "SELECT DISTINCT ?g WHERE {GRAPH ?g {?s ?p ?o} }"
 
 	log.Printf("Pattern: %s\n", gp)
-	log.Printf("SPARQL: %s\n", d)
+	log.Printf("SPARQL: %s\n", query)
 	pab := []byte("")
 	params := url.Values{}
-	params.Add("query", d)
+	params.Add("query", query)
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", graphClient.BaseRepositoryUrl, params.Encode()), bytes.NewBuffer(pab))
 	if err != nil {
 		log.Println(err)

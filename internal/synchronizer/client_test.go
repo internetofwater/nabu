@@ -20,8 +20,8 @@ import (
 type SynchronizerClientSuite struct {
 	suite.Suite
 
+	// the top level client for syncing between graphdb and minio
 	client SynchronizerClient
-
 	// minio container that gleaner will send data to
 	minioContainer objects.MinioContainer
 	// graphdb container that nabu will sync with
@@ -115,6 +115,19 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 	require.Len(t, graphs, 1)
 
 }
+
+// func (s *SynchronizerClientSuite) TestUpsertJsonLDData() {
+// 	rawBytes := []byte("{\"@id\":\"test\"}")
+// 	const prefix = "test/test2/test3"
+// 	err := s.client.UpsertDataForGraph(rawBytes, "test.jsonld")
+// 	require.NoError(s.T(), err)
+// 	err = s.client.RemoveGraphsNotInS3([]string{prefix})
+// 	require.NoError(s.T(), err)
+// 	result, err := s.client.GraphClient.GraphExists(prefix)
+// 	require.NoError(s.T(), err)
+// 	require.False(s.T(), result)
+
+// }
 
 func TestSynchronizerClientSuite(t *testing.T) {
 	suite.Run(t, new(SynchronizerClientSuite))

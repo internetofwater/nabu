@@ -56,10 +56,11 @@ func NewSynchronizerClientFromViper(v1 *viper.Viper) (*SynchronizerClient, error
 	return &SynchronizerClient{GraphClient: graphClient, S3Client: s3Client, bucketName: bucketName}, nil
 }
 
-// Get rid of graphs with specif in the triplestore that are not in the object store
-func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(prefixes []string) error {
+// Get rid of graphs with specific prefix in the triplestore that are not in the object store
+// Drops are determined by mapping a prefix to the associated URN
+func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(s3Prefixes []string) error {
 
-	for _, prefix := range prefixes {
+	for _, prefix := range s3Prefixes {
 		// collect the objects associated with the source
 		objectNamesInS3, err := common.ObjectList(synchronizer.bucketName, synchronizer.S3Client.Client, prefix)
 		if err != nil {
@@ -139,30 +140,30 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(prefixes []string) e
 // named triplestore.
 func (synchronizer *SynchronizerClient) UpsertDataForGraph(rawJsonldOrNqBytes []byte, objectName string) error {
 
-	graphName, err := common.MakeURN(objectName)
+	graphResourceIdentifier, err := common.MakeURN(objectName)
 	if err != nil {
 		return err
 	}
 
-	mt := mime.TypeByExtension(filepath.Ext(objectName))
-	nTriples := ""
+	mimetype := mime.TypeByExtension(filepath.Ext(objectName))
+	var nTriples string
 
-	if strings.Compare(mt, "application/ld+json") == 0 {
+	if strings.Compare(mimetype, "application/ld+json") == 0 {
 		nTriples, err = common.JsonldToNQ(string(rawJsonldOrNqBytes))
 		if err != nil {
-			log.Errorf("JSONLDToNQ err: %s", err)
+			log.Errorf("JSONLD to NQ conversion error: %s", err)
 			return err
 		}
 	} else {
 		nTriples, _, err = common.NQToNTCtx(string(rawJsonldOrNqBytes))
 		if err != nil {
-			log.Errorf("nqToNTCtx err: %s", err)
+			log.Errorf("nq to NTCtx error: %s", err)
 			return err
 		}
 	}
 
 	// drop any graph we are going to load..  we assume we are doing those due to an update
-	err = synchronizer.GraphClient.DropGraph(graphName)
+	err = synchronizer.GraphClient.DropGraph(graphResourceIdentifier)
 	if err != nil {
 		log.Error(err)
 		return err
@@ -172,11 +173,9 @@ func (synchronizer *SynchronizerClient) UpsertDataForGraph(rawJsonldOrNqBytes []
 	// so we can load with "our" context.
 	// Note: We are tossing source prov for out prov
 
-	log.Tracef("Graph loading as: %s\n", graphName)
-
 	// TODO if array is too large, need to split it and load parts
 	// Let's declare 10k lines the largest we want to send in.
-	log.Tracef("Graph size: %d\n", len(nTriples))
+	log.Infof("Loading graph %s of size: %d", graphResourceIdentifier, len(nTriples))
 
 	const maxSizeBeforeSplit = 10000
 
@@ -188,10 +187,10 @@ func (synchronizer *SynchronizerClient) UpsertDataForGraph(rawJsonldOrNqBytes []
 		lineCount = lineCount + 1
 		tripleArray = append(tripleArray, tripleScanner.Text())
 		if lineCount == maxSizeBeforeSplit { // use line count, since byte len might break inside a triple statement..   it's an OK proxy
-			log.Tracef("Subgraph of %d lines", len(tripleArray))
-			err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphName) // convert []string to strings joined with new line to form a RDF NT set
+			log.Tracef("Loading subgraph of %d lines", len(tripleArray))
+			err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphResourceIdentifier) // convert []string to strings joined with new line to form a RDF NT set
 			if err != nil {
-				log.Errorf("Insert err: %s", err)
+				log.Errorf("Error uploading subgraph: %s", err)
 				return err
 			}
 			tripleArray = []string{}
@@ -203,7 +202,7 @@ func (synchronizer *SynchronizerClient) UpsertDataForGraph(rawJsonldOrNqBytes []
 	// them in even if the total amount remaining is less than our max threshold for loading
 	if len(tripleArray) > 0 {
 		log.Tracef("Subgraph (out of scanner) of %d lines", len(tripleArray))
-		err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphName) // convert []string to strings joined with new line to form a RDF NT set
+		err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphResourceIdentifier) // convert []string to strings joined with new line to form a RDF NT set
 		if err != nil {
 			return err
 		}
@@ -212,7 +211,7 @@ func (synchronizer *SynchronizerClient) UpsertDataForGraph(rawJsonldOrNqBytes []
 	return err
 }
 
-// Gets all graphs with a specific prefix and loads them into the triplestore
+// Gets all graphs in s3 with a specific prefix and loads them into the triplestore
 func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefixes []string) error {
 
 	for _, prefix := range prefixes {

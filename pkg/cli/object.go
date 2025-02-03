@@ -22,7 +22,6 @@ func object(v1 *viper.Viper, objectName string) error {
 	return nil
 }
 
-// checkCmd represents the check command
 var objectCmd = &cobra.Command{
 	Use:   "object",
 	Short: "nabu object command",
@@ -43,15 +42,4 @@ var objectCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(objectCmd)
-
-	// Here you will define your flags and configuration settings.
-	// bucketVal is available at top level
-	//objectCmd.Flags().StringVar(&objectVal, "object", "", "object to load")
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// checkCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// checkCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
