@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NABU='go run ../../cmd/nabu/main.go'
+NABU='go run ../../main.go'
 CFG='../../xxx/iow/iow_dev_v4.yaml'
 BLAZE='http://coreos.lan:9090/blazegraph/namespace/iow/sparql'
 GRAPHDB='http://coreos.lan:7200/repositories/testing'
