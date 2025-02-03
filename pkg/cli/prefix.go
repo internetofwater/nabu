@@ -29,7 +29,7 @@ func prefix(v1 *viper.Viper) error {
 }
 
 var PrefixCmd = &cobra.Command{
-	Use:   "prefix ",
+	Use:   "prefix",
 	Short: "nabu prefix command",
 	Long:  `Load graphs in s3 with a specific prefix into the triplestore`,
 	Run: func(cmd *cobra.Command, args []string) {

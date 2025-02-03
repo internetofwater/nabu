@@ -33,7 +33,7 @@ func clear(v1 *viper.Viper) error {
 
 // checkCmd represents the check command
 var ClearCmd = &cobra.Command{
-	Use:   "clear ",
+	Use:   "clear",
 	Short: "nabu clear command",
 	Long:  `Removes all graphs from a SPARQL endpoint `,
 	Run: func(cmd *cobra.Command, args []string) {

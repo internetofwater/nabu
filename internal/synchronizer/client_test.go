@@ -95,39 +95,20 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 	}, suite.network.Name)
 	require.NoError(t, err)
 	require.Zero(t, gleanerContainer.ExitCode, gleanerContainer.Logs)
-
 	orgsObjs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{"orgs/"})
 	require.NoError(t, err)
-
 	require.Equal(t, orgsObjs, 1)
-
 	sourcesInSitemap, err := countSourcesInSitemap("https://pids.geoconnex.dev/sitemap/cdss/co_gages__0.xml")
 	require.NoError(t, err)
 	summonedObjs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{"summoned/cdss0/"})
 	require.NoError(t, err)
 	require.Equal(t, sourcesInSitemap, summonedObjs)
-
 	err = suite.client.CopyAllPrefixedObjToTriplestore([]string{"orgs"})
 	require.NoError(t, err)
-
 	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs")
 	require.NoError(t, err)
 	require.Len(t, graphs, 1)
-
 }
-
-// func (s *SynchronizerClientSuite) TestUpsertJsonLDData() {
-// 	rawBytes := []byte("{\"@id\":\"test\"}")
-// 	const prefix = "test/test2/test3"
-// 	err := s.client.UpsertDataForGraph(rawBytes, "test.jsonld")
-// 	require.NoError(s.T(), err)
-// 	err = s.client.RemoveGraphsNotInS3([]string{prefix})
-// 	require.NoError(s.T(), err)
-// 	result, err := s.client.GraphClient.GraphExists(prefix)
-// 	require.NoError(s.T(), err)
-// 	require.False(s.T(), result)
-
-// }
 
 func TestSynchronizerClientSuite(t *testing.T) {
 	suite.Run(t, new(SynchronizerClientSuite))

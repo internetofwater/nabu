@@ -123,7 +123,7 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(s3Prefixes []string)
 				return err
 			}
 
-			err = synchronizer.UpsertDataForGraph(objBytes, graphObjectName)
+			err = synchronizer.upsertDataForGraph(objBytes, graphObjectName)
 			if err != nil {
 				return err
 			}
@@ -138,7 +138,8 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(s3Prefixes []string)
 //
 // Takes in the raw bytes which represent rdf data and the associated
 // named triplestore.
-func (synchronizer *SynchronizerClient) UpsertDataForGraph(rawJsonldOrNqBytes []byte, objectName string) error {
+// objectName should be a full path to the object in the s3 bucket and end with the filename with the proper extension
+func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []byte, objectName string) error {
 
 	graphResourceIdentifier, err := common.MakeURN(objectName)
 	if err != nil {
@@ -238,7 +239,7 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefixes
 				return err
 			}
 
-			err = synchronizer.UpsertDataForGraph(objBytes, graphName)
+			err = synchronizer.upsertDataForGraph(objBytes, graphName)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -296,8 +297,6 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 // Generate a static file nq release and backup the old one
 func (synchronizer *SynchronizerClient) GenerateNqReleaseAndArchiveOld(prefixes []string) error {
 
-	var err error
-
 	for _, prefix := range prefixes {
 		sp := strings.Split(prefix, "/")
 		srcname := strings.Join(sp[1:], "__")
@@ -313,7 +312,7 @@ func (synchronizer *SynchronizerClient) GenerateNqReleaseAndArchiveOld(prefixes 
 			name_latest = "organizations.nq" // ex: counties0_org.nq
 			fmt.Println(synchronizer.bucketName)
 			fmt.Println(name_latest)
-			err = synchronizer.CopyBetweenS3PrefixesWithPipe(name_latest, "orgs", "graphs/latest") // have this function return the object name and path, easy to load and remove then
+			err := synchronizer.CopyBetweenS3PrefixesWithPipe(name_latest, "orgs", "graphs/latest")
 			if err != nil {
 				return err
 			}
@@ -323,7 +322,7 @@ func (synchronizer *SynchronizerClient) GenerateNqReleaseAndArchiveOld(prefixes 
 		}
 
 		// Make a release graph that will be stored in graphs/latest as {provider}_release.nq
-		err = synchronizer.CopyBetweenS3PrefixesWithPipe(name_latest, prefix, "graphs/latest") // have this function return the object name and path, easy to load and remove then
+		err := synchronizer.CopyBetweenS3PrefixesWithPipe(name_latest, prefix, "graphs/latest") // have this function return the object name and path, easy to load and remove then
 		if err != nil {
 			return err
 		}
@@ -336,9 +335,12 @@ func (synchronizer *SynchronizerClient) GenerateNqReleaseAndArchiveOld(prefixes 
 		latest_fullpath := fmt.Sprintf("%s/%s", "graphs/latest", name_latest)
 		// TODO PARALLELIZE
 		err = synchronizer.S3Client.Copy(synchronizer.bucketName, latest_fullpath, synchronizer.bucketName, strings.Replace(name, "latest", "archive", 1))
+		if err != nil {
+			return err
+		}
 	}
 
-	return err
+	return nil
 }
 
 // Loads a single stored release graph into the graph database
