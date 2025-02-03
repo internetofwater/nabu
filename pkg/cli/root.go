@@ -29,15 +29,9 @@ var prefixVal, endpointVal string
 var rootCmd = &cobra.Command{
 	Use:   "nabu",
 	Short: "nabu",
-	Long: `nabu
-`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	Long:  `nabu`,
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	cobra.CheckErr(rootCmd.Execute())
 }

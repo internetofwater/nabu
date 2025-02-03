@@ -34,7 +34,6 @@ var pruneCmd = &cobra.Command{
 	// NOTE: this is marked as not implemented in the upstream, but appears to be implemented here
 	Long: `Remove graphs in triplestore not in the s3 store`,
 	Run: func(cmd *cobra.Command, args []string) {
-		log.Println("Prune call started")
 		err := prune(viperVal)
 		if err != nil {
 			log.Fatal(err)

@@ -6,19 +6,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFindMissing(t *testing.T) {
-	a := []string{"a", "b", "c", "d"}
-	b := []string{"a", "c", "e"}
-	res := findMissing(a, b)
-	require.Equal(t, []string{"b", "d"}, res)
-}
+func TestOrphanAndMissing(t *testing.T) {
 
-func TestDifference(t *testing.T) {
-	// Test for difference function
-	a := []string{"a", "b", "c", "d"}
-	b := []string{"a", "c", "e", "f", "g"}
-	res := difference(a, b)
-	require.Equal(t, []string{"b", "d"}, res)
+	s3MockNames := []string{"a", "b", "c", "d", "e"}
+	tripleStoreMockNames := []string{"a", "b", "c", "g", "h"}
+
+	missingToAdd := findMissing(s3MockNames, tripleStoreMockNames)
+	require.Equal(t, []string{"d", "e"}, missingToAdd)
+
+	orphaned := findMissing(tripleStoreMockNames, s3MockNames)
+	require.Equal(t, []string{"g", "h"}, orphaned)
 }
 
 func TestGetTextBeforeDot(t *testing.T) {

@@ -93,9 +93,8 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(s3Prefixes []string)
 			s3ObjGraphNames = append(s3ObjGraphNames, s3ObjUrn)
 		}
 
-		//compare lists, anything IN graph not in objects list should be removed
-		triplestoreGraphsNotInS3 := difference(graphsInTriplestore, s3ObjGraphNames)  // return items in ga that are NOT in oag, we should remove these
-		s3GraphsNotInTriplestore := findMissing(s3ObjGraphNames, graphsInTriplestore) // return items from oag we need to add
+		triplestoreGraphsNotInS3 := findMissing(graphsInTriplestore, s3ObjGraphNames)
+		s3GraphsNotInTriplestore := findMissing(s3ObjGraphNames, graphsInTriplestore)
 
 		log.Infof("Current graph items: %d  Cuurent object items: %d\n", len(graphsInTriplestore), len(s3ObjGraphNames))
 		log.Infof("Orphaned items to remove: %d\n", len(triplestoreGraphsNotInS3))
@@ -104,7 +103,7 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(s3Prefixes []string)
 		log.WithFields(log.Fields{"prefix": prefix, "graph items": len(graphsInTriplestore), "object items": len(s3ObjGraphNames), "difference": len(triplestoreGraphsNotInS3),
 			"missing": len(s3GraphsNotInTriplestore)}).Info("Nabu Prune")
 
-		// All graphs not in s3 should be removed since s3 is the source of truth
+		// All triplestore graphs not in s3 should be removed since s3 is the source of truth
 		for _, graph := range triplestoreGraphsNotInS3 {
 			log.Infof("Removed graph: %s\n", graph)
 			err = synchronizer.GraphClient.DropGraph(graph)
@@ -156,7 +155,7 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 			return err
 		}
 	} else {
-		nTriples, _, err = common.NQToNTCtx(string(rawJsonldOrNqBytes))
+		nTriples, _, err = common.QuadsToTripleWithCtx(string(rawJsonldOrNqBytes))
 		if err != nil {
 			log.Errorf("nq to NTCtx error: %s", err)
 			return err
@@ -188,7 +187,7 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 		lineCount = lineCount + 1
 		tripleArray = append(tripleArray, tripleScanner.Text())
 		if lineCount == maxSizeBeforeSplit { // use line count, since byte len might break inside a triple statement..   it's an OK proxy
-			log.Tracef("Loading subgraph of %d lines", len(tripleArray))
+			log.Debugf("Loading subgraph of %d lines", len(tripleArray))
 			err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphResourceIdentifier) // convert []string to strings joined with new line to form a RDF NT set
 			if err != nil {
 				log.Errorf("Error uploading subgraph: %s", err)

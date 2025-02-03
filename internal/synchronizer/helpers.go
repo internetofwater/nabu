@@ -3,7 +3,7 @@ package synchronizer
 import "strings"
 
 // returns the elements in `a` that aren't in `b`.
-func difference(a, b []string) []string {
+func findMissing(a, b []string) []string {
 	mb := make(map[string]struct{}, len(b))
 	for _, x := range b {
 		mb[x] = struct{}{}
@@ -15,26 +15,6 @@ func difference(a, b []string) []string {
 		}
 	}
 	return diff
-}
-
-// findMissing returns a slice of strings representing the elements in a that are
-// not present in b.
-func findMissing(a, b []string) []string {
-	// Create a map to store the elements of ga.
-	gaMap := make(map[string]bool)
-	for _, s := range b {
-		gaMap[s] = true
-	}
-
-	// Iterate through a and add any elements that are not in b to the result slice.
-	var result []string
-	for _, s := range a {
-		if !gaMap[s] {
-			result = append(result, s)
-		}
-	}
-
-	return result
 }
 
 func getTextBeforeDot(s string) string {
