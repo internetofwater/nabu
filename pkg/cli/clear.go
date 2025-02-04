@@ -9,8 +9,6 @@ import (
 )
 
 func clear() error {
-	log.Info("Nabu started with mode: clear")
-
 	synchronizerClient, err := synchronizer.NewSynchronizerClientFromConfig(cfgStruct)
 	if err != nil {
 		return err

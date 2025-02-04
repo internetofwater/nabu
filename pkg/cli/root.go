@@ -21,7 +21,7 @@ var cfgStruct config.NabuConfig
 var rootCmd = &cobra.Command{
 	Use:   "nabu",
 	Short: "nabu",
-	Long:  `nabu`,
+	Long:  "nabu",
 }
 
 func Execute() {

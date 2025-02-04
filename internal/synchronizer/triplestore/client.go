@@ -251,7 +251,7 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 
 	pab := []byte(d)
 
-	req, err := http.NewRequest("POST", graphClient.BaseRepositoryUrl, bytes.NewBuffer(pab))
+	req, err := http.NewRequest("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(pab))
 	if err != nil {
 		log.Error(err)
 		return err
@@ -260,8 +260,9 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
-	if err != nil {
-		log.Error(err)
+	if err != nil || resp.StatusCode != 204 {
+		log.Errorf("failed to clear graphs: response Status: %s with error %s", resp.Status, err)
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -270,12 +271,11 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 		log.Error("response Body:", string(body))
 		log.Error("response Status:", resp.Status)
 		log.Error("response Headers:", resp.Header)
+		return err
 	}
 
 	log.Trace(string(body))
-
-	log.Infof("All graphs were cleared")
-
+	log.Infof("All graphs were cleared successfully")
 	return err
 }
 

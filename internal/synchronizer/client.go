@@ -37,7 +37,7 @@ func NewSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *obj
 	return SynchronizerClient{GraphClient: graphClient, S3Client: s3Client, syncBucketName: bucketName}
 }
 
-// Generate a new SynchronizerClient from the viper config
+// Generate a new SynchronizerClient
 func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClient, error) {
 	graphClient, err := triplestore.NewGraphDbClient(conf.Sparql)
 	if err != nil {
