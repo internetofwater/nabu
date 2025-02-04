@@ -52,7 +52,7 @@ func NewMinioClientWrapper(v1 *viper.Viper) (*MinioClientWrapper, error) {
 	} else {
 		log.Warn("region set for GCS or AWS, may cause issues with minio")
 		region := mcfg.Region
-		minioClient, err = minio.New(endpoint,
+		minioClient, err = minio.New(mcfg.Address,
 			&minio.Options{Creds: credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 				Secure: useSSL,
 				Region: region,
