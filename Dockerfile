@@ -11,4 +11,4 @@ RUN go mod tidy && \
 ADD https://schema.org/version/latest/schemaorg-current-https.jsonld /assets/schemaorg-current-https.jsonld
 ADD https://schema.org/version/latest/schemaorg-current-http.jsonld /assets/schemaorg-current-http.jsonld
 
-ENTRYPOINT ["/app/gleaner"]
+ENTRYPOINT ["/app/nabu"]
