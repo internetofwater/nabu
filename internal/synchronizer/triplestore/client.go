@@ -58,10 +58,15 @@ func NewGraphDbClient(v1 *viper.Viper) (*GraphDbClient, error) {
 	if err != nil {
 		return nil, err
 	}
+	host := "graphdb"
+	port := "7200"
 	return &GraphDbClient{
-		SparqlConf: conf,
+		SparqlConf:         conf,
+		BaseUrl:            fmt.Sprintf("http://%s:%s", host, port),
+		BaseRepositoryUrl:  fmt.Sprintf("http://%s:%s/repositories/%s", host, port, "iow"),
+		BaseRESTUrl:        fmt.Sprintf("http://%s:%s/rest", host, port),
+		BaseSparqlQueryUrl: fmt.Sprintf("http://%s:%s/repositories/%s/statements", host, port, "iow"),
 	}, nil
-
 }
 
 func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath string) error {
