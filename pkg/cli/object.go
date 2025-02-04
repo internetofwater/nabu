@@ -6,11 +6,10 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-func object(v1 *viper.Viper, objectName string) error {
-	client, err := synchronizer.NewSynchronizerClientFromViper(v1)
+func object(objectName string) error {
+	client, err := synchronizer.NewSynchronizerClientFromConfig(cfgStruct)
 	if err != nil {
 		return err
 	}
@@ -29,7 +28,7 @@ var objectCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 {
 			objectVal := args[0]
-			err := object(viperVal, objectVal)
+			err := object(objectVal)
 			if err != nil {
 				log.Fatal(err)
 			}

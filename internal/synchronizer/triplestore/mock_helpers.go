@@ -48,14 +48,11 @@ func NewGraphDBContainer(repositoryName string, configPath string) (GraphDBConta
 	if err != nil {
 		return GraphDBContainer{}, err
 	}
-	sparqlConfig := config.Sparql{
-		Endpoint:       "http://" + host + ":" + port.Port(),
-		EndpointBulk:   "http://" + host + ":" + port.Port(),
-		EndpointMethod: "GET",
-		ContentType:    "application/sparql-results+xml",
-		Authenticate:   false,
-		Username:       "",
-		Password:       "",
+	sparqlConfig := config.SparqlConfig{
+		Endpoint:     "http://" + host + ":" + port.Port(),
+		Authenticate: false,
+		Username:     "",
+		Password:     "",
 	}
 	client := GraphDbClient{
 		SparqlConf:         sparqlConfig,

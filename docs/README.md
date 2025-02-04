@@ -98,11 +98,6 @@ SPARQL endpoint.  Also, different vendors will likely require different methods
 and content type.  These are only needed in the case where you are using the
 _bulk_ command in Nabu.  For example:
 
-GraphDB example ([reference](https://graphdb.ontotext.com/documentation/10.2/))
-```yaml
-endpointBulk: http://example.org:7200/repositories/testing/statements
-endpointMethod: PUT
-contentType: application/n-quads
 ```
 
 Jena example ([reference](https://jena.apache.org/tutorials/index.html))

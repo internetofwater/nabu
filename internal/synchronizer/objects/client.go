@@ -9,7 +9,6 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 // Wrapper to allow us to extend the minio client struct with new methods
@@ -23,13 +22,8 @@ type MinioClientWrapper struct {
 }
 
 // MinioConnection Set up minio and initialize client
-func NewMinioClientWrapper(v1 *viper.Viper) (*MinioClientWrapper, error) {
+func NewMinioClientWrapper(mcfg config.MinioConfig) (*MinioClientWrapper, error) {
 
-	mcfg, err := config.GetMinioConfig(v1)
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
 	var endpoint string
 
 	if mcfg.Port == 0 {
@@ -42,6 +36,7 @@ func NewMinioClientWrapper(v1 *viper.Viper) (*MinioClientWrapper, error) {
 	useSSL := mcfg.Ssl
 
 	var minioClient *minio.Client
+	var err error
 
 	if mcfg.Region == "" {
 		log.Println("info: no region set")
@@ -49,6 +44,7 @@ func NewMinioClientWrapper(v1 *viper.Viper) (*MinioClientWrapper, error) {
 			&minio.Options{Creds: credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 				Secure: useSSL,
 			})
+
 	} else {
 		log.Warn("region set for GCS or AWS, may cause issues with minio")
 		region := mcfg.Region
@@ -144,8 +140,8 @@ func (m *MinioClientWrapper) GetObjects(prefixes []string) ([]minio.ObjectInfo, 
 }
 
 // Get the byes of an object from the store
-func (m *MinioClientWrapper) GetObjectAsBytes(object string) ([]byte, error) {
-	fileObject, err := m.Client.GetObject(context.Background(), m.DefaultBucket, object, minio.GetObjectOptions{})
+func (m *MinioClientWrapper) GetObjectAsBytes(objectName string) ([]byte, error) {
+	fileObject, err := m.Client.GetObject(context.Background(), m.DefaultBucket, objectName, minio.GetObjectOptions{})
 	if err != nil {
 		log.Info(err)
 		return nil, err
@@ -154,7 +150,7 @@ func (m *MinioClientWrapper) GetObjectAsBytes(object string) ([]byte, error) {
 
 	_, err = fileObject.Stat()
 	if err != nil {
-		log.Infof("Issue with reading an object:  %s%s", m.DefaultBucket, object)
+		log.Infof("Issue with reading an object. Seems to not exist when looking in bucket: %s and name: %s", m.DefaultBucket, objectName)
 		return nil, err
 	}
 

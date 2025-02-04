@@ -1,35 +1,27 @@
 package cli
 
 import (
-	"context"
-	"errors"
-	"fmt"
 	"mime"
 	"os"
-	"path"
 	"path/filepath"
 
 	"nabu/internal/common"
-	"nabu/internal/synchronizer/objects"
 	"nabu/pkg/config"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-
-	"github.com/spf13/viper"
 )
 
-var cfgFile, cfgName, cfgPath, nabuConfName string
-var minioVal, portVal, accessVal, secretVal, bucketVal string
+var cfgFile, nabuConfName, minioVal, accessVal, secretVal, bucketVal, endpointVal, prefixVal, repositoryVal string
+var portVal int
 var sslVal, dangerousVal bool
-var viperVal *viper.Viper
-var prefixVal, endpointVal string
 
-// rootCmd represents the base command when called without any subcommands
+var cfgStruct config.NabuConfig
+
 var rootCmd = &cobra.Command{
 	Use:   "nabu",
 	Short: "nabu",
-	Long:  `nabu`,
+	Long:  "nabu",
 }
 
 func Execute() {
@@ -44,25 +36,18 @@ func init() {
 		log.Fatal(err)
 	}
 
-	akey := os.Getenv("MINIO_ACCESS_KEY")
-	skey := os.Getenv("MINIO_SECRET_KEY")
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&prefixVal, "prefix", "", "prefix to run. use source in future.")
-
-	rootCmd.PersistentFlags().StringVar(&endpointVal, "endpoint", "", "end point server set for the SPARQL endpoints")
-
-	rootCmd.PersistentFlags().StringVar(&cfgPath, "cfgPath", "configs", "base location for config files (default is configs/)")
-	rootCmd.PersistentFlags().StringVar(&cfgName, "cfgName", "local", "config file (default is local so configs/local)")
-	rootCmd.PersistentFlags().StringVar(&nabuConfName, "nabuConfName", "nabu", "config file (default is local so configs/local)")
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "cfg", "", "compatibility/overload: full path to config file (default location gleaner in configs/local)")
-
-	// minio env variables
-	rootCmd.PersistentFlags().StringVar(&minioVal, "address", "localhost", "FQDN for server")
-	rootCmd.PersistentFlags().StringVar(&portVal, "port", "9000", "Port for minio server, default 9000")
-	rootCmd.PersistentFlags().StringVar(&accessVal, "access", akey, "Access Key ID")
-	rootCmd.PersistentFlags().StringVar(&secretVal, "secret", skey, "Secret access key")
-	rootCmd.PersistentFlags().StringVar(&bucketVal, "bucket", "gleaner", "The configuration bucket")
+	rootCmd.PersistentFlags().StringVar(&prefixVal, "prefix", "", "prefix to operate upon")
+	rootCmd.PersistentFlags().StringVar(&endpointVal, "endpoint", "", "endpoint for server for the SPARQL endpoints")
+	rootCmd.PersistentFlags().StringVar(&nabuConfName, "", "", "config file to use for nabu")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "cfg", "", "full path to yaml config file for nabu")
+	rootCmd.PersistentFlags().StringVar(&minioVal, "address", "", "")
+	rootCmd.PersistentFlags().IntVar(&portVal, "port", -1, "Port for s3 server")
+	rootCmd.PersistentFlags().StringVar(&accessVal, "access", os.Getenv("MINIO_ACCESS_KEY"), "Access Key (i.e. username)")
+	rootCmd.PersistentFlags().StringVar(&secretVal, "secret", os.Getenv("MINIO_SECRET_KEY"), "Secret access key")
+	rootCmd.PersistentFlags().StringVar(&bucketVal, "bucket", "", "The configuration bucket")
+	rootCmd.PersistentFlags().StringVar(&repositoryVal, "repository", "", "the default repository to use for graphdb")
 
 	rootCmd.PersistentFlags().BoolVar(&sslVal, "ssl", false, "Use SSL boolean")
 	rootCmd.PersistentFlags().BoolVar(&dangerousVal, "dangerous", false, "Use dangerous mode boolean")
@@ -71,71 +56,61 @@ func init() {
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	var err error
-	//viperVal := viper.New()
 	if cfgFile != "" {
-		// Use config file from the flag.
-		//viperVal.SetConfigFile(cfgFile)
-		viperVal, err = config.ReadNabuConfig(filepath.Base(cfgFile), filepath.Dir(cfgFile))
+		var configPath string
+		fileName := filepath.Base(cfgFile)
+
+		// If the path is absolute, use it directly
+		if filepath.IsAbs(cfgFile) {
+			configPath = filepath.Dir(cfgFile)
+		} else {
+			// If it's a relative path, resolve it against the current working directory
+			configPath, err = os.Getwd()
+			if err != nil {
+				log.Fatalf("cannot get current directory: %s", err)
+			}
+			configPath = filepath.Join(configPath, filepath.Dir(cfgFile))
+		}
+
+		// Make sure the file exists in the resolved path
+		if _, err = os.Stat(filepath.Join(configPath, fileName)); os.IsNotExist(err) {
+			log.Fatalf("config file does not exist at path: %s", filepath.Join(configPath, fileName))
+		}
+
+		cfgStruct, err = config.ReadNabuConfig(fileName, configPath)
 		if err != nil {
 			log.Fatalf("cannot read config %s", err)
 		}
 	} else {
-		viperVal, err = config.ReadNabuConfig(nabuConfName, path.Join(cfgPath, cfgName))
-		if err != nil {
-			log.Fatalf("cannot read config %s", err)
-		}
-	}
-
-	//viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-
-	mc, err := objects.NewMinioClientWrapper(viperVal)
-	if err != nil {
-		log.Fatalf("cannot connect to minio: %s", err)
-	}
-
-	_, err = mc.Client.ListBuckets(context.Background())
-	if err != nil {
-		err = errors.New(err.Error() + fmt.Sprintf(" Ignore that. It's not the bucket. check config/minio: address, port, ssl. connection info: endpoint: %v ", mc.Client.EndpointURL()))
-		log.Fatal("cannot connect to minio: ", err)
-	}
-
-	bucketVal, err = config.GetBucketName(viperVal)
-	if err != nil {
-		log.Fatalf("cannot read bucketname from : %s ", err)
-	}
-	// Override prefix in config if flag set
-	//if isFlagPassed("prefix") {
-	//	out := viperVal.GetStringMapString("objects")
-	//	b := out["bucket"]
-	//	p := prefixVal
-	//	// r := out["region"]
-	//	// v1.Set("objects", map[string]string{"bucket": b, "prefix": NEWPREFIX, "region": r})
-	//	viperVal.Set("objects", map[string]string{"bucket": b, "prefix": p})
-	//}
-
-	if dangerousVal {
-		viperVal.Set("flags.dangerous", true)
+		log.Fatal("FATAL: no config file provided with --cfg")
 	}
 
 	if endpointVal != "" {
-		viperVal.Set("flags.endpoint", endpointVal)
+		cfgStruct.Sparql.Endpoint = endpointVal
 	}
-
+	if minioVal != "" {
+		cfgStruct.Minio.Address = minioVal
+	}
+	if portVal != -1 {
+		cfgStruct.Minio.Port = portVal
+	}
+	if accessVal != "" {
+		cfgStruct.Minio.Accesskey = accessVal
+	}
+	if secretVal != "" {
+		cfgStruct.Minio.Secretkey = secretVal
+	}
+	if bucketVal != "" {
+		cfgStruct.Minio.Bucket = bucketVal
+	}
+	if !sslVal {
+		cfgStruct.Minio.Ssl = sslVal
+	}
 	if prefixVal != "" {
-		//out := viperVal.GetStringMapString("objects")
-		//d := out["domain"]
-
-		var p []string
-		p = append(p, prefixVal)
-
-		viperVal.Set("objects.prefix", p)
-
-		//p := prefixVal
-		// r := out["region"]
-		// v1.Set("objects", map[string]string{"bucket": b, "prefix": NEWPREFIX, "region": r})
-		//viperVal.Set("objects", map[string]string{"domain": d, "prefix": p})
+		cfgStruct.Prefixes = []string{prefixVal}
+	}
+	if repositoryVal != "" {
+		cfgStruct.Sparql.Repository = repositoryVal
 	}
 
 }

@@ -16,7 +16,6 @@ import (
 	"nabu/pkg/config"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"github.com/tidwall/gjson"
 )
 
@@ -39,7 +38,7 @@ type TriplestoreMethods interface {
 
 type GraphDbClient struct {
 	// Holds the configuration for how to interact with the sparql endpoint
-	SparqlConf config.Sparql
+	SparqlConf config.SparqlConfig
 	// url to the host without specifying a repository
 	BaseUrl string
 	// url to the host specifying a repository
@@ -53,15 +52,14 @@ type GraphDbClient struct {
 }
 
 // Create a new client struct to connect to the triplestore
-func NewGraphDbClient(v1 *viper.Viper) (*GraphDbClient, error) {
-	conf, err := config.ReadSparqlConfig(v1)
-	if err != nil {
-		return nil, err
-	}
+func NewGraphDbClient(config config.SparqlConfig) (*GraphDbClient, error) {
 	return &GraphDbClient{
-		SparqlConf: conf,
+		SparqlConf:         config,
+		BaseUrl:            config.Endpoint,
+		BaseRepositoryUrl:  fmt.Sprintf("%s/repositories/%s", config.Endpoint, config.Repository),
+		BaseRESTUrl:        fmt.Sprintf("%s/rest", config.Endpoint),
+		BaseSparqlQueryUrl: fmt.Sprintf("%s/repositories/%s/statements", config.Endpoint, config.Repository),
 	}, nil
-
 }
 
 func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath string) error {
@@ -253,7 +251,7 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 
 	pab := []byte(d)
 
-	req, err := http.NewRequest("POST", graphClient.BaseRepositoryUrl, bytes.NewBuffer(pab))
+	req, err := http.NewRequest("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(pab))
 	if err != nil {
 		log.Error(err)
 		return err
@@ -262,8 +260,9 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
-	if err != nil {
-		log.Error(err)
+	if err != nil || resp.StatusCode != 204 {
+		log.Errorf("failed to clear graphs: response Status: %s with error %s", resp.Status, err)
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -272,12 +271,11 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 		log.Error("response Body:", string(body))
 		log.Error("response Status:", resp.Status)
 		log.Error("response Headers:", resp.Header)
+		return err
 	}
 
 	log.Trace(string(body))
-
-	log.Infof("All graphs were cleared")
-
+	log.Infof("All graphs were cleared successfully")
 	return err
 }
 

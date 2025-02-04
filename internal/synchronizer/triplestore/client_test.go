@@ -72,6 +72,11 @@ func (suite *GraphDbClientSuite) TestDropGraph() {
 	require.False(t, graphExists)
 }
 
+func (suite *GraphDbClientSuite) TestClearAll() {
+	err := suite.graphdb.Client.ClearAllGraphs()
+	require.NoError(suite.T(), err)
+}
+
 // Run the entire test suite
 func TestGraphdbTestSuite(t *testing.T) {
 	suite.Run(t, new(GraphDbClientSuite))
