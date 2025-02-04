@@ -56,7 +56,27 @@ func init() {
 func initConfig() {
 	var err error
 	if cfgFile != "" {
-		cfgStruct, err = config.ReadNabuConfig(nabuConfName, filepath.Dir(cfgFile))
+		var configPath string
+		fileName := filepath.Base(cfgFile)
+
+		// If the path is absolute, use it directly
+		if filepath.IsAbs(cfgFile) {
+			configPath = filepath.Dir(cfgFile)
+		} else {
+			// If it's a relative path, resolve it against the current working directory
+			configPath, err = os.Getwd()
+			if err != nil {
+				log.Fatalf("cannot get current directory: %s", err)
+			}
+			configPath = filepath.Join(configPath, filepath.Dir(cfgFile))
+		}
+
+		// Make sure the file exists in the resolved path
+		if _, err = os.Stat(filepath.Join(configPath, fileName)); os.IsNotExist(err) {
+			log.Fatalf("config file does not exist at path: %s", filepath.Join(configPath, fileName))
+		}
+
+		cfgStruct, err = config.ReadNabuConfig(fileName, configPath)
 		if err != nil {
 			log.Fatalf("cannot read config %s", err)
 		}
