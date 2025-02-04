@@ -16,7 +16,6 @@ import (
 	"nabu/pkg/config"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"github.com/tidwall/gjson"
 )
 
@@ -39,7 +38,7 @@ type TriplestoreMethods interface {
 
 type GraphDbClient struct {
 	// Holds the configuration for how to interact with the sparql endpoint
-	SparqlConf config.Sparql
+	SparqlConf config.SparqlConfig
 	// url to the host without specifying a repository
 	BaseUrl string
 	// url to the host specifying a repository
@@ -53,19 +52,13 @@ type GraphDbClient struct {
 }
 
 // Create a new client struct to connect to the triplestore
-func NewGraphDbClient(v1 *viper.Viper) (*GraphDbClient, error) {
-	conf, err := config.ReadSparqlConfig(v1)
-	if err != nil {
-		return nil, err
-	}
-	host := "graphdb"
-	port := "7200"
+func NewGraphDbClient(config config.SparqlConfig) (*GraphDbClient, error) {
 	return &GraphDbClient{
-		SparqlConf:         conf,
-		BaseUrl:            fmt.Sprintf("http://%s:%s", host, port),
-		BaseRepositoryUrl:  fmt.Sprintf("http://%s:%s/repositories/%s", host, port, "iow"),
-		BaseRESTUrl:        fmt.Sprintf("http://%s:%s/rest", host, port),
-		BaseSparqlQueryUrl: fmt.Sprintf("http://%s:%s/repositories/%s/statements", host, port, "iow"),
+		SparqlConf:         config,
+		BaseUrl:            config.Endpoint,
+		BaseRepositoryUrl:  fmt.Sprintf("%s/repositories/%s", config.Endpoint, config.Repository),
+		BaseRESTUrl:        fmt.Sprintf("%s/rest", config.Endpoint),
+		BaseSparqlQueryUrl: fmt.Sprintf("%s/repositories/%s/statements", config.Endpoint, config.Repository),
 	}, nil
 }
 

@@ -36,6 +36,11 @@ func (suite *S3ClientSuite) SetupSuite() {
 
 }
 
+func (s *S3ClientSuite) TearDownSuite() {
+	c := *s.minioContainer.Container
+	c.Terminate(context.Background())
+}
+
 // Make sure the number of matched objects is correct
 // both with and without prefixes
 func (suite *S3ClientSuite) TestNumberOfMatchedObjects() {

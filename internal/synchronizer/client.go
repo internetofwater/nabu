@@ -21,7 +21,6 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 // Client to perform operations that synchronize the graph database with the object store
@@ -31,29 +30,25 @@ type SynchronizerClient struct {
 	// the client used for communicating with s3
 	S3Client *objects.MinioClientWrapper
 	// default bucket in the s3 that is used for synchronization
-	bucketName string
+	syncBucketName string
 }
 
 func NewSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *objects.MinioClientWrapper, bucketName string) SynchronizerClient {
-	return SynchronizerClient{GraphClient: graphClient, S3Client: s3Client, bucketName: bucketName}
+	return SynchronizerClient{GraphClient: graphClient, S3Client: s3Client, syncBucketName: bucketName}
 }
 
 // Generate a new SynchronizerClient from the viper config
-func NewSynchronizerClientFromViper(v1 *viper.Viper) (*SynchronizerClient, error) {
-	graphClient, err := triplestore.NewGraphDbClient(v1)
+func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClient, error) {
+	graphClient, err := triplestore.NewGraphDbClient(conf.Sparql)
 	if err != nil {
 		return nil, err
 	}
-	s3Client, err := objects.NewMinioClientWrapper(v1)
-	if err != nil {
-		return nil, err
-	}
-	bucketName, err := config.GetBucketName(v1)
+	s3Client, err := objects.NewMinioClientWrapper(conf.Minio)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SynchronizerClient{GraphClient: graphClient, S3Client: s3Client, bucketName: bucketName}, nil
+	return &SynchronizerClient{GraphClient: graphClient, S3Client: s3Client, syncBucketName: conf.Minio.Bucket}, nil
 }
 
 // Get rid of graphs with specific prefix in the triplestore that are not in the object store
@@ -62,7 +57,7 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(s3Prefixes []string)
 
 	for _, prefix := range s3Prefixes {
 		// collect the objects associated with the source
-		objectNamesInS3, err := common.ObjectList(synchronizer.bucketName, synchronizer.S3Client.Client, prefix)
+		objectNamesInS3, err := common.ObjectList(synchronizer.syncBucketName, synchronizer.S3Client.Client, prefix)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -219,7 +214,7 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefixes
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		objectCh := synchronizer.S3Client.Client.ListObjects(ctx, synchronizer.bucketName, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
+		objectCh := synchronizer.S3Client.Client.ListObjects(ctx, synchronizer.syncBucketName, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
 
 		for object := range objectCh {
 			if object.Err != nil {
@@ -229,7 +224,7 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefixes
 			objKeys = append(objKeys, object.Key)
 		}
 
-		log.Infof("%d objects found for prefix: %s:%s", len(objKeys), synchronizer.bucketName, prefix)
+		log.Infof("%d objects found for prefix: %s:%s", len(objKeys), synchronizer.syncBucketName, prefix)
 
 		for _, graphName := range objKeys {
 
@@ -272,7 +267,7 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 	// read the nq files from the pipe and copy them to minio
 	go func() {
 		defer pipeTransferWorkGroup.Done()
-		_, err := synchronizer.S3Client.Client.PutObject(context.Background(), synchronizer.bucketName, fmt.Sprintf("%s/%s", destPrefix, objectName), pipeReader, -1, minio.PutObjectOptions{})
+		_, err := synchronizer.S3Client.Client.PutObject(context.Background(), synchronizer.syncBucketName, fmt.Sprintf("%s/%s", destPrefix, objectName), pipeReader, -1, minio.PutObjectOptions{})
 		//_, err := mc.PutObject(context.Background(), bucket, fmt.Sprintf("%s/%s", prefix, name), pr, -1, minio.PutObjectOptions{})
 		if err != nil {
 			log.Error(err)
@@ -309,7 +304,7 @@ func (synchronizer *SynchronizerClient) GenerateNqReleaseAndArchiveOld(prefixes 
 			name_latest = fmt.Sprintf("%s_prov.nq", getTextBeforeDot(path.Base(srcname))) // ex: counties0_prov.nq
 		} else if contains(sp, "orgs") {
 			name_latest = "organizations.nq" // ex: counties0_org.nq
-			fmt.Println(synchronizer.bucketName)
+			fmt.Println(synchronizer.syncBucketName)
 			fmt.Println(name_latest)
 			err := synchronizer.CopyBetweenS3PrefixesWithPipe(name_latest, "orgs", "graphs/latest")
 			if err != nil {
@@ -333,7 +328,7 @@ func (synchronizer *SynchronizerClient) GenerateNqReleaseAndArchiveOld(prefixes 
 		name := fmt.Sprintf("%s/%s/%s_%s_release.nq", "graphs/archive", srcname, getTextBeforeDot(path.Base(spj)), t.Format(timeFormat))
 		latest_fullpath := fmt.Sprintf("%s/%s", "graphs/latest", name_latest)
 		// TODO PARALLELIZE
-		err = synchronizer.S3Client.Copy(synchronizer.bucketName, latest_fullpath, synchronizer.bucketName, strings.Replace(name, "latest", "archive", 1))
+		err = synchronizer.S3Client.Copy(synchronizer.syncBucketName, latest_fullpath, synchronizer.syncBucketName, strings.Replace(name, "latest", "archive", 1))
 		if err != nil {
 			return err
 		}
@@ -350,19 +345,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 		return err
 	}
 
-	// NOTE:   commented out, but left.  Since we are loading quads, no need for a triplestore.
-	// If (when) we add back in ntriples as a version, this could be used to build a graph for
-	// All the triples in the bulk file to then load as triples + general context (graph)
-	// Review if this graph g should b here since we are loading quads
-	// I don't think it should b.   validate with all the tested triple stores
-	//bn := strings.Replace(bucketName, ".", ":", -1) // convert to urn : values, buckets with . are not valid IRIs
-	g, err := common.MakeURN(nqPathInS3)
-	if err != nil {
-		return err
-	}
-	url := fmt.Sprintf("%s?graph=%s", synchronizer.GraphClient.SparqlConf.Endpoint, g)
-
-	// if the file is jsonld make it nquads before it is uploaded
+	// Convert JSON-LD to N-Quads if needed
 	if strings.Contains(nqPathInS3, ".jsonld") {
 		convertedNq, err := common.JsonldToNQ(string(byt))
 		if err != nil {
@@ -371,11 +354,15 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 		byt = []byte(convertedNq)
 	}
 
-	req, err := http.NewRequest(synchronizer.GraphClient.SparqlConf.EndpointMethod, url, bytes.NewReader(byt))
+	// Correct GraphDB REST API endpoint
+	url := fmt.Sprintf("%s/statements", synchronizer.GraphClient.BaseRepositoryUrl)
+
+	// Create request
+	req, err := http.NewRequest("POST", synchronizer.GraphClient.BaseSparqlQueryUrl, bytes.NewReader(byt))
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", synchronizer.GraphClient.SparqlConf.ContentType) // needs to be x-nquads for blaze, n-quads for jena and graphdb
+	req.Header.Set("Content-Type", "application/n-quads") // Corrected content type
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -384,14 +371,16 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body) // return body if you want to debugg test with it
+	// Read response
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Error(string(body))
 		return err
 	}
+	if resp.StatusCode != 200 && resp.StatusCode != 204 {
+		log.Errorf("GraphDB upload failed: %d %s", resp.StatusCode, string(body))
+		return fmt.Errorf("GraphDB upload failed: %d", resp.StatusCode)
+	}
 
-	log.Println(string(body))
-	log.Printf("success: %s : %d  : %s\n", nqPathInS3, len(byt), synchronizer.GraphClient.SparqlConf.Endpoint)
-
-	return err
+	log.Infof("Successfully uploaded N-Quads to %s (%d bytes)", url, len(byt))
+	return nil
 }

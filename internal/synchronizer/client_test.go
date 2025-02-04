@@ -110,6 +110,20 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 	require.Len(t, graphs, 1)
 }
 
+func (suite *SynchronizerClientSuite) TestMoveNqToTriplestore() {
+	t := suite.T()
+	gleanerContainer, err := testhelpers.NewGleanerContainer("../../config/iow/gleanerconfig.yaml", []string{
+		"--source", "cdss0",
+		"--address", "synchronizerTestMinio",
+		"--setup",
+		"--port", "9000",
+	}, suite.network.Name)
+	require.NoError(t, err)
+	require.Zero(t, gleanerContainer.ExitCode, gleanerContainer.Logs)
+	err = suite.client.UploadNqFileToTriplestore("orgs/cdss0.nq")
+	require.NoError(t, err)
+}
+
 func TestSynchronizerClientSuite(t *testing.T) {
 	suite.Run(t, new(SynchronizerClientSuite))
 }
