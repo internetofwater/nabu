@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cfgFile, nabuConfName, minioVal, accessVal, secretVal, bucketVal, endpointVal, prefixVal string
+var cfgFile, nabuConfName, minioVal, accessVal, secretVal, bucketVal, endpointVal, prefixVal, repositoryVal string
 var portVal int
 var sslVal, dangerousVal bool
 
@@ -42,11 +42,12 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&endpointVal, "endpoint", "", "endpoint for server for the SPARQL endpoints")
 	rootCmd.PersistentFlags().StringVar(&nabuConfName, "", "", "config file to use for nabu")
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "cfg", "", "full path to yaml config file for nabu")
-	rootCmd.PersistentFlags().StringVar(&minioVal, "address", "", "hostname for s3 server")
+	rootCmd.PersistentFlags().StringVar(&minioVal, "address", "", "")
 	rootCmd.PersistentFlags().IntVar(&portVal, "port", -1, "Port for s3 server")
 	rootCmd.PersistentFlags().StringVar(&accessVal, "access", os.Getenv("MINIO_ACCESS_KEY"), "Access Key (i.e. username)")
 	rootCmd.PersistentFlags().StringVar(&secretVal, "secret", os.Getenv("MINIO_SECRET_KEY"), "Secret access key")
 	rootCmd.PersistentFlags().StringVar(&bucketVal, "bucket", "", "The configuration bucket")
+	rootCmd.PersistentFlags().StringVar(&repositoryVal, "repository", "", "the default repository to use for graphdb")
 
 	rootCmd.PersistentFlags().BoolVar(&sslVal, "ssl", false, "Use SSL boolean")
 	rootCmd.PersistentFlags().BoolVar(&dangerousVal, "dangerous", false, "Use dangerous mode boolean")
@@ -107,6 +108,9 @@ func initConfig() {
 	}
 	if prefixVal != "" {
 		cfgStruct.Prefixes = []string{prefixVal}
+	}
+	if repositoryVal != "" {
+		cfgStruct.Sparql.Repository = repositoryVal
 	}
 
 }
