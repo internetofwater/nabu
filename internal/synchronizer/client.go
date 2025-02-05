@@ -17,7 +17,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
@@ -53,76 +52,91 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 
 // Get rid of graphs with specific prefix in the triplestore that are not in the object store
 // Drops are determined by mapping a prefix to the associated URN
-func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(s3Prefixes []string) error {
+func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(s3Prefixes []string) error {
+
+	var prefixWaitGroup sync.WaitGroup
+	prefixWaitGroup.Add(len(s3Prefixes))
+	errChan := make(chan error, len(s3Prefixes))
 
 	for _, prefix := range s3Prefixes {
-		// collect the objects associated with the source
-		objectNamesInS3, err := common.ObjectList(synchronizer.syncBucketName, synchronizer.S3Client.Client, prefix)
+
+		go func(prefix string) {
+			defer prefixWaitGroup.Done()
+			// collect the objects associated with the source
+			objectNamesInS3, err := common.ObjectList(synchronizer.syncBucketName, synchronizer.S3Client.Client, prefix)
+			if err != nil {
+				log.Error(err)
+				errChan <- err
+			}
+
+			// collect the named graphs from graph associated with the source
+			graphsInTriplestore, err := synchronizer.GraphClient.NamedGraphsAssociatedWithS3Prefix(prefix)
+			if err != nil {
+				log.Error(err)
+				errChan <- err
+			}
+
+			// convert the object names to the URN pattern used in the graph
+			// and make a map where key = URN, value = object name
+			// NOTE:  since later we want to look up the object based the URN
+			// we will do it this way since mapswnat you to know a key, not a value, when
+			// querying them.
+			// This is OK since all KV pairs involve unique keys and unique values
+			var s3UrnToAssociatedObjName = map[string]string{}
+			// create a list of just the names so we can diff against it
+			var s3ObjGraphNames []string
+			for _, objectName := range objectNamesInS3 {
+				s3ObjUrn, err := common.MakeURN(objectName)
+				if err != nil {
+					errChan <- err
+				}
+				s3UrnToAssociatedObjName[s3ObjUrn] = objectName // key (URN)= value (object prefixpath)
+				s3ObjGraphNames = append(s3ObjGraphNames, s3ObjUrn)
+			}
+
+			triplestoreGraphsNotInS3 := findMissing(graphsInTriplestore, s3ObjGraphNames)
+			s3GraphsNotInTriplestore := findMissing(s3ObjGraphNames, graphsInTriplestore)
+
+			log.Infof("Current graph items: %d  Cuurent object items: %d\n", len(graphsInTriplestore), len(s3ObjGraphNames))
+			log.Infof("Orphaned items to remove: %d\n", len(triplestoreGraphsNotInS3))
+			log.Infof("Missing items to add: %d\n", len(s3GraphsNotInTriplestore))
+
+			log.WithFields(log.Fields{"prefix": prefix, "graph items": len(graphsInTriplestore), "object items": len(s3ObjGraphNames), "difference": len(triplestoreGraphsNotInS3),
+				"missing": len(s3GraphsNotInTriplestore)}).Info("Nabu Prune")
+
+			// All triplestore graphs not in s3 should be removed since s3 is the source of truth
+			for _, graph := range triplestoreGraphsNotInS3 {
+				log.Infof("Removed graph: %s\n", graph)
+				err = synchronizer.GraphClient.DropGraph(graph)
+				if err != nil {
+					log.Errorf("Drop graph issue: %v\n", err)
+					errChan <- err
+				}
+			}
+
+			for _, graphUrnName := range s3GraphsNotInTriplestore {
+				graphObjectName := s3UrnToAssociatedObjName[graphUrnName]
+				log.Tracef("Add graph: %s  %s \n", graphUrnName, graphObjectName)
+
+				objBytes, err := synchronizer.S3Client.GetObjectAsBytes(graphObjectName)
+				if err != nil {
+					errChan <- err
+				}
+
+				err = synchronizer.upsertDataForGraph(objBytes, graphObjectName)
+				if err != nil {
+					errChan <- err
+				}
+			}
+		}(prefix)
+	}
+	prefixWaitGroup.Wait()
+	for err := range errChan {
 		if err != nil {
-			log.Error(err)
 			return err
-		}
-
-		// collect the named graphs from graph associated with the source
-		graphsInTriplestore, err := synchronizer.GraphClient.NamedGraphsAssociatedWithS3Prefix(prefix)
-		if err != nil {
-			log.Error(err)
-			return err
-		}
-
-		// convert the object names to the URN pattern used in the graph
-		// and make a map where key = URN, value = object name
-		// NOTE:  since later we want to look up the object based the URN
-		// we will do it this way since mapswnat you to know a key, not a value, when
-		// querying them.
-		// This is OK since all KV pairs involve unique keys and unique values
-		var s3UrnToAssociatedObjName = map[string]string{}
-		// create a list of just the names so we can diff against it
-		var s3ObjGraphNames []string
-		for _, objectName := range objectNamesInS3 {
-			s3ObjUrn, err := common.MakeURN(objectName)
-			if err != nil {
-				return err
-			}
-			s3UrnToAssociatedObjName[s3ObjUrn] = objectName // key (URN)= value (object prefixpath)
-			s3ObjGraphNames = append(s3ObjGraphNames, s3ObjUrn)
-		}
-
-		triplestoreGraphsNotInS3 := findMissing(graphsInTriplestore, s3ObjGraphNames)
-		s3GraphsNotInTriplestore := findMissing(s3ObjGraphNames, graphsInTriplestore)
-
-		log.Infof("Current graph items: %d  Cuurent object items: %d\n", len(graphsInTriplestore), len(s3ObjGraphNames))
-		log.Infof("Orphaned items to remove: %d\n", len(triplestoreGraphsNotInS3))
-		log.Infof("Missing items to add: %d\n", len(s3GraphsNotInTriplestore))
-
-		log.WithFields(log.Fields{"prefix": prefix, "graph items": len(graphsInTriplestore), "object items": len(s3ObjGraphNames), "difference": len(triplestoreGraphsNotInS3),
-			"missing": len(s3GraphsNotInTriplestore)}).Info("Nabu Prune")
-
-		// All triplestore graphs not in s3 should be removed since s3 is the source of truth
-		for _, graph := range triplestoreGraphsNotInS3 {
-			log.Infof("Removed graph: %s\n", graph)
-			err = synchronizer.GraphClient.DropGraph(graph)
-			if err != nil {
-				log.Errorf("Drop graph issue: %v\n", err)
-				return err
-			}
-		}
-
-		for _, graphUrnName := range s3GraphsNotInTriplestore {
-			graphObjectName := s3UrnToAssociatedObjName[graphUrnName]
-			log.Tracef("Add graph: %s  %s \n", graphUrnName, graphObjectName)
-
-			objBytes, err := synchronizer.S3Client.GetObjectAsBytes(graphObjectName)
-			if err != nil {
-				return err
-			}
-
-			err = synchronizer.upsertDataForGraph(objBytes, graphObjectName)
-			if err != nil {
-				return err
-			}
 		}
 	}
+
 	return nil
 }
 
@@ -177,20 +191,26 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 	tripleScanner := bufio.NewScanner(strings.NewReader(nTriples))
 	lineCount := 0
 	tripleArray := []string{}
-	// TODO PARALLELIZE
+	errChan := make(chan error, 1)
+
 	for tripleScanner.Scan() {
-		lineCount = lineCount + 1
-		tripleArray = append(tripleArray, tripleScanner.Text())
-		if lineCount == maxSizeBeforeSplit { // use line count, since byte len might break inside a triple statement..   it's an OK proxy
-			log.Debugf("Loading subgraph of %d lines", len(tripleArray))
-			err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphResourceIdentifier) // convert []string to strings joined with new line to form a RDF NT set
-			if err != nil {
-				log.Errorf("Error uploading subgraph: %s", err)
-				return err
+
+		go func() error {
+			lineCount = lineCount + 1
+			tripleArray = append(tripleArray, tripleScanner.Text())
+			if lineCount == maxSizeBeforeSplit { // use line count, since byte len might break inside a triple statement..   it's an OK proxy
+				log.Debugf("Loading subgraph of %d lines", len(tripleArray))
+				err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphResourceIdentifier) // convert []string to strings joined with new line to form a RDF NT set
+				if err != nil {
+					log.Errorf("Error uploading subgraph: %s", err)
+					errChan <- err
+				}
+				tripleArray = []string{}
+				lineCount = 0
 			}
-			tripleArray = []string{}
-			lineCount = 0
-		}
+			return nil
+		}()
+
 	}
 	// We previously used a scanner which splits triples into multiple lines
 	// If there are triples left over after finishing that loop, we still need to load
@@ -226,16 +246,35 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefixes
 
 		log.Infof("%d objects found for prefix: %s:%s", len(objKeys), synchronizer.syncBucketName, prefix)
 
+		var graphWaitgroup sync.WaitGroup
+		graphWaitgroup.Add(len(objKeys))
+		errChan := make(chan error, len(objKeys))
+
 		for _, graphName := range objKeys {
+			go func(graphName string) {
+				defer graphWaitgroup.Done()
 
-			objBytes, err := synchronizer.S3Client.GetObjectAsBytes(graphName)
-			if err != nil {
-				return err
-			}
+				objBytes, err := synchronizer.S3Client.GetObjectAsBytes(graphName)
+				if err != nil {
+					errChan <- err
+					log.Error(err)
+					return
+				}
 
-			err = synchronizer.upsertDataForGraph(objBytes, graphName)
+				err = synchronizer.upsertDataForGraph(objBytes, graphName)
+				if err != nil {
+					errChan <- err
+					log.Error(err)
+					return
+				}
+			}(graphName)
+		}
+		graphWaitgroup.Wait()
+
+		for err := range errChan {
 			if err != nil {
 				log.Error(err)
+
 				return err
 			}
 		}
@@ -289,12 +328,11 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 }
 
 // Generate a static file nq release and backup the old one
-func (synchronizer *SynchronizerClient) GenerateNqReleaseAndArchiveOld(prefixes []string) error {
+func (synchronizer *SynchronizerClient) GenerateNqRelease(prefixes []string) error {
 
 	for _, prefix := range prefixes {
 		sp := strings.Split(prefix, "/")
 		srcname := strings.Join(sp[1:], "__")
-		spj := strings.Join(sp, "__")
 
 		// Here we will either make this a _release.nq or a _prov.nq based on the source string.
 		name_latest := ""
@@ -323,15 +361,16 @@ func (synchronizer *SynchronizerClient) GenerateNqReleaseAndArchiveOld(prefixes 
 
 		// Copy the "latest" graph just made to archive with a date
 		// This means the graph in latests is a duplicate of the most recently dated version in archive/{provider}
-		const timeFormat = "2000-01-02-15-04-05"
-		t := time.Now()
-		name := fmt.Sprintf("%s/%s/%s_%s_release.nq", "graphs/archive", srcname, getTextBeforeDot(path.Base(spj)), t.Format(timeFormat))
-		latest_fullpath := fmt.Sprintf("%s/%s", "graphs/latest", name_latest)
-		// TODO PARALLELIZE
-		err = synchronizer.S3Client.Copy(synchronizer.syncBucketName, latest_fullpath, synchronizer.syncBucketName, strings.Replace(name, "latest", "archive", 1))
-		if err != nil {
-			return err
-		}
+		// spj := strings.Join(sp, "__")
+		// const timeFormat = "2000-01-02-15-04-05"
+		// t := time.Now()
+		// name := fmt.Sprintf("%s/%s/%s_%s_release.nq", "graphs/archive", srcname, getTextBeforeDot(path.Base(spj)), t.Format(timeFormat))
+		// latest_fullpath := fmt.Sprintf("%s/%s", "graphs/latest", name_latest)
+		// // TODO PARALLELIZE
+		// err = synchronizer.S3Client.Copy(synchronizer.syncBucketName, latest_fullpath, synchronizer.syncBucketName, strings.Replace(name, "latest", "archive", 1))
+		// if err != nil {
+		// 	return err
+		// }
 	}
 
 	return nil

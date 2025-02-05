@@ -9,16 +9,13 @@ import (
 )
 
 func prefix() error {
-	log.Info("Nabu started with mode: prefix")
 	client, err := synchronizer.NewSynchronizerClientFromConfig(cfgStruct)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = client.CopyAllPrefixedObjToTriplestore(cfgStruct.Prefixes)
-
 	if err != nil {
 		return err
 	}
+
+	err = client.CopyAllPrefixedObjToTriplestore(cfgStruct.Prefixes)
+
 	return err
 }
 
