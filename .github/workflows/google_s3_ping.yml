@@ -1,4 +1,4 @@
-name: Docker Tests
+name: Google S3 Ping Check
 
 on: [push]
 
