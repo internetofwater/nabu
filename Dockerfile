@@ -20,7 +20,7 @@ ADD https://schema.org/version/latest/schemaorg-current-http.jsonld /assets/sche
 
 FROM alpine
 
-RUN mkdir -p /app
+WORKDIR /app
 COPY --from=builder /app/nabu /app/nabu
 
 ENTRYPOINT ["/app/nabu"]
