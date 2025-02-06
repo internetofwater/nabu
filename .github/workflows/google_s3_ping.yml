@@ -1,0 +1,25 @@
+name: Google S3 Ping Check
+
+on: [push]
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Docker Network
+        run: docker network create mynetwork
+
+      - name: Build Nabu Docker Image
+        run: docker build -t nabu .
+
+      - name: Run Nabu
+        run: |
+            docker run --network mynetwork \
+            -v ./config/iow/google.yaml:/app/google.yaml \
+            -e S3_ACCESS_KEY=${{ secrets.GOOGLE_S3_ACCESS_KEY }} \
+            -e S3_SECRET_KEY=${{ secrets.GOOGLE_S3_SECRET_KEY }} \
+            --rm nabu --cfg /app/google.yaml test
+        

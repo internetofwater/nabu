@@ -1,0 +1,24 @@
+context:
+  cache: true
+  strict: true
+contextmaps:
+- file: /nabu/assets/schemaorg-current-https.jsonld
+  prefix: https://schema.org/
+minio:
+  accessKey: "" 
+  address: storage.googleapis.com
+  bucket: harvest-bucket-dev
+  port: 443
+  region: us
+  secretKey: ""
+  ssl: true
+prefixes:
+- summoned/providera
+- prov/providera
+- orgs
+sparql:
+  authenticate: false
+  endpoint: http://graphdb:7200
+  password: ''
+  repository: iow
+  username: ''
