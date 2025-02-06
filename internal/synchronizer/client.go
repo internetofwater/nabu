@@ -290,9 +290,7 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 	pipeTransferWorkGroup := sync.WaitGroup{} // work group for the pipe writes...
 	pipeTransferWorkGroup.Add(2)              // We add 2 since there is a write to the pipe and a read from the pipe
 
-	// params for list objects calls
-	doneCh := make(chan struct{}) // , N) Create a done channel to control 'ListObjectsV2' go routine.
-	defer close(doneCh)           // Indicate to our routine to exit cleanly upon return.
+	errChan := make(chan error, 2)
 
 	// Write the nq files to the pipe
 	go func() {
@@ -300,6 +298,8 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 		err := getObjectsAndWriteToPipe(synchronizer, destPrefix, pipeWriter)
 		if err != nil {
 			log.Error(err)
+			errChan <- err
+			return
 		}
 	}()
 
@@ -307,14 +307,14 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 	go func() {
 		defer pipeTransferWorkGroup.Done()
 		_, err := synchronizer.S3Client.Client.PutObject(context.Background(), synchronizer.syncBucketName, fmt.Sprintf("%s/%s", destPrefix, objectName), pipeReader, -1, minio.PutObjectOptions{})
-		//_, err := mc.PutObject(context.Background(), bucket, fmt.Sprintf("%s/%s", prefix, name), pr, -1, minio.PutObjectOptions{})
 		if err != nil {
 			log.Error(err)
+			errChan <- err
 			return
 		}
 	}()
 
-	pipeTransferWorkGroup.Wait() // wait for the pipe read writes to finish
+	pipeTransferWorkGroup.Wait()
 	err := pipeWriter.Close()
 	if err != nil {
 		return err
@@ -322,6 +322,15 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 	err = pipeReader.Close()
 	if err != nil {
 		return err
+	}
+
+	// close the channel so we can read from it
+	close(errChan)
+
+	for val := range errChan {
+		if val != nil {
+			return val
+		}
 	}
 
 	return nil

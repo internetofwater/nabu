@@ -25,7 +25,8 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() {
-	cobra.CheckErr(rootCmd.Execute())
+	err := rootCmd.Execute()
+	cobra.CheckErr(err)
 }
 
 func init() {
@@ -44,8 +45,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "cfg", "", "full path to yaml config file for nabu")
 	rootCmd.PersistentFlags().StringVar(&minioVal, "address", "", "")
 	rootCmd.PersistentFlags().IntVar(&portVal, "port", -1, "Port for s3 server")
-	rootCmd.PersistentFlags().StringVar(&accessVal, "access", os.Getenv("MINIO_ACCESS_KEY"), "Access Key (i.e. username)")
-	rootCmd.PersistentFlags().StringVar(&secretVal, "secret", os.Getenv("MINIO_SECRET_KEY"), "Secret access key")
+	rootCmd.PersistentFlags().StringVar(&accessVal, "access", os.Getenv("S3_ACCESS_KEY"), "Access Key (i.e. username)")
+	rootCmd.PersistentFlags().StringVar(&secretVal, "secret", os.Getenv("S3_SECRET_KEY"), "Secret access key")
 	rootCmd.PersistentFlags().StringVar(&bucketVal, "bucket", "", "The configuration bucket")
 	rootCmd.PersistentFlags().StringVar(&repositoryVal, "repository", "", "the default repository to use for graphdb")
 
@@ -103,7 +104,7 @@ func initConfig() {
 	if bucketVal != "" {
 		cfgStruct.Minio.Bucket = bucketVal
 	}
-	if !sslVal {
+	if sslVal {
 		cfgStruct.Minio.Ssl = sslVal
 	}
 	if prefixVal != "" {
