@@ -16,6 +16,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.35.0
 	github.com/tidwall/gjson v1.14.2
+	golang.org/x/sync v0.10.0
 )
 
 require (
