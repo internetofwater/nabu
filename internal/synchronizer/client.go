@@ -285,6 +285,9 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 		return err
 	}
 
+	// close the channel so we can read from it
+	close(errChan)
+
 	for val := range errChan {
 		if val != nil {
 			return val
