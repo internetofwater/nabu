@@ -18,7 +18,7 @@ jobs:
       - name: Run Nabu
         run: |
             docker run --network mynetwork \
-            -v ./config/google.yaml:/app/google.yaml \
+            -v ./config/iow/google.yaml:/app/google.yaml \
             -e S3_ACCESS_KEY=${{ secrets.GOOGLE_S3_ACCESS_KEY }} \
             -e S3_SECRET_KEY=${{ secrets.GOOGLE_S3_SECRET_KEY }} \
             --rm nabu --cfg /app/google.yaml test
