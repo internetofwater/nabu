@@ -13,9 +13,9 @@ gleaner:
 context:
   cache: true
 contextmaps:
-- prefix: "https://schema.org/"
+- prefix: https://schema.org/
   file: ./assets/schemaorg-current-http.jsonld
-- prefix: "http://schema.org/"
+- prefix: http://schema.org/
   file: ./assets/schemaorg-current-https.jsonld
 summoner:
   after: ""      # "21 May 20 10:00 UTC"   

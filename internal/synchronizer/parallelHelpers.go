@@ -72,7 +72,7 @@ func getObjectsAndWriteToPipe(synchronizer *SynchronizerClient, prefix string, p
 		if strings.HasSuffix(object.Key, ".nq") {
 			nq = jsonldString
 		} else {
-			nq, err = common.JsonldToNQ(jsonldString)
+			nq, err = common.JsonldToNQ(jsonldString, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 			if err != nil {
 				return err
 			}
