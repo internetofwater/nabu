@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"nabu/internal/common/projectpath"
 	"nabu/pkg/config"
-	"net/http"
 	"os"
 	"path/filepath"
 
@@ -22,7 +21,8 @@ func NewJsonldProcessor(config config.NabuConfig) (*ld.JsonLdProcessor, *ld.Json
 	if config.Context.Cache {
 		// my understanding is that the fallbackLoader is what is used if
 		// the prefix cannot be retrieved from the cache.
-		fallbackLoader := ld.NewDefaultDocumentLoader(&http.Client{})
+		clientWithRetries := NewRetryableHTTPClient()
+		fallbackLoader := ld.NewDefaultDocumentLoader(clientWithRetries)
 
 		prefixToFilePath := make(map[string]string)
 
