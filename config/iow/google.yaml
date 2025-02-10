@@ -1,3 +1,5 @@
+# This is a sample config file for Nabu that points to a Google Cloud Storage bucket
+
 context:
   cache: true
   strict: true
