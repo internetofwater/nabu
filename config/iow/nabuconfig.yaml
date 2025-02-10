@@ -11,7 +11,7 @@ context:
   strict: true
 contextmaps:
   - prefix: https://schema.org/
-    file: ./schemaorg-current-https.jsonld
+    file: ./assets/schemaorg-current-https.jsonld
 sparql:
   endpoint: http://localhost:7200
   authenticate: false
