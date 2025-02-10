@@ -17,11 +17,11 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 // Client to perform operations that synchronize the graph database with the object store
@@ -81,9 +81,10 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 
 // Get rid of graphs with specific prefix in the triplestore that are not in the object store
 // Drops are determined by mapping a prefix to the associated URN
-func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(s3Prefixes []string) error {
+func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(s3Prefixes []string) error {
 
 	for _, prefix := range s3Prefixes {
+
 		// collect the objects associated with the source
 		objectNamesInS3, err := synchronizer.S3Client.ObjectList(prefix)
 		if err != nil {
@@ -151,6 +152,7 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(s3Prefixes []string)
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -205,17 +207,22 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 	tripleScanner := bufio.NewScanner(strings.NewReader(nTriples))
 	lineCount := 0
 	tripleArray := []string{}
-	// TODO PARALLELIZE
+
+	var errorGroup errgroup.Group
+
 	for tripleScanner.Scan() {
+
 		lineCount = lineCount + 1
 		tripleArray = append(tripleArray, tripleScanner.Text())
 		if lineCount == maxSizeBeforeSplit { // use line count, since byte len might break inside a triple statement..   it's an OK proxy
-			log.Debugf("Loading subgraph of %d lines", len(tripleArray))
-			err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphResourceIdentifier) // convert []string to strings joined with new line to form a RDF NT set
-			if err != nil {
-				log.Errorf("Error uploading subgraph: %s", err)
-				return err
-			}
+			errorGroup.Go(func() error {
+				log.Debugf("Loading subgraph of %d lines", len(tripleArray))
+				err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphResourceIdentifier) // convert []string to strings joined with new line to form a RDF NT set
+				if err != nil {
+					log.Errorf("Error uploading subgraph: %s", err)
+				}
+				return nil
+			})
 			tripleArray = []string{}
 			lineCount = 0
 		}
@@ -231,7 +238,11 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 		}
 	}
 
-	return err
+	if err = errorGroup.Wait(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Gets all graphs in s3 with a specific prefix and loads them into the triplestore
@@ -254,18 +265,27 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefixes
 
 		log.Infof("%d objects found for prefix: %s:%s", len(objKeys), synchronizer.syncBucketName, prefix)
 
+		var errorGroup errgroup.Group
+
 		for _, graphName := range objKeys {
+			graphName := graphName // Capture loop variable
+			errorGroup.Go(func() error {
+				objBytes, err := synchronizer.S3Client.GetObjectAsBytes(graphName)
+				if err != nil {
+					log.Error(err)
+					return err
+				}
+				err = synchronizer.upsertDataForGraph(objBytes, graphName)
+				if err != nil {
+					log.Error(err)
+					return err
+				}
+				return nil
+			})
+		}
 
-			objBytes, err := synchronizer.S3Client.GetObjectAsBytes(graphName)
-			if err != nil {
-				return err
-			}
-
-			err = synchronizer.upsertDataForGraph(objBytes, graphName)
-			if err != nil {
-				log.Error(err)
-				return err
-			}
+		if err := errorGroup.Wait(); err != nil {
+			return err
 		}
 	}
 
@@ -326,12 +346,11 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 }
 
 // Generate a static file nq release and backup the old one
-func (synchronizer *SynchronizerClient) GenerateNqReleaseAndArchiveOld(prefixes []string) error {
+func (synchronizer *SynchronizerClient) GenerateNqRelease(prefixes []string) error {
 
 	for _, prefix := range prefixes {
 		sp := strings.Split(prefix, "/")
 		srcname := strings.Join(sp[1:], "__")
-		spj := strings.Join(sp, "__")
 
 		// Here we will either make this a _release.nq or a _prov.nq based on the source string.
 		name_latest := ""
@@ -358,17 +377,6 @@ func (synchronizer *SynchronizerClient) GenerateNqReleaseAndArchiveOld(prefixes 
 			return err
 		}
 
-		// Copy the "latest" graph just made to archive with a date
-		// This means the graph in latests is a duplicate of the most recently dated version in archive/{provider}
-		const timeFormat = "2000-01-02-15-04-05"
-		t := time.Now()
-		name := fmt.Sprintf("%s/%s/%s_%s_release.nq", "graphs/archive", srcname, getTextBeforeDot(path.Base(spj)), t.Format(timeFormat))
-		latest_fullpath := fmt.Sprintf("%s/%s", "graphs/latest", name_latest)
-		// TODO PARALLELIZE
-		err = synchronizer.S3Client.Copy(synchronizer.syncBucketName, latest_fullpath, synchronizer.syncBucketName, strings.Replace(name, "latest", "archive", 1))
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil

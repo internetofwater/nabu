@@ -14,7 +14,7 @@ func prune() error {
 	if err != nil {
 		return err
 	}
-	err = client.RemoveGraphsNotInS3(cfgStruct.Prefixes)
+	err = client.SyncTriplestoreGraphs(cfgStruct.Prefixes)
 	if err != nil {
 		log.Error(err)
 	}

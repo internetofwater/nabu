@@ -14,18 +14,15 @@ func release() error {
 		return err
 	}
 
-	err = client.GenerateNqReleaseAndArchiveOld(cfgStruct.Prefixes)
+	err = client.GenerateNqRelease(cfgStruct.Prefixes)
 
-	if err != nil {
-		log.Error(err)
-	}
 	return err
 }
 
 var releaseCmd = &cobra.Command{
 	Use:   "release",
 	Short: "nabu release command",
-	Long:  `Generate static file nq releases for the indexes sources and also a master release`,
+	Long:  `Generate static file nq releases from jsonld files`,
 	Run: func(cmd *cobra.Command, args []string) {
 		err := release()
 		if err != nil {
