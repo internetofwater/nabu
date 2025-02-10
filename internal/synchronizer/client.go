@@ -85,7 +85,7 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(s3Prefixes []string)
 
 	for _, prefix := range s3Prefixes {
 		// collect the objects associated with the source
-		objectNamesInS3, err := common.ObjectList(synchronizer.syncBucketName, synchronizer.S3Client.Client, prefix)
+		objectNamesInS3, err := synchronizer.S3Client.ObjectList(prefix)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -108,11 +108,11 @@ func (synchronizer *SynchronizerClient) RemoveGraphsNotInS3(s3Prefixes []string)
 		// create a list of just the names so we can diff against it
 		var s3ObjGraphNames []string
 		for _, objectName := range objectNamesInS3 {
-			s3ObjUrn, err := common.MakeURN(objectName)
+			s3ObjUrn, err := common.MakeURN(objectName.Key)
 			if err != nil {
 				return err
 			}
-			s3UrnToAssociatedObjName[s3ObjUrn] = objectName // key (URN)= value (object prefixpath)
+			s3UrnToAssociatedObjName[s3ObjUrn] = objectName.Key // key (URN)= value (object prefixpath)
 			s3ObjGraphNames = append(s3ObjGraphNames, s3ObjUrn)
 		}
 

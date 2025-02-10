@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"nabu/pkg/config"
+	"sync"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -73,6 +74,36 @@ func (m *MinioClientWrapper) Remove(object string) error {
 	return err
 }
 
+// Return a list of objects matching the specified prefix
+// This uses goroutines and thus does not guarantee order
+func (m *MinioClientWrapper) ObjectList(prefix string) ([]minio.ObjectInfo, error) {
+	var mu sync.Mutex
+	wg := sync.WaitGroup{}
+	objectInfo := []minio.ObjectInfo{}
+	semaphoreChan := make(chan struct{}, 20) // Limit to 20 concurrent goroutines so we don't overload
+
+	objectCh := m.Client.ListObjects(context.Background(), m.DefaultBucket,
+		minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
+
+	for object := range objectCh {
+		// Acquire a spot in the semaphore before starting a goroutine
+		semaphoreChan <- struct{}{}
+		wg.Add(1)
+		go func(object minio.ObjectInfo) {
+			defer func() {
+				<-semaphoreChan // Release the spot in the semaphore when the goroutine is done
+				wg.Done()
+			}()
+			mu.Lock()
+			objectInfo = append(objectInfo, object)
+			mu.Unlock()
+		}(object)
+	}
+
+	wg.Wait()
+	return objectInfo, nil
+}
+
 // Copy objects. Can be to either the same bucket or a different bucket
 func (m *MinioClientWrapper) Copy(srcbucket, srcobject, dstbucket, dstobject string) error {
 
@@ -118,27 +149,6 @@ func (m *MinioClientWrapper) NumberOfMatchingObjects(prefixes []string) (int, er
 	return count, nil
 }
 
-// Return a list of object names in a bucket
-func (m *MinioClientWrapper) GetObjects(prefixes []string) ([]minio.ObjectInfo, error) {
-	objectArray := []minio.ObjectInfo{}
-
-	for _, prefix := range prefixes {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		objectCh := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
-
-		for object := range objectCh {
-			if object.Err != nil {
-				log.Println(object.Err)
-				return objectArray, object.Err
-			}
-			objectArray = append(objectArray, object)
-		}
-	}
-
-	return objectArray, nil
-}
-
 // Get the byes of an object from the store
 func (m *MinioClientWrapper) GetObjectAsBytes(objectName string) ([]byte, error) {
 	fileObject, err := m.Client.GetObject(context.Background(), m.DefaultBucket, objectName, minio.GetObjectOptions{})
@@ -164,5 +174,3 @@ func (m *MinioClientWrapper) GetObjectAsBytes(objectName string) ([]byte, error)
 
 	return bufferBytes, err
 }
-
-// BulkLoad

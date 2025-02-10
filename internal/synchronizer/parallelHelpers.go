@@ -40,7 +40,7 @@ func getObjectsAndWriteToPipe(synchronizer *SynchronizerClient, prefix string, p
 	}
 	log.Printf("\nChannel/object length: %d\n", matches)
 
-	objects, err := synchronizer.S3Client.GetObjects([]string{prefix})
+	objects, err := synchronizer.S3Client.ObjectList(prefix)
 	if err != nil {
 		return err
 	}
