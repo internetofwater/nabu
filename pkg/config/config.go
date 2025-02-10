@@ -82,7 +82,7 @@ func checkMissingFields(v *viper.Viper, structType reflect.Type, parentKey strin
 	return nil
 }
 
-func ReadNabuConfig(filename string, cfgPath string) (NabuConfig, error) {
+func ReadNabuConfig(cfgPath, filename string) (NabuConfig, error) {
 	v := viper.New()
 
 	v.SetConfigName(fileNameWithoutExtTrimSuffix(filename))

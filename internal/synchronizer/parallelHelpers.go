@@ -72,7 +72,7 @@ func getObjectsAndWriteToPipe(synchronizer *SynchronizerClient, prefix string, p
 		if strings.HasSuffix(object.Key, ".nq") {
 			nq = jsonldString
 		} else {
-			nq, err = common.JsonldToNQ(jsonldString)
+			nq, err = common.JsonldToNQ(jsonldString, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 			if err != nil {
 				return err
 			}
@@ -83,8 +83,9 @@ func getObjectsAndWriteToPipe(synchronizer *SynchronizerClient, prefix string, p
 		if singleFileMode {
 			singleFileNquad = nq //  just pass through the RDF without trying to Skolemize since we ar a single fil
 		} else {
-			singleFileNquad, err = common.Skolemization(nq, object.Key)
+			singleFileNquad, err = common.Skolemization(nq)
 			if err != nil {
+				log.Errorf("Skolemization error: %s", err)
 				return err
 			}
 		}

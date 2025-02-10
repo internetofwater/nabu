@@ -14,7 +14,7 @@ import (
 // Skolemization replaces blank nodes with URIs  The mapping approach is needed since this
 // function can be used on a whole data graph, not just a single triple
 // reference: https://www.w3.org/TR/rdf11-concepts/#dfn-skolem-iri
-func Skolemization(nq, key string) (string, error) {
+func Skolemization(nq string) (string, error) {
 	scanner := bufio.NewScanner(strings.NewReader(nq))
 
 	// need for long lines like in Internet of Water
@@ -53,10 +53,10 @@ func Skolemization(nq, key string) (string, error) {
 		}
 	}
 
-	var err = scanner.Err()
+	err := scanner.Err()
 	if err != nil {
-		log.Errorf("Error decoding source: %s\n", key)
 		log.Error(err)
+		return "", err
 	}
 
 	filebytes := []byte(nq)

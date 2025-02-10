@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/minio/minio-go/v7"
+	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
@@ -31,10 +32,26 @@ type SynchronizerClient struct {
 	S3Client *objects.MinioClientWrapper
 	// default bucket in the s3 that is used for synchronization
 	syncBucketName string
+	// processor for JSON-LD operations; stored in this struct so we can
+	// cache context mappings
+	jsonldProcessor *ld.JsonLdProcessor
+	// options that are applied with the processor when performing jsonld conversions
+	jsonldOptions *ld.JsonLdOptions
 }
 
-func NewSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *objects.MinioClientWrapper, bucketName string) SynchronizerClient {
-	return SynchronizerClient{GraphClient: graphClient, S3Client: s3Client, syncBucketName: bucketName}
+func NewSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *objects.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
+	processor, options, err := common.NewJsonldProcessor(config.NabuConfig{})
+	if err != nil {
+		return SynchronizerClient{}, err
+	}
+
+	return SynchronizerClient{
+		GraphClient:     graphClient,
+		S3Client:        s3Client,
+		syncBucketName:  bucketName,
+		jsonldProcessor: processor,
+		jsonldOptions:   options,
+	}, nil
 }
 
 // Generate a new SynchronizerClient
@@ -48,7 +65,18 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 		return nil, err
 	}
 
-	return &SynchronizerClient{GraphClient: graphClient, S3Client: s3Client, syncBucketName: conf.Minio.Bucket}, nil
+	processor, options, err := common.NewJsonldProcessor(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SynchronizerClient{
+		GraphClient:     graphClient,
+		S3Client:        s3Client,
+		syncBucketName:  conf.Minio.Bucket,
+		jsonldProcessor: processor,
+		jsonldOptions:   options,
+	}, nil
 }
 
 // Get rid of graphs with specific prefix in the triplestore that are not in the object store
@@ -146,7 +174,7 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 	var nTriples string
 
 	if strings.Compare(mimetype, "application/ld+json") == 0 {
-		nTriples, err = common.JsonldToNQ(string(rawJsonldOrNqBytes))
+		nTriples, err = common.JsonldToNQ(string(rawJsonldOrNqBytes), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 		if err != nil {
 			log.Errorf("JSONLD to NQ conversion error: %s", err)
 			return err
@@ -376,7 +404,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 
 	// Convert JSON-LD to N-Quads if needed
 	if strings.Contains(nqPathInS3, ".jsonld") {
-		convertedNq, err := common.JsonldToNQ(string(byt))
+		convertedNq, err := common.JsonldToNQ(string(byt), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 		if err != nil {
 			return err
 		}
