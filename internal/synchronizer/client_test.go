@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/require"
@@ -36,7 +37,7 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 	net, err := network.New(ctx)
 	suite.Require().NoError(err)
 	suite.network = net
-
+	t := suite.T()
 	config := objects.MinioContainerConfig{
 		Username:      "amazingaccesskey",
 		Password:      "amazingsecretkey",
@@ -49,15 +50,20 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 	suite.Require().NoError(err)
 	suite.minioContainer = minioContainer
 
+	stopHealthCheck, err := suite.minioContainer.ClientWrapper.Client.HealthCheck(5 * time.Second)
+	require.NoError(t, err)
+	defer stopHealthCheck()
+	require.True(t, suite.minioContainer.ClientWrapper.Client.IsOnline())
+
 	err = suite.minioContainer.ClientWrapper.Client.MakeBucket(ctx, suite.minioContainer.ClientWrapper.DefaultBucket, minio.MakeBucketOptions{})
-	require.NoError(suite.T(), err)
+	require.NoError(t, err)
 
 	graphdbContainer, err := triplestore.NewGraphDBContainer("iow", "./triplestore/testdata/iow-config.ttl")
 	suite.Require().NoError(err)
 	suite.graphdbContainer = graphdbContainer
 
 	client, err := NewSynchronizerClient(&graphdbContainer.Client, suite.minioContainer.ClientWrapper, suite.minioContainer.ClientWrapper.DefaultBucket)
-	require.NoError(suite.T(), err)
+	require.NoError(t, err)
 	suite.client = client
 }
 
