@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/require"
@@ -48,6 +49,13 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 	minioContainer, err := objects.NewMinioContainer(config)
 	suite.Require().NoError(err)
 	suite.minioContainer = minioContainer
+
+	stopHealthCheck, err := suite.minioContainer.ClientWrapper.Client.HealthCheck(5 * time.Second)
+	if err != nil {
+		suite.T().Error(err)
+	}
+	defer stopHealthCheck()
+	require.True(suite.T(), suite.minioContainer.ClientWrapper.Client.IsOnline())
 
 	err = suite.minioContainer.ClientWrapper.Client.MakeBucket(ctx, suite.minioContainer.ClientWrapper.DefaultBucket, minio.MakeBucketOptions{})
 	require.NoError(suite.T(), err)
