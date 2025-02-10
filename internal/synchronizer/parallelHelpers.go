@@ -91,12 +91,12 @@ func getObjectsAndWriteToPipe(synchronizer *SynchronizerClient, prefix string, p
 		}
 
 		// 1) get graph URI
-		ctx, err := common.MakeURN(object.Key)
+		graphURN, err := common.MakeURN(object.Key)
 		if err != nil {
 			return err
 		}
 		// 2) convert NT to NQ
-		csnq, err := common.NtToNq(singleFileNquad, ctx)
+		csnq, err := common.NtToNq(singleFileNquad, graphURN)
 		if err != nil {
 			return err
 		}
