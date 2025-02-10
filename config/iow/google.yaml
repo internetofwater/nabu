@@ -2,7 +2,7 @@ context:
   cache: true
   strict: true
 contextmaps:
-- file: /nabu/assets/schemaorg-current-https.jsonld
+- file: ./assets/schemaorg-current-https.jsonld
   prefix: https://schema.org/
 minio:
   accessKey: "" 

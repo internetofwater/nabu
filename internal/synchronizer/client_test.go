@@ -56,7 +56,9 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 	suite.Require().NoError(err)
 	suite.graphdbContainer = graphdbContainer
 
-	suite.client = NewSynchronizerClient(&graphdbContainer.Client, suite.minioContainer.ClientWrapper, suite.minioContainer.ClientWrapper.DefaultBucket)
+	client, err := NewSynchronizerClient(&graphdbContainer.Client, suite.minioContainer.ClientWrapper, suite.minioContainer.ClientWrapper.DefaultBucket)
+	require.NoError(suite.T(), err)
+	suite.client = client
 }
 
 func (s *SynchronizerClientSuite) TearDownSuite() {

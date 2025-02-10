@@ -78,7 +78,7 @@ func initConfig() {
 			log.Fatalf("config file does not exist at path: %s", filepath.Join(configPath, fileName))
 		}
 
-		cfgStruct, err = config.ReadNabuConfig(fileName, configPath)
+		cfgStruct, err = config.ReadNabuConfig(configPath, fileName)
 		if err != nil {
 			log.Fatalf("cannot read config %s", err)
 		}
