@@ -32,7 +32,7 @@ func NewJsonldProcessor(config config.NabuConfig) (*ld.JsonLdProcessor, *ld.Json
 			if fileExists(absPath) {
 				prefixToFilePath[contextMap.Prefix] = absPath
 			} else {
-				return nil, nil, fmt.Errorf("context file at %s does not exist", absPath)
+				return nil, nil, fmt.Errorf("context file at %s does not exist or could not be accessed", absPath)
 			}
 		}
 
@@ -52,7 +52,11 @@ func NewJsonldProcessor(config config.NabuConfig) (*ld.JsonLdProcessor, *ld.Json
 
 func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
-	if os.IsNotExist(err) {
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+		log.Printf("error checking file existence: %v", err)
 		return false
 	}
 	return !info.IsDir()
