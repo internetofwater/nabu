@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/minio/minio-go/v7"
@@ -150,7 +151,7 @@ func (suite *S3ClientSuite) TestGetObjects() {
 
 	// Validate the number of matched objects
 	// before inserting so we dont need to wipe the bucket
-	beforeInsert, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
+	objsBeforeInsert, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
 	require.NoError(suite.T(), err)
 
 	// Insert test data into MinIO
@@ -176,9 +177,9 @@ func (suite *S3ClientSuite) TestGetObjects() {
 	insertTestData(newObjects)
 
 	// get the objects
-	objects, err := suite.minioContainer.ClientWrapper.GetObjects([]string{""})
+	objects, err := suite.minioContainer.ClientWrapper.ObjectList("")
 	require.NoError(suite.T(), err)
-	require.Equal(suite.T(), newObjects+beforeInsert, len(objects))
+	require.Equal(suite.T(), newObjects+objsBeforeInsert, len(objects))
 
 	// get the first key and use that to get the data from within that object
 	firstKey := objects[0].Key
@@ -187,8 +188,10 @@ func (suite *S3ClientSuite) TestGetObjects() {
 	// check the data
 	data, err := io.ReadAll(object)
 	require.NoError(suite.T(), err)
-	require.Equal(suite.T(), "test data 0", string(data))
 
+	keyNumber := strings.Split(firstKey, "-")[2]
+	matchingData := fmt.Sprintf("test data %s", keyNumber)
+	require.Equal(suite.T(), matchingData, string(data))
 }
 
 // Make sure that we can copy data between the same bucket
