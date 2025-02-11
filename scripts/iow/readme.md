@@ -1,0 +1,1 @@
+The files in this directory are legacy tests from before testcontainers were added. They are kept here as a sanity check in ci/cd
