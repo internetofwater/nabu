@@ -137,19 +137,27 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(s3Prefixes []strin
 			}
 		}
 
+		var errorGroup errgroup.Group
+		errorGroup.SetLimit(40)
+
+		log.Infof("Upserting %d objects from S3 to triplestore", len(s3GraphsNotInTriplestore))
 		for _, graphUrnName := range s3GraphsNotInTriplestore {
 			graphObjectName := s3UrnToAssociatedObjName[graphUrnName]
-			log.Tracef("Add graph: %s  %s \n", graphUrnName, graphObjectName)
 
-			objBytes, err := synchronizer.S3Client.GetObjectAsBytes(graphObjectName)
-			if err != nil {
-				return err
-			}
+			// loop variable shadowing for goroutine
+			graphObjectNameCopy := graphObjectName
 
-			err = synchronizer.upsertDataForGraph(objBytes, graphObjectName)
-			if err != nil {
-				return err
-			}
+			errorGroup.Go(func() error {
+				objBytes, err := synchronizer.S3Client.GetObjectAsBytes(graphObjectNameCopy)
+				if err != nil {
+					return err
+				}
+
+				return synchronizer.upsertDataForGraph(objBytes, graphObjectNameCopy)
+			})
+		}
+		if err := errorGroup.Wait(); err != nil {
+			return err
 		}
 	}
 
