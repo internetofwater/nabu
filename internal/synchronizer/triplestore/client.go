@@ -124,38 +124,6 @@ func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath stri
 	return nil
 }
 
-// Create a graph in the database. Returns an error if it already exists or cannot be made
-func (graphClient *GraphDbClient) CreateGraph(graph string) error {
-	d := fmt.Sprintf("CREATE GRAPH <%s> ", graph)
-	pab := []byte(d)
-
-	req, err := http.NewRequest("POST", graphClient.BaseRepositoryUrl, bytes.NewBuffer(pab))
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	// req.Header.Set("Content-Type", "application/sparql-update")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	defer resp.Body.Close()
-	res, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	if resp.StatusCode >= 400 {
-		log.Error(string(res))
-		return fmt.Errorf("error creating graph: %s", string(res))
-	}
-
-	return nil
-}
-
 // Insert triples into the triplestore by listing them in the standard triple format and specifying an associated graph
 func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, graphURI string) error {
 
@@ -353,6 +321,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", graphClient.BaseRepositoryUrl, params.Encode()), bytes.NewBuffer(pab))
 	if err != nil {
 		log.Println(err)
+		return []string{}, err
 	}
 
 	req.Header.Set("Accept", "application/sparql-results+json")
@@ -360,7 +329,8 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
+		return ga, err
 	}
 
 	defer func() {
