@@ -122,7 +122,7 @@ func (m *MinioClientWrapper) Copy(srcbucket, srcobject, dstbucket, dstobject str
 	// Copy object call
 	_, err := m.Client.CopyObject(context.Background(), dstOpts, srcOpts)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return err
 	}
 
@@ -140,7 +140,7 @@ func (m *MinioClientWrapper) NumberOfMatchingObjects(prefixes []string) (int, er
 
 		for object := range objectCh {
 			if object.Err != nil {
-				log.Println(object.Err)
+				log.Error(object.Err)
 				return count, object.Err
 			}
 			count++
