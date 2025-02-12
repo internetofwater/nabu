@@ -303,12 +303,10 @@ func (graphClient *GraphDbClient) GraphExists(graphURN string) (bool, error) {
 func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix string) ([]string, error) {
 	log.Debug("Getting list of named graphs")
 
-	var ga []string
-
 	gp, err := common.MakeURN(prefix)
 	if err != nil {
 		log.Println(err)
-		return ga, err
+		return []string{}, err
 	}
 
 	query := "SELECT DISTINCT ?g WHERE {GRAPH ?g {?s ?p ?o} }"
@@ -330,7 +328,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Error(err)
-		return ga, err
+		return []string{}, err
 	}
 
 	defer func() {
@@ -347,18 +345,19 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 		log.Error("response Body:", string(body))
 	}
 
+	var graphNames []string
 	result := gjson.Get(string(body), "results.bindings.#.g.value")
 	result.ForEach(func(key, value gjson.Result) bool {
-		ga = append(ga, value.String())
+		graphNames = append(graphNames, value.String())
 		return true // keep iterating
 	})
 
-	var gaf []string
-	for _, str := range ga {
-		if strings.HasPrefix(str, gp) { // check if string has prefix
-			gaf = append(gaf, str) // if yes, add it to newArray
+	var relevantGraphs []string
+	for _, graph := range graphNames {
+		if strings.HasPrefix(graph, gp) { // check if string has prefix
+			relevantGraphs = append(relevantGraphs, graph) // if yes, add it to newArray
 		}
 	}
 
-	return gaf, nil
+	return relevantGraphs, nil
 }

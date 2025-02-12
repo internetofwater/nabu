@@ -18,7 +18,7 @@ prefix path in S3. Thus you can convert between
 the two to perform synch operations
 */
 
-var baseURN = "urn:iow"
+const baseURN = "urn:iow"
 
 // Map a s3 prefix to a URN
 // This is essentially just a serialized path that can be used for identifying a graph
@@ -29,15 +29,15 @@ func MakeURN(s3Prefix string) (string, error) {
 	} else if !strings.Contains(s3Prefix, "/") {
 		return "", fmt.Errorf("prefix must contain at least one '/'")
 	}
-
+	resultURN := baseURN
 	splitOnSlash := strings.Split(s3Prefix, "/")
 	for _, part := range splitOnSlash {
 		if part == "" {
 			break
 		}
-		baseURN += ":" + part
+		resultURN += ":" + part
 	}
-	return baseURN, nil
+	return resultURN, nil
 }
 
 // Skolemization replaces blank nodes with URIs  The mapping approach is needed since this
