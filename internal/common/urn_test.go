@@ -24,6 +24,11 @@ func TestMakeUrn(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "urn:iow:test1:test2:test3:test4", result)
 	})
+	t.Run("prefix with two slashes fails", func(t *testing.T) {
+		const prefixWithTwoSlashes = "test1//test2"
+		_, err := MakeURN(prefixWithTwoSlashes)
+		require.Error(t, err)
+	})
 }
 
 func TestSkolemize(t *testing.T) {
@@ -36,18 +41,22 @@ func TestSkolemize(t *testing.T) {
 	})
 
 	t.Run("full nq with no replacements", func(t *testing.T) {
-		const nq = "<https://gleaner.io/xid/genid/1> <https://gleaner.io/xid/genid/2> <https://gleaner.io/xid/genid/3> ."
+		const nq = "<https://urn.io/xid/genid/1> <https://urn.io/xid/genid/2> <https://urn.io/xid/genid/3> ."
 		output, err := Skolemization(nq)
 		require.NoError(t, err)
 		require.Equal(t, nq, output)
 	})
 
 	t.Run("full nq with one replacement", func(t *testing.T) {
-		const nq2 = "_: <https://gleaner.io/xid/genid/2> <https://gleaner.io/xid/genid/3> ."
-		output, err := Skolemization(nq2)
+		const emptyNode = "_:"
+		const nonEmptyNodes = "<https://urn.io/xid/genid/2> <https://urn.io/xid/genid/3> ."
+		nq := emptyNode + " " + nonEmptyNodes
+
+		output, err := Skolemization(nq)
 		require.NoError(t, err)
-		expectedResp := "<https://gleaner.io/xid/genid/cul06536f3jg4qao2870> <https://gleaner.io/xid/genid/2> <https://gleaner.io/xid/genid/3> ."
-		require.NotEqual(t, expectedResp, output)
+		require.Contains(t, output, nonEmptyNodes)
+		require.NotContains(t, output, emptyNode)
+		require.Contains(t, output, "<https://iow.io/xid/genid/")
 	})
 
 }

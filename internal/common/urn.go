@@ -28,7 +28,10 @@ func MakeURN(s3Prefix string) (string, error) {
 		return "", fmt.Errorf("prefix cannot be empty")
 	} else if !strings.Contains(s3Prefix, "/") {
 		return "", fmt.Errorf("prefix must contain at least one '/'")
+	} else if strings.Contains(s3Prefix, "//") {
+		return "", fmt.Errorf("prefix cannot contain double slashes")
 	}
+
 	resultURN := baseURN
 	splitOnSlash := strings.Split(s3Prefix, "/")
 	for _, part := range splitOnSlash {
@@ -64,7 +67,7 @@ func Skolemization(nq string) (string, error) {
 			if _, ok := m[sold]; ok { // fmt.Printf("We had %s, already\n", sold)
 			} else {
 				guid := xid.New()
-				snew := fmt.Sprintf("<https://gleaner.io/xid/genid/%s>", guid.String())
+				snew := fmt.Sprintf("<https://iow.io/xid/genid/%s>", guid.String())
 				m[sold] = snew
 			}
 		}
@@ -76,7 +79,7 @@ func Skolemization(nq string) (string, error) {
 				// fmt.Printf("We had %s, already\n", oold)
 			} else {
 				guid := xid.New()
-				onew := fmt.Sprintf("<https://gleaner.io/xid/genid/%s>", guid.String())
+				onew := fmt.Sprintf("<https://iow.io/xid/genid/%s>", guid.String())
 				m[oold] = onew
 			}
 		}
