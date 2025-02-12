@@ -162,9 +162,9 @@ func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, gr
 	if resp.Status != "200 OK" && resp.Status != "204 No Content" && resp.Status != "204 " {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return fmt.Errorf("response Status: %s with error %s", resp.Status, err)
+			return fmt.Errorf("failed reading response body; response Status: %s with error %s", resp.Status, err)
 		}
-		return fmt.Errorf("response Status: %s with error %s", resp.Status, string(body))
+		return fmt.Errorf("failed inserting data with named graph; response Status: %s with error %s after posting query %s", resp.Status, string(body), fullReq)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -255,11 +255,11 @@ type ask struct {
 
 // Check if a graph exists in the graph database
 func (graphClient *GraphDbClient) GraphExists(graphURN string) (bool, error) {
-	d := fmt.Sprintf("ASK WHERE { GRAPH <%s> { ?s ?p ?o } }", graphURN)
+	sparqlQuery := fmt.Sprintf("ASK WHERE { GRAPH <%s> { ?s ?p ?o } }", graphURN)
 
 	pab := []byte("")
 	params := url.Values{}
-	params.Add("query", d)
+	params.Add("query", sparqlQuery)
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", graphClient.BaseRepositoryUrl, params.Encode()), bytes.NewBuffer(pab))
 	if err != nil {
 		return false, err
@@ -275,14 +275,14 @@ func (graphClient *GraphDbClient) GraphExists(graphURN string) (bool, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 {
-		return false, fmt.Errorf("response Status: %s with error %s", resp.Status, string(body))
+		return false, fmt.Errorf("failed checking if graph exists; response Status: %s with error %s after posting query %s", resp.Status, string(body), sparqlQuery)
 	}
 
 	if err != nil {
-		log.Println(strings.Repeat("ERROR", 5))
-		log.Println("response Status:", resp.Status)
-		log.Println("response Headers:", resp.Header)
-		log.Println("response Body:", string(body))
+		log.Error(strings.Repeat("ERROR", 5))
+		log.Error("response Status:", resp.Status)
+		log.Error("response Headers:", resp.Header)
+		log.Error("response Body:", string(body))
 		return false, err
 	}
 
@@ -305,7 +305,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 
 	gp, err := common.MakeURN(prefix)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return []string{}, err
 	}
 
@@ -318,7 +318,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 	params.Add("query", query)
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", graphClient.BaseRepositoryUrl, params.Encode()), bytes.NewBuffer(pab))
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return []string{}, err
 	}
 
@@ -334,7 +334,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 	defer func() {
 		err := resp.Body.Close()
 		if err != nil {
-			log.Printf("Error closing response body: %v", err)
+			log.Errorf("Error closing response body: %v", err)
 		}
 	}()
 
@@ -343,6 +343,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 		log.Error("response Status:", resp.Status)
 		log.Error("response Headers:", resp.Header)
 		log.Error("response Body:", string(body))
+		return nil, err
 	}
 
 	var graphNames []string

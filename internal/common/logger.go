@@ -3,12 +3,13 @@ package common
 import (
 	"errors"
 	"fmt"
-	"github.com/orandin/lumberjackrus"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"io"
 	"os"
 	"time"
+
+	"github.com/orandin/lumberjackrus"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 func InitLogging() {
