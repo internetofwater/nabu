@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"nabu/internal/common"
 	"strings"
@@ -36,9 +35,9 @@ func getObjectsAndWriteToPipe(synchronizer *SynchronizerClient, prefix string, p
 	singleFileMode := false
 	if matches == 1 {
 		singleFileMode = true
-		log.Printf("Single file mode set: %t", singleFileMode)
+		log.Infof("Single file mode set: %t", singleFileMode)
 	}
-	log.Printf("\nChannel/object length: %d\n", matches)
+	log.Infof("\nChannel/object length: %d\n", matches)
 
 	objects, err := synchronizer.S3Client.ObjectList(prefix)
 	if err != nil {
@@ -54,7 +53,7 @@ func getObjectsAndWriteToPipe(synchronizer *SynchronizerClient, prefix string, p
 		_, err = io.Copy(pipeWriter, retrievedObject)
 
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
 
 		var buffer bytes.Buffer
@@ -62,13 +61,13 @@ func getObjectsAndWriteToPipe(synchronizer *SynchronizerClient, prefix string, p
 
 		_, err = io.Copy(bufferWriter, retrievedObject)
 		if err != nil {
-			log.Println(err)
+			log.Error(err)
+			return err
 		}
 
 		jsonldString := buffer.String()
 
 		nq := ""
-		//log.Println("Calling JSONLDtoNQ")
 		if strings.HasSuffix(object.Key, ".nq") {
 			nq = jsonldString
 		} else {
@@ -101,8 +100,7 @@ func getObjectsAndWriteToPipe(synchronizer *SynchronizerClient, prefix string, p
 			return err
 		}
 
-		_, err = pipeWriter.Write([]byte(csnq))
-		if err != nil {
+		if _, err := pipeWriter.Write([]byte(csnq)); err != nil {
 			return err
 		}
 	}
