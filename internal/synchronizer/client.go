@@ -200,7 +200,7 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 
 	// TODO if array is too large, need to split it and load parts
 	// Let's declare 10k lines the largest we want to send in.
-	log.Infof("Loading graph %s of size: %d", graphResourceIdentifier, len(nTriples))
+	log.Infof("Loading graph %s with line length: %d", graphResourceIdentifier, len(nTriples))
 
 	const maxSizeBeforeSplit = 10000
 
@@ -217,9 +217,10 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 		if lineCount == maxSizeBeforeSplit { // use line count, since byte len might break inside a triple statement..   it's an OK proxy
 			errorGroup.Go(func() error {
 				log.Debugf("Loading subgraph of %d lines", len(tripleArray))
-				err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphResourceIdentifier) // convert []string to strings joined with new line to form a RDF NT set
+				err := synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphResourceIdentifier) // convert []string to strings joined with new line to form a RDF NT set
 				if err != nil {
 					log.Errorf("Error uploading subgraph: %s", err)
+					return err
 				}
 				return nil
 			})
@@ -231,16 +232,19 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 	// If there are triples left over after finishing that loop, we still need to load
 	// them in even if the total amount remaining is less than our max threshold for loading
 	if len(tripleArray) > 0 {
-		log.Tracef("Subgraph (out of scanner) of %d lines", len(tripleArray))
+		log.Debugf("Finished reading scanner; Inserting left over subgraph of %d lines", len(tripleArray))
 		err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphResourceIdentifier) // convert []string to strings joined with new line to form a RDF NT set
 		if err != nil {
 			return err
 		}
 	}
 
-	if err = errorGroup.Wait(); err != nil {
+	log.Debug("Waiting for subgraph load goroutines to finish")
+	if err := errorGroup.Wait(); err != nil {
 		return err
 	}
+
+	log.Debugf("Finished loading graph %s", graphResourceIdentifier)
 
 	return nil
 }
