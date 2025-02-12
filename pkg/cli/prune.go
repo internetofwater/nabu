@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func prune() error {
-	log.Info("Prune graphs in triplestore not in objectVal store")
+func sync() error {
+	log.Info("sync graphs in triplestore not in objectVal store")
 	client, err := synchronizer.NewSynchronizerClientFromConfig(cfgStruct)
 	if err != nil {
 		return err
@@ -22,13 +22,12 @@ func prune() error {
 }
 
 // checkCmd represents the check command
-var pruneCmd = &cobra.Command{
-	Use:   "prune",
-	Short: "nabu prune command",
-	// NOTE: this is marked as not implemented in the upstream, but appears to be implemented here
-	Long: `Remove graphs in triplestore not in the s3 store`,
+var syncCmd = &cobra.Command{
+	Use:   "sync",
+	Short: "nabu sync command",
+	Long:  `Remove graphs in triplestore not in the s3 store and add graphs in the s3 store not in the triplestore`,
 	Run: func(cmd *cobra.Command, args []string) {
-		err := prune()
+		err := sync()
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -36,5 +35,5 @@ var pruneCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(pruneCmd)
+	rootCmd.AddCommand(syncCmd)
 }

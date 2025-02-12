@@ -125,7 +125,7 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(s3Prefixes []strin
 		log.Infof("Missing items to add: %d\n", len(s3GraphsNotInTriplestore))
 
 		log.WithFields(log.Fields{"prefix": prefix, "graph items": len(graphsInTriplestore), "object items": len(s3ObjGraphNames), "difference": len(triplestoreGraphsNotInS3),
-			"missing": len(s3GraphsNotInTriplestore)}).Info("Nabu Prune")
+			"missing": len(s3GraphsNotInTriplestore)}).Info("Nabu sync")
 
 		// All triplestore graphs not in s3 should be removed since s3 is the source of truth
 		for _, graph := range triplestoreGraphsNotInS3 {
