@@ -111,9 +111,9 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 	summonedObjs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{"summoned/cdss0/"})
 	require.NoError(t, err)
 	require.Equal(t, sourcesInSitemap, summonedObjs)
-	err = suite.client.CopyAllPrefixedObjToTriplestore([]string{"orgs"})
+	err = suite.client.CopyAllPrefixedObjToTriplestore([]string{"orgs/"})
 	require.NoError(t, err)
-	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs")
+	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
 	require.NoError(t, err)
 	require.Len(t, graphs, 1)
 }
@@ -138,7 +138,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	require.NoError(suite.T(), err)
 	// this is the urn version of orgs/
 	// we insert this to make sure that it gets removed
-	oldGraph := "urn:gleaner.io:iow::orgs"
+	oldGraph := "urn:iow:orgs"
 	data := `
 	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .
 	<http://example.org/resource/2> <http://example.org/property/name> "Bob" .`
@@ -164,7 +164,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	exists, err = suite.graphdbContainer.Client.GraphExists(oldGraph)
 	require.False(t, exists)
 	require.NoError(t, err)
-	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs")
+	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(graphs), 1)
 }

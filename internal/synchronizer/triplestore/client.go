@@ -305,7 +305,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 
 	var ga []string
 
-	gp, err := common.MakeURNFromS3Prefix(prefix)
+	gp, err := common.MakeURN(prefix)
 	if err != nil {
 		log.Println(err)
 		return ga, err

@@ -63,16 +63,16 @@ func fileExists(filename string) bool {
 }
 
 func JsonldToNQ(jsonld string, processor *ld.JsonLdProcessor, options *ld.JsonLdOptions) (string, error) {
-	var myInterface interface{}
-	err := json.Unmarshal([]byte(jsonld), &myInterface)
+	var deserializeInterface interface{}
+	err := json.Unmarshal([]byte(jsonld), &deserializeInterface)
 	if err != nil {
-		log.Println("Error when transforming JSON-LD document to interface:", err)
+		log.Error("Error when transforming JSON-LD document to interface:", err)
 		return "", err
 	}
 
-	triples, err := processor.ToRDF(myInterface, options) // returns triples but toss them, just validating
+	triples, err := processor.ToRDF(deserializeInterface, options) // returns triples but toss them, just validating
 	if err != nil {
-		log.Println("Error when transforming JSON-LD document to RDF:", err)
+		log.Error("Error when transforming JSON-LD document to RDF:", err)
 		return "", err
 	}
 
