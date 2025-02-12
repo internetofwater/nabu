@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/knakk/rdf"
+	log "github.com/sirupsen/logrus"
 )
 
 // Convert a string of N-Triples to N-Quads
@@ -15,7 +15,7 @@ func NtToNq(nt, ctx string) (string, error) {
 	dec := rdf.NewTripleDecoder(strings.NewReader(nt), rdf.NTriples)
 	triples, err := dec.DecodeAll()
 	if err != nil {
-		log.Printf("Error decoding triples: %v\n", err)
+		log.Errorf("Error decoding triples: %v\n", err)
 		return "", err
 	}
 
@@ -61,7 +61,7 @@ func NqToNTCtx(inquads string) (string, string, error) {
 	dec := rdf.NewQuadDecoder(strings.NewReader(inquads), rdf.NQuads)
 	quads, err := dec.DecodeAll()
 	if err != nil {
-		log.Printf("Error decoding triples: %v\n", err)
+		log.Errorf("Error decoding quads: %v\n", err)
 		return "", "", err
 	}
 
@@ -82,7 +82,7 @@ func NqToNTCtx(inquads string) (string, string, error) {
 	enc := rdf.NewTripleEncoder(buf, rdf.NTriples)
 	err = enc.EncodeAll(triples)
 	if err != nil {
-		log.Printf("Error encoding triples: %v\n", err)
+		log.Errorf("Error encoding triples: %v\n", err)
 		return "", "", err
 	}
 	err = enc.Close()
@@ -106,13 +106,13 @@ func QuadsToTripleWithCtx(nquads string) (string, string, error) {
 	dec := rdf.NewQuadDecoder(strings.NewReader(nquads), rdf.NQuads)
 	decodedQuads, err := dec.DecodeAll()
 	if err != nil {
-		log.Printf("Error decoding triples: %v\n", err)
+		log.Errorf("Error decoding quads: %v\n", err)
 		return "", "", err
 	}
 
 	// check we have triples
 	if len(decodedQuads) < 1 {
-		return "", "", errors.New("no triples to convert; quads were empty")
+		return "", "", errors.New("no triples to generate; quads were empty")
 	}
 
 	for _, t := range decodedQuads {
@@ -132,7 +132,8 @@ func QuadsToTripleWithCtx(nquads string) (string, string, error) {
 	encoder := rdf.NewTripleEncoder(buf, rdf.NTriples)
 	err = encoder.EncodeAll(triples)
 	if err != nil {
-		log.Printf("Error encoding triples: %v\n", err)
+		log.Errorf("Error encoding triples: %v\n", err)
+		return "", "", err
 	}
 	encoder.Close()
 

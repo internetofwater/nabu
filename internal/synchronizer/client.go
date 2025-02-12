@@ -120,7 +120,7 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(s3Prefixes []strin
 		triplestoreGraphsNotInS3 := findMissing(graphsInTriplestore, s3ObjGraphNames)
 		s3GraphsNotInTriplestore := findMissing(s3ObjGraphNames, graphsInTriplestore)
 
-		log.Infof("Current graph items: %d  Cuurent object items: %d\n", len(graphsInTriplestore), len(s3ObjGraphNames))
+		log.Infof("Current graph items: %d  Curent object items: %d\n", len(graphsInTriplestore), len(s3ObjGraphNames))
 		log.Infof("Orphaned items to remove: %d\n", len(triplestoreGraphsNotInS3))
 		log.Infof("Missing items to add: %d\n", len(s3GraphsNotInTriplestore))
 

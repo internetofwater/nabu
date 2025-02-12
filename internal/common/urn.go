@@ -1,92 +1,104 @@
 package common
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
-	"path/filepath"
 	"strings"
 
+	"github.com/rs/xid"
 	log "github.com/sirupsen/logrus"
 )
 
-// MakeURN formats a URN following urn:{program}:{organization}:{provider}:{sha}
-func MakeURN(s string) (string, error) {
-	check := prefixTransform(s) // change "summoned" to "data" if summoned is in the object prefix
-	if strings.Contains(check, "orgs/") {
-		return fmt.Sprintf("urn:gleaner.io:%s:%s", "iow", check), nil
-	} else {
-		s3c, err := getLastThree(check)
-		if err != nil {
-			return "", err
+/*
+This file represents all operations for defining a URN
+
+A URN can be used to identify either a graph or a
+prefix path in S3. Thus you can convert between
+the two to perform synch operations
+*/
+
+const baseURN = "urn:iow"
+
+// Map a s3 prefix to a URN
+// This is essentially just a serialized path that can be used for identifying a graph
+// We use a simple
+func MakeURN(s3Prefix string) (string, error) {
+	if s3Prefix == "" || s3Prefix == "." {
+		return "", fmt.Errorf("prefix cannot be empty")
+	} else if !strings.Contains(s3Prefix, "/") {
+		return "", fmt.Errorf("prefix must contain at least one '/'")
+	} else if strings.Contains(s3Prefix, "//") {
+		return "", fmt.Errorf("prefix cannot contain double slashes")
+	}
+
+	resultURN := baseURN
+	splitOnSlash := strings.Split(s3Prefix, "/")
+	for _, part := range splitOnSlash {
+		if part == "" {
+			break
 		}
-		return fmt.Sprintf("urn:gleaner.io:%s:%s", "iow", s3c), nil
+		resultURN += ":" + part
 	}
+	return resultURN, nil
 }
 
-// MakeURNFromS3Prefix formats a URN following the ADR 0001-URN-decision.md  which at the
-// time of this coding resulted in   urn:{engine}:{implnet}:{source}:{type}:{sha}
-// the "prefix" version only returns the prefix part of the urn, for use in the prune
-// command
-func MakeURNFromS3Prefix(prefix string) (string, error) {
+// Skolemization replaces blank nodes with URIs  The mapping approach is needed since this
+// function can be used on a whole data graph, not just a single triple
+// reference: https://www.w3.org/TR/rdf11-concepts/#dfn-skolem-iri
+func Skolemization(nq string) (string, error) {
+	scanner := bufio.NewScanner(strings.NewReader(nq))
 
-	if prefix == "orgs" {
-		return fmt.Sprintf("urn:gleaner.io:%s:orgs", "iow"), nil
-	} else {
-		check := prefixTransform(prefix)
-		ps := strings.Split(check, "/")
-		if len(ps) < 2 {
-			return "", fmt.Errorf("error in input prefix. You must have at least two / in the prefix")
+	// need for long lines like in Internet of Water
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	// since a data graph may have several references to any given blank node, we need to keep a
+	// map of our update.  It is also why the ID needs a non content approach since the blank node will
+	// be in a different triple set from time to time and we can not ensure what order we might encounter them at.
+	m := make(map[string]string) // make a map here to hold our updated strings
+
+	for scanner.Scan() {
+		split := strings.Split(scanner.Text(), " ")
+		sold := split[0]
+		oold := split[2]
+
+		if strings.HasPrefix(sold, "_:") { // we are a blank node
+			if _, ok := m[sold]; ok { // fmt.Printf("We had %s, already\n", sold)
+			} else {
+				guid := xid.New()
+				snew := fmt.Sprintf("<https://iow.io/xid/genid/%s>", guid.String())
+				m[sold] = snew
+			}
 		}
-		return fmt.Sprintf("urn:gleaner.io:%s:%s:%s", "iow", ps[len(ps)-1], ps[len(ps)-2]), nil
 
-	}
-}
-
-// prefixTransform  In this code, the prefix will be coming in with something like
-// summoned or prov.  In our 0001-URN-decision.md document, we want the urn to be like
-// urn:gleaner.io:oih:edmo:prov:0255293683036aac2a95a2479cc841189c0ac3f8
-// or
-// urn:gleaner.io:iow:counties0:data:00010f9f071c39fcc0ca73eccad7470b675cd8a3
-// this means that the string "summoned" needs to be mapped to "data".  However,
-// we use prov for both the path in the S3 and the URN structure.  So in this
-// location we need to convert summoned to prov
-
-// NOTE from Colton: this method seems unnecessary
-func prefixTransform(str string) string {
-	if !strings.Contains(str, "summoned/") {
-		return str
+		// scan the object nodes too.. though we should find nothing here.. the above wouldn't find
+		if strings.HasPrefix(oold, "_:") { // we are a blank node
+			// check map to see if we have this in our value already
+			if _, ok := m[oold]; ok {
+				// fmt.Printf("We had %s, already\n", oold)
+			} else {
+				guid := xid.New()
+				onew := fmt.Sprintf("<https://iow.io/xid/genid/%s>", guid.String())
+				m[oold] = onew
+			}
+		}
 	}
 
-	return strings.Replace(str, "summoned/", "data/", -1)
-}
-
-// getLastThree
-// split the string and take last two segments, but flip to match URN for ADR 0001-URN-decision.md
-func getLastThree(s string) (string, error) {
-	extension := filepath.Ext(s) // remove the extension regardless of what it is
-	trimmedString := strings.TrimSuffix(s, extension)
-
-	sr := strings.Replace(trimmedString, "/", ":", -1) // replace / with :
-	parts := strings.Split(sr, ":")                    // Split the string on the ":" character.
-
-	if len(parts) < 3 {
-		return "", fmt.Errorf("error in urn formation trying to split on object prefix. Not enough slashes delimeters in %s", s)
+	err := scanner.Err()
+	if err != nil {
+		log.Error(err)
+		return "", err
 	}
 
-	lastThree := parts[len(parts)-3:] // Get the last three elements.
+	filebytes := []byte(nq)
 
-	//flip the last two elements
-	index1 := 0
-	index2 := 1
-
-	// Ensure indices are within the array bounds
-	if index1 >= 0 && index1 < len(lastThree) && index2 >= 0 && index2 < len(lastThree) {
-		// Swap the elements
-		lastThree[index1], lastThree[index2] = lastThree[index2], lastThree[index1]
-	} else {
-		log.Println("error in urn formation trying to flip indices on object prefix")
+	for k, v := range m {
+		//fmt.Printf("Replace %s with %v \n", k, v)
+		// The +" " is need since we have to avoid
+		// _:b1 replacing _:b13 with ...3
+		filebytes = bytes.Replace(filebytes, []byte(k+" "), []byte(v+" "), -1)
 	}
 
-	s2c := strings.Join(lastThree, ":")
-
-	return s2c, nil
+	return string(filebytes), err
 }

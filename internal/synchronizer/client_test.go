@@ -111,9 +111,9 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 	summonedObjs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{"summoned/cdss0/"})
 	require.NoError(t, err)
 	require.Equal(t, sourcesInSitemap, summonedObjs)
-	err = suite.client.CopyAllPrefixedObjToTriplestore([]string{"orgs"})
+	err = suite.client.CopyAllPrefixedObjToTriplestore([]string{"orgs/"})
 	require.NoError(t, err)
-	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs")
+	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
 	require.NoError(t, err)
 	require.Len(t, graphs, 1)
 }
@@ -130,6 +130,43 @@ func (suite *SynchronizerClientSuite) TestMoveNqToTriplestore() {
 	require.Zero(t, gleanerContainer.ExitCode, gleanerContainer.Logs)
 	err = suite.client.UploadNqFileToTriplestore("orgs/cdss0.nq")
 	require.NoError(t, err)
+}
+
+func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
+	t := suite.T()
+	err := suite.graphdbContainer.Client.ClearAllGraphs()
+	require.NoError(suite.T(), err)
+	// this is the urn version of orgs/
+	// we insert this to make sure that it gets removed
+	oldGraph := "urn:iow:orgs"
+	data := `
+	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .
+	<http://example.org/resource/2> <http://example.org/property/name> "Bob" .`
+	err = suite.graphdbContainer.Client.InsertWithNamedGraph(data, oldGraph)
+	require.NoError(t, err)
+	exists, err := suite.graphdbContainer.Client.GraphExists(oldGraph)
+	require.NoError(t, err)
+	require.True(t, exists)
+
+	gleanerContainer, err := testhelpers.NewGleanerContainer("../../config/iow/gleanerconfig.yaml", []string{
+		"--source", "cdss0",
+		"--address", "synchronizerTestMinio",
+		"--setup",
+		"--port", "9000",
+	}, suite.network.Name)
+	require.NoError(t, err)
+	require.Zero(t, gleanerContainer.ExitCode, gleanerContainer.Logs)
+
+	require.NoError(t, err)
+	err = suite.client.SyncTriplestoreGraphs([]string{"orgs/"})
+	require.NoError(t, err)
+	// make sure that an old graph is no longer there after sync
+	exists, err = suite.graphdbContainer.Client.GraphExists(oldGraph)
+	require.False(t, exists)
+	require.NoError(t, err)
+	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(graphs), 1)
 }
 
 func TestSynchronizerClientSuite(t *testing.T) {
