@@ -7,14 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"nabu/internal/common"
 	"nabu/internal/synchronizer/objects"
 	"nabu/internal/synchronizer/triplestore"
 	"nabu/pkg/config"
 	"net/http"
 	"path"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -178,21 +176,21 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 		return err
 	}
 
-	mimetype := mime.TypeByExtension(filepath.Ext(objectName))
 	var nTriples string
 
-	if strings.Compare(mimetype, "application/ld+json") == 0 {
+	if strings.HasSuffix(objectName, ".jsonld") {
 		nTriples, err = common.JsonldToNQ(string(rawJsonldOrNqBytes), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 		if err != nil {
 			log.Errorf("JSONLD to NQ conversion error: %s", err)
 			return err
 		}
-	} else {
+	} else if strings.HasSuffix(objectName, ".nq") {
 		nTriples, _, err = common.QuadsToTripleWithCtx(string(rawJsonldOrNqBytes))
 		if err != nil {
-			log.Errorf("nq to NTCtx error: %s", err)
-			return err
+			return fmt.Errorf("nq to NTCtx error: %s when converting object %s with data %s", err, objectName, string(rawJsonldOrNqBytes))
 		}
+	} else {
+		return fmt.Errorf("object %s is not a jsonld or nq file", objectName)
 	}
 
 	// drop any graph we are going to load..  we assume we are doing those due to an update
