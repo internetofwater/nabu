@@ -8,6 +8,8 @@ nabu
 __debug_bin*
 google.yml
 
-http_trace.csv
+*.csv
 
 *.png
+
+trace.out

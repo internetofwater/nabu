@@ -3,11 +3,13 @@ package synchronizer
 import (
 	"context"
 	"io"
+	"log"
 	"nabu/internal/synchronizer/objects"
 	"nabu/internal/synchronizer/triplestore"
-	"nabu/internal/trace"
 	testhelpers "nabu/testHelpers"
 	"net/http"
+	"os"
+	"runtime/trace"
 	"strings"
 	"testing"
 	"time"
@@ -92,7 +94,14 @@ func (s *SynchronizerClientSuite) TearDownSuite() {
 	require.NoError(s.T(), err)
 	err = testcontainers.TerminateContainer(*s.graphdbContainer.Container)
 	require.NoError(s.T(), err)
-	trace.PlotCSV("http_trace.csv")
+
+	f, err := os.Open("trace.out")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	trace.Stop()
 }
 
 func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
@@ -191,5 +200,15 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 }
 
 func TestSynchronizerClientSuite(t *testing.T) {
+	f, err := os.Create("trace.out")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	if err := trace.Start(f); err != nil {
+		log.Fatal(err)
+	}
+
 	suite.Run(t, new(SynchronizerClientSuite))
 }

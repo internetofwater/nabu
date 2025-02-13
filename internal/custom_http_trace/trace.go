@@ -1,4 +1,4 @@
-package trace
+package custom_http_trace
 
 import (
 	"context"
@@ -26,7 +26,7 @@ var (
 
 func init() {
 	var err error
-	csvFile, err = os.OpenFile("http_trace.csv", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	csvFile, err = os.OpenFile("custom_http_trace.csv", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("Failed to open CSV file: %v", err)
 	}

@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"io"
 	"nabu/internal/common"
+	"nabu/internal/custom_http_trace"
 	"nabu/internal/synchronizer/objects"
 	"nabu/internal/synchronizer/triplestore"
-	"nabu/internal/trace"
 	"nabu/pkg/config"
 	"net/http"
 	"path"
@@ -418,7 +418,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 	url := fmt.Sprintf("%s/statements", synchronizer.GraphClient.BaseRepositoryUrl)
 
 	// Create request
-	req, err := trace.NewRequestWithContext("POST", synchronizer.GraphClient.BaseSparqlQueryUrl, bytes.NewReader(byt))
+	req, err := custom_http_trace.NewRequestWithContext("POST", synchronizer.GraphClient.BaseSparqlQueryUrl, bytes.NewReader(byt))
 	if err != nil {
 		return err
 	}

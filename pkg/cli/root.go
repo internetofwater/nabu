@@ -5,7 +5,10 @@ import (
 	"path/filepath"
 
 	"nabu/internal/common"
+	"nabu/internal/common/projectpath"
 	"nabu/pkg/config"
+
+	"runtime/trace"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -13,7 +16,7 @@ import (
 
 var cfgFile, nabuConfName, minioVal, accessVal, secretVal, bucketVal, endpointVal, prefixVal, repositoryVal string
 var portVal int
-var sslVal, dangerousVal, trace bool
+var sslVal, dangerousVal, doTrace bool
 
 var cfgStruct config.NabuConfig
 
@@ -25,6 +28,9 @@ var rootCmd = &cobra.Command{
 
 func Execute() {
 	err := rootCmd.Execute()
+	if trace.IsEnabled() {
+		trace.Stop()
+	}
 	cobra.CheckErr(err)
 }
 
@@ -43,7 +49,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&bucketVal, "bucket", "", "The configuration bucket")
 	rootCmd.PersistentFlags().StringVar(&repositoryVal, "repository", "", "the default repository to use for graphdb")
 
-	rootCmd.PersistentFlags().BoolVar(&trace, "trace", false, "Trace http requests and output a report")
+	rootCmd.PersistentFlags().BoolVar(&doTrace, "trace", false, "Trace http requests and output a report")
 	rootCmd.PersistentFlags().BoolVar(&sslVal, "ssl", false, "Use SSL boolean")
 	rootCmd.PersistentFlags().BoolVar(&dangerousVal, "dangerous", false, "Use dangerous mode boolean")
 
@@ -110,8 +116,17 @@ func initConfig() {
 	if repositoryVal != "" {
 		cfgStruct.Sparql.Repository = repositoryVal
 	}
-	if trace {
-		cfgStruct.Trace = trace
+	if doTrace {
+		filePath := filepath.Join(projectpath.Root, "trace.out")
+		log.Infof("Trace enabled; Outputting to %s", filePath)
+		cfgStruct.Trace = doTrace
+		f, err := os.Create(filePath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := trace.Start(f); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 }
