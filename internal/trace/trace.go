@@ -54,7 +54,7 @@ func logTraceToCSV(event, addr string, duration time.Duration, reused bool, url 
 		errStr = err.Error()
 	}
 
-	_ = csvWriter.Write([]string{
+	err = csvWriter.Write([]string{
 		time.Now().Format(time.RFC3339Nano), // Timestamp
 		event,                               // Event Type
 		time.Duration(duration).String(),    // Duration in microseconds
@@ -63,6 +63,10 @@ func logTraceToCSV(event, addr string, duration time.Duration, reused bool, url 
 		url,                                 // Requested URL
 		errStr,                              // Error Message
 	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	csvWriter.Flush()
 }
