@@ -156,17 +156,39 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	}, suite.network.Name)
 	require.NoError(t, err)
 	require.Zero(t, gleanerContainer.ExitCode, gleanerContainer.Logs)
+	sourcesInSitemap, err := countSourcesInSitemap("https://pids.geoconnex.dev/sitemap/cdss/co_gages__0.xml")
+	require.NoError(t, err)
 
-	require.NoError(t, err)
-	err = suite.client.SyncTriplestoreGraphs([]string{"orgs/"})
-	require.NoError(t, err)
-	// make sure that an old graph is no longer there after sync
-	exists, err = suite.graphdbContainer.Client.GraphExists(oldGraph)
-	require.False(t, exists)
-	require.NoError(t, err)
-	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(graphs), 1)
+	t.Run("sync org graph", func(t *testing.T) {
+		require.NoError(t, err)
+		err = suite.client.SyncTriplestoreGraphs([]string{"orgs/"})
+		require.NoError(t, err)
+		// make sure that an old graph is no longer there after sync
+		exists, err = suite.graphdbContainer.Client.GraphExists(oldGraph)
+		require.False(t, exists)
+		require.NoError(t, err)
+		graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
+		require.NoError(t, err)
+		require.Equal(t, len(graphs), 1)
+	})
+
+	t.Run("sync prov graphs", func(t *testing.T) {
+		require.NoError(t, err)
+		err = suite.client.SyncTriplestoreGraphs([]string{"prov/"})
+		require.NoError(t, err)
+		graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("prov/")
+		require.NoError(t, err)
+		require.Equal(t, len(graphs), sourcesInSitemap)
+	})
+
+	t.Run("sync summoned graphs", func(t *testing.T) {
+		require.NoError(t, err)
+		err = suite.client.SyncTriplestoreGraphs([]string{"summoned/"})
+		require.NoError(t, err)
+		graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
+		require.NoError(t, err)
+		require.Equal(t, len(graphs), sourcesInSitemap)
+	})
 }
 
 func TestSynchronizerClientSuite(t *testing.T) {

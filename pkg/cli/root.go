@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"mime"
 	"os"
 	"path/filepath"
 
@@ -31,11 +30,6 @@ func Execute() {
 
 func init() {
 	common.InitLogging()
-
-	err := mime.AddExtensionType(".jsonld", "application/ld+json")
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	cobra.OnInitialize(initConfig)
 
