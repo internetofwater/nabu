@@ -14,6 +14,7 @@ This repository is a fork of the gleanerio Nabu project. This fork refactored an
         - Nabu does not mutate existing s3 objects 
     - It simply checks if a named graph exists and will drop it before inserting triples of the same graph
 - Nabu does not use caching and there is no concept of statefulness from one nabu run to the other. 
+- Nabu is agnostic to the content contained inside individual jsonld/nq files as long as they are syntactically valid
 
 ### Latency
 
