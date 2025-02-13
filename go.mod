@@ -20,6 +20,17 @@ require (
 )
 
 require (
+	git.sr.ht/~sbinet/gg v0.6.0 // indirect
+	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b // indirect
+	github.com/campoy/embedmd v1.0.0 // indirect
+	github.com/go-fonts/liberation v0.3.3 // indirect
+	github.com/go-latex/latex v0.0.0-20240709081214-31cef3c7570e // indirect
+	github.com/go-pdf/fpdf v0.9.0 // indirect
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
+	golang.org/x/image v0.21.0 // indirect
+)
+
+require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/BurntSushi/toml v1.2.1 // indirect
@@ -91,6 +102,7 @@ require (
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
+	gonum.org/v1/plot v0.15.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240318140521-94a12d6c2237 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237 // indirect
 	gopkg.in/ini.v1 v1.63.2 // indirect

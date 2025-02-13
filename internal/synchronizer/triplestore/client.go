@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"nabu/internal/common"
+	"nabu/internal/trace"
 	"net/http"
 	"net/url"
 	"os"
@@ -48,11 +49,13 @@ type GraphDbClient struct {
 	// url to the host for the rest api base endpoint.
 	// REST api metods are used for config and graphdb specific operations
 	BaseRESTUrl string
+	// methods that a triplestore must implement
 	TriplestoreMethods
 }
 
 // Create a new client struct to connect to the triplestore
 func NewGraphDbClient(config config.SparqlConfig) (*GraphDbClient, error) {
+
 	return &GraphDbClient{
 		SparqlConf:         config,
 		BaseUrl:            config.Endpoint,
@@ -92,14 +95,15 @@ func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath stri
 
 	// Create the HTTP request
 	url := fmt.Sprintf("%s/repositories", graphClient.BaseRESTUrl)
-	req, err := http.NewRequest("POST", url, body)
+	req, err := trace.NewRequestWithContext("POST", url, body)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
+	client := http.Client{}
+
 	// Send the request
-	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
@@ -136,7 +140,7 @@ func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, gr
 		}`
 	fullReq := []byte(fmt.Sprintf(template, graphURI, triples))
 
-	req, err := http.NewRequest("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(fullReq)) // PUT for any of the servers?
+	req, err := trace.NewRequestWithContext("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(fullReq)) // PUT for any of the servers?
 	if err != nil {
 		log.Error(err)
 		return err
@@ -150,7 +154,6 @@ func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, gr
 	}
 
 	client := &http.Client{}
-
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Error(err)
@@ -185,15 +188,16 @@ func (graphClient *GraphDbClient) DropGraph(graph string) error {
 	d := fmt.Sprintf("DROP GRAPH <%s> ", graph)
 	pab := []byte(d)
 
-	req, err := http.NewRequest("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(pab))
+	req, err := trace.NewRequestWithContext("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(pab))
 	if err != nil {
 		log.Error(err)
 		return err
 	}
 	req.Header.Set("Content-Type", "application/sparql-update")
 
-	httpClient := &http.Client{}
-	resp, err := httpClient.Do(req)
+	client := http.Client{}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Error(err)
 		return err
@@ -219,14 +223,15 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 
 	pab := []byte(d)
 
-	req, err := http.NewRequest("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(pab))
+	req, err := trace.NewRequestWithContext("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(pab))
 	if err != nil {
 		log.Error(err)
 		return err
 	}
 	req.Header.Set("Content-Type", "application/sparql-update")
 
-	client := &http.Client{}
+	client := http.Client{}
+
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != 204 {
 		log.Errorf("failed to clear graphs: response Status: %s with error %s", resp.Status, err)
@@ -247,20 +252,21 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 	return err
 }
 
-// holds results from the sparql ASK query
-type ask struct {
-	Head    map[string]interface{} `json:"head"`    // Map for flexible JSON object
-	Boolean bool                   `json:"boolean"` // Boolean value
-}
-
 // Check if a graph exists in the graph database
 func (graphClient *GraphDbClient) GraphExists(graphURN string) (bool, error) {
+
+	// holds results from the sparql ASK query
+	type ask struct {
+		Head    map[string]interface{} `json:"head"`    // Map for flexible JSON object
+		Boolean bool                   `json:"boolean"` // Boolean value
+	}
+
 	sparqlQuery := fmt.Sprintf("ASK WHERE { GRAPH <%s> { ?s ?p ?o } }", graphURN)
 
 	pab := []byte("")
 	params := url.Values{}
 	params.Add("query", sparqlQuery)
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", graphClient.BaseRepositoryUrl, params.Encode()), bytes.NewBuffer(pab))
+	req, err := trace.NewRequestWithContext("GET", fmt.Sprintf("%s?%s", graphClient.BaseRepositoryUrl, params.Encode()), bytes.NewBuffer(pab))
 	if err != nil {
 		return false, err
 	}
@@ -290,13 +296,13 @@ func (graphClient *GraphDbClient) GraphExists(graphURN string) (bool, error) {
 		return false, nil
 	}
 
-	ask := ask{}
-	err = json.Unmarshal(body, &ask)
+	askResp := ask{}
+	err = json.Unmarshal(body, &askResp)
 	if err != nil {
 		return false, err
 	}
 
-	return ask.Boolean, err
+	return askResp.Boolean, err
 }
 
 // Get list of graphs in the triplestore
@@ -313,10 +319,9 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 
 	log.Printf("Pattern: %s\n", gp)
 	log.Printf("SPARQL: %s\n", query)
-	pab := []byte("")
 	params := url.Values{}
 	params.Add("query", query)
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", graphClient.BaseRepositoryUrl, params.Encode()), bytes.NewBuffer(pab))
+	req, err := trace.NewRequestWithContext("GET", fmt.Sprintf("%s?%s", graphClient.BaseRepositoryUrl, params.Encode()), bytes.NewBuffer([]byte("")))
 	if err != nil {
 		log.Error(err)
 		return []string{}, err
@@ -325,6 +330,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 	req.Header.Set("Accept", "application/sparql-results+json")
 
 	client := &http.Client{}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Error(err)

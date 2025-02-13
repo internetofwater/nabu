@@ -15,6 +15,7 @@ type NabuConfig struct {
 	Context     ContextConfig
 	ContextMaps []ContextMap
 	Prefixes    []string
+	Trace       bool `optional:"true"`
 }
 
 type SparqlConfig struct {
@@ -58,6 +59,11 @@ func checkMissingFields(v *viper.Viper, structType reflect.Type, parentKey strin
 		fieldName := field.Tag.Get("mapstructure")
 		if fieldName == "" {
 			fieldName = strings.ToLower(field.Name) // Default to lowercase field name
+		}
+
+		optional := field.Tag.Get("optional") // Skip checking optional fields
+		if optional == "true" {
+			continue
 		}
 
 		fullKey := fieldName

@@ -13,7 +13,7 @@ import (
 
 var cfgFile, nabuConfName, minioVal, accessVal, secretVal, bucketVal, endpointVal, prefixVal, repositoryVal string
 var portVal int
-var sslVal, dangerousVal bool
+var sslVal, dangerousVal, trace bool
 
 var cfgStruct config.NabuConfig
 
@@ -38,14 +38,17 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&nabuConfName, "", "", "config file to use for nabu")
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "cfg", "", "full path to yaml config file for nabu")
 	rootCmd.PersistentFlags().StringVar(&minioVal, "address", "", "")
-	rootCmd.PersistentFlags().IntVar(&portVal, "port", -1, "Port for s3 server")
 	rootCmd.PersistentFlags().StringVar(&accessVal, "access", os.Getenv("S3_ACCESS_KEY"), "Access Key (i.e. username)")
 	rootCmd.PersistentFlags().StringVar(&secretVal, "secret", os.Getenv("S3_SECRET_KEY"), "Secret access key")
 	rootCmd.PersistentFlags().StringVar(&bucketVal, "bucket", "", "The configuration bucket")
 	rootCmd.PersistentFlags().StringVar(&repositoryVal, "repository", "", "the default repository to use for graphdb")
 
+	rootCmd.PersistentFlags().BoolVar(&trace, "trace", false, "Trace http requests and output a report")
 	rootCmd.PersistentFlags().BoolVar(&sslVal, "ssl", false, "Use SSL boolean")
 	rootCmd.PersistentFlags().BoolVar(&dangerousVal, "dangerous", false, "Use dangerous mode boolean")
+
+	rootCmd.PersistentFlags().IntVar(&portVal, "port", -1, "Port for s3 server")
+
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -106,6 +109,9 @@ func initConfig() {
 	}
 	if repositoryVal != "" {
 		cfgStruct.Sparql.Repository = repositoryVal
+	}
+	if trace {
+		cfgStruct.Trace = trace
 	}
 
 }

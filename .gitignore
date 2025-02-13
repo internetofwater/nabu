@@ -7,3 +7,7 @@ nabu
 **/.fleet/**
 __debug_bin*
 google.yml
+
+http_trace.csv
+
+*.png

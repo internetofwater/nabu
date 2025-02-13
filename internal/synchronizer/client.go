@@ -10,6 +10,7 @@ import (
 	"nabu/internal/common"
 	"nabu/internal/synchronizer/objects"
 	"nabu/internal/synchronizer/triplestore"
+	"nabu/internal/trace"
 	"nabu/pkg/config"
 	"net/http"
 	"path"
@@ -37,22 +38,25 @@ type SynchronizerClient struct {
 	jsonldOptions *ld.JsonLdOptions
 }
 
-func NewSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *objects.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
+// Create a new SynchronizerClient by directly passing in the clients
+// Mainly used for testing
+func newSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *objects.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
 	processor, options, err := common.NewJsonldProcessor(config.NabuConfig{})
 	if err != nil {
 		return SynchronizerClient{}, err
 	}
 
-	return SynchronizerClient{
+	client := SynchronizerClient{
 		GraphClient:     graphClient,
 		S3Client:        s3Client,
 		syncBucketName:  bucketName,
 		jsonldProcessor: processor,
 		jsonldOptions:   options,
-	}, nil
+	}
+	return client, nil
 }
 
-// Generate a new SynchronizerClient
+// Generate a new SynchronizerClient from a top level config
 func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClient, error) {
 	graphClient, err := triplestore.NewGraphDbClient(conf.Sparql)
 	if err != nil {
@@ -68,13 +72,14 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 		return nil, err
 	}
 
-	return &SynchronizerClient{
+	client := &SynchronizerClient{
 		GraphClient:     graphClient,
 		S3Client:        s3Client,
 		syncBucketName:  conf.Minio.Bucket,
 		jsonldProcessor: processor,
 		jsonldOptions:   options,
-	}, nil
+	}
+	return client, nil
 }
 
 // Get rid of graphs with specific prefix in the triplestore that are not in the object store
@@ -413,7 +418,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 	url := fmt.Sprintf("%s/statements", synchronizer.GraphClient.BaseRepositoryUrl)
 
 	// Create request
-	req, err := http.NewRequest("POST", synchronizer.GraphClient.BaseSparqlQueryUrl, bytes.NewReader(byt))
+	req, err := trace.NewRequestWithContext("POST", synchronizer.GraphClient.BaseSparqlQueryUrl, bytes.NewReader(byt))
 	if err != nil {
 		return err
 	}
