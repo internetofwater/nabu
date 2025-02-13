@@ -25,24 +25,15 @@ func test() error {
 		return fmt.Errorf("default bucket %s does not exist", cfgStruct.Minio.Bucket)
 	}
 
-	// url := client.GraphClient.BaseUrl
-
-	// if url == "" {
-	// 	return fmt.Errorf("graph url not set")
-	// }
-
-	// // try to ping the graph database using http
-	// resp, err := http.Get(url)
-
-	log.Info("tests passed")
+	log.Info("s3 test passed")
 
 	return err
 }
 
 var testCmd = &cobra.Command{
 	Use:   "test",
-	Short: "test to connect to s3 and triplestore",
-	Long:  `Test to see if nabu can connect to s3 and triplestore but don't do anything`,
+	Long:  `Test to see if nabu can connect to s3 but don't do anything`,
+	Short: "test to connect to s3",
 	Run: func(cmd *cobra.Command, args []string) {
 		err := test()
 		if err != nil {

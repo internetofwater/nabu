@@ -17,7 +17,6 @@ type GraphDBContainer struct {
 
 // Spin up a local graphdb container and the associated client
 func NewGraphDBContainer(repositoryName string, configPath string) (GraphDBContainer, error) {
-
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
 		Image:        "khaller/graphdb-free",
