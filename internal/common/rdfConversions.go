@@ -34,7 +34,7 @@ func NtToNq(nt, ctx string) (string, error) {
 // use in the ntToNQ() function to add a context to each triple in turn.
 // It may not be needed/used in this code
 func makeQuad(t rdf.Triple, c string) (string, error) {
-	newctx, err := rdf.NewIRI(c) // this should be  c
+	newctx, err := rdf.NewIRI(c)
 	if err != nil {
 		return "", err
 	}
@@ -54,48 +54,6 @@ func makeQuad(t rdf.Triple, c string) (string, error) {
 	}
 
 	return buf.String(), err
-}
-
-// NqToNTCtx  Converts quads to triples and return the graph name separately
-func NqToNTCtx(inquads string) (string, string, error) {
-	dec := rdf.NewQuadDecoder(strings.NewReader(inquads), rdf.NQuads)
-	quads, err := dec.DecodeAll()
-	if err != nil {
-		log.Errorf("Error decoding quads: %v\n", err)
-		return "", "", err
-	}
-
-	// loop on tr and make a set of triples
-	triples := []rdf.Triple{}
-	for _, quad := range quads {
-		triples = append(triples, quad.Triple)
-	}
-
-	// Assume context of first triple sis context of all triples
-	// TODO..   this is stupid if not dangers, at least return []string of all the contexts
-	// that were in the graph.
-	ctx := quads[0].Ctx
-	quadContext := ctx.String()
-
-	outtriples := ""
-	buf := bytes.NewBufferString(outtriples)
-	enc := rdf.NewTripleEncoder(buf, rdf.NTriples)
-	err = enc.EncodeAll(triples)
-	if err != nil {
-		log.Errorf("Error encoding triples: %v\n", err)
-		return "", "", err
-	}
-	err = enc.Close()
-	if err != nil {
-		return "", "", err
-	}
-
-	tb := bytes.NewBuffer([]byte(""))
-	for _, triple := range triples {
-		tb.WriteString(triple.Serialize(rdf.NTriples))
-	}
-
-	return tb.String(), quadContext, err
 }
 
 // Converts nquads to ntriples plus a context (graph) string
@@ -124,8 +82,8 @@ func QuadsToTripleWithCtx(nquads string) (string, string, error) {
 	// datagraph are represented in a single large JSON-LD via some collection concept.  There it is possible someone might
 	// use the quad.  However, for most cases the quad is not important to us, it's local provenance, so we would still replace
 	// it with our provenance (context)
-	ctx := decodedQuads[0].Ctx
-	graphName := ctx.String()
+	context_graph := decodedQuads[0].Ctx
+	graphName := context_graph.String()
 
 	outtriples := ""
 	buf := bytes.NewBufferString(outtriples)
