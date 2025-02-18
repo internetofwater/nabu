@@ -3,10 +3,14 @@ package synchronizer
 import (
 	"context"
 	"io"
+	"log"
+	"nabu/internal/custom_http_trace"
 	"nabu/internal/synchronizer/objects"
 	"nabu/internal/synchronizer/triplestore"
 	testhelpers "nabu/testHelpers"
 	"net/http"
+	"os"
+	"runtime/trace"
 	"strings"
 	"testing"
 	"time"
@@ -18,9 +22,28 @@ import (
 	"github.com/testcontainers/testcontainers-go/network"
 )
 
-type SynchronizerClientSuite struct {
-	suite.Suite
+func countSourcesInSitemap(url string) (int, error) {
+	// Fetch the URL
+	resp, err := http.Get(url)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
 
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+	// /loc represents the closing tag of a <loc> item in an xml sitemap
+	// thus the number of /loc tags is the number of sources
+	count := strings.Count(string(body), "/loc")
+	return count, nil
+}
+
+type SynchronizerClientSuite struct {
+	// struct that stores metadata about the test suite itself
+	suite.Suite
 	// the top level client for syncing between graphdb and minio
 	client SynchronizerClient
 	// minio container that gleaner will send data to
@@ -62,7 +85,7 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 	suite.Require().NoError(err)
 	suite.graphdbContainer = graphdbContainer
 
-	client, err := NewSynchronizerClient(&graphdbContainer.Client, suite.minioContainer.ClientWrapper, suite.minioContainer.ClientWrapper.DefaultBucket)
+	client, err := newSynchronizerClient(&graphdbContainer.Client, suite.minioContainer.ClientWrapper, suite.minioContainer.ClientWrapper.DefaultBucket)
 	require.NoError(t, err)
 	suite.client = client
 }
@@ -72,25 +95,16 @@ func (s *SynchronizerClientSuite) TearDownSuite() {
 	require.NoError(s.T(), err)
 	err = testcontainers.TerminateContainer(*s.graphdbContainer.Container)
 	require.NoError(s.T(), err)
-}
 
-func countSourcesInSitemap(url string) (int, error) {
-	// Fetch the URL
-	resp, err := http.Get(url)
+	f, err := os.Open("trace.out")
 	if err != nil {
-		return 0, err
+		log.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer f.Close()
+	trace.Stop()
+	err = custom_http_trace.SortTraceHttpInCurrentDir()
+	require.NoError(s.T(), err)
 
-	// Read response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return 0, err
-	}
-	// /loc represents the closing tag of a <loc> item in an xml sitemap
-	// thus the number of /loc tags is the number of sources
-	count := strings.Count(string(body), "/loc")
-	return count, nil
 }
 
 func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
@@ -160,7 +174,6 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	require.NoError(t, err)
 
 	t.Run("sync org graph", func(t *testing.T) {
-		require.NoError(t, err)
 		err = suite.client.SyncTriplestoreGraphs([]string{"orgs/"})
 		require.NoError(t, err)
 		// make sure that an old graph is no longer there after sync
@@ -173,7 +186,6 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	})
 
 	t.Run("sync prov graphs", func(t *testing.T) {
-		require.NoError(t, err)
 		err = suite.client.SyncTriplestoreGraphs([]string{"prov/"})
 		require.NoError(t, err)
 		graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("prov/")
@@ -182,7 +194,6 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	})
 
 	t.Run("sync summoned graphs", func(t *testing.T) {
-		require.NoError(t, err)
 		err = suite.client.SyncTriplestoreGraphs([]string{"summoned/"})
 		require.NoError(t, err)
 		graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
@@ -192,5 +203,15 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 }
 
 func TestSynchronizerClientSuite(t *testing.T) {
+	f, err := os.Create("trace.out")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	if err := trace.Start(f); err != nil {
+		log.Fatal(err)
+	}
+
 	suite.Run(t, new(SynchronizerClientSuite))
 }
