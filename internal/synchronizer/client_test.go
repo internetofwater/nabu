@@ -5,7 +5,7 @@ import (
 	"io"
 	"log"
 	"nabu/internal/custom_http_trace"
-	"nabu/internal/synchronizer/objects"
+	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
 	testhelpers "nabu/testHelpers"
 	"net/http"
@@ -47,7 +47,7 @@ type SynchronizerClientSuite struct {
 	// the top level client for syncing between graphdb and minio
 	client SynchronizerClient
 	// minio container that gleaner will send data to
-	minioContainer objects.MinioContainer
+	minioContainer s3.MinioContainer
 	// graphdb container that nabu will sync with
 	graphdbContainer triplestore.GraphDBContainer
 	// the docker network over which gleaner sends data to minio
@@ -61,7 +61,7 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 	suite.Require().NoError(err)
 	suite.network = net
 	t := suite.T()
-	config := objects.MinioContainerConfig{
+	config := s3.MinioContainerConfig{
 		Username:      "amazingaccesskey",
 		Password:      "amazingsecretkey",
 		DefaultBucket: "iow",
@@ -69,7 +69,7 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 		Network:       net.Name,
 	}
 
-	minioContainer, err := objects.NewMinioContainer(config)
+	minioContainer, err := s3.NewMinioContainer(config)
 	suite.Require().NoError(err)
 	suite.minioContainer = minioContainer
 

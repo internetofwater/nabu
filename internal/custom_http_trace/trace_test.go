@@ -54,13 +54,11 @@ func TestSortTraceHttpInCurrentDir(t *testing.T) {
 
 	// Create test CSV file
 	createTestCSV(t, trace_file, testData)
-	defer os.Remove(trace_file) // Cleanup after test
+	defer os.Remove(trace_file)
 
-	// Run the sort function
 	err := SortTraceHttpInCurrentDir()
 	require.NoError(t, err)
 
-	// Read the sorted file
 	sortedData := readCSV(t, trace_file)
 
 	require.Equal(t, testData[0], sortedData[0])

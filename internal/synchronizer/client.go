@@ -9,7 +9,7 @@ import (
 	"io"
 	"nabu/internal/common"
 	"nabu/internal/custom_http_trace"
-	"nabu/internal/synchronizer/objects"
+	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
 	"nabu/pkg/config"
 	"net/http"
@@ -28,7 +28,7 @@ type SynchronizerClient struct {
 	// the client used for communicating with the triplestore
 	GraphClient *triplestore.GraphDbClient
 	// the client used for communicating with s3
-	S3Client *objects.MinioClientWrapper
+	S3Client *s3.MinioClientWrapper
 	// default bucket in the s3 that is used for synchronization
 	syncBucketName string
 	// processor for JSON-LD operations; stored in this struct so we can
@@ -40,7 +40,7 @@ type SynchronizerClient struct {
 
 // Create a new SynchronizerClient by directly passing in the clients
 // Mainly used for testing
-func newSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *objects.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
+func newSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *s3.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
 	processor, options, err := common.NewJsonldProcessor(config.NabuConfig{})
 	if err != nil {
 		return SynchronizerClient{}, err
@@ -62,7 +62,7 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 	if err != nil {
 		return nil, err
 	}
-	s3Client, err := objects.NewMinioClientWrapper(conf.Minio)
+	s3Client, err := s3.NewMinioClientWrapper(conf.Minio)
 	if err != nil {
 		return nil, err
 	}

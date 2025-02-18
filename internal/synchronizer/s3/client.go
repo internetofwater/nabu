@@ -1,4 +1,4 @@
-package objects
+package s3
 
 import (
 	"context"
@@ -104,7 +104,7 @@ func (m *MinioClientWrapper) ObjectList(prefix string) ([]minio.ObjectInfo, erro
 	return objectInfo, nil
 }
 
-// Copy objects. Can be to either the same bucket or a different bucket
+// Copy s3. Can be to either the same bucket or a different bucket
 func (m *MinioClientWrapper) Copy(srcbucket, srcobject, dstbucket, dstobject string) error {
 
 	// Source object
