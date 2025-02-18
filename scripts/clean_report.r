@@ -16,8 +16,13 @@ if (is.null(script_dir)) {
   script_dir <- dirname(script_dir)
 }
 
-# Read CSV relative to the script's directory
-data <- read.csv(file.path(script_dir, "../internal/synchronizer/http_trace.csv"), stringsAsFactors = FALSE)
+# Read CSV from the first command line argument
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) == 0) {
+  stop("No file argument provided.", call. = FALSE)
+}
+
+data <- read.csv(args[1], stringsAsFactors = FALSE)
 
 # Convert Timestamp to POSIXct (datetime) using ymd_hms
 data <- data %>%
