@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"nabu/internal/custom_http_trace"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
 	testhelpers "nabu/testHelpers"
