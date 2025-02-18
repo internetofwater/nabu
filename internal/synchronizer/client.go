@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"nabu/internal/common"
@@ -371,20 +370,21 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefixes []string) err
 		}
 		// i.e. summoned/counties0 would become counties0
 		prefix_path_as_filename := getTextBeforeDot(path.Base(strings.Join(prefix_parts[1:], "_")))
-		if prefix_path_as_filename == "" {
-			return fmt.Errorf("prefix %s became an empty string after removing the main dir name. This is a sign that the prefix was too short", prefix)
-		}
 
 		var name_latest string
 
-		if slices.Contains(prefix_parts, "summoned") {
+		if slices.Contains(prefix_parts, "summoned") && prefix_path_as_filename != "" {
 			name_latest = fmt.Sprintf("%s_release.nq", prefix_path_as_filename) // ex: counties0_release.nq
-		} else if slices.Contains(prefix_parts, "prov") {
+		} else if slices.Contains(prefix_parts, "prov") && prefix_path_as_filename != "" {
 			name_latest = fmt.Sprintf("%s_prov.nq", prefix_path_as_filename) // ex: counties0_prov.nq
 		} else if slices.Contains(prefix_parts, "orgs") {
-			name_latest = fmt.Sprintf("%s_organizations.nq", prefix_path_as_filename)
+			if prefix_path_as_filename == "" {
+				name_latest = "organizations.nq"
+			} else {
+				name_latest = fmt.Sprintf("%s_organizations.nq", prefix_path_as_filename)
+			}
 		} else {
-			return errors.New("unable to form a release graph name. Path is not one of 'summoned', 'prov' or 'org'")
+			return fmt.Errorf("unable to form a release graph name from prefix %s", prefix)
 		}
 
 		// Make a release graph that will be stored in graphs/latest as {provider}_release.nq

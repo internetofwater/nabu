@@ -18,10 +18,7 @@ This repository is a fork of the gleanerio Nabu project. This fork refactored an
 
 ### Latency
 
-- Nabu has to post very large triple payloads to the triplestore
-    - Most of these at the moment are done with blocking for loops so there is opportunity for speedup with goroutines
-- There are opportunities to use async pipe buffers to read from s3 while still posting to the triplestore simultaneously
-
+- Nabu has to post very large triple payloads to the triplestore and thus performance is highly dependent on the efficiency of the backend and network connection
 ## Repo Layout
 
 - `pkg` defines the cli and config readers that are public to the client
