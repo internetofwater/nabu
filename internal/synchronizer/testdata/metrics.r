@@ -1,5 +1,4 @@
 library(dplyr)
-library(lubridate)
 library(rprojroot)
 
 # Find the directory of the script reliably
@@ -14,15 +13,8 @@ if (is.null(script_dir)) {
 # Read CSV relative to the script's directory
 data <- read.csv(file.path(script_dir, "../http_trace.csv"), stringsAsFactors = FALSE)
 
-# Ensure correct column names (remove spaces if needed)
-colnames(data) <- trimws(colnames(data))
-
 # Convert Timestamp to POSIXct (datetime) using ymd_hms
 data <- data %>%
-  mutate(
-    Timestamp = ymd_hms(Timestamp),  # Parse RFC3339 timestamp
-  ) %>%
-  arrange(Timestamp)  %>% 
   select(-Error) %>%
   select(-Target.Address) %>%
   select(-Connection.Reused)
