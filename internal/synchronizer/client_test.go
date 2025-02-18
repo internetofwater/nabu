@@ -198,6 +198,31 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	})
 }
 
+func (suite *SynchronizerClientSuite) TestNqRelease() {
+	t := suite.T()
+	err := suite.graphdbContainer.Client.ClearAllGraphs()
+	require.NoError(suite.T(), err)
+
+	gleanerContainer, err := testhelpers.NewGleanerContainer("../../config/iow/gleanerconfig.yaml", []string{
+		"--source", "cdss0",
+		"--address", "synchronizerTestMinio",
+		"--setup",
+		"--port", "9000",
+	}, suite.network.Name)
+	require.NoError(t, err)
+	require.Zero(t, gleanerContainer.ExitCode, gleanerContainer.Logs)
+
+	err = suite.client.GenerateNqRelease([]string{"orgs/cdss0"})
+	require.NoError(t, err)
+	const nqPath = "graphs/latest/cdss0_organizations.nq"
+	objs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{nqPath})
+	require.NoError(t, err)
+	require.Equal(t, objs, 1)
+
+	err = suite.client.UploadNqFileToTriplestore(nqPath)
+	require.NoError(t, err)
+}
+
 func TestSynchronizerClientSuite(t *testing.T) {
 	f, err := os.Create("trace.out")
 	if err != nil {

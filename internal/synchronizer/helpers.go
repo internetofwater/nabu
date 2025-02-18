@@ -24,13 +24,3 @@ func getTextBeforeDot(s string) string {
 	}
 	return s[:n]
 }
-
-// Return true if the array contains the string
-func contains(array []string, str string) bool {
-	for _, a := range array {
-		if a == str {
-			return true
-		}
-	}
-	return false
-}

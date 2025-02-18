@@ -171,24 +171,3 @@ func (m *MinioClientWrapper) GetObjectAsBytes(objectName string) ([]byte, error)
 
 	return buf, nil
 }
-
-// Removea all objects from the bucket (useful for testing)
-func (m *MinioClientWrapper) ClearBucket() error {
-
-	ctx := context.Background()
-
-	// List and delete all objects in the bucket
-	objectCh := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Recursive: true})
-	for object := range objectCh {
-		if object.Err != nil {
-			return fmt.Errorf("error listing objects: %w", object.Err)
-		}
-		err := m.Client.RemoveObject(ctx, m.DefaultBucket, object.Key, minio.RemoveObjectOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to delete object %s: %w", object.Key, err)
-		}
-	}
-
-	log.Printf("Bucket %s has been cleared successfully", m.DefaultBucket)
-	return nil
-}

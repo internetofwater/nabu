@@ -14,6 +14,7 @@ import (
 	"nabu/pkg/config"
 	"net/http"
 	"path"
+	"slices"
 	"strings"
 	"sync"
 
@@ -319,7 +320,7 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 	// Write the nq files to the pipe
 	go func() {
 		defer pipeTransferWorkGroup.Done()
-		err := getObjectsAndWriteToPipe(synchronizer, destPrefix, pipeWriter)
+		err := getObjectsAndWriteToPipeAsNq(synchronizer, destPrefix, pipeWriter)
 		if err != nil {
 			log.Error(err)
 			errChan <- err
@@ -364,26 +365,26 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 func (synchronizer *SynchronizerClient) GenerateNqRelease(prefixes []string) error {
 
 	for _, prefix := range prefixes {
-		sp := strings.Split(prefix, "/")
-		srcname := strings.Join(sp[1:], "__")
+		prefix_parts := strings.Split(prefix, "/")
+		if len(prefix_parts) < 1 {
+			return fmt.Errorf("prefix %s did not contain a slash and thus is ambiguous", prefix)
+		}
+		// i.e. summoned/counties0 would become counties0
+		prefix_path_as_filename := getTextBeforeDot(path.Base(strings.Join(prefix_parts[1:], "_")))
+		if prefix_path_as_filename == "" {
+			return fmt.Errorf("prefix %s became an empty string after removing the main dir name. This is a sign that the prefix was too short", prefix)
+		}
 
-		// Here we will either make this a _release.nq or a _prov.nq based on the source string.
-		name_latest := ""
-		if contains(sp, "summoned") {
-			name_latest = fmt.Sprintf("%s_release.nq", getTextBeforeDot(path.Base(srcname))) // ex: counties0_release.nq
-		} else if contains(sp, "prov") {
-			name_latest = fmt.Sprintf("%s_prov.nq", getTextBeforeDot(path.Base(srcname))) // ex: counties0_prov.nq
-		} else if contains(sp, "orgs") {
-			name_latest = "organizations.nq" // ex: counties0_org.nq
-			fmt.Println(synchronizer.syncBucketName)
-			fmt.Println(name_latest)
-			err := synchronizer.CopyBetweenS3PrefixesWithPipe(name_latest, "orgs", "graphs/latest")
-			if err != nil {
-				return err
-			}
-			return err
+		var name_latest string
+
+		if slices.Contains(prefix_parts, "summoned") {
+			name_latest = fmt.Sprintf("%s_release.nq", prefix_path_as_filename) // ex: counties0_release.nq
+		} else if slices.Contains(prefix_parts, "prov") {
+			name_latest = fmt.Sprintf("%s_prov.nq", prefix_path_as_filename) // ex: counties0_prov.nq
+		} else if slices.Contains(prefix_parts, "orgs") {
+			name_latest = fmt.Sprintf("%s_organizations.nq", prefix_path_as_filename)
 		} else {
-			return errors.New("unable to form a release graph name.  Path is not one of 'summoned', 'prov' or 'org'")
+			return errors.New("unable to form a release graph name. Path is not one of 'summoned', 'prov' or 'org'")
 		}
 
 		// Make a release graph that will be stored in graphs/latest as {provider}_release.nq
