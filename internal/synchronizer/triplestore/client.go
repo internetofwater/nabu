@@ -188,7 +188,9 @@ func (graphClient *GraphDbClient) DropGraph(graph string) error {
 	d := fmt.Sprintf("DROP GRAPH <%s> ", graph)
 	pab := []byte(d)
 
-	req, err := custom_http_trace.NewRequestWithContext("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(pab))
+	params := url.Values{}
+	params.Add("query", d)
+	req, err := custom_http_trace.NewRequestWithContext("POST", fmt.Sprintf("%s?%s", graphClient.BaseSparqlQueryUrl, params.Encode()), bytes.NewBuffer(pab))
 	if err != nil {
 		log.Error(err)
 		return err
@@ -219,11 +221,9 @@ func (graphClient *GraphDbClient) DropGraph(graph string) error {
 
 // Remove all triples from all graphs but keep the graphs themselves
 func (graphClient *GraphDbClient) ClearAllGraphs() error {
-	d := "CLEAR ALL"
-
-	pab := []byte(d)
-
-	req, err := custom_http_trace.NewRequestWithContext("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(pab))
+	params := url.Values{}
+	params.Add("query", "CLEAR ALL")
+	req, err := custom_http_trace.NewRequestWithContext("POST", fmt.Sprintf("%s?%s", graphClient.BaseSparqlQueryUrl, params.Encode()), bytes.NewBuffer([]byte("")))
 	if err != nil {
 		log.Error(err)
 		return err

@@ -37,3 +37,9 @@ data <- data %>% mutate(
   relocate(Graph.Interaction.Percentage, .after = Duration..µs.)
 
 write.csv(data, file.path(script_dir, "just_first_response.csv"), row.names = FALSE)
+
+
+# group the data by Caller and print out the sum of Duration..µs. for each Caller
+print("Duration by Caller")
+data %>% mutate(Caller = gsub("^nabu/internal/", "", Caller)) %>% group_by(Caller) %>% summarize(total_duration = sum(Duration..µs.)) %>%  arrange(desc(total_duration)) 
+
