@@ -66,14 +66,14 @@ func logTraceToCSV(event, addr string, duration time.Duration, reused bool, url 
 	}
 
 	err = csvWriter.Write([]string{
-		time.Now().Format("01-01 11:01:01"), // Timestamp
-		event,                               // Event Type
+		time.Now().Format(time.RFC3339), // Timestamp
+		event,                           // Event Type
 		fmt.Sprintf("%d", duration/time.Microsecond), // time as microseconds
-		addr,      // Target Address
-		reusedStr, // Connection Reused
-		url,       // Requested URL
-		errStr,    // Error Message
-		parentFuncName,
+		addr,           // Target Address
+		reusedStr,      // Connection Reused
+		url,            // Requested URL
+		errStr,         // Error Message
+		parentFuncName, // The function that initiated the request
 	})
 
 	if err != nil {
@@ -86,8 +86,8 @@ func logTraceToCSV(event, addr string, duration time.Duration, reused bool, url 
 // create an httptrace.ClientTrace that tracks request timing.
 func getHttpTrace(ctx context.Context) *httptrace.ClientTrace {
 	var (
-		dnsStart, dnsEnd, connStart,
-		connEnd, connectStart,
+		dnsStart,
+		connEnd, connStart,
 		tlsHandShakeStart time.Time
 	)
 
@@ -102,6 +102,7 @@ func getHttpTrace(ctx context.Context) *httptrace.ClientTrace {
 	}
 
 	trace := &httptrace.ClientTrace{
+		// Runs when a connection is newly created OR reused
 		GetConn: func(hostPort string) {
 			connStart = time.Now()
 		},
@@ -109,18 +110,12 @@ func getHttpTrace(ctx context.Context) *httptrace.ClientTrace {
 			connEnd = time.Now()
 			logTraceToCSV("GotConn", info.Conn.RemoteAddr().String(), connEnd.Sub(connStart), info.Reused, requestedURL, nil, caller)
 		},
-		ConnectStart: func(network, addr string) {
-			connectStart = time.Now()
-		},
-		ConnectDone: func(network, addr string, err error) {
-			logTraceToCSV("ConnectDone", addr, time.Since(connectStart), false, requestedURL, err, caller)
-		},
+
 		DNSStart: func(info httptrace.DNSStartInfo) {
 			dnsStart = time.Now()
 		},
 		DNSDone: func(info httptrace.DNSDoneInfo) {
-			dnsEnd = time.Now()
-			logTraceToCSV("DNS", info.Addrs[0].String(), dnsEnd.Sub(dnsStart), false, requestedURL, info.Err, caller)
+			logTraceToCSV("DNS", info.Addrs[0].String(), time.Since(dnsStart), false, requestedURL, info.Err, caller)
 		},
 		TLSHandshakeStart: func() {
 			tlsHandShakeStart = time.Now()
@@ -130,6 +125,9 @@ func getHttpTrace(ctx context.Context) *httptrace.ClientTrace {
 		},
 		PutIdleConn: func(err error) {
 			logTraceToCSV("PutIdleConn", "", 0, false, requestedURL, err, caller)
+		},
+		GotFirstResponseByte: func() {
+			logTraceToCSV("GotFirstResponseByte", "", time.Since(connEnd), false, requestedURL, nil, caller)
 		},
 	}
 
