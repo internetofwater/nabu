@@ -1,4 +1,4 @@
-package objects
+package s3
 
 import (
 	"bytes"
