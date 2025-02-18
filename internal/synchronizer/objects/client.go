@@ -1,9 +1,9 @@
 package objects
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"nabu/pkg/config"
 	"sync"
 
@@ -149,7 +149,6 @@ func (m *MinioClientWrapper) NumberOfMatchingObjects(prefixes []string) (int, er
 	return count, nil
 }
 
-// Get the byes of an object from the store
 func (m *MinioClientWrapper) GetObjectAsBytes(objectName string) ([]byte, error) {
 	fileObject, err := m.Client.GetObject(context.Background(), m.DefaultBucket, objectName, minio.GetObjectOptions{})
 	if err != nil {
@@ -158,21 +157,19 @@ func (m *MinioClientWrapper) GetObjectAsBytes(objectName string) ([]byte, error)
 	}
 	defer fileObject.Close()
 
-	_, err = fileObject.Stat()
+	stat, err := fileObject.Stat()
 	if err != nil {
-		log.Infof("Issue with reading an object. Seems to not exist when looking in bucket: %s and name: %s", m.DefaultBucket, objectName)
+		log.Infof("Issue with reading an object. Seems to not exist in bucket: %s and name: %s", m.DefaultBucket, objectName)
 		return nil, err
 	}
 
-	buf := new(bytes.Buffer)
-	_, err = buf.ReadFrom(fileObject)
+	buf := make([]byte, stat.Size) // Preallocate buffer
+	_, err = io.ReadFull(fileObject, buf)
 	if err != nil {
 		return nil, err
 	}
 
-	bufferBytes := buf.Bytes() // Does a complete copy of the bytes in the buffer.
-
-	return bufferBytes, err
+	return buf, nil
 }
 
 // Removea all objects from the bucket (useful for testing)

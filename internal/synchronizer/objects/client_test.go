@@ -237,6 +237,26 @@ func (suite *S3ClientSuite) TestCopyBetweenBuckets() {
 	require.Equal(suite.T(), testObj, string(data))
 }
 
+func (suite *S3ClientSuite) TestGetObjectAsBytes() {
+
+	const dummyData = "dummy data"
+	// Insert one item into minio as a test
+	_, err := suite.minioContainer.ClientWrapper.Client.PutObject(
+		context.Background(),
+		suite.minioContainer.ClientWrapper.DefaultBucket,
+		"test-object-for-get-test",
+		bytes.NewReader([]byte(dummyData)),
+		int64(len(dummyData)),
+		minio.PutObjectOptions{},
+	)
+	require.NoError(suite.T(), err)
+
+	data, err := suite.minioContainer.ClientWrapper.GetObjectAsBytes("test-object-for-get-test")
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), dummyData, string(data))
+
+}
+
 // Run the entire test suite
 func TestS3ClientSuite(t *testing.T) {
 	suite.Run(t, new(S3ClientSuite))
