@@ -66,14 +66,14 @@ func logTraceToCSV(event, addr string, duration time.Duration, reused bool, url 
 	}
 
 	err = csvWriter.Write([]string{
-		time.Now().Format("01-01 11:01:01"), // Timestamp
-		event,                               // Event Type
+		time.Now().Format(time.RFC3339), // Timestamp
+		event,                           // Event Type
 		fmt.Sprintf("%d", duration/time.Microsecond), // time as microseconds
-		addr,      // Target Address
-		reusedStr, // Connection Reused
-		url,       // Requested URL
-		errStr,    // Error Message
-		parentFuncName,
+		addr,           // Target Address
+		reusedStr,      // Connection Reused
+		url,            // Requested URL
+		errStr,         // Error Message
+		parentFuncName, // The function that initiated the request
 	})
 
 	if err != nil {
@@ -130,6 +130,9 @@ func getHttpTrace(ctx context.Context) *httptrace.ClientTrace {
 		},
 		PutIdleConn: func(err error) {
 			logTraceToCSV("PutIdleConn", "", 0, false, requestedURL, err, caller)
+		},
+		GotFirstResponseByte: func() {
+			logTraceToCSV("GotFirstResponseByte", "", time.Since(connEnd), false, requestedURL, nil, caller)
 		},
 	}
 

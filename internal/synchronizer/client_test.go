@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"log"
-	"nabu/internal/custom_http_trace"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
 	testhelpers "nabu/testHelpers"
@@ -102,9 +101,6 @@ func (s *SynchronizerClientSuite) TearDownSuite() {
 	}
 	defer f.Close()
 	trace.Stop()
-	err = custom_http_trace.SortTraceHttpInCurrentDir()
-	require.NoError(s.T(), err)
-
 }
 
 func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
