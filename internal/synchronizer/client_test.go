@@ -126,6 +126,13 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
 	require.NoError(t, err)
 	require.Len(t, graphs, 1)
+
+	err = suite.client.CopyAllPrefixedObjToTriplestore([]string{"summoned/"})
+	require.NoError(t, err)
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
+	require.NoError(t, err)
+	require.Len(t, graphs, sourcesInSitemap)
+
 }
 
 func (suite *SynchronizerClientSuite) TestMoveNqToTriplestore() {
