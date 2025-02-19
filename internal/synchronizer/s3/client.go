@@ -48,7 +48,6 @@ func NewMinioClientWrapper(mcfg config.MinioConfig) (*MinioClientWrapper, error)
 			})
 
 	} else {
-		log.Warn("region set for GCS or AWS, may cause issues with minio")
 		region := mcfg.Region
 		minioClient, err = minio.New(endpoint,
 			&minio.Options{Creds: credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
