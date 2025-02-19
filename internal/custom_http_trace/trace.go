@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"nabu/internal/common"
+	"nabu/internal/common/projectpath"
 	"net/http"
 	"net/http/httptrace"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -25,7 +28,7 @@ const (
 	callerContextKey contextKey = "caller"
 )
 
-const trace_file = "http_trace.csv"
+var trace_file = filepath.Join(projectpath.Root, "http_trace.csv")
 
 var (
 	csvFile   *os.File
@@ -135,9 +138,14 @@ func getHttpTrace(ctx context.Context) *httptrace.ClientTrace {
 }
 
 // NewRequestWithContext returns a new HTTP request and stores the URL and caller for future logging.
+// Context will only be added if profiling is enabled
 func NewRequestWithContext(method, url string, body io.Reader) (*http.Request, error) {
 	if body == nil {
 		return nil, fmt.Errorf("body is nil")
+	}
+
+	if !common.PROFILING_ENABLED() {
+		return http.NewRequest(method, url, body)
 	}
 
 	ctx := context.Background()

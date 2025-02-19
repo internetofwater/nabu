@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"nabu/pkg/config"
+	"os"
 	"sync"
 
 	"github.com/minio/minio-go/v7"
@@ -170,4 +171,18 @@ func (m *MinioClientWrapper) GetObjectAsBytes(objectName string) ([]byte, error)
 	}
 
 	return buf, nil
+}
+
+func (m *MinioClientWrapper) UploadFile(uploadPath string, localFileName string) error {
+	file, err := os.Open(localFileName)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = m.Client.PutObject(context.Background(), m.DefaultBucket, uploadPath, file, -1, minio.PutObjectOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
 }

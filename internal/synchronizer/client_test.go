@@ -61,8 +61,8 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 	suite.network = net
 	t := suite.T()
 	config := s3.MinioContainerConfig{
-		Username:      "amazingaccesskey",
-		Password:      "amazingsecretkey",
+		Username:      "minioadmin",
+		Password:      "minioadmin",
 		DefaultBucket: "iow",
 		ContainerName: "synchronizerTestMinio",
 		Network:       net.Name,
