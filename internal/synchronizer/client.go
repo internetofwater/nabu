@@ -211,7 +211,7 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 
 	// TODO if array is too large, need to split it and load parts
 	// Let's declare 10k lines the largest we want to send in.
-	log.Infof("Loading graph %s with line length: %d", graphResourceIdentifier, len(nTriples))
+	log.Debugf("Loading graph %s with line length: %d", graphResourceIdentifier, len(nTriples))
 
 	const maxSizeBeforeSplit = 10000
 
