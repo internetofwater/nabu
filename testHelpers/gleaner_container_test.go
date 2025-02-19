@@ -30,8 +30,8 @@ func (suite *GleanerContainerSuite) SetupSuite() {
 		// note that the container name must be a full word with no special characters
 		// this appears to mess with the docker network somehow and prevents connecting
 		ContainerName: "gleanerTestMinio",
-		Username:      "amazingaccesskey",
-		Password:      "amazingsecretkey",
+		Username:      "minioadmin",
+		Password:      "minioadmin",
 		DefaultBucket: "iow",
 		Network:       net.Name,
 	}

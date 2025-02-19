@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"nabu/internal/common"
 	"nabu/internal/common/projectpath"
+	"nabu/internal/synchronizer/s3"
 	"nabu/pkg/config"
 
 	"runtime/trace"
@@ -32,6 +35,20 @@ func Execute() {
 		trace.Stop()
 	}
 	cobra.CheckErr(err)
+
+	if common.PROFILING_ENABLED() {
+		mc, minioErr := s3.NewMinioClientWrapper(cfgStruct.Minio)
+		cobra.CheckErr(minioErr)
+		traceFile := filepath.Join(projectpath.Root, "trace.out")
+		joinedArgs := strings.Join(os.Args, "_")
+		traceName := fmt.Sprintf("traces/trace_%s.out", joinedArgs)
+		uploadErr := mc.UploadFile(traceName, traceFile)
+		cobra.CheckErr(uploadErr)
+		csvFile := filepath.Join(projectpath.Root, "http_trace.csv")
+		uploadErr = mc.UploadFile("http_trace.csv", csvFile)
+		cobra.CheckErr(uploadErr)
+	}
+
 }
 
 func init() {
@@ -49,7 +66,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&bucketVal, "bucket", "", "The configuration bucket")
 	rootCmd.PersistentFlags().StringVar(&repositoryVal, "repository", "", "the default repository to use for graphdb")
 
-	rootCmd.PersistentFlags().BoolVar(&doTrace, "trace", false, "Trace http requests and output a report")
 	rootCmd.PersistentFlags().BoolVar(&sslVal, "ssl", false, "Use SSL boolean")
 	rootCmd.PersistentFlags().BoolVar(&dangerousVal, "dangerous", false, "Use dangerous mode boolean")
 
@@ -116,7 +132,7 @@ func initConfig() {
 	if repositoryVal != "" {
 		cfgStruct.Sparql.Repository = repositoryVal
 	}
-	if doTrace {
+	if common.PROFILING_ENABLED() {
 		filePath := filepath.Join(projectpath.Root, "trace.out")
 		log.Infof("Trace enabled; Outputting to %s", filePath)
 		cfgStruct.Trace = doTrace

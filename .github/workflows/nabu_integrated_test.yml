@@ -21,7 +21,7 @@ jobs:
       - name: Setup Environment
         run: |
             echo "::group::Setup Environment"
-            $HOME/bin/mc alias set myminio http://localhost:9000 amazingaccesskey amazingsecretkey
+            $HOME/bin/mc alias set myminio http://localhost:9000 minioadmin minioadmin
             $HOME/bin/mc mb myminio/iow
             echo "::endgroup::"
       - name: Build Gleaner and Nabu 

@@ -1,8 +1,8 @@
 minio:
   address: localhost
   port: 9000
-  accesskey: amazingaccesskey
-  secretkey: amazingsecretkey
+  accesskey: minioadmin
+  secretkey: minioadmin
   bucket: iow
   region: ""
   ssl: false

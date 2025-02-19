@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"nabu/internal/common/projectpath"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -254,6 +256,21 @@ func (suite *S3ClientSuite) TestGetObjectAsBytes() {
 	data, err := suite.minioContainer.ClientWrapper.GetObjectAsBytes("test-object-for-get-test")
 	require.NoError(suite.T(), err)
 	require.Equal(suite.T(), dummyData, string(data))
+
+}
+
+func (suite *S3ClientSuite) TestUploadFile() {
+	testfile := filepath.Join(projectpath.Root, "main.go")
+	err := suite.minioContainer.ClientWrapper.UploadFile("testFiles/main.go", testfile)
+	require.NoError(suite.T(), err)
+
+	// get the data in testObj2 and make sure it is the same as testObj
+	object, err := suite.minioContainer.ClientWrapper.Client.GetObject(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, "testFiles/main.go", minio.GetObjectOptions{})
+	require.NoError(suite.T(), err)
+	// check the data
+	data, err := io.ReadAll(object)
+	require.NoError(suite.T(), err)
+	require.Contains(suite.T(), string(data), "package main")
 
 }
 
