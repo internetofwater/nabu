@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -26,8 +27,14 @@ func NewGleanerContainer(configPath string, cmd []string, networkName string) (G
 
 	fullCmd := append([]string{"--cfg", "/app/gleanerconfig.yaml"}, cmd...)
 
+	gleanerTestImage := os.Getenv("GLEANER_TEST_IMAGE")
+
+	if gleanerTestImage == "" {
+		gleanerTestImage = "internetofwater/gleaner:latest"
+	}
+
 	req := testcontainers.ContainerRequest{
-		Image: "internetofwater/gleaner:latest",
+		Image: gleanerTestImage,
 		Files: []testcontainers.ContainerFile{
 			{
 				HostFilePath:      configPath,

@@ -24,7 +24,6 @@ runs:
       uses: actions/setup-go@v5
       with:
         go-version: 1.22
-    # You can test your matrix by printing the current Go version
     - name: Display Go version
       shell: bash
       run: go version
@@ -38,4 +37,4 @@ runs:
 
     - name: Test with the Go CLI
       shell: bash
-      run: go test ./... 
+      run: GLEANER_TEST_IMAGE="${{ inputs.gleaner_image }}" go test ./... 
