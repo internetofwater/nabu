@@ -45,6 +45,7 @@ func (s *RootCliSuite) TearDownSuite() {
 func (suite *RootCliSuite) TestRootCmdWithTracing() {
 	t := suite.T()
 
+	os.Setenv("NABU_PROFILING", "True")
 	args := []string{"test", "--cfg", filepath.Join(projectpath.Root, "config", "iow", "nabuconfig.yaml"), "--address", suite.minioContainer.Hostname, "--port", fmt.Sprint(suite.minioContainer.APIPort), suite.minioContainer.Hostname}
 	rootCmd.SetArgs(args)
 	Execute()

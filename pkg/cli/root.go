@@ -35,16 +35,20 @@ func Execute() {
 		trace.Stop()
 	}
 	cobra.CheckErr(err)
-	mc, minioErr := s3.NewMinioClientWrapper(cfgStruct.Minio)
-	cobra.CheckErr(minioErr)
-	traceFile := filepath.Join(projectpath.Root, "trace.out")
-	joinedArgs := strings.Join(os.Args, "_")
-	traceName := fmt.Sprintf("traces/trace_%s.out", joinedArgs)
-	uploadErr := mc.UploadFile(traceName, traceFile)
-	cobra.CheckErr(uploadErr)
-	csvFile := filepath.Join(projectpath.Root, "http_trace.csv")
-	uploadErr = mc.UploadFile("http_trace.csv", csvFile)
-	cobra.CheckErr(uploadErr)
+
+	if common.PROFILING_ENABLED() {
+		mc, minioErr := s3.NewMinioClientWrapper(cfgStruct.Minio)
+		cobra.CheckErr(minioErr)
+		traceFile := filepath.Join(projectpath.Root, "trace.out")
+		joinedArgs := strings.Join(os.Args, "_")
+		traceName := fmt.Sprintf("traces/trace_%s.out", joinedArgs)
+		uploadErr := mc.UploadFile(traceName, traceFile)
+		cobra.CheckErr(uploadErr)
+		csvFile := filepath.Join(projectpath.Root, "http_trace.csv")
+		uploadErr = mc.UploadFile("http_trace.csv", csvFile)
+		cobra.CheckErr(uploadErr)
+	}
+
 }
 
 func init() {
