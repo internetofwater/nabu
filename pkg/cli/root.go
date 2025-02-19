@@ -40,12 +40,13 @@ func Execute() {
 		mc, minioErr := s3.NewMinioClientWrapper(cfgStruct.Minio)
 		cobra.CheckErr(minioErr)
 		traceFile := filepath.Join(projectpath.Root, "trace.out")
-		joinedArgs := strings.Join(os.Args, "_")
+		joinedArgs := strings.Join(rootCmd.Flags().Args(), "_")
+
 		traceName := fmt.Sprintf("traces/trace_%s.out", joinedArgs)
 		uploadErr := mc.UploadFile(traceName, traceFile)
 		cobra.CheckErr(uploadErr)
-		csvFile := filepath.Join(projectpath.Root, "http_trace.csv")
-		uploadErr = mc.UploadFile("http_trace.csv", csvFile)
+
+		uploadErr = mc.UploadFile(fmt.Sprintf("traces/http_trace_%s.csv", joinedArgs), filepath.Join(projectpath.Root, "http_trace.csv"))
 		cobra.CheckErr(uploadErr)
 	}
 
@@ -68,6 +69,7 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVar(&sslVal, "ssl", false, "Use SSL boolean")
 	rootCmd.PersistentFlags().BoolVar(&dangerousVal, "dangerous", false, "Use dangerous mode boolean")
+	rootCmd.PersistentFlags().BoolVar(&doTrace, "trace", false, "Enable tracing")
 
 	rootCmd.PersistentFlags().IntVar(&portVal, "port", -1, "Port for s3 server")
 
@@ -132,10 +134,12 @@ func initConfig() {
 	if repositoryVal != "" {
 		cfgStruct.Sparql.Repository = repositoryVal
 	}
-	if common.PROFILING_ENABLED() {
+	if common.PROFILING_ENABLED() || doTrace {
 		filePath := filepath.Join(projectpath.Root, "trace.out")
 		log.Infof("Trace enabled; Outputting to %s", filePath)
-		cfgStruct.Trace = doTrace
+		cfgStruct.Trace = true
+		os.Setenv("NABU_PROFILING", "True")
+
 		f, err := os.Create(filePath)
 		if err != nil {
 			log.Fatal(err)
