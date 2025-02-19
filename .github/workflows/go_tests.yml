@@ -1,50 +1,25 @@
-name: Go Test
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
 
-on: [push]
+name: Nabu Go Tests
+
+on:
+  workflow_dispatch: # Allows manual triggering of the workflow
+  push:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  UnitTests:
-
+  tests:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: [ '1.23' ]
 
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v5
+      - name: "Checkout GitHub Action"
+        uses: actions/checkout@v4
+        id: checkout
+      - name: Run Reusable E2E Test Action
+        uses: ./
         with:
-          go-version: ${{ matrix.go-version }}
-      # You can test your matrix by printing the current Go version
-      - name: Display Go version
-        run: go version
-      - name: Install dependencies
-        run: go get .
-      - name: Build
-        run: go build -v ./...
-      - name: Test with the Go CLI
-        run: go test ./... 
-
-#   E2ETests:
-
-#     runs-on: ubuntu-latest
-#     strategy:
-#       matrix:
-#         go-version: [ '1.23' ]
-
-#     steps:
-#       - uses: actions/checkout@v4
-#       - name: Setup Go ${{ matrix.go-version }}
-#         uses: actions/setup-go@v5
-#         with:
-#           go-version: ${{ matrix.go-version }}
-#       # You can test your matrix by printing the current Go version
-#       - name: Display Go version
-#         run: go version
-#       - name: Install dependencies
-#         run: go get .
-#       - name: Build
-#         run: go build -v ./...
-#       - name: Test with the Go CLI
-#         run: go test -tags 'e2e' ./... 
+          gleaner_image: internetofwater/gleaner:latest

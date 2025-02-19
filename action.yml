@@ -1,0 +1,41 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
+
+name: "Nabu Tests"
+description: "Reusable GitHub Action to run Nabu tests"
+# Allow specifying a custom docker image so we can test specific versions
+inputs:
+  gleaner_image:
+    required: true
+    description: "Docker image to use for Gleaner"
+    default: "internetofwater/gleaner:latest"
+
+runs:
+  using: "composite"
+
+  steps:
+  
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        repository: "internetofwater/nabu"
+
+    - name: Setup Go 1.22
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.22
+    # You can test your matrix by printing the current Go version
+    - name: Display Go version
+      shell: bash
+      run: go version
+    - name: Install dependencies
+      shell: bash
+      run: go get .
+
+    - name: Build
+      shell: bash
+      run: go build -v ./...
+
+    - name: Test with the Go CLI
+      shell: bash
+      run: go test ./... 
