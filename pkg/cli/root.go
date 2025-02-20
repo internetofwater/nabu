@@ -53,7 +53,6 @@ func Execute() {
 }
 
 func init() {
-	common.InitLogging()
 
 	cobra.OnInitialize(initConfig)
 
