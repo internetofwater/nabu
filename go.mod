@@ -18,8 +18,6 @@ require (
 	golang.org/x/sync v0.10.0
 )
 
-require gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
-
 require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
