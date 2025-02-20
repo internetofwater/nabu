@@ -53,8 +53,8 @@ func Execute() {
 }
 
 func init() {
-	common.InitLogging()
 
+	cobra.OnInitialize(initLogging)
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&prefixVal, "prefix", "", "prefix to operate upon")
@@ -149,4 +149,10 @@ func initConfig() {
 		}
 	}
 
+}
+
+func initLogging() {
+	log.SetReportCaller(false)
+	log.SetLevel(log.TraceLevel)
+	log.SetFormatter(&log.JSONFormatter{})
 }
