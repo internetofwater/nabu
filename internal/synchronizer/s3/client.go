@@ -65,6 +65,7 @@ func (m *MinioClientWrapper) Remove(object string) error {
 		GovernanceBypass: true,
 	}
 
+
 	err := m.Client.RemoveObject(context.Background(), m.DefaultBucket, object, opts)
 	if err != nil {
 		log.Error(err)
