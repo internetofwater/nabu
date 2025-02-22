@@ -20,7 +20,7 @@ import (
 // Get objects from the s3 store, convert them into the proper
 // nq format, then write them to the pipe so another goroutine
 // can use them
-func getObjectsAndWriteToPipe(synchronizer *SynchronizerClient, prefix string, pipeWriter *io.PipeWriter) error {
+func getObjectsAndWriteToPipeAsNq(synchronizer *SynchronizerClient, prefix string, pipeWriter *io.PipeWriter) error {
 	defer func(pw *io.PipeWriter) {
 		err := pw.Close()
 		if err != nil {

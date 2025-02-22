@@ -28,5 +28,19 @@ func TestCreateNewProcessor(t *testing.T) {
 		loader := options.DocumentLoader
 		require.IsType(t, &ld.CachingDocumentLoader{}, loader)
 		require.NotNil(t, processor)
+
+		const simpleJSONLDExample = `{
+			"@context": "https://json-ld.org/contexts/person.jsonld",
+			"@id": "http://dbpedia.org/resource/John_Lennon",
+			"name": "John Lennon",
+			"born": "1940-10-09",
+			"spouse": "http://dbpedia.org/resource/Cynthia_Lennon"
+			}`
+		nq, err := JsonldToNQ(simpleJSONLDExample, processor, options)
+		require.NoError(t, err)
+
+		birthDateLine := `<http://dbpedia.org/resource/John_Lennon> <http://schema.org/birthDate> "1940-10-09"`
+		require.Contains(t, nq, birthDateLine)
+
 	})
 }

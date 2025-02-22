@@ -14,28 +14,28 @@ jobs:
         run: |
             echo "::group::Install/Run Nabu Runtime Dependencies"
             mkdir -p $HOME/bin
-            sh scripts/iow/download-mc.sh
-            sh scripts/iow/start-minio.sh
-            sh scripts/iow/start-graphdb.sh 
+            sh scripts/cicd/download-mc.sh
+            sh scripts/cicd/start-minio.sh
+            sh scripts/cicd/start-graphdb.sh 
             echo "::endgroup::"
       - name: Setup Environment
         run: |
             echo "::group::Setup Environment"
-            $HOME/bin/mc alias set myminio http://localhost:9000 amazingaccesskey amazingsecretkey
+            $HOME/bin/mc alias set myminio http://localhost:9000 minioadmin minioadmin
             $HOME/bin/mc mb myminio/iow
             echo "::endgroup::"
       - name: Build Gleaner and Nabu 
         run: |
             echo "::group::Build Gleaner"
-            sh scripts/iow/build-gleaner.sh
-            sh scripts/iow/build-nabu.sh
+            sh scripts/cicd/build-gleaner.sh
+            sh scripts/cicd/build-nabu.sh
             echo "::endgroup::" 
       - name: Run Gleaner Harvest To Create Input For Nabu
         run: |
             echo "::group::Run Gleaner Harvest"
-            sh scripts/iow/start-gleaner.sh config/iow/gleanerconfig.yaml
+            sh scripts/cicd/start-gleaner.sh config/iow/gleanerconfig.yaml
             $HOME/bin/mc ls myminio/iow/prov/refgages0 | grep '.jsonld' | wc -l
-            bash scripts/iow/check-gleaner-s3-output.sh
+            bash scripts/cicd/check-gleaner-s3-output.sh
       - name: Test Nabu Release
         run: |
             echo "::group::Test Nabu Release"
@@ -44,6 +44,6 @@ jobs:
       - name: Cleanup Environment
         if: ${{ always() }}
         run: |
-            sh scripts/iow/stop-minio.sh
-            sh scripts/iow/stop-graphdb.sh            
+            sh scripts/cicd/stop-minio.sh
+            sh scripts/cicd/stop-graphdb.sh            
 

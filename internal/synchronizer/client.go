@@ -4,17 +4,16 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"nabu/internal/common"
-	"nabu/internal/synchronizer/objects"
+	"nabu/internal/custom_http_trace"
+	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
 	"nabu/pkg/config"
 	"net/http"
 	"path"
-	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -29,7 +28,7 @@ type SynchronizerClient struct {
 	// the client used for communicating with the triplestore
 	GraphClient *triplestore.GraphDbClient
 	// the client used for communicating with s3
-	S3Client *objects.MinioClientWrapper
+	S3Client *s3.MinioClientWrapper
 	// default bucket in the s3 that is used for synchronization
 	syncBucketName string
 	// processor for JSON-LD operations; stored in this struct so we can
@@ -39,28 +38,31 @@ type SynchronizerClient struct {
 	jsonldOptions *ld.JsonLdOptions
 }
 
-func NewSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *objects.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
+// Create a new SynchronizerClient by directly passing in the clients
+// Mainly used for testing
+func newSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *s3.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
 	processor, options, err := common.NewJsonldProcessor(config.NabuConfig{})
 	if err != nil {
 		return SynchronizerClient{}, err
 	}
 
-	return SynchronizerClient{
+	client := SynchronizerClient{
 		GraphClient:     graphClient,
 		S3Client:        s3Client,
 		syncBucketName:  bucketName,
 		jsonldProcessor: processor,
 		jsonldOptions:   options,
-	}, nil
+	}
+	return client, nil
 }
 
-// Generate a new SynchronizerClient
+// Generate a new SynchronizerClient from a top level config
 func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClient, error) {
 	graphClient, err := triplestore.NewGraphDbClient(conf.Sparql)
 	if err != nil {
 		return nil, err
 	}
-	s3Client, err := objects.NewMinioClientWrapper(conf.Minio)
+	s3Client, err := s3.NewMinioClientWrapper(conf.Minio)
 	if err != nil {
 		return nil, err
 	}
@@ -70,13 +72,14 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 		return nil, err
 	}
 
-	return &SynchronizerClient{
+	client := &SynchronizerClient{
 		GraphClient:     graphClient,
 		S3Client:        s3Client,
 		syncBucketName:  conf.Minio.Bucket,
 		jsonldProcessor: processor,
 		jsonldOptions:   options,
-	}, nil
+	}
+	return client, nil
 }
 
 // Get rid of graphs with specific prefix in the triplestore that are not in the object store
@@ -137,19 +140,27 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(s3Prefixes []strin
 			}
 		}
 
+		var errorGroup errgroup.Group
+		errorGroup.SetLimit(40)
+
+		log.Infof("Upserting %d objects from S3 to triplestore", len(s3GraphsNotInTriplestore))
 		for _, graphUrnName := range s3GraphsNotInTriplestore {
 			graphObjectName := s3UrnToAssociatedObjName[graphUrnName]
-			log.Tracef("Add graph: %s  %s \n", graphUrnName, graphObjectName)
 
-			objBytes, err := synchronizer.S3Client.GetObjectAsBytes(graphObjectName)
-			if err != nil {
-				return err
-			}
+			// loop variable shadowing for goroutine
+			graphObjectNameCopy := graphObjectName
 
-			err = synchronizer.upsertDataForGraph(objBytes, graphObjectName)
-			if err != nil {
-				return err
-			}
+			errorGroup.Go(func() error {
+				objBytes, err := synchronizer.S3Client.GetObjectAsBytes(graphObjectNameCopy)
+				if err != nil {
+					return err
+				}
+
+				return synchronizer.upsertDataForGraph(objBytes, graphObjectNameCopy)
+			})
+		}
+		if err := errorGroup.Wait(); err != nil {
+			return err
 		}
 	}
 
@@ -170,21 +181,21 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 		return err
 	}
 
-	mimetype := mime.TypeByExtension(filepath.Ext(objectName))
 	var nTriples string
 
-	if strings.Compare(mimetype, "application/ld+json") == 0 {
+	if strings.HasSuffix(objectName, ".jsonld") {
 		nTriples, err = common.JsonldToNQ(string(rawJsonldOrNqBytes), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 		if err != nil {
 			log.Errorf("JSONLD to NQ conversion error: %s", err)
 			return err
 		}
-	} else {
+	} else if strings.HasSuffix(objectName, ".nq") {
 		nTriples, _, err = common.QuadsToTripleWithCtx(string(rawJsonldOrNqBytes))
 		if err != nil {
-			log.Errorf("nq to NTCtx error: %s", err)
-			return err
+			return fmt.Errorf("nq to NTCtx error: %s when converting object %s with data %s", err, objectName, string(rawJsonldOrNqBytes))
 		}
+	} else {
+		return fmt.Errorf("object %s is not a jsonld or nq file", objectName)
 	}
 
 	// drop any graph we are going to load..  we assume we are doing those due to an update
@@ -200,7 +211,6 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 
 	// TODO if array is too large, need to split it and load parts
 	// Let's declare 10k lines the largest we want to send in.
-	log.Infof("Loading graph %s with line length: %d", graphResourceIdentifier, len(nTriples))
 
 	const maxSizeBeforeSplit = 10000
 
@@ -308,7 +318,7 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 	// Write the nq files to the pipe
 	go func() {
 		defer pipeTransferWorkGroup.Done()
-		err := getObjectsAndWriteToPipe(synchronizer, destPrefix, pipeWriter)
+		err := getObjectsAndWriteToPipeAsNq(synchronizer, destPrefix, pipeWriter)
 		if err != nil {
 			log.Error(err)
 			errChan <- err
@@ -353,26 +363,27 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 func (synchronizer *SynchronizerClient) GenerateNqRelease(prefixes []string) error {
 
 	for _, prefix := range prefixes {
-		sp := strings.Split(prefix, "/")
-		srcname := strings.Join(sp[1:], "__")
+		prefix_parts := strings.Split(prefix, "/")
+		if len(prefix_parts) < 1 {
+			return fmt.Errorf("prefix %s did not contain a slash and thus is ambiguous", prefix)
+		}
+		// i.e. summoned/counties0 would become counties0
+		prefix_path_as_filename := getTextBeforeDot(path.Base(strings.Join(prefix_parts[1:], "_")))
 
-		// Here we will either make this a _release.nq or a _prov.nq based on the source string.
-		name_latest := ""
-		if contains(sp, "summoned") {
-			name_latest = fmt.Sprintf("%s_release.nq", getTextBeforeDot(path.Base(srcname))) // ex: counties0_release.nq
-		} else if contains(sp, "prov") {
-			name_latest = fmt.Sprintf("%s_prov.nq", getTextBeforeDot(path.Base(srcname))) // ex: counties0_prov.nq
-		} else if contains(sp, "orgs") {
-			name_latest = "organizations.nq" // ex: counties0_org.nq
-			fmt.Println(synchronizer.syncBucketName)
-			fmt.Println(name_latest)
-			err := synchronizer.CopyBetweenS3PrefixesWithPipe(name_latest, "orgs", "graphs/latest")
-			if err != nil {
-				return err
+		var name_latest string
+
+		if slices.Contains(prefix_parts, "summoned") && prefix_path_as_filename != "" {
+			name_latest = fmt.Sprintf("%s_release.nq", prefix_path_as_filename) // ex: counties0_release.nq
+		} else if slices.Contains(prefix_parts, "prov") && prefix_path_as_filename != "" {
+			name_latest = fmt.Sprintf("%s_prov.nq", prefix_path_as_filename) // ex: counties0_prov.nq
+		} else if slices.Contains(prefix_parts, "orgs") {
+			if prefix_path_as_filename == "" {
+				name_latest = "organizations.nq"
+			} else {
+				name_latest = fmt.Sprintf("%s_organizations.nq", prefix_path_as_filename)
 			}
-			return err
 		} else {
-			return errors.New("unable to form a release graph name.  Path is not one of 'summoned', 'prov' or 'org'")
+			return fmt.Errorf("unable to form a release graph name from prefix %s", prefix)
 		}
 
 		// Make a release graph that will be stored in graphs/latest as {provider}_release.nq
@@ -406,8 +417,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 	// Correct GraphDB REST API endpoint
 	url := fmt.Sprintf("%s/statements", synchronizer.GraphClient.BaseRepositoryUrl)
 
-	// Create request
-	req, err := http.NewRequest("POST", synchronizer.GraphClient.BaseSparqlQueryUrl, bytes.NewReader(byt))
+	req, err := custom_http_trace.NewRequestWithContext("POST", synchronizer.GraphClient.BaseSparqlQueryUrl, bytes.NewReader(byt))
 	if err != nil {
 		return err
 	}

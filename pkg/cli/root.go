@@ -1,12 +1,17 @@
 package cli
 
 import (
-	"mime"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"nabu/internal/common"
+	"nabu/internal/common/projectpath"
+	"nabu/internal/synchronizer/s3"
 	"nabu/pkg/config"
+
+	"runtime/trace"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -14,7 +19,7 @@ import (
 
 var cfgFile, nabuConfName, minioVal, accessVal, secretVal, bucketVal, endpointVal, prefixVal, repositoryVal string
 var portVal int
-var sslVal, dangerousVal bool
+var sslVal, dangerousVal, doTrace bool
 
 var cfgStruct config.NabuConfig
 
@@ -26,17 +31,30 @@ var rootCmd = &cobra.Command{
 
 func Execute() {
 	err := rootCmd.Execute()
+	if trace.IsEnabled() {
+		trace.Stop()
+	}
 	cobra.CheckErr(err)
+
+	if common.PROFILING_ENABLED() {
+		mc, minioErr := s3.NewMinioClientWrapper(cfgStruct.Minio)
+		cobra.CheckErr(minioErr)
+		traceFile := filepath.Join(projectpath.Root, "trace.out")
+		joinedArgs := strings.Join(rootCmd.Flags().Args(), "_")
+
+		traceName := fmt.Sprintf("traces/trace_%s.out", joinedArgs)
+		uploadErr := mc.UploadFile(traceName, traceFile)
+		cobra.CheckErr(uploadErr)
+
+		uploadErr = mc.UploadFile(fmt.Sprintf("traces/http_trace_%s.csv", joinedArgs), filepath.Join(projectpath.Root, "http_trace.csv"))
+		cobra.CheckErr(uploadErr)
+	}
+
 }
 
 func init() {
-	common.InitLogging()
 
-	err := mime.AddExtensionType(".jsonld", "application/ld+json")
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	cobra.OnInitialize(initLogging)
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&prefixVal, "prefix", "", "prefix to operate upon")
@@ -44,7 +62,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&nabuConfName, "", "", "config file to use for nabu")
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "cfg", "", "full path to yaml config file for nabu")
 	rootCmd.PersistentFlags().StringVar(&minioVal, "address", "", "")
-	rootCmd.PersistentFlags().IntVar(&portVal, "port", -1, "Port for s3 server")
 	rootCmd.PersistentFlags().StringVar(&accessVal, "access", os.Getenv("S3_ACCESS_KEY"), "Access Key (i.e. username)")
 	rootCmd.PersistentFlags().StringVar(&secretVal, "secret", os.Getenv("S3_SECRET_KEY"), "Secret access key")
 	rootCmd.PersistentFlags().StringVar(&bucketVal, "bucket", "", "The configuration bucket")
@@ -52,6 +69,10 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVar(&sslVal, "ssl", false, "Use SSL boolean")
 	rootCmd.PersistentFlags().BoolVar(&dangerousVal, "dangerous", false, "Use dangerous mode boolean")
+	rootCmd.PersistentFlags().BoolVar(&doTrace, "trace", false, "Enable tracing")
+
+	rootCmd.PersistentFlags().IntVar(&portVal, "port", -1, "Port for s3 server")
+
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -113,5 +134,25 @@ func initConfig() {
 	if repositoryVal != "" {
 		cfgStruct.Sparql.Repository = repositoryVal
 	}
+	if common.PROFILING_ENABLED() || doTrace {
+		filePath := filepath.Join(projectpath.Root, "trace.out")
+		log.Infof("Trace enabled; Outputting to %s", filePath)
+		cfgStruct.Trace = true
+		os.Setenv("NABU_PROFILING", "True")
 
+		f, err := os.Create(filePath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := trace.Start(f); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+}
+
+func initLogging() {
+	log.SetReportCaller(false)
+	log.SetLevel(log.TraceLevel)
+	log.SetFormatter(&log.JSONFormatter{})
 }

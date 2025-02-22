@@ -3,7 +3,7 @@ package testhelpers
 import (
 	"context"
 	"io"
-	"nabu/internal/synchronizer/objects"
+	"nabu/internal/synchronizer/s3"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,7 +15,7 @@ import (
 type GleanerContainerSuite struct {
 	suite.Suite
 	// minio container that we use for storing gleaner output data
-	minioContainer objects.MinioContainer
+	minioContainer s3.MinioContainer
 	network        *testcontainers.DockerNetwork
 }
 
@@ -26,16 +26,16 @@ func (suite *GleanerContainerSuite) SetupSuite() {
 	suite.Require().NoError(err)
 	suite.network = net
 
-	minioConfig := objects.MinioContainerConfig{
+	minioConfig := s3.MinioContainerConfig{
 		// note that the container name must be a full word with no special characters
 		// this appears to mess with the docker network somehow and prevents connecting
 		ContainerName: "gleanerTestMinio",
-		Username:      "amazingaccesskey",
-		Password:      "amazingsecretkey",
+		Username:      "minioadmin",
+		Password:      "minioadmin",
 		DefaultBucket: "iow",
 		Network:       net.Name,
 	}
-	minioContainer, err := objects.NewMinioContainer(minioConfig)
+	minioContainer, err := s3.NewMinioContainer(minioConfig)
 	suite.Require().NoError(err)
 	suite.minioContainer = minioContainer
 

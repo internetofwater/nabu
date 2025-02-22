@@ -1,10 +1,11 @@
-package objects
+package s3
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"nabu/pkg/config"
+	"os"
 	"sync"
 
 	"github.com/minio/minio-go/v7"
@@ -40,14 +41,13 @@ func NewMinioClientWrapper(mcfg config.MinioConfig) (*MinioClientWrapper, error)
 	var err error
 
 	if mcfg.Region == "" {
-		log.Info("Minio created with no region set")
+		log.Info("Minio client created with no region set")
 		minioClient, err = minio.New(endpoint,
 			&minio.Options{Creds: credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 				Secure: useSSL,
 			})
 
 	} else {
-		log.Warn("region set for GCS or AWS, may cause issues with minio")
 		region := mcfg.Region
 		minioClient, err = minio.New(endpoint,
 			&minio.Options{Creds: credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
@@ -104,7 +104,7 @@ func (m *MinioClientWrapper) ObjectList(prefix string) ([]minio.ObjectInfo, erro
 	return objectInfo, nil
 }
 
-// Copy objects. Can be to either the same bucket or a different bucket
+// Copy s3. Can be to either the same bucket or a different bucket
 func (m *MinioClientWrapper) Copy(srcbucket, srcobject, dstbucket, dstobject string) error {
 
 	// Source object
@@ -122,7 +122,7 @@ func (m *MinioClientWrapper) Copy(srcbucket, srcobject, dstbucket, dstobject str
 	// Copy object call
 	_, err := m.Client.CopyObject(context.Background(), dstOpts, srcOpts)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return err
 	}
 
@@ -140,7 +140,7 @@ func (m *MinioClientWrapper) NumberOfMatchingObjects(prefixes []string) (int, er
 
 		for object := range objectCh {
 			if object.Err != nil {
-				log.Println(object.Err)
+				log.Error(object.Err)
 				return count, object.Err
 			}
 			count++
@@ -149,7 +149,6 @@ func (m *MinioClientWrapper) NumberOfMatchingObjects(prefixes []string) (int, er
 	return count, nil
 }
 
-// Get the byes of an object from the store
 func (m *MinioClientWrapper) GetObjectAsBytes(objectName string) ([]byte, error) {
 	fileObject, err := m.Client.GetObject(context.Background(), m.DefaultBucket, objectName, minio.GetObjectOptions{})
 	if err != nil {
@@ -158,40 +157,31 @@ func (m *MinioClientWrapper) GetObjectAsBytes(objectName string) ([]byte, error)
 	}
 	defer fileObject.Close()
 
-	_, err = fileObject.Stat()
+	stat, err := fileObject.Stat()
 	if err != nil {
-		log.Infof("Issue with reading an object. Seems to not exist when looking in bucket: %s and name: %s", m.DefaultBucket, objectName)
+		log.Infof("Issue with reading an object. Seems to not exist in bucket: %s and name: %s", m.DefaultBucket, objectName)
 		return nil, err
 	}
 
-	buf := new(bytes.Buffer)
-	_, err = buf.ReadFrom(fileObject)
+	buf := make([]byte, stat.Size) // Preallocate buffer
+	_, err = io.ReadFull(fileObject, buf)
 	if err != nil {
 		return nil, err
 	}
 
-	bufferBytes := buf.Bytes() // Does a complete copy of the bytes in the buffer.
-
-	return bufferBytes, err
+	return buf, nil
 }
 
-// Removea all objects from the bucket (useful for testing)
-func (m *MinioClientWrapper) ClearBucket() error {
-
-	ctx := context.Background()
-
-	// List and delete all objects in the bucket
-	objectCh := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Recursive: true})
-	for object := range objectCh {
-		if object.Err != nil {
-			return fmt.Errorf("error listing objects: %w", object.Err)
-		}
-		err := m.Client.RemoveObject(ctx, m.DefaultBucket, object.Key, minio.RemoveObjectOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to delete object %s: %w", object.Key, err)
-		}
+func (m *MinioClientWrapper) UploadFile(uploadPath string, localFileName string) error {
+	file, err := os.Open(localFileName)
+	if err != nil {
+		return err
 	}
+	defer file.Close()
 
-	log.Printf("Bucket %s has been cleared successfully", m.DefaultBucket)
+	_, err = m.Client.PutObject(context.Background(), m.DefaultBucket, uploadPath, file, -1, minio.PutObjectOptions{})
+	if err != nil {
+		return err
+	}
 	return nil
 }
