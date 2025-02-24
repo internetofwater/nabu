@@ -21,7 +21,6 @@ func sync() error {
 	return err
 }
 
-// checkCmd represents the check command
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "nabu sync command",

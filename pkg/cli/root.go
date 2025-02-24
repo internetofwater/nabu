@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cfgFile, nabuConfName, minioVal, accessVal, secretVal, bucketVal, endpointVal, prefixVal, repositoryVal string
+var cfgFile, nabuConfName, minioVal, accessVal, secretVal, bucketVal, endpointVal, prefixVal, repositoryVal, logVal string
 var portVal int
 var sslVal, dangerousVal, doTrace bool
 
@@ -66,13 +66,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&secretVal, "secret", os.Getenv("S3_SECRET_KEY"), "Secret access key")
 	rootCmd.PersistentFlags().StringVar(&bucketVal, "bucket", "", "The configuration bucket")
 	rootCmd.PersistentFlags().StringVar(&repositoryVal, "repository", "", "the default repository to use for graphdb")
+	rootCmd.PersistentFlags().StringVar(&logVal, "log-level", "INFO", "the log level to use for the nabu logger")
 
 	rootCmd.PersistentFlags().BoolVar(&sslVal, "ssl", false, "Use SSL boolean")
 	rootCmd.PersistentFlags().BoolVar(&dangerousVal, "dangerous", false, "Use dangerous mode boolean")
 	rootCmd.PersistentFlags().BoolVar(&doTrace, "trace", false, "Enable tracing")
 
 	rootCmd.PersistentFlags().IntVar(&portVal, "port", -1, "Port for s3 server")
-
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -148,11 +148,23 @@ func initConfig() {
 			log.Fatal(err)
 		}
 	}
-
+	switch logVal {
+	case "DEBUG":
+		log.SetLevel(log.DebugLevel)
+	case "INFO":
+		log.SetLevel(log.InfoLevel)
+	case "WARN":
+		log.SetLevel(log.WarnLevel)
+	case "ERROR":
+		log.SetLevel(log.ErrorLevel)
+	case "FATAL":
+		log.SetLevel(log.FatalLevel)
+	default:
+		log.Fatalf("Invalid log level: %s", logVal)
+	}
 }
 
 func initLogging() {
 	log.SetReportCaller(false)
-	log.SetLevel(log.TraceLevel)
 	log.SetFormatter(&log.JSONFormatter{})
 }
