@@ -311,16 +311,14 @@ func (graphClient *GraphDbClient) GraphExists(graphURN string) (bool, error) {
 func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix string) ([]string, error) {
 	log.Debug("Getting list of named graphs")
 
-	gp, err := common.MakeURN(prefix)
+	graphName, err := common.MakeURN(prefix)
 	if err != nil {
 		log.Error(err)
 		return []string{}, err
 	}
 
-	query := "SELECT DISTINCT ?g WHERE {GRAPH ?g {?s ?p ?o} }"
+	query := "SELECT DISTINCT ?g WHERE { GRAPH ?g { ?s ?p ?o } FILTER(STRSTARTS(STR(?g), \"" + graphName + "\")) }"
 
-	log.Printf("Pattern: %s\n", gp)
-	log.Printf("SPARQL: %s\n", query)
 	params := url.Values{}
 	params.Add("query", query)
 	req, err := custom_http_trace.NewRequestWithContext("GET", fmt.Sprintf("%s?%s", graphClient.BaseRepositoryUrl, params.Encode()), bytes.NewBuffer([]byte("")))
@@ -337,6 +335,10 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 	if err != nil {
 		log.Error(err)
 		return []string{}, err
+	}
+
+	if resp.StatusCode != 200 {
+		return []string{}, fmt.Errorf("failed to get list of named graphs; response Status: %s with error %s", resp.Status, err)
 	}
 
 	defer func() {
@@ -363,7 +365,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 
 	var relevantGraphs []string
 	for _, graph := range graphNames {
-		if strings.HasPrefix(graph, gp) { // check if string has prefix
+		if strings.HasPrefix(graph, graphName) { // check if string has prefix
 			relevantGraphs = append(relevantGraphs, graph) // if yes, add it to newArray
 		}
 	}
