@@ -1,0 +1,7 @@
+{
+    // some of the longer integration tests with
+    // gleaner can take up to 45 sec since they
+    // require downloading remote data in a blocking
+    // way twice
+    "go.testTimeout": "45s"
+}

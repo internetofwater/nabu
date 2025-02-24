@@ -155,7 +155,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	require.NoError(suite.T(), err)
 	// this is the urn version of orgs/
 	// we insert this to make sure that it gets removed
-	oldGraph := "urn:iow:orgs"
+	oldGraph := "urn:iow:orgs:dummy"
 	data := `
 	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .
 	<http://example.org/resource/2> <http://example.org/property/name> "Bob" .`
@@ -173,36 +173,73 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	}, suite.network.Name)
 	require.NoError(t, err)
 	require.Zero(t, gleanerContainer.ExitCode, gleanerContainer.Logs)
-	sourcesInSitemap, err := countSourcesInSitemap("https://pids.geoconnex.dev/sitemap/cdss/co_gages__0.xml")
+	sourcesInCdss0Sitemap, err := countSourcesInSitemap("https://pids.geoconnex.dev/sitemap/cdss/co_gages__0.xml")
 	require.NoError(t, err)
 
-	t.Run("sync org graph", func(t *testing.T) {
-		err = suite.client.SyncTriplestoreGraphs([]string{"orgs/"})
-		require.NoError(t, err)
-		// make sure that an old graph is no longer there after sync
-		exists, err = suite.graphdbContainer.Client.GraphExists(oldGraph)
-		require.False(t, exists)
-		require.NoError(t, err)
-		graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
-		require.NoError(t, err)
-		require.Equal(t, len(graphs), 1)
-	})
+	// make sure that an old graph is no longer there when
+	// we sync new org data
+	err = suite.client.SyncTriplestoreGraphs([]string{"orgs/"})
+	require.NoError(t, err)
+	exists, err = suite.graphdbContainer.Client.GraphExists(oldGraph)
+	require.False(t, exists)
+	require.NoError(t, err)
+	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
+	require.NoError(t, err)
+	// 1 graph should be associated with the orgs prefix; old one should be dropped
+	require.Equal(t, len(graphs), 1)
 
-	t.Run("sync prov graphs", func(t *testing.T) {
-		err = suite.client.SyncTriplestoreGraphs([]string{"prov/"})
-		require.NoError(t, err)
-		graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("prov/")
-		require.NoError(t, err)
-		require.Equal(t, len(graphs), sourcesInSitemap)
-	})
+	// make sure that there is prov data for every source in the sitemap
+	err = suite.client.SyncTriplestoreGraphs([]string{"prov/"})
+	require.NoError(t, err)
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("prov/")
+	require.NoError(t, err)
+	require.Equal(t, len(graphs), sourcesInCdss0Sitemap)
 
-	t.Run("sync summoned graphs", func(t *testing.T) {
-		err = suite.client.SyncTriplestoreGraphs([]string{"summoned/"})
-		require.NoError(t, err)
-		graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
-		require.NoError(t, err)
-		require.Equal(t, len(graphs), sourcesInSitemap)
-	})
+	// make sure that after a prov sync that the org graph is still there
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
+	require.NoError(t, err)
+	require.Equal(t, len(graphs), 1)
+
+	// make sure that summoned data matches the amount of sources in the sitemap
+	err = suite.client.SyncTriplestoreGraphs([]string{"summoned/"})
+	require.NoError(t, err)
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
+	require.NoError(t, err)
+	require.Equal(t, len(graphs), sourcesInCdss0Sitemap)
+
+	// Harvest another source to make sure that the sync works with a new source
+	// syncing from the same prefix with more data this time
+	gleanerContainer, err = testhelpers.NewGleanerContainer("../../config/iow/gleanerconfig.yaml", []string{
+		"--source", "refgages0",
+		"--address", "synchronizerTestMinio",
+		"--setup",
+		"--port", "9000",
+	}, suite.network.Name)
+	require.NoError(t, err)
+	require.Zero(t, gleanerContainer.ExitCode, gleanerContainer.Logs)
+	sourcesInRefGagesSitemap, err := countSourcesInSitemap("https://pids.geoconnex.dev/sitemap/ref/gages/gages__0.xml")
+	require.NoError(t, err)
+
+	// make sure that graph syncs are additive between sources and that
+	// sources are not overwritten or removed
+	err = suite.client.SyncTriplestoreGraphs([]string{"summoned/refgages0"})
+	require.NoError(t, err)
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
+	require.NoError(t, err)
+	require.Equal(t, len(graphs), sourcesInCdss0Sitemap+sourcesInRefGagesSitemap)
+
+	// delete 1 item from the s3 bucket and make sure that after
+	// we sync again, we have the same number of graphs - 1
+	objs, err := suite.client.S3Client.ObjectList("summoned/")
+	require.NoError(t, err)
+	err = suite.client.S3Client.Remove(objs[0].Key)
+	require.NoError(t, err)
+	err = suite.client.SyncTriplestoreGraphs([]string{"summoned/"})
+	require.NoError(t, err)
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
+	require.NoError(t, err)
+	require.Equal(t, len(graphs), sourcesInCdss0Sitemap+sourcesInRefGagesSitemap-1)
+
 }
 
 func (suite *SynchronizerClientSuite) TestNqRelease() {

@@ -221,9 +221,8 @@ func (graphClient *GraphDbClient) DropGraph(graph string) error {
 
 // Remove all triples from all graphs but keep the graphs themselves
 func (graphClient *GraphDbClient) ClearAllGraphs() error {
-	params := url.Values{}
-	params.Add("query", "CLEAR ALL")
-	req, err := custom_http_trace.NewRequestWithContext("POST", fmt.Sprintf("%s?%s", graphClient.BaseSparqlQueryUrl, params.Encode()), bytes.NewBuffer([]byte("")))
+	// For graphdb the query for clear needs to be in the body and not a query param in the url for some reason
+	req, err := custom_http_trace.NewRequestWithContext("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBufferString("CLEAR ALL"))
 	if err != nil {
 		log.Error(err)
 		return err
@@ -233,9 +232,12 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 	client := http.Client{}
 
 	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != 204 {
-		log.Errorf("failed to clear graphs: response Status: %s with error %s", resp.Status, err)
+	if err != nil {
 		return err
+	}
+
+	if resp.StatusCode != 204 {
+		return fmt.Errorf("failed to clear graphs: response Status: %s with error %s", resp.Status, err)
 	}
 	defer resp.Body.Close()
 
