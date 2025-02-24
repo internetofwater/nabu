@@ -131,7 +131,7 @@ func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath stri
 // Insert triples into the triplestore by listing them in the standard triple format and specifying an associated graph
 func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, graphURI string) error {
 
-	log.Debugf("Inserting data into graph: %s", graphURI)
+	// log.Debugf("Inserting data into graph: %s", graphURI)
 	template := `
 		INSERT DATA { 
 			GRAPH <%s> { 

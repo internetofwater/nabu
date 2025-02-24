@@ -242,19 +242,19 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 	// If there are triples left over after finishing that loop, we still need to load
 	// them in even if the total amount remaining is less than our max threshold for loading
 	if len(tripleArray) > 0 {
-		log.Debugf("Finished reading scanner; Inserting left over subgraph of %d lines", len(tripleArray))
+		// log.Debugf("Finished reading scanner; Inserting left over subgraph of %d lines", len(tripleArray))
 		err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphResourceIdentifier) // convert []string to strings joined with new line to form a RDF NT set
 		if err != nil {
 			return err
 		}
 	}
 
-	log.Debug("Waiting for subgraph load goroutines to finish")
+	// log.Debug("Waiting for subgraph load goroutines to finish")
 	if err := errorGroup.Wait(); err != nil {
 		return err
 	}
 
-	log.Debugf("Finished loading graph %s", graphResourceIdentifier)
+	// log.Debugf("Finished loading graph %s", graphResourceIdentifier)
 
 	return nil
 }
