@@ -13,13 +13,13 @@ func TestMakeUrn(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("prefix with 3 parts preserves all three but changes order", func(t *testing.T) {
+	t.Run("prefix with 3 parts preserves all three and doesnt change order", func(t *testing.T) {
 		result, err := MakeURN("test1/test2/test3")
 		require.NoError(t, err)
 		require.Equal(t, "urn:iow:test1:test2:test3", result)
 	})
 
-	t.Run("prefix with more than 4 parts drops one", func(t *testing.T) {
+	t.Run("prefix with 4 parts preserves all four", func(t *testing.T) {
 		result, err := MakeURN("test1/test2/test3/test4")
 		require.NoError(t, err)
 		require.Equal(t, "urn:iow:test1:test2:test3:test4", result)
