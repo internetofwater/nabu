@@ -37,4 +37,4 @@ runs:
 
     - name: Test with the Go CLI
       shell: bash
-      run: GLEANER_TEST_IMAGE="${{ inputs.gleaner_image }}" go test ./... 
+      run: GLEANER_TEST_IMAGE="${{ inputs.gleaner_image }}" go test ./... -coverprofile=coverage.txt
