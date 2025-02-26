@@ -60,6 +60,12 @@ func (suite *GraphDbClientSuite) TestDropGraph() {
 	err := suite.graphdb.Client.InsertWithNamedGraph(data, graph)
 	require.NoError(t, err)
 
+	bad_data := `
+	<http://example.org/resource/1> .`
+
+	err = suite.graphdb.Client.InsertWithNamedGraph(bad_data, graph)
+	require.Error(t, err)
+
 	graphExists, err := suite.graphdb.Client.GraphExists(graph)
 	require.NoError(t, err)
 	require.True(t, graphExists)
