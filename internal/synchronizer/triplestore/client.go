@@ -317,11 +317,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 		return []string{}, err
 	}
 
-	query := "SELECT DISTINCT ?g WHERE { GRAPH ?g { ?s ?p ?o } FILTER(STRSTARTS(STR(?g), \"" + graphName + "\")) }"
-
-	params := url.Values{}
-	params.Add("query", query)
-	req, err := custom_http_trace.NewRequestWithContext("GET", fmt.Sprintf("%s?%s", graphClient.BaseRepositoryUrl, params.Encode()), bytes.NewBuffer([]byte("")))
+	req, err := custom_http_trace.NewRequestWithContext("GET", fmt.Sprintf("%s/%s", graphClient.BaseRepositoryUrl, "contexts"), bytes.NewBuffer([]byte("")))
 	if err != nil {
 		log.Error(err)
 		return []string{}, err
@@ -357,7 +353,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 	}
 
 	var graphNames []string
-	result := gjson.Get(string(body), "results.bindings.#.g.value")
+	result := gjson.Get(string(body), "results.bindings.#.contextID.value")
 	result.ForEach(func(key, value gjson.Result) bool {
 		graphNames = append(graphNames, value.String())
 		return true // keep iterating
@@ -365,7 +361,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 
 	var relevantGraphs []string
 	for _, graph := range graphNames {
-		if strings.HasPrefix(graph, graphName) { // check if string has prefix
+		if (strings.HasPrefix(graph, graphName + ":") || strings.HasPrefix(graph, graphName + ".")) { // check if string has prefix
 			relevantGraphs = append(relevantGraphs, graph) // if yes, add it to newArray
 		}
 	}
