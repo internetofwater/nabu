@@ -14,9 +14,11 @@ func sync() error {
 	if err != nil {
 		return err
 	}
-	err = client.SyncTriplestoreGraphs(cfgStruct.Prefixes)
-	if err != nil {
-		log.Error(err)
+	for _, prefix := range cfgStruct.Prefixes {
+		err = client.CopyAllPrefixedObjToTriplestore(prefix)
+		if err != nil {
+			return err
+		}
 	}
 	return err
 }

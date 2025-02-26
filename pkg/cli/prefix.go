@@ -14,7 +14,12 @@ func prefix() error {
 		return err
 	}
 
-	err = client.CopyAllPrefixedObjToTriplestore(cfgStruct.Prefixes)
+	for _, prefix := range cfgStruct.Prefixes {
+		err = client.CopyAllPrefixedObjToTriplestore(prefix)
+		if err != nil {
+			return err
+		}
+	}
 
 	return err
 }

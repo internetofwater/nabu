@@ -361,7 +361,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 
 	var relevantGraphs []string
 	for _, graph := range graphNames {
-		if (strings.HasPrefix(graph, graphName + ":") || strings.HasPrefix(graph, graphName + ".")) { // check if string has prefix
+		if strings.HasPrefix(graph, graphName+":") || strings.HasPrefix(graph, graphName+".") { // check if string has prefix
 			relevantGraphs = append(relevantGraphs, graph) // if yes, add it to newArray
 		}
 	}
