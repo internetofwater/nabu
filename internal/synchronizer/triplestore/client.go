@@ -134,12 +134,12 @@ func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, gr
 	// log.Debugf("Inserting data into graph: %s", graphURI)
 	// drop any graph we are going to load..  we assume we are doing those due to an update
 	template := `
-		DROP SILENT GRAPH <%s> ;
+		DROP SILENT GRAPH <%s>;
 		INSERT DATA { 
 			GRAPH <%s> { 
 				%s
 			} 
-		}`
+		};`
 	fullReq := []byte(fmt.Sprintf(template, graphURI, graphURI, triples))
 
 	req, err := custom_http_trace.NewRequestWithContext("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(fullReq)) // PUT for any of the servers?
