@@ -198,13 +198,6 @@ func (synchronizer *SynchronizerClient) upsertDataForGraph(rawJsonldOrNqBytes []
 		return fmt.Errorf("object %s is not a jsonld or nq file", objectName)
 	}
 
-	// drop any graph we are going to load..  we assume we are doing those due to an update
-	err = synchronizer.GraphClient.DropGraph(graphResourceIdentifier)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
 	// If the graph is a quad already..   we need to make it triples
 	// so we can load with "our" context.
 	// Note: We are tossing source prov for out prov

@@ -132,13 +132,15 @@ func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath stri
 func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, graphURI string) error {
 
 	// log.Debugf("Inserting data into graph: %s", graphURI)
+	// drop any graph we are going to load..  we assume we are doing those due to an update
 	template := `
+		DROP SILENT GRAPH <%s>;
 		INSERT DATA { 
 			GRAPH <%s> { 
 				%s
 			} 
-		}`
-	fullReq := []byte(fmt.Sprintf(template, graphURI, triples))
+		};`
+	fullReq := []byte(fmt.Sprintf(template, graphURI, graphURI, triples))
 
 	req, err := custom_http_trace.NewRequestWithContext("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(fullReq)) // PUT for any of the servers?
 	if err != nil {
@@ -185,7 +187,7 @@ func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, gr
 // Remove a graph entirely from the graph database
 func (graphClient *GraphDbClient) DropGraph(graph string) error {
 
-	d := fmt.Sprintf("DROP GRAPH <%s> ", graph)
+	d := fmt.Sprintf("DROP SILENT GRAPH <%s> ", graph)
 	pab := []byte(d)
 
 	params := url.Values{}
