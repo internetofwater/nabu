@@ -3,6 +3,7 @@ package synchronizer
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"nabu/internal/common"
@@ -12,7 +13,6 @@ import (
 	"nabu/pkg/config"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/piprate/json-gold/ld"
@@ -166,58 +166,36 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefix s
 // and writing them to a pipe. This pipe is simultaneously read
 // and written to the minio client so we don't block on either end
 func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
-
 	release_nq_name, err := makeReleaseNqName(prefix)
 	if err != nil {
 		return err
 	}
 
-	pipeReader, pipeWriter := io.Pipe()
-	pipeTransferWorkGroup := sync.WaitGroup{} // work group for the pipe writes
-	pipeTransferWorkGroup.Add(2)              // We add 2 since there is a write to the pipe and a read from the pipe
+	// Create an io.Pipe to stream data
+	pr, pw := io.Pipe()
 
-	errChan := make(chan error, 2)
-
-	const nqOutputPathInS3 = "graphs/latest"
-	// Write the nq files to the pipe
+	// Start streaming NQ data into the pipe
 	go func() {
-		defer pipeTransferWorkGroup.Done()
-		err := synchronizer.getObjAndStreamNqConversion(nqOutputPathInS3, pipeWriter)
-		if err != nil {
-			log.Error(err)
-			errChan <- err
-			return
-		}
+		err := synchronizer.streamNqFromPrefix(prefix, pw)
+		pw.CloseWithError(err) // Ensure errors propagate to the reader
 	}()
 
-	// read the nq files from the pipe and copy them to minio
-	go func() {
-		defer pipeTransferWorkGroup.Done()
-		fullReleasePath := fmt.Sprintf("%s/%s", nqOutputPathInS3, release_nq_name)
-		_, err := synchronizer.S3Client.Client.PutObject(context.Background(), synchronizer.syncBucketName, fullReleasePath, pipeReader, -1, minio.PutObjectOptions{})
-		if err != nil {
-			log.Error(err)
-			errChan <- err
-			return
-		}
-	}()
-
-	pipeTransferWorkGroup.Wait()
-	if err := pipeWriter.Close(); err != nil {
+	nqReleasePath := fmt.Sprintf("graphs/latest/%s", release_nq_name)
+	objInfo, err := synchronizer.S3Client.Client.PutObject(
+		context.Background(),
+		synchronizer.syncBucketName,
+		nqReleasePath,
+		pr,
+		-1, // Unknown size for streaming
+		minio.PutObjectOptions{},
+	)
+	if err != nil {
 		return err
 	}
-	if err := pipeReader.Close(); err != nil {
-		return err
+	if objInfo.Size == 0 {
+		return errors.New("empty nq file when uploading to s3")
 	}
-
-	// close the channel so we can read from it
-	close(errChan)
-
-	for val := range errChan {
-		if val != nil {
-			return val
-		}
-	}
+	log.Infof("Successfully uploaded N-Quads to %s (%d bytes)", nqReleasePath, objInfo.Size)
 
 	return nil
 }
@@ -228,6 +206,9 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 	byt, err := synchronizer.S3Client.GetObjectAsBytes(nqPathInS3)
 	if err != nil {
 		return err
+	}
+	if len(byt) == 0 {
+		return errors.New("empty nq file when uploading to triplestore")
 	}
 
 	// Convert JSON-LD to N-Quads if needed

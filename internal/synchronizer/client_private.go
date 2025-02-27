@@ -1,9 +1,8 @@
 package synchronizer
 
 import (
-	"bufio"
-	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"nabu/internal/common"
 	"strings"
@@ -101,66 +100,43 @@ func (synchronizer *SynchronizerClient) getGraphDiff(prefix string) (GraphDiff, 
 	}, nil
 }
 
-// Get all objects in s3 with a specific prefix and stream them to a piperwriter while
-// simultaneously converting them to nquads
-func (synchronizer *SynchronizerClient) getObjAndStreamNqConversion(prefix string, pipeWriter *io.PipeWriter) error {
-
-	defer func(pw *io.PipeWriter) {
-		err := pw.Close()
-		if err != nil {
-			log.Error(err)
-		}
-	}(pipeWriter)
-
-	matches, err := synchronizer.S3Client.NumberOfMatchingObjects([]string{prefix})
-	if err != nil {
-		return err
-	}
-
-	log.Infof("Found %d objects with prefix %s", matches, prefix)
-
+// Stream objects in S3 with a specific prefix into a writer while converting them to nquads
+func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix string, w io.Writer) error {
 	objects, err := synchronizer.S3Client.ObjectList(prefix)
 	if err != nil {
 		return err
 	}
+	if len(objects) == 0 {
+		return fmt.Errorf("no objects found with prefix %s so no nq file will be created", prefix)
+	}
+
+	log.Infof("Generating nq from %d objects with prefix %s", len(objects), prefix)
 
 	for _, object := range objects {
-
 		retrievedObject, err := synchronizer.S3Client.Client.GetObject(context.Background(), synchronizer.S3Client.DefaultBucket, object.Key, minio.GetObjectOptions{})
 		if err != nil {
 			return err
 		}
-		_, err = io.Copy(pipeWriter, retrievedObject)
+		defer retrievedObject.Close() // Close after reading
 
+		rawBytes, err := io.ReadAll(retrievedObject)
 		if err != nil {
 			return err
 		}
-
-		var buffer bytes.Buffer
-		bufferWriter := bufio.NewWriter(&buffer)
-
-		_, err = io.Copy(bufferWriter, retrievedObject)
-		if err != nil {
-			log.Error(err)
-			return err
-		}
-
-		jsonldString := buffer.String()
 
 		var nq string
 		if strings.HasSuffix(object.Key, ".nq") {
-			nq = jsonldString
+			nq = string(rawBytes)
 		} else {
-			nq, err = common.JsonldToNQ(jsonldString, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+			nq, err = common.JsonldToNQ(string(rawBytes), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 			if err != nil {
 				return err
 			}
 		}
 
 		var singleFileNquad string
-
-		if matches == 1 {
-			singleFileNquad = nq //  just pass through the RDF without trying to Skolemize since we ar a single fil
+		if len(objects) == 1 {
+			singleFileNquad = nq
 		} else {
 			singleFileNquad, err = common.Skolemization(nq)
 			if err != nil {
@@ -169,20 +145,24 @@ func (synchronizer *SynchronizerClient) getObjAndStreamNqConversion(prefix strin
 			}
 		}
 
-		// 1) get graph URI
+		// Get graph URI
 		graphURN, err := common.MakeURN(object.Key)
 		if err != nil {
 			return err
 		}
-		// 2) convert NT to NQ
+
+		// Convert NT to NQ
 		csnq, err := common.NtToNq(singleFileNquad, graphURN)
 		if err != nil {
 			return err
 		}
 
-		if _, err := pipeWriter.Write([]byte(csnq)); err != nil {
+		// Write directly to the pipe
+		_, err = w.Write([]byte(csnq))
+		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
