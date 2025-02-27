@@ -129,7 +129,7 @@ func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath stri
 }
 
 // Insert triples into the triplestore by listing them in the standard triple format and specifying an associated graph
-func (graphClient *GraphDbClient) InsertNamedGraphs(graphs []common.NamedGraph) error {
+func (graphClient *GraphDbClient) UpsertNamedGraphs(graphs []common.NamedGraph) error {
 
 	query := createBatchedUpsertQuery(graphs)
 

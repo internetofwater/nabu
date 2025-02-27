@@ -37,25 +37,7 @@ type SynchronizerClient struct {
 	jsonldOptions *ld.JsonLdOptions
 }
 
-// Create a new SynchronizerClient by directly passing in the clients
-// Mainly used for testing
-func newSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *s3.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
-	processor, options, err := common.NewJsonldProcessor(false, nil)
-	if err != nil {
-		return SynchronizerClient{}, err
-	}
-
-	client := SynchronizerClient{
-		GraphClient:     graphClient,
-		S3Client:        s3Client,
-		syncBucketName:  bucketName,
-		jsonldProcessor: processor,
-		jsonldOptions:   options,
-	}
-	return client, nil
-}
-
-// Generate a new SynchronizerClient from a top level config
+// Generate a new SynchronizerClient from a top level nabu config
 func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClient, error) {
 	graphClient, err := triplestore.NewGraphDbClient(conf.Sparql)
 	if err != nil {
@@ -79,21 +61,6 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 		jsonldOptions:   options,
 	}
 	return client, nil
-}
-
-func (synchronizer *SynchronizerClient) removeOrphanGraphs(triplestoreGraphsNotInS3 []string) error {
-
-	log.Infof("Orphaned items to remove: %d\n", len(triplestoreGraphsNotInS3))
-	// Don't send a drop request if there are no graphs to remove
-	if len(triplestoreGraphsNotInS3) > 0 {
-		log.Infof("Dropping %d graphs from triplestore", len(triplestoreGraphsNotInS3))
-		// All triplestore graphs not in s3 should be removed since s3 is the source of truth
-		if err := synchronizer.GraphClient.DropGraphs(triplestoreGraphsNotInS3); err != nil {
-			log.Errorf("Drop graph issue when syncing %v\n", err)
-			return err
-		}
-	}
-	return nil
 }
 
 // Struct holding the differences between the triplestore and s3
@@ -198,10 +165,15 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string) err
 		return err
 	}
 
-	// remove orphaned graphs
-	if err := synchronizer.removeOrphanGraphs(graphDiff.TriplestoreGraphsNotInS3); err != nil {
-		log.Error(err)
-		return err
+	orphanedGraphs := graphDiff.TriplestoreGraphsNotInS3
+	// Don't send a drop request if there are no graphs to remove
+	if len(orphanedGraphs) > 0 {
+		log.Infof("Dropping %d graphs from triplestore", len(orphanedGraphs))
+		// All triplestore graphs not in s3 should be removed since s3 is the source of truth
+		if err := synchronizer.GraphClient.DropGraphs(orphanedGraphs); err != nil {
+			log.Errorf("Drop graph issue when syncing %v\n", err)
+			return err
+		}
 	}
 
 	var errorGroup errgroup.Group
@@ -227,7 +199,7 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string) err
 	if err := errorGroup.Wait(); err != nil {
 		return err
 	}
-	if err := synchronizer.GraphClient.InsertNamedGraphs(graphsToInsert); err != nil {
+	if err := synchronizer.GraphClient.UpsertNamedGraphs(graphsToInsert); err != nil {
 		return err
 	}
 
@@ -235,6 +207,7 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string) err
 }
 
 // Gets all graphs in s3 with a specific prefix and loads them into the triplestore
+// regardless of whether they are already in the triplestore
 func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefix string) error {
 
 	objKeys, err := synchronizer.S3Client.ObjectList(prefix)
@@ -266,7 +239,7 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefix s
 	if err := errorGroup.Wait(); err != nil {
 		return err
 	}
-	if err := synchronizer.GraphClient.InsertNamedGraphs(graphsToInsert); err != nil {
+	if err := synchronizer.GraphClient.UpsertNamedGraphs(graphsToInsert); err != nil {
 		return err
 	}
 

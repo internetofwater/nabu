@@ -54,6 +54,24 @@ type SynchronizerClientSuite struct {
 	network *testcontainers.DockerNetwork
 }
 
+// Create a new SynchronizerClient by directly passing in the clients
+// Mainly used for testing
+func newSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *s3.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
+	processor, options, err := common.NewJsonldProcessor(false, nil)
+	if err != nil {
+		return SynchronizerClient{}, err
+	}
+
+	client := SynchronizerClient{
+		GraphClient:     graphClient,
+		S3Client:        s3Client,
+		syncBucketName:  bucketName,
+		jsonldProcessor: processor,
+		jsonldOptions:   options,
+	}
+	return client, nil
+}
+
 func (suite *SynchronizerClientSuite) SetupSuite() {
 
 	ctx := context.Background()
@@ -162,7 +180,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	data := `
 	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .
 	<http://example.org/resource/2> <http://example.org/property/name> "Bob" .`
-	err = suite.graphdbContainer.Client.InsertNamedGraphs([]common.NamedGraph{
+	err = suite.graphdbContainer.Client.UpsertNamedGraphs([]common.NamedGraph{
 		{
 			GraphURI: oldGraph,
 			Triples:  data,
@@ -273,6 +291,43 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 
 	err = suite.client.UploadNqFileToTriplestore(nqPath)
 	require.NoError(t, err)
+}
+
+func (suite *SynchronizerClientSuite) TestGraphDiff() {
+	t := suite.T()
+	err := suite.graphdbContainer.Client.ClearAllGraphs()
+	require.NoError(suite.T(), err)
+	oldGraph := "urn:iow:testgraph:dummy"
+	data := `
+	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .
+	<http://example.org/resource/2> <http://example.org/property/name> "Bob" .`
+	err = suite.graphdbContainer.Client.UpsertNamedGraphs([]common.NamedGraph{{GraphURI: oldGraph, Triples: data}})
+	require.NoError(t, err)
+
+	err = suite.client.S3Client.UploadFile("testgraph/hu02.jsonld", "testdata/hu02.jsonld")
+	require.NoError(t, err)
+	defer func() {
+		err = suite.client.S3Client.Remove("testdata/hu02.jsonld")
+		require.NoError(t, err)
+	}()
+
+	err = suite.client.S3Client.UploadFile("testgraph/test.nq", "testdata/test.nq")
+	require.NoError(t, err)
+
+	defer func() {
+		err = suite.client.S3Client.Remove("testdata/test.nq")
+		require.NoError(t, err)
+	}()
+
+	diff, err := suite.client.getGraphDiff("testgraph/")
+	require.NoError(t, err)
+	require.Contains(t, diff.S3GraphsNotInTriplestore, "urn:iow:testgraph:hu02.jsonld")
+	require.Contains(t, diff.S3GraphsNotInTriplestore, "urn:iow:testgraph:test.nq")
+	require.Equal(t, diff.TriplestoreGraphsNotInS3, []string{"urn:iow:testgraph:dummy"})
+	require.Equal(t, diff.s3UrnToAssociatedObjName, map[string]string{
+		"urn:iow:testgraph:hu02.jsonld": "testgraph/hu02.jsonld",
+		"urn:iow:testgraph:test.nq":     "testgraph/test.nq",
+	})
 }
 
 func TestSynchronizerClientSuite(t *testing.T) {
