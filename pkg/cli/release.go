@@ -14,7 +14,9 @@ func release() error {
 		return err
 	}
 
-	err = client.GenerateNqRelease(cfgStruct.Prefixes)
+	for _, prefix := range cfgStruct.Prefixes {
+		err = client.GenerateNqRelease(prefix)
+	}
 
 	return err
 }
