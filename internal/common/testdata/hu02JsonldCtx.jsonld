@@ -1,0 +1,170 @@
+{
+    "@context":"https://schema.org/docs/jsonldcontext.jsonld",
+    "@type":"DataCatalog",
+    "@id":"https://reference.geoconnex.us",
+    "url":"https://reference.geoconnex.us",
+    "name":"Geoconnex Reference Service",
+    "description":"Provides reference for community features in geoconnex.us",
+    "keywords":[
+        "Geospatial",
+        "Geoconnex",
+        "Reference"
+    ],
+    "termsOfService":"https://creativecommons.org/licenses/by/4.0/",
+    "license":"https://creativecommons.org/licenses/by/4.0/",
+    "provider":{
+        "@type":"Organization",
+        "name":"Center for Geospatial Solutions",
+        "url":"https://cgsearth.org/",
+        "address":{
+            "@type":"PostalAddress",
+            "streetAddress":"113 Brattle St",
+            "postalCode":"02138",
+            "addressLocality":"Cambridge",
+            "addressRegion":"Massachussetts",
+            "addressCountry":"USA"
+        },
+        "contactPoint":{
+            "@type":"Contactpoint",
+            "email":"internetofwater@lincolninst.edu",
+            "telephone":null,
+            "faxNumber":null,
+            "url":"https://internetofwater.org",
+            "hoursAvailable":{
+                "opens":null,
+                "description":null
+            },
+            "contactType":"pointOfContact",
+            "description":null
+        }
+    },
+    "dataset":{
+        "@type":"Dataset",
+        "@id":"https://reference.geoconnex.us/collections/hu02",
+        "name":"HU02",
+        "description":"Two-digit Hydrologic Regions from USGS NHDPlus High Resolution",
+        "license":"https://creativecommons.org/licenses/by/4.0/",
+        "keywords":[
+            "Hydrologic Regions",
+            "USGS"
+        ],
+        "spatial":[
+            {
+                "@type":"Place",
+                "geo":{
+                    "@type":"GeoShape",
+                    "box":"-170,15 -51,72"
+                }
+            }
+        ],
+        "temporalCoverage":"None/None",
+        "url":"https://reference.geoconnex.us/collections/hu02",
+        "distribution":[
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://www.usgs.gov/core-science-systems/ngp/national-hydrography/access-national-hydrography-products",
+                "encodingFormat":"text/html",
+                "description":"data source",
+                "inLanguage":"en-US"
+            },
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://reference.geoconnex.us?f=json",
+                "encodingFormat":"application/json",
+                "description":"The landing page of this server as JSON",
+                "inLanguage":"en-US"
+            },
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://reference.geoconnex.us?f=html",
+                "encodingFormat":"text/html",
+                "description":"The landing page of this server as HTML",
+                "inLanguage":"en-US"
+            },
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://reference.geoconnex.us/collections/hu02?f=json",
+                "encodingFormat":"application/json",
+                "description":"This document as JSON",
+                "inLanguage":"en-US"
+            },
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://reference.geoconnex.us/collections/hu02?f=jsonld",
+                "encodingFormat":"application/ld+json",
+                "description":"This document as RDF (JSON-LD)",
+                "inLanguage":"en-US"
+            },
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://reference.geoconnex.us/collections/hu02?f=html",
+                "encodingFormat":"text/html",
+                "description":"This document as HTML",
+                "inLanguage":"en-US"
+            },
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://reference.geoconnex.us/collections/hu02/schema?f=json",
+                "encodingFormat":"application/json",
+                "description":"Schema of collection in JSON",
+                "inLanguage":"en-US"
+            },
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://reference.geoconnex.us/collections/hu02/schema?f=html",
+                "encodingFormat":"text/html",
+                "description":"Schema of collection in HTML",
+                "inLanguage":"en-US"
+            },
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://reference.geoconnex.us/collections/hu02/queryables?f=json",
+                "encodingFormat":"application/schema+json",
+                "description":"Queryables for this collection as JSON",
+                "inLanguage":"en-US"
+            },
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://reference.geoconnex.us/collections/hu02/queryables?f=html",
+                "encodingFormat":"text/html",
+                "description":"Queryables for this collection as HTML",
+                "inLanguage":"en-US"
+            },
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://reference.geoconnex.us/collections/hu02/items?f=json",
+                "encodingFormat":"application/geo+json",
+                "description":"Items as GeoJSON",
+                "inLanguage":"en-US"
+            },
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://reference.geoconnex.us/collections/hu02/items?f=jsonld",
+                "encodingFormat":"application/ld+json",
+                "description":"Items as RDF (GeoJSON-LD)",
+                "inLanguage":"en-US"
+            },
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://reference.geoconnex.us/collections/hu02/items?f=html",
+                "encodingFormat":"text/html",
+                "description":"Items as HTML",
+                "inLanguage":"en-US"
+            },
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://reference.geoconnex.us/collections/hu02/tiles?f=json",
+                "encodingFormat":"application/json",
+                "description":"Tiles as JSON",
+                "inLanguage":"en-US"
+            },
+            {
+                "@type":"DataDownload",
+                "contentURL":"https://reference.geoconnex.us/collections/hu02/tiles?f=html",
+                "encodingFormat":"text/html",
+                "description":"Tiles as HTML",
+                "inLanguage":"en-US"
+            }
+        ]
+    }
+}

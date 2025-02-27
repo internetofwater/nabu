@@ -10,7 +10,7 @@ context:
   cache: true
   strict: true
 contextmaps:
-  - prefix: https://schema.org/
+  - prefix: https://schema.org/docs/jsonldcontext.jsonld
     file: ./assets/schemaorg-current-https.jsonld
 sparql:
   endpoint: http://localhost:7200
