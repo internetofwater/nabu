@@ -100,8 +100,8 @@ func (synchronizer *SynchronizerClient) getGraphDiff(prefix string) (GraphDiff, 
 	}, nil
 }
 
-// Stream objects in S3 with a specific prefix into a writer while converting them to nquads
-func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix string, w io.Writer) error {
+// convert all objects in s3 with a specific prefix to nq and stream them to the channel
+func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix string, nqChan chan<- string) error {
 	objects, err := synchronizer.S3Client.ObjectList(prefix)
 	if err != nil {
 		return err
@@ -112,56 +112,81 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix string, w io.W
 
 	log.Infof("Generating nq from %d objects with prefix %s", len(objects), prefix)
 
+	var wg sync.WaitGroup
+	errChan := make(chan error, 1)
+
 	for _, object := range objects {
-		retrievedObject, err := synchronizer.S3Client.Client.GetObject(context.Background(), synchronizer.S3Client.DefaultBucket, object.Key, minio.GetObjectOptions{})
-		if err != nil {
-			return err
-		}
-		defer retrievedObject.Close() // Close after reading
+		wg.Add(1)
+		go func(obj minio.ObjectInfo) {
+			defer wg.Done()
 
-		rawBytes, err := io.ReadAll(retrievedObject)
-		if err != nil {
-			return err
-		}
-
-		var nq string
-		if strings.HasSuffix(object.Key, ".nq") {
-			nq = string(rawBytes)
-		} else {
-			nq, err = common.JsonldToNQ(string(rawBytes), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+			retrievedObject, err := synchronizer.S3Client.Client.GetObject(
+				context.Background(),
+				synchronizer.S3Client.DefaultBucket,
+				obj.Key,
+				minio.GetObjectOptions{},
+			)
 			if err != nil {
-				return err
+				errChan <- err
+				return
 			}
-		}
+			defer retrievedObject.Close()
 
-		var singleFileNquad string
-		if len(objects) == 1 {
-			singleFileNquad = nq
-		} else {
-			singleFileNquad, err = common.Skolemization(nq)
+			rawBytes, err := io.ReadAll(retrievedObject)
 			if err != nil {
-				log.Errorf("Skolemization error: %s", err)
-				return err
+				errChan <- err
+				return
 			}
-		}
 
-		// Get graph URI
-		graphURN, err := common.MakeURN(object.Key)
-		if err != nil {
-			return err
-		}
+			var nq string
+			if strings.HasSuffix(obj.Key, ".nq") {
+				nq = string(rawBytes)
+			} else {
+				nq, err = common.JsonldToNQ(string(rawBytes), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+				if err != nil {
+					errChan <- err
+					return
+				}
+			}
 
-		// Convert NT to NQ
-		csnq, err := common.NtToNq(singleFileNquad, graphURN)
-		if err != nil {
-			return err
-		}
+			var singleFileNquad string
+			if len(objects) == 1 {
+				singleFileNquad = nq
+			} else {
+				singleFileNquad, err = common.Skolemization(nq)
+				if err != nil {
+					log.Errorf("Skolemization error: %s", err)
+					errChan <- err
+					return
+				}
+			}
 
-		// Write directly to the pipe
-		_, err = w.Write([]byte(csnq))
-		if err != nil {
-			return err
-		}
+			graphURN, err := common.MakeURN(obj.Key)
+			if err != nil {
+				errChan <- err
+				return
+			}
+
+			csnq, err := common.NtToNq(singleFileNquad, graphURN)
+			if err != nil {
+				errChan <- err
+				return
+			}
+
+			// Send to channel for concurrent streaming
+			nqChan <- csnq
+		}(object)
+	}
+
+	// Wait for all goroutines to complete
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
+
+	// Return the first error encountered
+	if err := <-errChan; err != nil {
+		return err
 	}
 
 	return nil

@@ -161,45 +161,6 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefix s
 	return nil
 }
 
-// Generate a static file nq release and backup the old one
-// this is accomplished by getting objects, converting them to nq
-// and writing them to a pipe. This pipe is simultaneously read
-// and written to the minio client so we don't block on either end
-func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
-	release_nq_name, err := makeReleaseNqName(prefix)
-	if err != nil {
-		return err
-	}
-
-	// Create an io.Pipe to stream data
-	pr, pw := io.Pipe()
-
-	// Start streaming NQ data into the pipe
-	go func() {
-		err := synchronizer.streamNqFromPrefix(prefix, pw)
-		pw.CloseWithError(err) // Ensure errors propagate to the reader
-	}()
-
-	nqReleasePath := fmt.Sprintf("graphs/latest/%s", release_nq_name)
-	objInfo, err := synchronizer.S3Client.Client.PutObject(
-		context.Background(),
-		synchronizer.syncBucketName,
-		nqReleasePath,
-		pr,
-		-1, // Unknown size for streaming
-		minio.PutObjectOptions{},
-	)
-	if err != nil {
-		return err
-	}
-	if objInfo.Size == 0 {
-		return errors.New("empty nq file when uploading to s3")
-	}
-	log.Infof("Successfully uploaded N-Quads to %s (%d bytes)", nqReleasePath, objInfo.Size)
-
-	return nil
-}
-
 // Loads a single stored release graph into the graph database
 func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 string) error {
 
@@ -247,5 +208,71 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 	}
 
 	log.Infof("Successfully uploaded N-Quads to %s (%d bytes)", url, len(byt))
+	return nil
+}
+
+// Generate an nq file from all objects in s3 with a specific prefix
+// this is accomplished by streaming the conversion of nq and uploading
+// to minio concurrently. We used a buffered channel to limit the
+// concurrency of the conversion process
+func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
+	releaseNqName, err := makeReleaseNqName(prefix)
+	if err != nil {
+		return err
+	}
+
+	// Create a channel to stream processed N-Quads
+	nqChan := make(chan string, 30) // Buffered channel for limiting concurrency
+	errChan := make(chan error, 1)
+
+	// Start processing NQ data concurrently
+	go func() {
+		defer close(nqChan)
+		errChan <- synchronizer.streamNqFromPrefix(prefix, nqChan)
+	}()
+
+	pr, pw := io.Pipe()
+
+	// Concurrently upload data to S3 while receiving from the channel
+	// if there is an error in the processing goroutine
+	// we will close the pipe with an error and exit
+	go func() {
+
+		// once the nqChan is closed we can close the pipe
+		// since there is nothing more to write
+		defer pw.Close()
+
+		for nq := range nqChan {
+			_, err := pw.Write([]byte(nq))
+			if err != nil {
+				pw.CloseWithError(err)
+				return
+			}
+		}
+	}()
+
+	// stream the nq data to s3
+	objInfo, err := synchronizer.S3Client.Client.PutObject(
+		context.Background(),
+		synchronizer.syncBucketName,
+		fmt.Sprintf("graphs/latest/%s", releaseNqName),
+		pr,
+		-1, // Unknown size; used for streaming
+		minio.PutObjectOptions{},
+	)
+	if err != nil {
+		return err
+	}
+	if objInfo.Size == 0 {
+		return errors.New("empty nq file when uploading to s3")
+	}
+
+	// Check for errors from the processing goroutine
+	if err := <-errChan; err != nil {
+		return err
+	}
+
+	log.Infof("Successfully uploaded N-Quads to %s (%d bytes)", objInfo.Key, objInfo.Size)
+
 	return nil
 }

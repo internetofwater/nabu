@@ -296,6 +296,10 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 	require.NoError(t, err)
 	require.Equal(t, objs, 1)
 
+	summonedContent, err := suite.client.S3Client.GetObjectAsBytes(summonedPath)
+	require.NoError(t, err)
+	require.Contains(t, string(summonedContent), "<https://schema.org/subjectOf>")
+
 	err = suite.client.UploadNqFileToTriplestore(orgsPath)
 	require.NoError(t, err)
 }
