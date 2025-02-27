@@ -288,7 +288,7 @@ func (suite *S3ClientSuite) TestGetObjectAsNamedGraph() {
 	// get the data in testObj2 and make sure it is the same as testObj
 	proc, opt, err := common.NewJsonldProcessor(false, nil)
 	require.NoError(t, err)
-	object, err := suite.minioContainer.ClientWrapper.GetObjectAsNamedGraph("testFiles/hu02.jsonld", proc, opt)
+	object, err := suite.minioContainer.ClientWrapper.GetObjectAndConvertToGraph("testFiles/hu02.jsonld", proc, opt)
 	require.NoError(t, err)
 	require.Contains(t, object.Triples, "<http://schema.org/DataDownload>")
 	require.Contains(t, object.Triples, "http://schema.org/address")
