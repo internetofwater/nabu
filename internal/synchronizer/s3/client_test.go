@@ -281,7 +281,10 @@ func (suite *S3ClientSuite) TestGetObjectAsNamedGraph() {
 	testfile := filepath.Join("testdata", "hu02.jsonld")
 	err := suite.minioContainer.ClientWrapper.UploadFile("testFiles/hu02.jsonld", testfile)
 	require.NoError(t, err)
-	defer suite.minioContainer.ClientWrapper.Remove("testFiles/hu02.jsonld")
+	defer func() {
+		err = suite.minioContainer.ClientWrapper.Remove("testFiles/hu02.jsonld")
+		require.NoError(t, err)
+	}()
 	// get the data in testObj2 and make sure it is the same as testObj
 	proc, opt, err := common.NewJsonldProcessor(false, nil)
 	require.NoError(t, err)

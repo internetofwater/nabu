@@ -129,9 +129,10 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(s3Prefixes []strin
 		log.WithFields(log.Fields{"prefix": prefix, "graph items": len(graphsInTriplestore), "object items": len(s3ObjGraphNames), "difference": len(triplestoreGraphsNotInS3),
 			"missing": len(s3GraphsNotInTriplestore)}).Info("Nabu sync")
 
-		// All triplestore graphs not in s3 should be removed since s3 is the source of truth
+		// Don't send a post if there are no graphs to add
 		if len(triplestoreGraphsNotInS3) > 0 {
 			log.Infof("Dropping %d graphs from triplestore", len(triplestoreGraphsNotInS3))
+			// All triplestore graphs not in s3 should be removed since s3 is the source of truth
 			if err := synchronizer.GraphClient.DropGraphs(triplestoreGraphsNotInS3); err != nil {
 				log.Errorf("Drop graph issue: %v\n", err)
 				return err
@@ -139,24 +140,30 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(s3Prefixes []strin
 		}
 
 		var errorGroup errgroup.Group
-		errorGroup.SetLimit(40)
+
+		graphsToInsert := make([]common.NamedGraph, len(s3GraphsNotInTriplestore))
 
 		log.Infof("Upserting %d objects from S3 to triplestore", len(s3GraphsNotInTriplestore))
-		for _, graphUrnName := range s3GraphsNotInTriplestore {
+		for i, graphUrnName := range s3GraphsNotInTriplestore {
 			graphObjectName := s3UrnToAssociatedObjName[graphUrnName]
-
-			// loop variable shadowing for goroutine
-			graphObjectNameCopy := graphObjectName
+			i := i                                 // Capture loop variable
+			graphObjectNameCopy := graphObjectName // Capture loop variable
 
 			errorGroup.Go(func() error {
 				namedGraph, err := synchronizer.S3Client.GetObjectAsNamedGraph(graphObjectNameCopy, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 				if err != nil {
 					return err
 				}
-				return synchronizer.GraphClient.InsertNamedGraphs([]common.NamedGraph{namedGraph})
+				// by placing the named graph in the slice we can
+				// append without needing to use a mutex
+				graphsToInsert[i] = namedGraph
+				return nil
 			})
 		}
 		if err := errorGroup.Wait(); err != nil {
+			return err
+		}
+		if err := synchronizer.GraphClient.InsertNamedGraphs(graphsToInsert); err != nil {
 			return err
 		}
 	}
@@ -164,125 +171,41 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(s3Prefixes []strin
 	return nil
 }
 
-// Put data into the triplestore, associated with a graph
-// If the graph already exists, it will be dropped first to prevent duplications
-// THe upload process is chunking to prevent loading super large nq files all at once
-//
-// Takes in the raw bytes which represent rdf data and the associated
-// named triplestore.
-// objectName should be a full path to the object in the s3 bucket and end with the filename with the proper extension
-// func (synchronizer *SynchronizerClient) upsertNamedGraphs(rawJsonldOrNqBytes []byte, objectName string) error {
-
-// graphResourceIdentifier, err := common.MakeURN(objectName)
-// if err != nil {
-// 	return err
-// }
-
-// var nTriples string
-
-// if strings.HasSuffix(objectName, ".jsonld") {
-// 	nTriples, err = common.JsonldToNQ(string(rawJsonldOrNqBytes), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
-// 	if err != nil {
-// 		log.Errorf("JSONLD to NQ conversion error: %s", err)
-// 		return err
-// 	}
-// } else if strings.HasSuffix(objectName, ".nq") {
-// 	nTriples, _, err = common.QuadsToTripleWithCtx(string(rawJsonldOrNqBytes))
-// 	if err != nil {
-// 		return fmt.Errorf("nq to NTCtx error: %s when converting object %s with data %s", err, objectName, string(rawJsonldOrNqBytes))
-// 	}
-// } else {
-// 	return fmt.Errorf("object %s is not a jsonld or nq file", objectName)
-// }
-
-// 	// If the graph is a quad already..   we need to make it triples
-// 	// so we can load with "our" context.
-// 	// Note: We are tossing source prov for out prov
-
-// 	// TODO if array is too large, need to split it and load parts
-// 	// Let's declare 10k lines the largest we want to send in.
-
-// 	const maxSizeBeforeSplit = 10000
-
-// 	tripleScanner := bufio.NewScanner(strings.NewReader(nTriples))
-// 	lineCount := 0
-// 	tripleArray := []string{}
-
-// 	var errorGroup errgroup.Group
-
-// 	for tripleScanner.Scan() {
-
-// 		lineCount = lineCount + 1
-// 		tripleArray = append(tripleArray, tripleScanner.Text())
-// 		if lineCount == maxSizeBeforeSplit { // use line count, since byte len might break inside a triple statement..   it's an OK proxy
-// 			errorGroup.Go(func() error {
-// 				log.Debugf("Loading subgraph of %d lines", len(tripleArray))
-// 				err := synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphResourceIdentifier) // convert []string to strings joined with new line to form a RDF NT set
-// 				if err != nil {
-// 					log.Errorf("Error uploading subgraph: %s", err)
-// 					return err
-// 				}
-// 				return nil
-// 			})
-// 			tripleArray = []string{}
-// 			lineCount = 0
-// 		}
-// 	}
-// 	// We previously used a scanner which splits triples into multiple lines
-// 	// If there are triples left over after finishing that loop, we still need to load
-// 	// them in even if the total amount remaining is less than our max threshold for loading
-// 	if len(tripleArray) > 0 {
-// 		// log.Debugf("Finished reading scanner; Inserting left over subgraph of %d lines", len(tripleArray))
-// 		err = synchronizer.GraphClient.InsertWithNamedGraph(strings.Join(tripleArray, "\n"), graphResourceIdentifier) // convert []string to strings joined with new line to form a RDF NT set
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-
-// 	// log.Debug("Waiting for subgraph load goroutines to finish")
-// 	if err := errorGroup.Wait(); err != nil {
-// 		return err
-// 	}
-
-// 	// log.Debugf("Finished loading graph %s", graphResourceIdentifier)
-
-// 	return nil
-// }
-
 // Gets all graphs in s3 with a specific prefix and loads them into the triplestore
 func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefixes []string) error {
 
 	for _, prefix := range prefixes {
-		objKeys := []string{}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		objectCh := synchronizer.S3Client.Client.ListObjects(ctx, synchronizer.syncBucketName, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
-
-		for object := range objectCh {
-			if object.Err != nil {
-				log.Error(object.Err)
-				return object.Err
-			}
-			objKeys = append(objKeys, object.Key)
+		objKeys, err := synchronizer.S3Client.ObjectList(prefix)
+		if err != nil {
+			log.Error(err)
+			return err
 		}
 
 		log.Infof("%d objects found for prefix: %s:%s", len(objKeys), synchronizer.syncBucketName, prefix)
 
 		var errorGroup errgroup.Group
 
-		for _, graphName := range objKeys {
-			graphNameCopy := graphName // Capture loop variable
+		graphsToInsert := make([]common.NamedGraph, len(objKeys))
+
+		for i, graphName := range objKeys {
+			graphName := graphName // Capture loop variable
+			i := i
 			errorGroup.Go(func() error {
-				namedGraph, err := synchronizer.S3Client.GetObjectAsNamedGraph(graphNameCopy, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+				namedGraph, err := synchronizer.S3Client.GetObjectAsNamedGraph(graphName.Key, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 				if err != nil {
 					return err
 				}
-				return synchronizer.GraphClient.InsertNamedGraphs([]common.NamedGraph{namedGraph})
+				// by placing the named graph in the slice we can
+				// append without needing to use a mutex
+				graphsToInsert[i] = namedGraph
+				return nil
 			})
 		}
-
 		if err := errorGroup.Wait(); err != nil {
+			return err
+		}
+		if err := synchronizer.GraphClient.InsertNamedGraphs(graphsToInsert); err != nil {
 			return err
 		}
 	}
