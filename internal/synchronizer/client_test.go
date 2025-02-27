@@ -284,12 +284,19 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 
 	err = suite.client.GenerateNqRelease("orgs/cdss0")
 	require.NoError(t, err)
-	const nqPath = "graphs/latest/cdss0_organizations.nq"
-	objs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{nqPath})
+	const orgsPath = "graphs/latest/cdss0_organizations.nq"
+	objs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{orgsPath})
 	require.NoError(t, err)
 	require.Equal(t, objs, 1)
 
-	err = suite.client.UploadNqFileToTriplestore(nqPath)
+	err = suite.client.GenerateNqRelease("summoned/cdss0")
+	require.NoError(t, err)
+	const summonedPath = "graphs/latest/cdss0_release.nq"
+	objs, err = suite.client.S3Client.NumberOfMatchingObjects([]string{summonedPath})
+	require.NoError(t, err)
+	require.Equal(t, objs, 1)
+
+	err = suite.client.UploadNqFileToTriplestore(orgsPath)
 	require.NoError(t, err)
 }
 

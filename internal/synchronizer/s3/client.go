@@ -176,13 +176,13 @@ func (m *MinioClientWrapper) GetObjectAsBytes(objectName string) ([]byte, error)
 }
 
 /*
-GetObjectAsNamedGraph returns a NamedGraph from the object in the bucket
+GetObjectAndConvertToGraph returns a NamedGraph from the object in the bucket
 the graphname will be the urn representation of the object name
 
 1. nq files are converted are converted to triples and the graph name is set to the urn of the object name
 2. jsonld files are converted to nq with the graph name set to the urn of the object name
 */
-func (m *MinioClientWrapper) GetObjectAsNamedGraph(objectName string, jsonldProcessor *ld.JsonLdProcessor, jsonldOptions *ld.JsonLdOptions) (common.NamedGraph, error) {
+func (m *MinioClientWrapper) GetObjectAndConvertToGraph(objectName string, jsonldProcessor *ld.JsonLdProcessor, jsonldOptions *ld.JsonLdOptions) (common.NamedGraph, error) {
 	objBytes, err := m.GetObjectAsBytes(objectName)
 	if err != nil {
 		return common.NamedGraph{}, err

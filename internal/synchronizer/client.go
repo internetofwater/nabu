@@ -11,8 +11,6 @@ import (
 	"nabu/internal/synchronizer/triplestore"
 	"nabu/pkg/config"
 	"net/http"
-	"path"
-	"slices"
 	"strings"
 	"sync"
 
@@ -72,89 +70,6 @@ type GraphDiff struct {
 	s3UrnToAssociatedObjName map[string]string
 }
 
-// Return the difference in graphs between the triplestore and s3 based on the prefix
-// i.e. summoned/counties0 will check urn:iow:summoned:counties0 when comparing between the two
-//
-// This function runs two goroutines to fetch the triplestore and s3 data in parallel
-func (synchronizer *SynchronizerClient) getGraphDiff(prefix string) (GraphDiff, error) {
-	var (
-		objectNamesInS3     []minio.ObjectInfo
-		graphsInTriplestore []string
-		wg                  sync.WaitGroup
-	)
-
-	// Using channels to fetch data in parallel
-	objChan := make(chan []minio.ObjectInfo, 1)
-	graphChan := make(chan []string, 1)
-	errChan := make(chan error, 2)
-
-	wg.Add(2)
-
-	// Fetch object names from S3 in parallel
-	go func() {
-		defer wg.Done()
-		objs, err := synchronizer.S3Client.ObjectList(prefix)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		objChan <- objs
-	}()
-
-	// Fetch named graphs from triplestore in parallel
-	go func() {
-		defer wg.Done()
-		graphs, err := synchronizer.GraphClient.NamedGraphsAssociatedWithS3Prefix(prefix)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		graphChan <- graphs
-	}()
-
-	// Wait for both goroutines to finish
-	wg.Wait()
-	close(objChan)
-	close(graphChan)
-	close(errChan)
-
-	// Collect results
-	for err := range errChan {
-		if err != nil {
-			log.Println(err)
-			return GraphDiff{}, err
-		}
-	}
-
-	if objs, ok := <-objChan; ok {
-		objectNamesInS3 = objs
-	}
-	if graphs, ok := <-graphChan; ok {
-		graphsInTriplestore = graphs
-	}
-
-	// Convert object names to the URN pattern used in the graph
-	s3UrnToAssociatedObjName := make(map[string]string)
-	var s3ObjGraphNames []string
-	for _, objectName := range objectNamesInS3 {
-		s3ObjUrn, err := common.MakeURN(objectName.Key)
-		if err != nil {
-			return GraphDiff{}, err
-		}
-		s3UrnToAssociatedObjName[s3ObjUrn] = objectName.Key
-		s3ObjGraphNames = append(s3ObjGraphNames, s3ObjUrn)
-	}
-
-	triplestoreGraphsNotInS3 := findMissing(graphsInTriplestore, s3ObjGraphNames)
-	s3GraphsNotInTriplestore := findMissing(s3ObjGraphNames, graphsInTriplestore)
-
-	return GraphDiff{
-		TriplestoreGraphsNotInS3: triplestoreGraphsNotInS3,
-		S3GraphsNotInTriplestore: s3GraphsNotInTriplestore,
-		s3UrnToAssociatedObjName: s3UrnToAssociatedObjName,
-	}, nil
-}
-
 // Get rid of graphs with specific prefix in the triplestore that are not in the object store
 // Drops are determined by mapping a prefix to the associated URN
 func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string) error {
@@ -186,7 +101,7 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string) err
 		i := i // Capture loop variable
 
 		errorGroup.Go(func() error {
-			namedGraph, err := synchronizer.S3Client.GetObjectAsNamedGraph(graphNameInS3, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+			namedGraph, err := synchronizer.S3Client.GetObjectAndConvertToGraph(graphNameInS3, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 			if err != nil {
 				return err
 			}
@@ -226,7 +141,7 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefix s
 		graphName := graphName // Capture loop variable
 		i := i
 		errorGroup.Go(func() error {
-			namedGraph, err := synchronizer.S3Client.GetObjectAsNamedGraph(graphName.Key, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+			namedGraph, err := synchronizer.S3Client.GetObjectAndConvertToGraph(graphName.Key, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 			if err != nil {
 				return err
 			}
@@ -246,19 +161,28 @@ func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefix s
 	return nil
 }
 
-// writes a new object based on an prefix, this function assumes the objects are valid when concatenated
-func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName, srcPrefix, destPrefix string) error {
+// Generate a static file nq release and backup the old one
+// this is accomplished by getting objects, converting them to nq
+// and writing them to a pipe. This pipe is simultaneously read
+// and written to the minio client so we don't block on either end
+func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
 
-	pipeReader, pipeWriter := io.Pipe()       // TeeReader of use?
-	pipeTransferWorkGroup := sync.WaitGroup{} // work group for the pipe writes...
+	release_nq_name, err := makeReleaseNqName(prefix)
+	if err != nil {
+		return err
+	}
+
+	pipeReader, pipeWriter := io.Pipe()
+	pipeTransferWorkGroup := sync.WaitGroup{} // work group for the pipe writes
 	pipeTransferWorkGroup.Add(2)              // We add 2 since there is a write to the pipe and a read from the pipe
 
 	errChan := make(chan error, 2)
 
+	const nqOutputPathInS3 = "graphs/latest"
 	// Write the nq files to the pipe
 	go func() {
 		defer pipeTransferWorkGroup.Done()
-		err := getObjectsAndWriteToPipeAsNq(synchronizer, destPrefix, pipeWriter)
+		err := synchronizer.getObjAndStreamNqConversion(nqOutputPathInS3, pipeWriter)
 		if err != nil {
 			log.Error(err)
 			errChan <- err
@@ -269,7 +193,8 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 	// read the nq files from the pipe and copy them to minio
 	go func() {
 		defer pipeTransferWorkGroup.Done()
-		_, err := synchronizer.S3Client.Client.PutObject(context.Background(), synchronizer.syncBucketName, fmt.Sprintf("%s/%s", destPrefix, objectName), pipeReader, -1, minio.PutObjectOptions{})
+		fullReleasePath := fmt.Sprintf("%s/%s", nqOutputPathInS3, release_nq_name)
+		_, err := synchronizer.S3Client.Client.PutObject(context.Background(), synchronizer.syncBucketName, fullReleasePath, pipeReader, -1, minio.PutObjectOptions{})
 		if err != nil {
 			log.Error(err)
 			errChan <- err
@@ -278,12 +203,10 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 	}()
 
 	pipeTransferWorkGroup.Wait()
-	err := pipeWriter.Close()
-	if err != nil {
+	if err := pipeWriter.Close(); err != nil {
 		return err
 	}
-	err = pipeReader.Close()
-	if err != nil {
+	if err := pipeReader.Close(); err != nil {
 		return err
 	}
 
@@ -294,41 +217,6 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 		if val != nil {
 			return val
 		}
-	}
-
-	return nil
-}
-
-// Generate a static file nq release and backup the old one
-func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
-
-	prefix_parts := strings.Split(prefix, "/")
-	if len(prefix_parts) < 1 {
-		return fmt.Errorf("prefix %s did not contain a slash and thus is ambiguous", prefix)
-	}
-	// i.e. summoned/counties0 would become counties0
-	prefix_path_as_filename := getTextBeforeDot(path.Base(strings.Join(prefix_parts[1:], "_")))
-
-	var name_latest string
-
-	if slices.Contains(prefix_parts, "summoned") && prefix_path_as_filename != "" {
-		name_latest = fmt.Sprintf("%s_release.nq", prefix_path_as_filename) // ex: counties0_release.nq
-	} else if slices.Contains(prefix_parts, "prov") && prefix_path_as_filename != "" {
-		name_latest = fmt.Sprintf("%s_prov.nq", prefix_path_as_filename) // ex: counties0_prov.nq
-	} else if slices.Contains(prefix_parts, "orgs") {
-		if prefix_path_as_filename == "" {
-			name_latest = "organizations.nq"
-		} else {
-			name_latest = fmt.Sprintf("%s_organizations.nq", prefix_path_as_filename)
-		}
-	} else {
-		return fmt.Errorf("unable to form a release graph name from prefix %s", prefix)
-	}
-
-	// Make a release graph that will be stored in graphs/latest as {provider}_release.nq
-	err := synchronizer.CopyBetweenS3PrefixesWithPipe(name_latest, prefix, "graphs/latest") // have this function return the object name and path, easy to load and remove then
-	if err != nil {
-		return err
 	}
 
 	return nil
