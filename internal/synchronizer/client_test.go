@@ -256,7 +256,7 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 	require.NoError(t, err)
 	require.Zero(t, gleanerContainer.ExitCode, gleanerContainer.Logs)
 
-	err = suite.client.GenerateNqRelease([]string{"orgs/cdss0"})
+	err = suite.client.GenerateNqRelease("orgs/cdss0")
 	require.NoError(t, err)
 	const nqPath = "graphs/latest/cdss0_organizations.nq"
 	objs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{nqPath})

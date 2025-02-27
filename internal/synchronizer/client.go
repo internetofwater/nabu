@@ -353,38 +353,35 @@ func (synchronizer *SynchronizerClient) CopyBetweenS3PrefixesWithPipe(objectName
 }
 
 // Generate a static file nq release and backup the old one
-func (synchronizer *SynchronizerClient) GenerateNqRelease(prefixes []string) error {
+func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
 
-	for _, prefix := range prefixes {
-		prefix_parts := strings.Split(prefix, "/")
-		if len(prefix_parts) < 1 {
-			return fmt.Errorf("prefix %s did not contain a slash and thus is ambiguous", prefix)
-		}
-		// i.e. summoned/counties0 would become counties0
-		prefix_path_as_filename := getTextBeforeDot(path.Base(strings.Join(prefix_parts[1:], "_")))
+	prefix_parts := strings.Split(prefix, "/")
+	if len(prefix_parts) < 1 {
+		return fmt.Errorf("prefix %s did not contain a slash and thus is ambiguous", prefix)
+	}
+	// i.e. summoned/counties0 would become counties0
+	prefix_path_as_filename := getTextBeforeDot(path.Base(strings.Join(prefix_parts[1:], "_")))
 
-		var name_latest string
+	var name_latest string
 
-		if slices.Contains(prefix_parts, "summoned") && prefix_path_as_filename != "" {
-			name_latest = fmt.Sprintf("%s_release.nq", prefix_path_as_filename) // ex: counties0_release.nq
-		} else if slices.Contains(prefix_parts, "prov") && prefix_path_as_filename != "" {
-			name_latest = fmt.Sprintf("%s_prov.nq", prefix_path_as_filename) // ex: counties0_prov.nq
-		} else if slices.Contains(prefix_parts, "orgs") {
-			if prefix_path_as_filename == "" {
-				name_latest = "organizations.nq"
-			} else {
-				name_latest = fmt.Sprintf("%s_organizations.nq", prefix_path_as_filename)
-			}
+	if slices.Contains(prefix_parts, "summoned") && prefix_path_as_filename != "" {
+		name_latest = fmt.Sprintf("%s_release.nq", prefix_path_as_filename) // ex: counties0_release.nq
+	} else if slices.Contains(prefix_parts, "prov") && prefix_path_as_filename != "" {
+		name_latest = fmt.Sprintf("%s_prov.nq", prefix_path_as_filename) // ex: counties0_prov.nq
+	} else if slices.Contains(prefix_parts, "orgs") {
+		if prefix_path_as_filename == "" {
+			name_latest = "organizations.nq"
 		} else {
-			return fmt.Errorf("unable to form a release graph name from prefix %s", prefix)
+			name_latest = fmt.Sprintf("%s_organizations.nq", prefix_path_as_filename)
 		}
+	} else {
+		return fmt.Errorf("unable to form a release graph name from prefix %s", prefix)
+	}
 
-		// Make a release graph that will be stored in graphs/latest as {provider}_release.nq
-		err := synchronizer.CopyBetweenS3PrefixesWithPipe(name_latest, prefix, "graphs/latest") // have this function return the object name and path, easy to load and remove then
-		if err != nil {
-			return err
-		}
-
+	// Make a release graph that will be stored in graphs/latest as {provider}_release.nq
+	err := synchronizer.CopyBetweenS3PrefixesWithPipe(name_latest, prefix, "graphs/latest") // have this function return the object name and path, easy to load and remove then
+	if err != nil {
+		return err
 	}
 
 	return nil
