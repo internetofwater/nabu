@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"nabu/internal/common"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
 	testhelpers "nabu/testHelpers"
@@ -159,7 +160,12 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	data := `
 	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .
 	<http://example.org/resource/2> <http://example.org/property/name> "Bob" .`
-	err = suite.graphdbContainer.Client.InsertWithNamedGraph(data, oldGraph)
+	err = suite.graphdbContainer.Client.InsertNamedGraphs([]common.NamedGraph{
+		{
+			GraphURI: oldGraph,
+			Triples:  data,
+		},
+	})
 	require.NoError(t, err)
 	exists, err := suite.graphdbContainer.Client.GraphExists(oldGraph)
 	require.NoError(t, err)

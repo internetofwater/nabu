@@ -1,6 +1,7 @@
 package triplestore
 
 import (
+	"nabu/internal/common"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -40,7 +41,7 @@ func (suite *GraphDbClientSuite) TestInsert() {
 `
 	t := suite.T()
 
-	err := suite.graphdb.Client.InsertWithNamedGraph(data, graph)
+	err := suite.graphdb.Client.InsertNamedGraphs([]common.NamedGraph{{GraphURI: graph, Triples: data}})
 	require.NoError(t, err)
 
 	graphExists, err := suite.graphdb.Client.GraphExists(graph)
@@ -50,7 +51,7 @@ func (suite *GraphDbClientSuite) TestInsert() {
 	bad_data := `
 	<http://example.org/resource/1> .`
 
-	err = suite.graphdb.Client.InsertWithNamedGraph(bad_data, graph)
+	err = suite.graphdb.Client.InsertNamedGraphs([]common.NamedGraph{{GraphURI: graph, Triples: bad_data}})
 	require.Error(t, err)
 
 }
@@ -64,7 +65,7 @@ func (suite *GraphDbClientSuite) TestDropGraphs() {
 	data := `
 	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .`
 
-	err := suite.graphdb.Client.InsertWithNamedGraph(data, graph1)
+	err := suite.graphdb.Client.InsertNamedGraphs([]common.NamedGraph{{GraphURI: graph1, Triples: data}})
 	require.NoError(t, err)
 
 	graphExists, err := suite.graphdb.Client.GraphExists(graph1)
@@ -72,7 +73,7 @@ func (suite *GraphDbClientSuite) TestDropGraphs() {
 	require.True(t, graphExists)
 
 	graph2 := "http://example.org/graph/test2"
-	err = suite.graphdb.Client.InsertWithNamedGraph(data, graph2)
+	err = suite.graphdb.Client.InsertNamedGraphs([]common.NamedGraph{{GraphURI: graph2, Triples: data}})
 	require.NoError(t, err)
 	graphExists, err = suite.graphdb.Client.GraphExists(graph2)
 	require.NoError(t, err)

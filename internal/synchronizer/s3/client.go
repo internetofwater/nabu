@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"nabu/internal/common"
 	"nabu/pkg/config"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -64,7 +67,6 @@ func (m *MinioClientWrapper) Remove(object string) error {
 	opts := minio.RemoveObjectOptions{
 		GovernanceBypass: true,
 	}
-
 
 	err := m.Client.RemoveObject(context.Background(), m.DefaultBucket, object, opts)
 	if err != nil {
@@ -173,6 +175,43 @@ func (m *MinioClientWrapper) GetObjectAsBytes(objectName string) ([]byte, error)
 	return buf, nil
 }
 
+/*
+GetObjectAsNamedGraph returns a NamedGraph from the object in the bucket
+the graphname will be the urn representation of the object name
+
+1. nq files are converted are converted to triples and the graph name is set to the urn of the object name
+2. jsonld files are converted to nq with the graph name set to the urn of the object name
+*/
+func (m *MinioClientWrapper) GetObjectAsNamedGraph(objectName string, jsonldProcessor *ld.JsonLdProcessor, jsonldOptions *ld.JsonLdOptions) (common.NamedGraph, error) {
+	objBytes, err := m.GetObjectAsBytes(objectName)
+	if err != nil {
+		return common.NamedGraph{}, err
+	}
+
+	graphResourceIdentifier, err := common.MakeURN(objectName)
+	if err != nil {
+		return common.NamedGraph{}, err
+	}
+
+	if strings.HasSuffix(objectName, ".jsonld") {
+		nTriples, err := common.JsonldToNQ(string(objBytes), jsonldProcessor, jsonldOptions)
+		if err != nil {
+			log.Errorf("JSONLD to NQ conversion error: %s", err)
+			return common.NamedGraph{}, err
+		}
+		return common.NamedGraph{GraphURI: graphResourceIdentifier, Triples: nTriples}, nil
+	} else if strings.HasSuffix(objectName, ".nq") {
+		graph, err := common.QuadsToTripleWithCtx(string(objBytes))
+		if err != nil {
+			return common.NamedGraph{}, fmt.Errorf("nq to NTCtx error: %s when converting object %s with data %s", err, objectName, string(objBytes))
+		}
+		return common.NamedGraph{GraphURI: graphResourceIdentifier, Triples: graph.Triples}, nil
+	} else {
+		return common.NamedGraph{}, fmt.Errorf("object %s is not a jsonld or nq file and thus cannot be converted to a named graph", objectName)
+	}
+}
+
+// Upload a local file to the bucket at the specified remote path
 func (m *MinioClientWrapper) UploadFile(uploadPath string, localFileName string) error {
 	file, err := os.Open(localFileName)
 	if err != nil {
