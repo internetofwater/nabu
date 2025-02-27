@@ -81,52 +81,9 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 	return client, nil
 }
 
-// Get rid of graphs with specific prefix in the triplestore that are not in the object store
-// Drops are determined by mapping a prefix to the associated URN
-func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string) error {
+func (synchronizer *SynchronizerClient) removeOrphanGraphs(triplestoreGraphsNotInS3 []string) error {
 
-	// collect the objects associated with the source
-	objectNamesInS3, err := synchronizer.S3Client.ObjectList(prefix)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// collect the named graphs from graph associated with the source
-	graphsInTriplestore, err := synchronizer.GraphClient.NamedGraphsAssociatedWithS3Prefix(prefix)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// convert the object names to the URN pattern used in the graph
-	// and make a map where key = URN, value = object name
-	// NOTE:  since later we want to look up the object based the URN
-	// we will do it this way since mapswnat you to know a key, not a value, when
-	// querying them.
-	// This is OK since all KV pairs involve unique keys and unique values
-	var s3UrnToAssociatedObjName = map[string]string{}
-	// create a list of just the names so we can diff against it
-	var s3ObjGraphNames []string
-	for _, objectName := range objectNamesInS3 {
-		s3ObjUrn, err := common.MakeURN(objectName.Key)
-		if err != nil {
-			return err
-		}
-		s3UrnToAssociatedObjName[s3ObjUrn] = objectName.Key // key (URN)= value (object prefixpath)
-		s3ObjGraphNames = append(s3ObjGraphNames, s3ObjUrn)
-	}
-
-	triplestoreGraphsNotInS3 := findMissing(graphsInTriplestore, s3ObjGraphNames)
-	s3GraphsNotInTriplestore := findMissing(s3ObjGraphNames, graphsInTriplestore)
-
-	log.Infof("Current graph items: %d  Curent object items: %d\n", len(graphsInTriplestore), len(s3ObjGraphNames))
 	log.Infof("Orphaned items to remove: %d\n", len(triplestoreGraphsNotInS3))
-	log.Infof("Missing items to add: %d\n", len(s3GraphsNotInTriplestore))
-
-	log.WithFields(log.Fields{"prefix": prefix, "graph items": len(graphsInTriplestore), "object items": len(s3ObjGraphNames), "difference": len(triplestoreGraphsNotInS3),
-		"missing": len(s3GraphsNotInTriplestore)}).Info("Nabu sync")
-
 	// Don't send a drop request if there are no graphs to remove
 	if len(triplestoreGraphsNotInS3) > 0 {
 		log.Infof("Dropping %d graphs from triplestore", len(triplestoreGraphsNotInS3))
@@ -136,19 +93,128 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string) err
 			return err
 		}
 	}
+	return nil
+}
+
+// Struct holding the differences between the triplestore and s3
+// and a mapping of URN to object name so we can load the graphs
+// based on this diff info
+type GraphDiff struct {
+	TriplestoreGraphsNotInS3 []string
+	S3GraphsNotInTriplestore []string
+	s3UrnToAssociatedObjName map[string]string
+}
+
+// Return the difference in graphs between the triplestore and s3 based on the prefix
+// i.e. summoned/counties0 will check urn:iow:summoned:counties0 when comparing between the two
+//
+// This function runs two goroutines to fetch the triplestore and s3 data in parallel
+func (synchronizer *SynchronizerClient) getGraphDiff(prefix string) (GraphDiff, error) {
+	var (
+		objectNamesInS3     []minio.ObjectInfo
+		graphsInTriplestore []string
+		wg                  sync.WaitGroup
+	)
+
+	// Using channels to fetch data in parallel
+	objChan := make(chan []minio.ObjectInfo, 1)
+	graphChan := make(chan []string, 1)
+	errChan := make(chan error, 2)
+
+	wg.Add(2)
+
+	// Fetch object names from S3 in parallel
+	go func() {
+		defer wg.Done()
+		objs, err := synchronizer.S3Client.ObjectList(prefix)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		objChan <- objs
+	}()
+
+	// Fetch named graphs from triplestore in parallel
+	go func() {
+		defer wg.Done()
+		graphs, err := synchronizer.GraphClient.NamedGraphsAssociatedWithS3Prefix(prefix)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		graphChan <- graphs
+	}()
+
+	// Wait for both goroutines to finish
+	wg.Wait()
+	close(objChan)
+	close(graphChan)
+	close(errChan)
+
+	// Collect results
+	for err := range errChan {
+		if err != nil {
+			log.Println(err)
+			return GraphDiff{}, err
+		}
+	}
+
+	if objs, ok := <-objChan; ok {
+		objectNamesInS3 = objs
+	}
+	if graphs, ok := <-graphChan; ok {
+		graphsInTriplestore = graphs
+	}
+
+	// Convert object names to the URN pattern used in the graph
+	s3UrnToAssociatedObjName := make(map[string]string)
+	var s3ObjGraphNames []string
+	for _, objectName := range objectNamesInS3 {
+		s3ObjUrn, err := common.MakeURN(objectName.Key)
+		if err != nil {
+			return GraphDiff{}, err
+		}
+		s3UrnToAssociatedObjName[s3ObjUrn] = objectName.Key
+		s3ObjGraphNames = append(s3ObjGraphNames, s3ObjUrn)
+	}
+
+	triplestoreGraphsNotInS3 := findMissing(graphsInTriplestore, s3ObjGraphNames)
+	s3GraphsNotInTriplestore := findMissing(s3ObjGraphNames, graphsInTriplestore)
+
+	return GraphDiff{
+		TriplestoreGraphsNotInS3: triplestoreGraphsNotInS3,
+		S3GraphsNotInTriplestore: s3GraphsNotInTriplestore,
+		s3UrnToAssociatedObjName: s3UrnToAssociatedObjName,
+	}, nil
+}
+
+// Get rid of graphs with specific prefix in the triplestore that are not in the object store
+// Drops are determined by mapping a prefix to the associated URN
+func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string) error {
+
+	graphDiff, err := synchronizer.getGraphDiff(prefix)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	// remove orphaned graphs
+	if err := synchronizer.removeOrphanGraphs(graphDiff.TriplestoreGraphsNotInS3); err != nil {
+		log.Error(err)
+		return err
+	}
 
 	var errorGroup errgroup.Group
 
-	graphsToInsert := make([]common.NamedGraph, len(s3GraphsNotInTriplestore))
+	graphsToInsert := make([]common.NamedGraph, len(graphDiff.S3GraphsNotInTriplestore))
 
-	log.Infof("Upserting %d objects from S3 to triplestore", len(s3GraphsNotInTriplestore))
-	for i, graphUrnName := range s3GraphsNotInTriplestore {
-		graphObjectName := s3UrnToAssociatedObjName[graphUrnName]
-		i := i                                 // Capture loop variable
-		graphObjectNameCopy := graphObjectName // Capture loop variable
+	log.Infof("Upserting %d objects from S3 to triplestore", len(graphDiff.S3GraphsNotInTriplestore))
+	for i, graphUrnName := range graphDiff.S3GraphsNotInTriplestore {
+		graphNameInS3 := graphDiff.s3UrnToAssociatedObjName[graphUrnName]
+		i := i // Capture loop variable
 
 		errorGroup.Go(func() error {
-			namedGraph, err := synchronizer.S3Client.GetObjectAsNamedGraph(graphObjectNameCopy, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+			namedGraph, err := synchronizer.S3Client.GetObjectAsNamedGraph(graphNameInS3, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 			if err != nil {
 				return err
 			}
@@ -169,42 +235,39 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string) err
 }
 
 // Gets all graphs in s3 with a specific prefix and loads them into the triplestore
-func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefixes []string) error {
+func (synchronizer *SynchronizerClient) CopyAllPrefixedObjToTriplestore(prefix string) error {
 
-	for _, prefix := range prefixes {
+	objKeys, err := synchronizer.S3Client.ObjectList(prefix)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
 
-		objKeys, err := synchronizer.S3Client.ObjectList(prefix)
-		if err != nil {
-			log.Error(err)
-			return err
-		}
+	log.Infof("%d objects found for prefix: %s:%s", len(objKeys), synchronizer.syncBucketName, prefix)
 
-		log.Infof("%d objects found for prefix: %s:%s", len(objKeys), synchronizer.syncBucketName, prefix)
+	var errorGroup errgroup.Group
 
-		var errorGroup errgroup.Group
+	graphsToInsert := make([]common.NamedGraph, len(objKeys))
 
-		graphsToInsert := make([]common.NamedGraph, len(objKeys))
-
-		for i, graphName := range objKeys {
-			graphName := graphName // Capture loop variable
-			i := i
-			errorGroup.Go(func() error {
-				namedGraph, err := synchronizer.S3Client.GetObjectAsNamedGraph(graphName.Key, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
-				if err != nil {
-					return err
-				}
-				// by placing the named graph in the slice we can
-				// append without needing to use a mutex
-				graphsToInsert[i] = namedGraph
-				return nil
-			})
-		}
-		if err := errorGroup.Wait(); err != nil {
-			return err
-		}
-		if err := synchronizer.GraphClient.InsertNamedGraphs(graphsToInsert); err != nil {
-			return err
-		}
+	for i, graphName := range objKeys {
+		graphName := graphName // Capture loop variable
+		i := i
+		errorGroup.Go(func() error {
+			namedGraph, err := synchronizer.S3Client.GetObjectAsNamedGraph(graphName.Key, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+			if err != nil {
+				return err
+			}
+			// by placing the named graph in the slice we can
+			// append without needing to use a mutex
+			graphsToInsert[i] = namedGraph
+			return nil
+		})
+	}
+	if err := errorGroup.Wait(); err != nil {
+		return err
+	}
+	if err := synchronizer.GraphClient.InsertNamedGraphs(graphsToInsert); err != nil {
+		return err
 	}
 
 	return nil

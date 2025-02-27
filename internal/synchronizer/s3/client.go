@@ -83,7 +83,7 @@ func (m *MinioClientWrapper) ObjectList(prefix string) ([]minio.ObjectInfo, erro
 	var mu sync.Mutex
 	wg := sync.WaitGroup{}
 	objectInfo := []minio.ObjectInfo{}
-	semaphoreChan := make(chan struct{}, 20) // Limit to 20 concurrent goroutines so we don't overload
+	semaphoreChan := make(chan struct{}, 40) // Limit to concurrent goroutines so we don't overload
 
 	objectCh := m.Client.ListObjects(context.Background(), m.DefaultBucket,
 		minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
