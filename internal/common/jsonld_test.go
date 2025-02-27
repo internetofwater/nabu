@@ -13,7 +13,7 @@ import (
 func TestCreateNewProcessor(t *testing.T) {
 
 	t.Run("empty config returns blank processor", func(t *testing.T) {
-		_, _, err := NewJsonldProcessor(config.NabuConfig{})
+		_, _, err := NewJsonldProcessor(false, nil)
 		require.NoError(t, err)
 	})
 
@@ -23,7 +23,7 @@ func TestCreateNewProcessor(t *testing.T) {
 		require.NoError(t, err)
 		conf, err := config.ReadNabuConfig(absPath, "nabuconfig.yaml")
 		require.NoError(t, err)
-		processor, options, err := NewJsonldProcessor(conf)
+		processor, options, err := NewJsonldProcessor(conf.Context.Cache, conf.ContextMaps)
 		require.NoError(t, err)
 		loader := options.DocumentLoader
 		require.IsType(t, &ld.CachingDocumentLoader{}, loader)

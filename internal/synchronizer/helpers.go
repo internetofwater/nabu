@@ -1,6 +1,8 @@
 package synchronizer
 
-import "strings"
+import (
+	"strings"
+)
 
 // returns the elements in `a` that aren't in `b`.
 func findMissing(a, b []string) []string {

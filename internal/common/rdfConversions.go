@@ -10,6 +10,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Representation of a triple with a graph name
+// that can be inserted into a triplestore
+type NamedGraph struct {
+	GraphURI string
+	Triples  string
+}
+
 // Convert a string of N-Triples to N-Quads
 func NtToNq(nt, ctx string) (string, error) {
 	dec := rdf.NewTripleDecoder(strings.NewReader(nt), rdf.NTriples)
@@ -57,7 +64,7 @@ func makeQuad(t rdf.Triple, c string) (string, error) {
 }
 
 // Converts nquads to ntriples plus a context (graph) string
-func QuadsToTripleWithCtx(nquads string) (string, string, error) {
+func QuadsToTripleWithCtx(nquads string) (NamedGraph, error) {
 	// loop on tr and make a set of triples
 	triples := []rdf.Triple{}
 
@@ -65,12 +72,12 @@ func QuadsToTripleWithCtx(nquads string) (string, string, error) {
 	decodedQuads, err := dec.DecodeAll()
 	if err != nil {
 		log.Errorf("Error decoding quads: %v\n", err)
-		return "", "", err
+		return NamedGraph{}, err
 	}
 
 	// check we have triples
 	if len(decodedQuads) < 1 {
-		return "", "", errors.New("no triples to generate; quads were empty")
+		return NamedGraph{}, errors.New("no triples to generate; quads were empty")
 	}
 
 	for _, t := range decodedQuads {
@@ -91,7 +98,7 @@ func QuadsToTripleWithCtx(nquads string) (string, string, error) {
 	err = encoder.EncodeAll(triples)
 	if err != nil {
 		log.Errorf("Error encoding triples: %v\n", err)
-		return "", "", err
+		return NamedGraph{}, err
 	}
 	encoder.Close()
 
@@ -100,5 +107,5 @@ func QuadsToTripleWithCtx(nquads string) (string, string, error) {
 		tb.WriteString(triples[k].Serialize(rdf.NTriples))
 	}
 
-	return tb.String(), graphName, err
+	return NamedGraph{GraphURI: graphName, Triples: tb.String()}, err
 }

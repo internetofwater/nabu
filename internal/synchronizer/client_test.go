@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log"
+	"nabu/internal/common"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
 	testhelpers "nabu/testHelpers"
@@ -75,7 +76,9 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 	stopHealthCheck, err := suite.minioContainer.ClientWrapper.Client.HealthCheck(5 * time.Second)
 	require.NoError(t, err)
 	defer stopHealthCheck()
-	require.True(t, suite.minioContainer.ClientWrapper.Client.IsOnline())
+	require.Eventually(t, func() bool {
+		return suite.minioContainer.ClientWrapper.Client.IsOnline()
+	}, 10*time.Second, 500*time.Millisecond, "MinIO container did not become online in time")
 
 	err = suite.minioContainer.ClientWrapper.Client.MakeBucket(ctx, suite.minioContainer.ClientWrapper.DefaultBucket, minio.MakeBucketOptions{})
 	require.NoError(t, err)
@@ -121,13 +124,13 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 	summonedObjs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{"summoned/cdss0/"})
 	require.NoError(t, err)
 	require.Equal(t, sourcesInSitemap, summonedObjs)
-	err = suite.client.CopyAllPrefixedObjToTriplestore([]string{"orgs/"})
+	err = suite.client.CopyAllPrefixedObjToTriplestore("orgs/")
 	require.NoError(t, err)
 	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
 	require.NoError(t, err)
 	require.Len(t, graphs, 1)
 
-	err = suite.client.CopyAllPrefixedObjToTriplestore([]string{"summoned/"})
+	err = suite.client.CopyAllPrefixedObjToTriplestore("summoned/")
 	require.NoError(t, err)
 	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
 	require.NoError(t, err)
@@ -159,7 +162,12 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	data := `
 	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .
 	<http://example.org/resource/2> <http://example.org/property/name> "Bob" .`
-	err = suite.graphdbContainer.Client.InsertWithNamedGraph(data, oldGraph)
+	err = suite.graphdbContainer.Client.InsertNamedGraphs([]common.NamedGraph{
+		{
+			GraphURI: oldGraph,
+			Triples:  data,
+		},
+	})
 	require.NoError(t, err)
 	exists, err := suite.graphdbContainer.Client.GraphExists(oldGraph)
 	require.NoError(t, err)
@@ -178,7 +186,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 
 	// make sure that an old graph is no longer there when
 	// we sync new org data
-	err = suite.client.SyncTriplestoreGraphs([]string{"orgs/"})
+	err = suite.client.SyncTriplestoreGraphs("orgs/")
 	require.NoError(t, err)
 	exists, err = suite.graphdbContainer.Client.GraphExists(oldGraph)
 	require.False(t, exists)
@@ -189,7 +197,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	require.Equal(t, len(graphs), 1)
 
 	// make sure that there is prov data for every source in the sitemap
-	err = suite.client.SyncTriplestoreGraphs([]string{"prov/"})
+	err = suite.client.SyncTriplestoreGraphs("prov/")
 	require.NoError(t, err)
 	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("prov/")
 	require.NoError(t, err)
@@ -201,7 +209,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	require.Equal(t, len(graphs), 1)
 
 	// make sure that summoned data matches the amount of sources in the sitemap
-	err = suite.client.SyncTriplestoreGraphs([]string{"summoned/"})
+	err = suite.client.SyncTriplestoreGraphs("summoned/")
 	require.NoError(t, err)
 	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
 	require.NoError(t, err)
@@ -222,7 +230,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 
 	// make sure that graph syncs are additive between sources and that
 	// sources are not overwritten or removed
-	err = suite.client.SyncTriplestoreGraphs([]string{"summoned/refgages0"})
+	err = suite.client.SyncTriplestoreGraphs("summoned/refgages0")
 	require.NoError(t, err)
 	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
 	require.NoError(t, err)
@@ -234,7 +242,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	require.NoError(t, err)
 	err = suite.client.S3Client.Remove(objs[0].Key)
 	require.NoError(t, err)
-	err = suite.client.SyncTriplestoreGraphs([]string{"summoned/"})
+	err = suite.client.SyncTriplestoreGraphs("summoned/")
 	require.NoError(t, err)
 	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
 	require.NoError(t, err)

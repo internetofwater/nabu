@@ -14,11 +14,11 @@ import (
 
 // NewJsonldProcessor builds the JSON-LD processor and sets the options object
 // for use in framing, processing and all JSON-LD actions
-func NewJsonldProcessor(config config.NabuConfig) (*ld.JsonLdProcessor, *ld.JsonLdOptions, error) {
+func NewJsonldProcessor(cache bool, contextMaps []config.ContextMap) (*ld.JsonLdProcessor, *ld.JsonLdOptions, error) {
 	processor := ld.NewJsonLdProcessor()
 	options := ld.NewJsonLdOptions("")
 
-	if config.Context.Cache {
+	if cache {
 		// my understanding is that the fallbackLoader is what is used if
 		// the prefix cannot be retrieved from the cache.
 		clientWithRetries := NewRetryableHTTPClient()
@@ -26,7 +26,7 @@ func NewJsonldProcessor(config config.NabuConfig) (*ld.JsonLdProcessor, *ld.Json
 
 		prefixToFilePath := make(map[string]string)
 
-		for _, contextMap := range config.ContextMaps {
+		for _, contextMap := range contextMaps {
 			// All context maps should be relative to the root of the project
 			absPath := filepath.Join(projectpath.Root, contextMap.File)
 			if fileExists(absPath) {
