@@ -131,10 +131,9 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(s3Prefixes []strin
 			"missing": len(s3GraphsNotInTriplestore)}).Info("Nabu sync")
 
 		// All triplestore graphs not in s3 should be removed since s3 is the source of truth
-		for _, graph := range triplestoreGraphsNotInS3 {
-			log.Infof("Removed graph: %s\n", graph)
-			err = synchronizer.GraphClient.DropGraph(graph)
-			if err != nil {
+		if len(triplestoreGraphsNotInS3) > 0 {
+			log.Infof("Dropping %d graphs from triplestore", len(triplestoreGraphsNotInS3))
+			if err := synchronizer.GraphClient.DropGraphs(triplestoreGraphsNotInS3); err != nil {
 				log.Errorf("Drop graph issue: %v\n", err)
 				return err
 			}

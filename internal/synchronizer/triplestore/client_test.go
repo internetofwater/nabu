@@ -46,19 +46,6 @@ func (suite *GraphDbClientSuite) TestInsert() {
 	graphExists, err := suite.graphdb.Client.GraphExists(graph)
 	require.NoError(t, err)
 	require.True(t, graphExists)
-}
-
-func (suite *GraphDbClientSuite) TestDropGraph() {
-
-	graph := "http://example.org/graph/test"
-	t := suite.T()
-
-	// insert data with the graph
-	data := `
-	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .`
-
-	err := suite.graphdb.Client.InsertWithNamedGraph(data, graph)
-	require.NoError(t, err)
 
 	bad_data := `
 	<http://example.org/resource/1> .`
@@ -66,14 +53,39 @@ func (suite *GraphDbClientSuite) TestDropGraph() {
 	err = suite.graphdb.Client.InsertWithNamedGraph(bad_data, graph)
 	require.Error(t, err)
 
-	graphExists, err := suite.graphdb.Client.GraphExists(graph)
+}
+
+func (suite *GraphDbClientSuite) TestDropGraphs() {
+	t := suite.T()
+
+	graph1 := "http://example.org/graph/test"
+
+	// insert data with the graph
+	data := `
+	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .`
+
+	err := suite.graphdb.Client.InsertWithNamedGraph(data, graph1)
+	require.NoError(t, err)
+
+	graphExists, err := suite.graphdb.Client.GraphExists(graph1)
 	require.NoError(t, err)
 	require.True(t, graphExists)
 
-	err = suite.graphdb.Client.DropGraph(graph)
+	graph2 := "http://example.org/graph/test2"
+	err = suite.graphdb.Client.InsertWithNamedGraph(data, graph2)
+	require.NoError(t, err)
+	graphExists, err = suite.graphdb.Client.GraphExists(graph2)
+	require.NoError(t, err)
+	require.True(t, graphExists)
+
+	err = suite.graphdb.Client.DropGraphs([]string{graph1, graph2})
 	require.NoError(t, err)
 
-	graphExists, err = suite.graphdb.Client.GraphExists(graph)
+	graphExists, err = suite.graphdb.Client.GraphExists(graph1)
+	require.NoError(t, err)
+	require.False(t, graphExists)
+
+	graphExists, err = suite.graphdb.Client.GraphExists(graph2)
 	require.NoError(t, err)
 	require.False(t, graphExists)
 }
