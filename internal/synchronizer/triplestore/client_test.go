@@ -89,6 +89,9 @@ func (suite *GraphDbClientSuite) TestDropGraphs() {
 	graphExists, err = suite.graphdb.Client.GraphExists(graph2)
 	require.NoError(t, err)
 	require.False(t, graphExists)
+
+	err = suite.graphdb.Client.DropGraphs([]string{})
+	require.Error(t, err)
 }
 
 func (suite *GraphDbClientSuite) TestClearAll() {

@@ -159,7 +159,7 @@ func (suite *S3ClientSuite) TestGetObjects() {
 
 	// Insert test data into MinIO
 	insertTestData := func(count int) {
-		for i := 0; i < count; i++ {
+		for i := range count {
 			objectData := []byte(fmt.Sprintf("test data %d", i))
 
 			objectName := "get-object-" + fmt.Sprint(i)

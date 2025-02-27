@@ -7,7 +7,10 @@ import (
 )
 
 /*
-Create a query in the form of:
+Create a sparql query used for inserting a batch of named graphs and
+removing them if they already exist
+
+Resulting queries will be in the form of:
 
 	DROP SILENT GRAPH <%s>;
 	DROP SILENT GRAPH <%s>;
