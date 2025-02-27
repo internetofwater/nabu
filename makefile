@@ -16,5 +16,6 @@ clean:
 
 # list the top 8 cyclomatic complexity in the repo
 # requires gocyclo to be installed.
+# aiming for cyclomatic complexity of 12 or less is a good rule of thumb
 cyclo:
 	gocyclo -top 8 .

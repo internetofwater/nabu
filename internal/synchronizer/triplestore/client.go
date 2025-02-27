@@ -34,7 +34,7 @@ type TriplestoreMethods interface {
 	GraphExists(graph string) (bool, error)
 
 	// Removes a specified graph from the triplestore.
-	DropGraph(graph string) error
+	DropGraphs(graphs []string) error
 }
 
 type GraphDbClient struct {
@@ -140,9 +140,9 @@ func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, gr
 				%s
 			} 
 		};`
-	fullReq := []byte(fmt.Sprintf(template, graphURI, graphURI, triples))
+	fullReq := fmt.Appendf(nil, template, graphURI, graphURI, triples)
 
-	req, err := custom_http_trace.NewRequestWithContext("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(fullReq)) // PUT for any of the servers?
+	req, err := custom_http_trace.NewRequestWithContext("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(fullReq))
 	if err != nil {
 		log.Error(err)
 		return err
@@ -184,14 +184,27 @@ func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, gr
 
 }
 
-// Remove a graph entirely from the graph database
-func (graphClient *GraphDbClient) DropGraph(graph string) error {
+// Remove a set entirely from the graph database in one sparql query
+func (graphClient *GraphDbClient) DropGraphs(graphs []string) error {
+	if len(graphs) == 0 {
+		return fmt.Errorf("passed in an empty list of graphs to drop")
+	} else if graphs[0] == "" {
+		return fmt.Errorf("passed in an empty graph name to drop")
+	} else if graphs == nil {
+		return fmt.Errorf("passed in a nil list of graphs to drop")
+	}
 
-	d := fmt.Sprintf("DROP SILENT GRAPH <%s> ", graph)
-	pab := []byte(d)
+	var graphStatements []string
+	for _, graph := range graphs {
+		// we use silent to ignore any errors if the graph does not exist
+		graphStatements = append(graphStatements, fmt.Sprintf("DROP SILENT GRAPH <%s>", graph))
+	}
+
+	query := strings.Join(graphStatements, "; ") // Join multiple DROP statements in one query
+	pab := []byte(query)
 
 	params := url.Values{}
-	params.Add("query", d)
+	params.Add("query", query)
 	req, err := custom_http_trace.NewRequestWithContext("POST", fmt.Sprintf("%s?%s", graphClient.BaseSparqlQueryUrl, params.Encode()), bytes.NewBuffer(pab))
 	if err != nil {
 		log.Error(err)
@@ -363,7 +376,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 
 	var relevantGraphs []string
 	for _, graph := range graphNames {
-		if (strings.HasPrefix(graph, graphName + ":") || strings.HasPrefix(graph, graphName + ".")) { // check if string has prefix
+		if strings.HasPrefix(graph, graphName+":") || strings.HasPrefix(graph, graphName+".") { // check if string has prefix
 			relevantGraphs = append(relevantGraphs, graph) // if yes, add it to newArray
 		}
 	}

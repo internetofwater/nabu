@@ -37,13 +37,13 @@ type MinioConfig struct {
 }
 
 type ContextConfig struct {
-	Cache  bool `mapstructure:"cache"`
-	Strict bool `mapstructure:"strict"`
+	Cache  bool
+	Strict bool
 }
 
 type ContextMap struct {
-	Prefix string `mapstructure:"prefix"`
-	File   string `mapstructure:"file"`
+	Prefix string
+	File   string
 }
 
 func fileNameWithoutExtTrimSuffix(fileName string) string {
