@@ -76,7 +76,9 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 	stopHealthCheck, err := suite.minioContainer.ClientWrapper.Client.HealthCheck(5 * time.Second)
 	require.NoError(t, err)
 	defer stopHealthCheck()
-	require.True(t, suite.minioContainer.ClientWrapper.Client.IsOnline())
+	require.Eventually(t, func() bool {
+		return suite.minioContainer.ClientWrapper.Client.IsOnline()
+	}, 10*time.Second, 500*time.Millisecond, "MinIO container did not become online in time")
 
 	err = suite.minioContainer.ClientWrapper.Client.MakeBucket(ctx, suite.minioContainer.ClientWrapper.DefaultBucket, minio.MakeBucketOptions{})
 	require.NoError(t, err)
