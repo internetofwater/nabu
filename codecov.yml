@@ -1,0 +1,11 @@
+
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+        # threshold: 3%  # Allows up to a 3% decrease in total coverage
+    patch:
+      default:
+        informational: true
+        # threshold: 3%  # Allows up to a 3% decrease in patch coverage
