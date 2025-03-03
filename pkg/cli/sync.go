@@ -15,7 +15,7 @@ func sync() error {
 		return err
 	}
 	for _, prefix := range cfgStruct.Prefixes {
-		err = client.SyncTriplestoreGraphs(prefix)
+		err = client.SyncTriplestoreGraphs(prefix, true)
 		if err != nil {
 			log.Error(err)
 		}

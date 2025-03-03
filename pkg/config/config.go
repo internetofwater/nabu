@@ -19,11 +19,12 @@ type NabuConfig struct {
 }
 
 type SparqlConfig struct {
-	Endpoint     string
-	Authenticate bool
-	Username     string
-	Password     string
-	Repository   string
+	Endpoint        string
+	Authenticate    bool
+	Username        string
+	Password        string
+	Repository      string
+	UpsertBatchSize int
 }
 
 type MinioConfig struct {
@@ -54,7 +55,7 @@ func fileNameWithoutExtTrimSuffix(fileName string) string {
 func checkMissingFields(v *viper.Viper, structType reflect.Type, parentKey string) error {
 	var missingFields []string
 
-	for i := 0; i < structType.NumField(); i++ {
+	for i := range structType.NumField() {
 		field := structType.Field(i)
 		fieldName := field.Tag.Get("mapstructure")
 		if fieldName == "" {

@@ -17,8 +17,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cfgFile, nabuConfName, minioVal, accessVal, secretVal, bucketVal, endpointVal, prefixVal, repositoryVal, logVal string
-var portVal int
+var cfgFile, minioVal, accessVal, secretVal, bucketVal, endpointVal, prefixVal, repositoryVal, logVal string
+var portVal, batchVal int
 var sslVal, dangerousVal, doTrace bool
 
 var cfgStruct config.NabuConfig
@@ -59,9 +59,8 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&prefixVal, "prefix", "", "prefix to operate upon")
 	rootCmd.PersistentFlags().StringVar(&endpointVal, "endpoint", "", "endpoint for server for the SPARQL endpoints")
-	rootCmd.PersistentFlags().StringVar(&nabuConfName, "", "", "config file to use for nabu")
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "cfg", "", "full path to yaml config file for nabu")
-	rootCmd.PersistentFlags().StringVar(&minioVal, "address", "", "")
+	rootCmd.PersistentFlags().StringVar(&minioVal, "address", "", "The address of the minio server")
 	rootCmd.PersistentFlags().StringVar(&accessVal, "access", os.Getenv("S3_ACCESS_KEY"), "Access Key (i.e. username)")
 	rootCmd.PersistentFlags().StringVar(&secretVal, "secret", os.Getenv("S3_SECRET_KEY"), "Secret access key")
 	rootCmd.PersistentFlags().StringVar(&bucketVal, "bucket", "", "The configuration bucket")
@@ -73,6 +72,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&doTrace, "trace", false, "Enable tracing")
 
 	rootCmd.PersistentFlags().IntVar(&portVal, "port", -1, "Port for s3 server")
+	rootCmd.PersistentFlags().IntVar(&batchVal, "upsert-batch-size", 100, "The batch size to use when syncing data from s3 to triplestore")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -134,6 +134,10 @@ func initConfig() {
 	if repositoryVal != "" {
 		cfgStruct.Sparql.Repository = repositoryVal
 	}
+	if batchVal != 100 {
+		cfgStruct.Sparql.UpsertBatchSize = batchVal
+	}
+
 	if common.PROFILING_ENABLED() || doTrace {
 		filePath := filepath.Join(projectpath.Root, "trace.out")
 		log.Infof("Trace enabled; Outputting to %s", filePath)
@@ -148,6 +152,9 @@ func initConfig() {
 			log.Fatal(err)
 		}
 	}
+}
+
+func initLogging() {
 	switch logVal {
 	case "DEBUG":
 		log.SetLevel(log.DebugLevel)
@@ -162,9 +169,5 @@ func initConfig() {
 	default:
 		log.Fatalf("Invalid log level: %s", logVal)
 	}
-}
-
-func initLogging() {
-	log.SetReportCaller(false)
 	log.SetFormatter(&log.JSONFormatter{})
 }

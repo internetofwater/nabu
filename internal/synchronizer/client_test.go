@@ -68,6 +68,7 @@ func newSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *s3.
 		syncBucketName:  bucketName,
 		jsonldProcessor: processor,
 		jsonldOptions:   options,
+		upsertBatchSize: 100,
 	}
 	return client, nil
 }
@@ -142,13 +143,13 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 	summonedObjs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{"summoned/cdss0/"})
 	require.NoError(t, err)
 	require.Equal(t, sourcesInSitemap, summonedObjs)
-	err = suite.client.CopyAllPrefixedObjToTriplestore("orgs/")
+	err = suite.client.SyncTriplestoreGraphs("orgs/", false)
 	require.NoError(t, err)
 	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
 	require.NoError(t, err)
 	require.Len(t, graphs, 1)
 
-	err = suite.client.CopyAllPrefixedObjToTriplestore("summoned/")
+	err = suite.client.SyncTriplestoreGraphs("summoned/", false)
 	require.NoError(t, err)
 	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
 	require.NoError(t, err)
@@ -204,7 +205,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 
 	// make sure that an old graph is no longer there when
 	// we sync new org data
-	err = suite.client.SyncTriplestoreGraphs("orgs/")
+	err = suite.client.SyncTriplestoreGraphs("orgs/", true)
 	require.NoError(t, err)
 	exists, err = suite.graphdbContainer.Client.GraphExists(oldGraph)
 	require.False(t, exists)
@@ -215,7 +216,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	require.Equal(t, len(graphs), 1)
 
 	// make sure that there is prov data for every source in the sitemap
-	err = suite.client.SyncTriplestoreGraphs("prov/")
+	err = suite.client.SyncTriplestoreGraphs("prov/", true)
 	require.NoError(t, err)
 	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("prov/")
 	require.NoError(t, err)
@@ -227,7 +228,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	require.Equal(t, len(graphs), 1)
 
 	// make sure that summoned data matches the amount of sources in the sitemap
-	err = suite.client.SyncTriplestoreGraphs("summoned/")
+	err = suite.client.SyncTriplestoreGraphs("summoned/", true)
 	require.NoError(t, err)
 	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
 	require.NoError(t, err)
@@ -248,7 +249,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 
 	// make sure that graph syncs are additive between sources and that
 	// sources are not overwritten or removed
-	err = suite.client.SyncTriplestoreGraphs("summoned/refgages0")
+	err = suite.client.SyncTriplestoreGraphs("summoned/refgages0", true)
 	require.NoError(t, err)
 	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
 	require.NoError(t, err)
@@ -260,7 +261,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	require.NoError(t, err)
 	err = suite.client.S3Client.Remove(objs[0].Key)
 	require.NoError(t, err)
-	err = suite.client.SyncTriplestoreGraphs("summoned/")
+	err = suite.client.SyncTriplestoreGraphs("summoned/", true)
 	require.NoError(t, err)
 	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
 	require.NoError(t, err)
