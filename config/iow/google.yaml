@@ -24,4 +24,4 @@ sparql:
   password: ''
   repository: iow
   username: ''
-  upsertbatchsize: 100
+  batch: 100

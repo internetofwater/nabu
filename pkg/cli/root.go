@@ -135,7 +135,7 @@ func initConfig() {
 		cfgStruct.Sparql.Repository = repositoryVal
 	}
 	if batchVal != 100 {
-		cfgStruct.Sparql.UpsertBatchSize = batchVal
+		cfgStruct.Sparql.Batch = batchVal
 	}
 
 	if common.PROFILING_ENABLED() || doTrace {

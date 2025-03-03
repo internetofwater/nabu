@@ -19,12 +19,15 @@ type NabuConfig struct {
 }
 
 type SparqlConfig struct {
-	Endpoint        string
-	Authenticate    bool
-	Username        string
-	Password        string
-	Repository      string
-	UpsertBatchSize int `optional:"true"`
+	Endpoint     string
+	Authenticate bool
+	Username     string
+	Password     string
+	// the name of the repository in graphdb
+	Repository string
+	// the number of statements to send in one batch
+	// when upserting triples
+	Batch int `optional:"true"`
 }
 
 type MinioConfig struct {
@@ -38,6 +41,8 @@ type MinioConfig struct {
 }
 
 type ContextConfig struct {
+	// whether or not to cache the context when
+	// decoding json-ld
 	Cache  bool
 	Strict bool
 }
