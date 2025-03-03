@@ -13,12 +13,10 @@ import (
 	"nabu/pkg/config"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 )
 
 // Client to perform operations that synchronize the graph database with the object store
@@ -64,15 +62,6 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 	return client, nil
 }
 
-// Struct holding the differences between the triplestore and s3
-// and a mapping of URN to object name so we can load the graphs
-// based on this diff info
-type GraphDiff struct {
-	TriplestoreGraphsNotInS3 []string
-	S3GraphsNotInTriplestore []string
-	s3UrnToAssociatedObjName map[string]string
-}
-
 // Get rid of graphs with specific prefix in the triplestore that are not in the object store
 // Drops are determined by mapping a prefix to the associated URN
 func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string, checkAndRemoveOrphans bool) error {
@@ -81,6 +70,9 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string, che
 	}
 
 	var s3GraphsNotInTriplestore []string
+	// if we want to check for orphaned graphs
+	// we need to get the diff between the graph and s3
+	// then drop the orphaned graphs
 	if checkAndRemoveOrphans {
 		graphDiff, err := synchronizer.getGraphDiff(prefix)
 		if err != nil {
@@ -101,6 +93,8 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string, che
 				return err
 			}
 		}
+		// if we don't want to remove orphaned graphs
+		// just get the list of graphs that are not in s3
 	} else {
 		objects, err := synchronizer.S3Client.ObjectList(prefix)
 		if err != nil {
@@ -112,47 +106,8 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string, che
 		}
 	}
 
-	var errorGroup errgroup.Group
-
-	var graphsToInsert []common.NamedGraph
-	var insertMutex sync.Mutex
-
-	log.Infof("Upserting %d objects from S3 to triplestore", len(s3GraphsNotInTriplestore))
-	for _, graphNameInS3 := range s3GraphsNotInTriplestore {
-
-		errorGroup.Go(func() error {
-			namedGraph, err := synchronizer.S3Client.GetObjectAndConvertToGraph(graphNameInS3, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
-			if err != nil {
-				return err
-			}
-			insertMutex.Lock()
-			graphsToInsert = append(graphsToInsert, namedGraph)
-			if len(graphsToInsert) >= synchronizer.upsertBatchSize {
-				// make a copy so that we can pass in the data to upsert
-				// while still holding the lock
-				graphInsertCopy := graphsToInsert
-				// flush the batch
-				graphsToInsert = []common.NamedGraph{}
-				// unlock before sending to allow for multiple concurrent upserts
-				insertMutex.Unlock()
-				if err := synchronizer.GraphClient.UpsertNamedGraphs(graphInsertCopy); err != nil {
-					return err
-				}
-			} else {
-				insertMutex.Unlock()
-			}
-			return nil
-		})
-	}
-	if err := errorGroup.Wait(); err != nil {
+	if err := synchronizer.batchedUpsert(s3GraphsNotInTriplestore); err != nil {
 		return err
-	}
-
-	// if there are any graphs left that werent big enough for a batch, send them at the end
-	if len(graphsToInsert) > 0 {
-		if err := synchronizer.GraphClient.UpsertNamedGraphs(graphsToInsert); err != nil {
-			return err
-		}
 	}
 
 	return nil
