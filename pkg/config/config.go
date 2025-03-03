@@ -24,7 +24,7 @@ type SparqlConfig struct {
 	Username        string
 	Password        string
 	Repository      string
-	UpsertBatchSize int
+	UpsertBatchSize int `optional:"true"`
 }
 
 type MinioConfig struct {
