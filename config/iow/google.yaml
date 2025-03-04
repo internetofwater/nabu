@@ -24,3 +24,4 @@ sparql:
   password: ''
   repository: iow
   username: ''
+  batch: 100

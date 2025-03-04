@@ -10,7 +10,17 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
+
+// Struct holding the differences between the triplestore and s3
+// and a mapping of URN to object name so we can load the graphs
+// based on this diff info
+type GraphDiff struct {
+	TriplestoreGraphsNotInS3 []string
+	S3GraphsNotInTriplestore []string
+	s3UrnToAssociatedObjName map[string]string
+}
 
 /*
 All functions in this file are private to the synchronizer package
@@ -189,5 +199,56 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix string, nqChan
 		return err
 	}
 
+	return nil
+}
+
+// Batch upserts objects from s3 to triplestore using upsertBatchSize as defined in the synchronizer client
+func (synchronizer *SynchronizerClient) batchedUpsert(s3GraphNames []string) error {
+	if synchronizer.upsertBatchSize == 0 {
+		return fmt.Errorf("got invalid upsert batch size of 0")
+	}
+
+	var errorGroup errgroup.Group
+
+	var graphsToInsert []common.NamedGraph
+	var insertMutex sync.Mutex
+
+	log.Infof("Upserting %d objects from S3 to triplestore", len(s3GraphNames))
+	for _, graphName := range s3GraphNames {
+
+		errorGroup.Go(func() error {
+			namedGraph, err := synchronizer.S3Client.GetObjectAndConvertToGraph(graphName, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+			if err != nil {
+				return err
+			}
+			insertMutex.Lock()
+			graphsToInsert = append(graphsToInsert, namedGraph)
+			if len(graphsToInsert) >= synchronizer.upsertBatchSize {
+				// make a copy so that we can pass in the data to upsert
+				// even if we don't have the lock
+				graphInsertCopy := graphsToInsert
+				// flush the batch
+				graphsToInsert = []common.NamedGraph{}
+				// unlock before sending to allow for multiple concurrent upserts
+				insertMutex.Unlock()
+				if err := synchronizer.GraphClient.UpsertNamedGraphs(graphInsertCopy); err != nil {
+					return err
+				}
+			} else {
+				insertMutex.Unlock()
+			}
+			return nil
+		})
+	}
+	if err := errorGroup.Wait(); err != nil {
+		return err
+	}
+
+	// if there are any graphs left that werent big enough for a batch, send them at the end
+	if len(graphsToInsert) > 0 {
+		if err := synchronizer.GraphClient.UpsertNamedGraphs(graphsToInsert); err != nil {
+			return err
+		}
+	}
 	return nil
 }
