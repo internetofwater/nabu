@@ -72,7 +72,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&doTrace, "trace", false, "Enable tracing")
 
 	rootCmd.PersistentFlags().IntVar(&portVal, "port", -1, "Port for s3 server")
-	rootCmd.PersistentFlags().IntVar(&batchVal, "upsert-batch-size", 100, "The batch size to use when syncing data from s3 to triplestore")
+	rootCmd.PersistentFlags().IntVar(&batchVal, "upsert-batch-size", 1, "The batch size to use when syncing data from s3 to triplestore")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -134,7 +134,7 @@ func initConfig() {
 	if repositoryVal != "" {
 		cfgStruct.Sparql.Repository = repositoryVal
 	}
-	if batchVal != 100 {
+	if batchVal != 1 {
 		cfgStruct.Sparql.Batch = batchVal
 	}
 
