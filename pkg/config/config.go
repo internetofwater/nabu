@@ -103,7 +103,7 @@ func NewNabuConfigFromViper(v *viper.Viper) (NabuConfig, error) {
 	}
 
 	var config NabuConfig
-	if err := v.UnmarshalExact(&config); err != nil {
+	if err := v.Unmarshal(&config); err != nil {
 		return NabuConfig{}, err
 	}
 

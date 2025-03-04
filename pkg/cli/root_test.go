@@ -48,7 +48,7 @@ func (suite *RootCliSuite) TestRootCmdWithTracing() {
 
 	os.Setenv("NABU_PROFILING", "False")
 	// make sure that the trace file is created if we specify the cli arg even if the env var is not set
-	args := []string{"test", "--trace", "--cfg", filepath.Join(projectpath.Root, "config", "iow", "nabuconfig.yaml"), "--address", suite.minioContainer.Hostname, "--port", fmt.Sprint(suite.minioContainer.APIPort), suite.minioContainer.Hostname}
+	args := []string{"test", "--trace", "--cfg", filepath.Join(projectpath.Root, "config", "iow", "nabuconfig.yaml"), "--address", suite.minioContainer.Hostname, "--port", fmt.Sprint(suite.minioContainer.APIPort)}
 	rootCmd.SetArgs(args)
 	Execute()
 	_, err := os.Stat(filepath.Join(projectpath.Root, "trace.out"))
