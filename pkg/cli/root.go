@@ -86,7 +86,7 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	customConfPath, err := rootCmd.PersistentFlags().GetString("config")
+	customConfPath, err := rootCmd.PersistentFlags().GetString("cfg")
 	if err != nil {
 		log.Fatal(fmt.Errorf("failed to get config path: %w", err))
 	}
