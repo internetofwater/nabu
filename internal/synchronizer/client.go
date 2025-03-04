@@ -58,6 +58,7 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 		syncBucketName:  conf.Minio.Bucket,
 		jsonldProcessor: processor,
 		jsonldOptions:   options,
+		upsertBatchSize: conf.Sparql.Batch,
 	}
 	return client, nil
 }
