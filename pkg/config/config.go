@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -15,7 +16,8 @@ type NabuConfig struct {
 	Context     ContextConfig
 	ContextMaps []ContextMap
 	Prefixes    []string
-	Trace       bool `optional:"true"`
+	Trace       bool   `optional:"true"`
+	LogLevel    string `optional:"true"`
 }
 
 type SparqlConfig struct {
@@ -103,8 +105,15 @@ func NewNabuConfigFromViper(v *viper.Viper) (NabuConfig, error) {
 	}
 
 	var config NabuConfig
-	if err := v.Unmarshal(&config); err != nil {
-		return NabuConfig{}, err
+	if err := v.UnmarshalExact(&config); err != nil {
+		var tmpConfig NabuConfig
+		if debugErr := v.Unmarshal(&tmpConfig); debugErr != nil {
+			log.Error("failed to unmarshal config for debugging purposes", debugErr)
+		} else {
+			log.Infof("Got the following config when searching for missing fields: %#v", tmpConfig)
+		}
+
+		return NabuConfig{}, fmt.Errorf("failed to unmarshal config exactly with the following error: %w", err)
 	}
 
 	return config, nil
