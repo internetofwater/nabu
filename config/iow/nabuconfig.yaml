@@ -18,7 +18,6 @@ sparql:
   username: test
   password: password
   repository: iow
-  batch: 100
 prefixes:
   - test
   - test

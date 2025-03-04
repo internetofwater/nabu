@@ -27,7 +27,7 @@ type SparqlConfig struct {
 	Repository string
 	// the number of statements to send in one batch
 	// when upserting triples
-	Batch int
+	Batch int `optional:"true"`
 }
 
 type MinioConfig struct {
