@@ -56,8 +56,6 @@ func Execute() {
 
 func init() {
 
-	config := viper.New()
-
 	rootCmd.PersistentFlags().String("prefix", "", "prefix to operate upon")
 	rootCmd.PersistentFlags().String("endpoint", "", "endpoint for server for the SPARQL endpoints")
 	rootCmd.PersistentFlags().String("cfg", "nabuconfig.yaml", "full path to yaml config file for nabu")
