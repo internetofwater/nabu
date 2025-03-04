@@ -74,13 +74,13 @@ func init() {
 
 	rootCmd.PersistentFlags().Int("port", -1, "Port for s3 server")
 	rootCmd.PersistentFlags().Int("upsert-batch-size", 1, "The batch size to use when syncing data from s3 to triplestore")
-	if err := config.BindPFlags(rootCmd.PersistentFlags()); err != nil {
+	if err := viperConfig.BindPFlags(rootCmd.PersistentFlags()); err != nil {
 		log.Fatalf("Error binding flags: %v", err)
 	}
 
 	cobra.OnInitialize(initConfig)
 	cobra.OnInitialize(func() {
-		initLogging(config.GetString("log-level"))
+		initLogging(viperConfig.GetString("log-level"))
 	})
 }
 
