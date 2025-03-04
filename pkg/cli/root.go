@@ -90,10 +90,13 @@ func initConfig() {
 	if err != nil {
 		log.Fatal(fmt.Errorf("failed to get config path: %w", err))
 	}
-	viperConfig.SetConfigFile(filepath.Base(customConfPath))
-	viperConfig.SetConfigName("nabuconfig")
-	viperConfig.SetConfigType("yaml")
-	viperConfig.AddConfigPath(".")
+	if customConfPath != "" {
+		viperConfig.SetConfigFile(customConfPath)
+	} else {
+		viperConfig.SetConfigName("nabuconfig")
+		viperConfig.SetConfigType("yaml")
+		viperConfig.AddConfigPath(".")
+	}
 
 	if err := viperConfig.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
