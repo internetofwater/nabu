@@ -21,7 +21,7 @@ func TestCreateNewProcessor(t *testing.T) {
 		configPath := filepath.Join(projectpath.Root, "config/iow")
 		absPath, err := filepath.Abs(configPath)
 		require.NoError(t, err)
-		conf, err := config.ReadNabuConfig(absPath, "nabuconfig.yaml")
+		conf, err := config.NewNabuConfig(absPath, "nabuconfig.yaml")
 		require.NoError(t, err)
 		processor, options, err := NewJsonldProcessor(conf.Context.Cache, conf.ContextMaps)
 		require.NoError(t, err)

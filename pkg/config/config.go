@@ -94,17 +94,9 @@ func checkMissingFields(v *viper.Viper, structType reflect.Type, parentKey strin
 	return nil
 }
 
-func ReadNabuConfig(cfgPath, filename string) (NabuConfig, error) {
-	v := viper.New()
-
-	v.SetConfigName(fileNameWithoutExtTrimSuffix(filename))
-	v.AddConfigPath(cfgPath)
-	v.SetConfigType("yaml")
-
-	if err := v.ReadInConfig(); err != nil {
-		return NabuConfig{}, err
-	}
-
+// Return a nabu config struct from a viper instance
+// Validates the config
+func NewNabuConfigFromViper(v *viper.Viper) (NabuConfig, error) {
 	// Check for missing required fields before unmarshaling
 	if err := checkMissingFields(v, reflect.TypeOf(NabuConfig{}), ""); err != nil {
 		return NabuConfig{}, err
@@ -116,4 +108,18 @@ func ReadNabuConfig(cfgPath, filename string) (NabuConfig, error) {
 	}
 
 	return config, nil
+}
+
+// Return a nabu config struct from a config file
+func NewNabuConfig(cfgPath, filename string) (NabuConfig, error) {
+	v := viper.New()
+
+	v.SetConfigName(fileNameWithoutExtTrimSuffix(filename))
+	v.AddConfigPath(cfgPath)
+	v.SetConfigType("yaml")
+
+	if err := v.ReadInConfig(); err != nil {
+		return NabuConfig{}, err
+	}
+	return NewNabuConfigFromViper(v)
 }

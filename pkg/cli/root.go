@@ -15,12 +15,14 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-var cfgFile, minioVal, accessVal, secretVal, bucketVal, endpointVal, prefixVal, repositoryVal, logVal string
-var portVal, batchVal int
-var sslVal, dangerousVal, doTrace bool
+// global viper instance that reads in cli/viperConfig data
+// should not be used in internal code
+var viperConfig *viper.Viper
 
+// global config struct that is the marshalled version of the viper config
 var cfgStruct config.NabuConfig
 
 var rootCmd = &cobra.Command{
@@ -36,7 +38,7 @@ func Execute() {
 	}
 	cobra.CheckErr(err)
 
-	if common.PROFILING_ENABLED() {
+	if common.PROFILING_ENABLED() || cfgStruct.Trace {
 		mc, minioErr := s3.NewMinioClientWrapper(cfgStruct.Minio)
 		cobra.CheckErr(minioErr)
 		traceFile := filepath.Join(projectpath.Root, "trace.out")
@@ -54,93 +56,59 @@ func Execute() {
 
 func init() {
 
-	cobra.OnInitialize(initLogging)
+	config := viper.New()
+
+	rootCmd.PersistentFlags().String("prefix", "", "prefix to operate upon")
+	rootCmd.PersistentFlags().String("endpoint", "", "endpoint for server for the SPARQL endpoints")
+	rootCmd.PersistentFlags().String("cfg", "nabuconfig.yaml", "full path to yaml config file for nabu")
+	rootCmd.PersistentFlags().String("address", "", "The address of the minio server")
+	rootCmd.PersistentFlags().String("access", os.Getenv("S3_ACCESS_KEY"), "Access Key (i.e. username)")
+	rootCmd.PersistentFlags().String("secret", os.Getenv("S3_SECRET_KEY"), "Secret access key")
+	rootCmd.PersistentFlags().String("bucket", "", "The configuration bucket")
+	rootCmd.PersistentFlags().String("repository", "", "the default repository to use for graphdb")
+	rootCmd.PersistentFlags().String("log-level", "INFO", "the log level to use for the nabu logger")
+
+	rootCmd.PersistentFlags().Bool("ssl", false, "Use SSL boolean")
+	rootCmd.PersistentFlags().Bool("dangerous", false, "Use dangerous mode boolean")
+	rootCmd.PersistentFlags().Bool("trace", false, "Enable tracing")
+
+	rootCmd.PersistentFlags().Int("port", -1, "Port for s3 server")
+	rootCmd.PersistentFlags().Int("upsert-batch-size", 1, "The batch size to use when syncing data from s3 to triplestore")
+	if err := config.BindPFlags(rootCmd.PersistentFlags()); err != nil {
+		log.Fatalf("Error binding flags: %v", err)
+	}
+
 	cobra.OnInitialize(initConfig)
-
-	rootCmd.PersistentFlags().StringVar(&prefixVal, "prefix", "", "prefix to operate upon")
-	rootCmd.PersistentFlags().StringVar(&endpointVal, "endpoint", "", "endpoint for server for the SPARQL endpoints")
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "cfg", "", "full path to yaml config file for nabu")
-	rootCmd.PersistentFlags().StringVar(&minioVal, "address", "", "The address of the minio server")
-	rootCmd.PersistentFlags().StringVar(&accessVal, "access", os.Getenv("S3_ACCESS_KEY"), "Access Key (i.e. username)")
-	rootCmd.PersistentFlags().StringVar(&secretVal, "secret", os.Getenv("S3_SECRET_KEY"), "Secret access key")
-	rootCmd.PersistentFlags().StringVar(&bucketVal, "bucket", "", "The configuration bucket")
-	rootCmd.PersistentFlags().StringVar(&repositoryVal, "repository", "", "the default repository to use for graphdb")
-	rootCmd.PersistentFlags().StringVar(&logVal, "log-level", "INFO", "the log level to use for the nabu logger")
-
-	rootCmd.PersistentFlags().BoolVar(&sslVal, "ssl", false, "Use SSL boolean")
-	rootCmd.PersistentFlags().BoolVar(&dangerousVal, "dangerous", false, "Use dangerous mode boolean")
-	rootCmd.PersistentFlags().BoolVar(&doTrace, "trace", false, "Enable tracing")
-
-	rootCmd.PersistentFlags().IntVar(&portVal, "port", -1, "Port for s3 server")
-	rootCmd.PersistentFlags().IntVar(&batchVal, "upsert-batch-size", 1, "The batch size to use when syncing data from s3 to triplestore")
+	cobra.OnInitialize(func() {
+		initLogging(config.GetString("log-level"))
+	})
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	var err error
-	if cfgFile != "" {
-		var configPath string
-		fileName := filepath.Base(cfgFile)
+	customConfPath, err := rootCmd.PersistentFlags().GetString("config")
+	if err != nil {
+		log.Fatal(fmt.Errorf("failed to get config path: %w", err))
+	}
+	viperConfig.SetConfigFile(filepath.Base(customConfPath))
+	viperConfig.SetConfigName("nabuconfig")
+	viperConfig.SetConfigType("yaml")
+	viperConfig.AddConfigPath(".")
 
-		// If the path is absolute, use it directly
-		if filepath.IsAbs(cfgFile) {
-			configPath = filepath.Dir(cfgFile)
+	if err := viperConfig.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			log.Info("Config file not found, using CLI flags and defaults only")
 		} else {
-			// If it's a relative path, resolve it against the current working directory
-			configPath, err = os.Getwd()
-			if err != nil {
-				log.Fatalf("cannot get current directory: %s", err)
-			}
-			configPath = filepath.Join(configPath, filepath.Dir(cfgFile))
+			log.Fatalf("Error reading config file: %v", err)
 		}
-
-		// Make sure the file exists in the resolved path
-		if _, err = os.Stat(filepath.Join(configPath, fileName)); os.IsNotExist(err) {
-			log.Fatalf("config file does not exist at path: %s", filepath.Join(configPath, fileName))
-		}
-
-		cfgStruct, err = config.ReadNabuConfig(configPath, fileName)
-		if err != nil {
-			log.Fatalf("cannot read config %s", err)
-		}
-	} else {
-		log.Fatal("FATAL: no config file provided with --cfg")
 	}
 
-	if endpointVal != "" {
-		cfgStruct.Sparql.Endpoint = endpointVal
-	}
-	if minioVal != "" {
-		cfgStruct.Minio.Address = minioVal
-	}
-	if portVal != -1 {
-		cfgStruct.Minio.Port = portVal
-	}
-	if accessVal != "" {
-		cfgStruct.Minio.Accesskey = accessVal
-	}
-	if secretVal != "" {
-		cfgStruct.Minio.Secretkey = secretVal
-	}
-	if bucketVal != "" {
-		cfgStruct.Minio.Bucket = bucketVal
-	}
-	if sslVal {
-		cfgStruct.Minio.Ssl = sslVal
-	}
-	if prefixVal != "" {
-		cfgStruct.Prefixes = []string{prefixVal}
-	}
-	if repositoryVal != "" {
-		cfgStruct.Sparql.Repository = repositoryVal
-	}
-	// go structs default to 0 so we need to set it to 1 by defaults
-	cfgStruct.Sparql.Batch = 1
-	if batchVal != 1 {
-		cfgStruct.Sparql.Batch = batchVal
+	cfgStruct, err = config.NewNabuConfigFromViper(viperConfig)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	if common.PROFILING_ENABLED() || doTrace {
+	if common.PROFILING_ENABLED() || cfgStruct.Trace {
 		filePath := filepath.Join(projectpath.Root, "trace.out")
 		log.Infof("Trace enabled; Outputting to %s", filePath)
 		cfgStruct.Trace = true
@@ -156,7 +124,7 @@ func initConfig() {
 	}
 }
 
-func initLogging() {
+func initLogging(logVal string) {
 	switch logVal {
 	case "DEBUG":
 		log.SetLevel(log.DebugLevel)
@@ -171,5 +139,6 @@ func initLogging() {
 	default:
 		log.Fatalf("Invalid log level: %s", logVal)
 	}
+	log.SetReportCaller(true)
 	log.SetFormatter(&log.JSONFormatter{})
 }
