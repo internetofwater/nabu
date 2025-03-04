@@ -23,7 +23,11 @@ type SparqlConfig struct {
 	Authenticate bool
 	Username     string
 	Password     string
-	Repository   string
+	// the name of the repository in graphdb
+	Repository string
+	// the number of statements to send in one batch
+	// when upserting triples
+	Batch int `optional:"true"`
 }
 
 type MinioConfig struct {
@@ -37,6 +41,8 @@ type MinioConfig struct {
 }
 
 type ContextConfig struct {
+	// whether or not to cache the context when
+	// decoding json-ld
 	Cache  bool
 	Strict bool
 }
@@ -54,7 +60,7 @@ func fileNameWithoutExtTrimSuffix(fileName string) string {
 func checkMissingFields(v *viper.Viper, structType reflect.Type, parentKey string) error {
 	var missingFields []string
 
-	for i := 0; i < structType.NumField(); i++ {
+	for i := range structType.NumField() {
 		field := structType.Field(i)
 		fieldName := field.Tag.Get("mapstructure")
 		if fieldName == "" {

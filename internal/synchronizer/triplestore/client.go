@@ -25,7 +25,7 @@ type TriplesAsText = string
 // The set of methods that must be implemented by a triplestore to be used by nabu
 type TriplestoreMethods interface {
 	// Inserts data into a specified named graph.
-	InsertWithNamedGraph(data TriplesAsText, graphURI string) string
+	InsertNamedGraphs(graphs []common.NamedGraph) string
 
 	// ClearAllGraphs clears all graphs in the triplestore.
 	ClearAllGraphs() error
@@ -129,20 +129,11 @@ func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath stri
 }
 
 // Insert triples into the triplestore by listing them in the standard triple format and specifying an associated graph
-func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, graphURI string) error {
+func (graphClient *GraphDbClient) UpsertNamedGraphs(graphs []common.NamedGraph) error {
 
-	// log.Debugf("Inserting data into graph: %s", graphURI)
-	// drop any graph we are going to load..  we assume we are doing those due to an update
-	template := `
-		DROP SILENT GRAPH <%s>;
-		INSERT DATA { 
-			GRAPH <%s> { 
-				%s
-			} 
-		};`
-	fullReq := fmt.Appendf(nil, template, graphURI, graphURI, triples)
+	query := createBatchedUpsertQuery(graphs)
 
-	req, err := custom_http_trace.NewRequestWithContext("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer(fullReq))
+	req, err := custom_http_trace.NewRequestWithContext("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer([]byte(query)))
 	if err != nil {
 		log.Error(err)
 		return err
@@ -169,7 +160,7 @@ func (graphClient *GraphDbClient) InsertWithNamedGraph(triples TriplesAsText, gr
 		if err != nil {
 			return fmt.Errorf("failed reading response body; response Status: %s with error %s", resp.Status, err)
 		}
-		return fmt.Errorf("failed inserting data with named graph; response Status: %s with error %s after posting query %s", resp.Status, string(body), fullReq)
+		return fmt.Errorf("failed inserting data with named graph; response Status: %s with error %s after posting query %s", resp.Status, string(body), query)
 	}
 
 	body, err := io.ReadAll(resp.Body)

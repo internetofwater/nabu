@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"nabu/internal/common"
 	"nabu/internal/common/projectpath"
 	"path/filepath"
 	"strings"
@@ -158,7 +159,7 @@ func (suite *S3ClientSuite) TestGetObjects() {
 
 	// Insert test data into MinIO
 	insertTestData := func(count int) {
-		for i := 0; i < count; i++ {
+		for i := range count {
 			objectData := []byte(fmt.Sprintf("test data %d", i))
 
 			objectName := "get-object-" + fmt.Sprint(i)
@@ -272,6 +273,25 @@ func (suite *S3ClientSuite) TestUploadFile() {
 	require.NoError(suite.T(), err)
 	require.Contains(suite.T(), string(data), "package main")
 
+}
+
+func (suite *S3ClientSuite) TestGetObjectAsNamedGraph() {
+	// put a jsonld file into the bucket
+	t := suite.T()
+	testfile := filepath.Join("testdata", "hu02.jsonld")
+	err := suite.minioContainer.ClientWrapper.UploadFile("testFiles/hu02.jsonld", testfile)
+	require.NoError(t, err)
+	defer func() {
+		err = suite.minioContainer.ClientWrapper.Remove("testFiles/hu02.jsonld")
+		require.NoError(t, err)
+	}()
+	// get the data in testObj2 and make sure it is the same as testObj
+	proc, opt, err := common.NewJsonldProcessor(false, nil)
+	require.NoError(t, err)
+	object, err := suite.minioContainer.ClientWrapper.GetObjectAndConvertToGraph("testFiles/hu02.jsonld", proc, opt)
+	require.NoError(t, err)
+	require.Contains(t, object.Triples, "<http://schema.org/DataDownload>")
+	require.Contains(t, object.Triples, "http://schema.org/address")
 }
 
 // Run the entire test suite

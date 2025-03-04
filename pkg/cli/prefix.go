@@ -14,8 +14,13 @@ func prefix() error {
 		return err
 	}
 
-	err = client.CopyAllPrefixedObjToTriplestore(cfgStruct.Prefixes)
-
+	for _, prefix := range cfgStruct.Prefixes {
+		// sync without removal is the same as copying an entire prefix
+		err = client.SyncTriplestoreGraphs(prefix, false)
+		if err != nil {
+			log.Error(err)
+		}
+	}
 	return err
 }
 

@@ -28,3 +28,24 @@ func TestGetTextBeforeDot(t *testing.T) {
 	res = getTextBeforeDot("test.go.go")
 	require.Equal(t, "test.go", res)
 }
+
+func TestMakeReleaseName(t *testing.T) {
+
+	res, err := makeReleaseNqName("summoned/counties0")
+	require.NoError(t, err)
+	require.Equal(t, "counties0_release.nq", res)
+
+	res, err = makeReleaseNqName("prov/counties0")
+	require.NoError(t, err)
+	require.Equal(t, "counties0_prov.nq", res)
+
+	res, err = makeReleaseNqName("orgs/counties0")
+	require.NoError(t, err)
+	require.Equal(t, "counties0_organizations.nq", res)
+	res, err = makeReleaseNqName("orgs/")
+	require.NoError(t, err)
+	require.Equal(t, "organizations.nq", res)
+
+	_, err = makeReleaseNqName("orgs")
+	require.Error(t, err)
+}

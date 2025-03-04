@@ -9,14 +9,16 @@ import (
 )
 
 func sync() error {
-	log.Info("sync graphs in triplestore not in objectVal store")
+	log.Info("dropping graphs in triplestore not in s3 and adding graphs to triplestore that are missing from it but present in s3")
 	client, err := synchronizer.NewSynchronizerClientFromConfig(cfgStruct)
 	if err != nil {
 		return err
 	}
-	err = client.SyncTriplestoreGraphs(cfgStruct.Prefixes)
-	if err != nil {
-		log.Error(err)
+	for _, prefix := range cfgStruct.Prefixes {
+		err = client.SyncTriplestoreGraphs(prefix, true)
+		if err != nil {
+			log.Error(err)
+		}
 	}
 	return err
 }
