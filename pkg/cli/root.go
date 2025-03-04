@@ -60,7 +60,7 @@ func init() {
 
 	rootCmd.PersistentFlags().String("prefix", "", "prefix to operate upon")
 	rootCmd.PersistentFlags().String("endpoint", "", "endpoint for server for the SPARQL endpoints")
-	rootCmd.PersistentFlags().String("cfg", "nabuconfig.yaml", "full path to yaml config file for nabu")
+	rootCmd.PersistentFlags().String("cfg", "", "full path to yaml config file for nabu")
 	rootCmd.PersistentFlags().String("address", "", "The address of the minio server")
 	rootCmd.PersistentFlags().String("access", os.Getenv("S3_ACCESS_KEY"), "Access Key (i.e. username)")
 	rootCmd.PersistentFlags().String("secret", os.Getenv("S3_SECRET_KEY"), "Secret access key")
@@ -100,7 +100,7 @@ func initConfig() {
 
 	if err := viperConfig.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			log.Info("Config file not found, using CLI flags and defaults only")
+			log.Warn("Config file not found, using CLI flags and defaults only")
 		} else {
 			log.Fatalf("Error reading config file: %v", err)
 		}
