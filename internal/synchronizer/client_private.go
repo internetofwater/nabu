@@ -209,6 +209,7 @@ func (synchronizer *SynchronizerClient) batchedUpsert(s3GraphNames []string) err
 	}
 
 	var errorGroup errgroup.Group
+	errorGroup.SetLimit(50)
 
 	var graphsToInsert []common.NamedGraph
 	var insertMutex sync.Mutex
