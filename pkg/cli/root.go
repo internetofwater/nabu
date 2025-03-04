@@ -134,6 +134,8 @@ func initConfig() {
 	if repositoryVal != "" {
 		cfgStruct.Sparql.Repository = repositoryVal
 	}
+	// go structs default to 0 so we need to set it to 1 by defaults
+	cfgStruct.Sparql.Batch = 1
 	if batchVal != 1 {
 		cfgStruct.Sparql.Batch = batchVal
 	}
