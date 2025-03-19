@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"nabu/internal/common"
+	"nabu/internal/opentelemetry"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
 	testhelpers "nabu/testHelpers"
@@ -343,6 +344,7 @@ func (suite *SynchronizerClientSuite) TestGraphDiff() {
 }
 
 func TestSynchronizerClientSuite(t *testing.T) {
+	opentelemetry.InitTracer()
 	f, err := os.Create("trace.out")
 	if err != nil {
 		log.Fatal(err)
