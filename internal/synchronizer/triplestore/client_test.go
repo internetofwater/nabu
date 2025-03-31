@@ -2,6 +2,7 @@ package triplestore
 
 import (
 	"nabu/internal/common"
+	"nabu/internal/opentelemetry"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -101,5 +102,6 @@ func (suite *GraphDbClientSuite) TestClearAll() {
 
 // Run the entire test suite
 func TestGraphdbTestSuite(t *testing.T) {
+	opentelemetry.InitTracer()
 	suite.Run(t, new(GraphDbClientSuite))
 }

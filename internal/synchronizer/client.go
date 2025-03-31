@@ -19,6 +19,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // Client to perform operations that synchronize the graph database with the object store
@@ -171,7 +172,8 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 // to minio concurrently. We used a buffered channel to limit the
 // concurrency of the conversion process
 func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
-	_, span := opentelemetry.NewSpan()
+	span, ctx := opentelemetry.NewSpanWithContext()
+	span.SetAttributes(attribute.String("prefix", prefix))
 	defer span.End()
 
 	releaseNqName, err := makeReleaseNqName(prefix)
@@ -185,6 +187,8 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
 
 	// Start processing NQ data concurrently
 	go func() {
+		span, _ := opentelemetry.SubSpanFromCtx(ctx, "streamNqFromPrefix")
+		defer span.End()
 		defer close(nqChan)
 		errChan <- synchronizer.streamNqFromPrefix(prefix, nqChan)
 	}()
@@ -195,7 +199,6 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
 	// if there is an error in the processing goroutine
 	// we will close the pipe with an error and exit
 	go func() {
-
 		// once the nqChan is closed we can close the pipe
 		// since there is nothing more to write
 		defer pw.Close()
@@ -209,6 +212,8 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
 		}
 	}()
 
+	minioSpan, _ := opentelemetry.SubSpanFromCtx(ctx, "minio.PutObject")
+	defer minioSpan.End()
 	// stream the nq data to s3
 	objInfo, err := synchronizer.S3Client.Client.PutObject(
 		context.Background(),
@@ -224,6 +229,7 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
 	if objInfo.Size == 0 {
 		return errors.New("empty nq file when uploading to s3")
 	}
+	minioSpan.End()
 
 	// Check for errors from the processing goroutine
 	if err := <-errChan; err != nil {
