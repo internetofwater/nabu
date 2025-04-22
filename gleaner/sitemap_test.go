@@ -15,7 +15,7 @@ func TestParseSitemapIndex(t *testing.T) {
 	assert.NoError(t, err)
 	var emptyMaps []string
 	var group errgroup.Group
-	group.SetLimit(10)
+	group.SetLimit(20)
 
 	for _, url := range sitemapUrls {
 		assert.NotEmpty(t, url)

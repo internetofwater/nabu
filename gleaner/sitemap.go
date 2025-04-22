@@ -2,7 +2,10 @@ package gleaner
 
 import (
 	"encoding/xml"
+	"fmt"
+	"nabu/internal/common"
 	"strings"
+	"time"
 
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	"golang.org/x/sync/errgroup"
@@ -31,12 +34,32 @@ func (s Sitemap) Harvest(workers int) error {
 	var group errgroup.Group
 	group.SetLimit(workers)
 
-	// for _, url := range s.URL {
-	// 	group.Go(func() error {
-	// 		// download the url in a goroutine
-	// 		return nil
-	// 	})
-	// }
+	// For the time being, we assume that the first URL in the sitemap has the
+	// same robots.txt as the rest of the items
+	firstUrl := s.URL[0]
+	robotstxt, err := newRobots(firstUrl.Loc)
+	if err != nil {
+		return err
+	}
+	if !robotstxt.Test(gleanerAgent) {
+		return fmt.Errorf("robots.txt does not allow us to crawl %s", firstUrl.Loc)
+	}
+
+	client := common.NewRetryableHTTPClient()
+	for _, url := range s.URL {
+		group.Go(func() error {
+			resp, err := client.Get(url.Loc)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if robotstxt.CrawlDelay > 0 {
+				time.Sleep(robotstxt.CrawlDelay)
+			}
+			return nil
+		})
+	}
 	return group.Wait()
 }
 
