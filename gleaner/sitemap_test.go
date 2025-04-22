@@ -39,7 +39,20 @@ func TestParseSitemapIndex(t *testing.T) {
 }
 
 func TestHarvestSitemap(t *testing.T) {
-	sitemap := Sitemap{URL: []URL{{Loc: "https://waterdata.usgs.gov/monitoring-location/354820117401201"}}}
-	err := sitemap.Harvest(10)
-	assert.NoError(t, err)
+
+	t.Run("test one url", func(t *testing.T) {
+		sitemap := Sitemap{URL: []URL{{Loc: "https://waterdata.usgs.gov/monitoring-location/354820117401201"}}}
+		err := sitemap.Harvest(10)
+		for _, err := range err {
+			require.NoError(t, err)
+		}
+	})
+
+	t.Run("test multiple urls", func(t *testing.T) {
+		sitemapUrls, err := GetSitemapListFromIndex("https://geoconnex.us/sitemap.xml")
+		require.NoError(t, err)
+		sitemap, err := NewSitemap(sitemapUrls[0])
+		require.NoError(t, err)
+		_ = sitemap.Harvest(10)
+	})
 }

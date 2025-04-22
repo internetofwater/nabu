@@ -8,7 +8,6 @@ import (
 	"time"
 
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
-	"golang.org/x/sync/errgroup"
 )
 
 // Index is a structure of <sitemapindex>
@@ -30,23 +29,23 @@ type Sitemap struct {
 }
 
 // Harvest all the URLs in the sitemap
-func (s Sitemap) Harvest(workers int) error {
-	var group errgroup.Group
+func (s Sitemap) Harvest(workers int) []error {
+	var group MultiErrGroup
 	group.SetLimit(workers)
 
 	// For the time being, we assume that the first URL in the sitemap has the
 	// same robots.txt as the rest of the items
 	if len(s.URL) == 0 {
-		return fmt.Errorf("no URLs found in sitemap")
+		return []error{fmt.Errorf("no URLs found in sitemap")}
 	}
 
 	firstUrl := s.URL[0]
 	robotstxt, err := newRobots(firstUrl.Loc)
 	if err != nil {
-		return err
+		return []error{err}
 	}
 	if !robotstxt.Test(gleanerAgent) {
-		return fmt.Errorf("robots.txt does not allow us to crawl %s", firstUrl.Loc)
+		return []error{fmt.Errorf("robots.txt does not allow us to crawl %s", firstUrl.Loc)}
 	}
 
 	client := common.NewRetryableHTTPClient()
@@ -57,6 +56,10 @@ func (s Sitemap) Harvest(workers int) error {
 				return err
 			}
 			defer resp.Body.Close()
+
+			if resp.StatusCode >= 400 {
+				return fmt.Errorf("failed to fetch %s, got status %s", url.Loc, resp.Status)
+			}
 
 			if robotstxt.CrawlDelay > 0 {
 				time.Sleep(robotstxt.CrawlDelay)
