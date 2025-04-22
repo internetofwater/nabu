@@ -36,6 +36,10 @@ func (s Sitemap) Harvest(workers int) error {
 
 	// For the time being, we assume that the first URL in the sitemap has the
 	// same robots.txt as the rest of the items
+	if len(s.URL) == 0 {
+		return fmt.Errorf("no URLs found in sitemap")
+	}
+
 	firstUrl := s.URL[0]
 	robotstxt, err := newRobots(firstUrl.Loc)
 	if err != nil {

@@ -39,7 +39,7 @@ func TestParseSitemapIndex(t *testing.T) {
 }
 
 func TestHarvestSitemap(t *testing.T) {
-	sitemap := Sitemap{URL: []URL{}}
+	sitemap := Sitemap{URL: []URL{{Loc: "https://waterdata.usgs.gov/monitoring-location/354820117401201"}}}
 	err := sitemap.Harvest(10)
 	assert.NoError(t, err)
 }
