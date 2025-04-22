@@ -7,6 +7,7 @@ toolchain go1.23.3
 require (
 	github.com/knakk/rdf v0.0.0-20190304171630-8521bf4c5042
 	github.com/minio/minio-go/v7 v7.0.84
+	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4
 	github.com/piprate/json-gold v0.5.0
 	github.com/rs/xid v1.6.0
 	github.com/sirupsen/logrus v1.9.3
@@ -74,6 +75,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
+	github.com/temoto/robotstxt v1.1.2
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
