@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"nabu/internal/common/projectpath"
-	"nabu/pkg/config"
+	"nabu/internal/config"
 	"os"
 	"path/filepath"
 

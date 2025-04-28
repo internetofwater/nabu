@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"nabu/internal/common"
-	"nabu/pkg/config"
+	"nabu/internal/config"
 	"os"
 	"strings"
 	"sync"

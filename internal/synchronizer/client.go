@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"nabu/internal/config"
 	"nabu/internal/common"
 	"nabu/internal/custom_http_trace"
 	"nabu/internal/opentelemetry"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
-	"nabu/pkg/config"
 	"net/http"
 	"strings"
 

@@ -2,7 +2,7 @@ package common
 
 import (
 	"nabu/internal/common/projectpath"
-	"nabu/pkg/config"
+	"nabu/internal/config"
 	"path/filepath"
 	"testing"
 

@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"nabu/pkg/config"
+	"nabu/internal/config"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"

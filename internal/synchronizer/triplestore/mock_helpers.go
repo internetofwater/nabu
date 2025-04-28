@@ -3,7 +3,7 @@ package triplestore
 import (
 	"context"
 	"fmt"
-	"nabu/pkg/config"
+	"nabu/internal/config"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"

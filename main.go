@@ -1,9 +1,9 @@
 package main
 
 import (
-	"nabu/pkg/cli"
+	"nabu/cmd/nabu"
 )
 
 func main() {
-	cli.Execute()
+	nabu.Execute()
 }
