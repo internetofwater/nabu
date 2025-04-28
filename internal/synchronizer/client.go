@@ -7,16 +7,17 @@ import (
 	"fmt"
 	"io"
 	"nabu/internal/common"
+	"nabu/internal/config"
 	"nabu/internal/custom_http_trace"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
-	"nabu/pkg/config"
 	"net/http"
 	"strings"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // Client to perform operations that synchronize the graph database with the object store
@@ -143,7 +144,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 	}
 	req.Header.Set("Content-Type", "application/n-quads") // Corrected content type
 
-	client := &http.Client{}
+	client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -169,6 +170,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 // to minio concurrently. We used a buffered channel to limit the
 // concurrency of the conversion process
 func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
+
 	releaseNqName, err := makeReleaseNqName(prefix)
 	if err != nil {
 		return err
@@ -190,7 +192,6 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
 	// if there is an error in the processing goroutine
 	// we will close the pipe with an error and exit
 	go func() {
-
 		// once the nqChan is closed we can close the pipe
 		// since there is nothing more to write
 		defer pw.Close()

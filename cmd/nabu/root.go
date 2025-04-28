@@ -1,4 +1,4 @@
-package cli
+package nabu
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 
 	"nabu/internal/common"
 	"nabu/internal/common/projectpath"
+	"nabu/internal/config"
 	"nabu/internal/synchronizer/s3"
-	"nabu/pkg/config"
 
 	"runtime/trace"
 

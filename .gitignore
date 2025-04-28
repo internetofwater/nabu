@@ -1,7 +1,6 @@
 **/secret/
 secret/**
 logs/**
-nabu
 **/*.log
 **/.idea/**
 **/.fleet/**
@@ -13,3 +12,5 @@ google.yml
 *.png
 
 trace.out
+
+/nabu

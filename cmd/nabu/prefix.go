@@ -1,4 +1,4 @@
-package cli
+package nabu
 
 import (
 	"nabu/internal/synchronizer"
