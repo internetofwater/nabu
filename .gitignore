@@ -12,3 +12,5 @@ google.yml
 *.png
 
 trace.out
+
+/nabu
