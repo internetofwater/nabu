@@ -11,8 +11,8 @@ const gleanerAgent = "gleaner"
 
 // Given a url, strip off the end and just return the hostname with the
 // proper protocol
-func getHostname(url_to_check string) (string, error) {
-	parsedURL, err := url.Parse(url_to_check)
+func getHostname(urlToCheck string) (string, error) {
+	parsedURL, err := url.Parse(urlToCheck)
 	if err != nil {
 		return "", err
 	}

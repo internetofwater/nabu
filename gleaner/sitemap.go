@@ -26,6 +26,18 @@ type parts struct {
 type Sitemap struct {
 	XMLName xml.Name `xml:":urlset"`
 	URL     []URL    `xml:":url"`
+
+	// Strategy used for storing crawled data
+	// - explicitly ignores xml marshaling
+	// since this is not an xml field but rather
+	// associated data with the sitemap struct
+	storageDestination CrawlStorage `xml:"-"`
+}
+
+// Set the storage strategy for the struct
+func (s Sitemap) WithStorageType(storageDestination CrawlStorage) Sitemap {
+	s.storageDestination = storageDestination
+	return s
 }
 
 // Harvest all the URLs in the sitemap
@@ -37,6 +49,8 @@ func (s Sitemap) Harvest(workers int) []error {
 	// same robots.txt as the rest of the items
 	if len(s.URL) == 0 {
 		return []error{fmt.Errorf("no URLs found in sitemap")}
+	} else if s.storageDestination == nil {
+		return []error{fmt.Errorf("no storage destination set")}
 	}
 
 	firstUrl := s.URL[0]

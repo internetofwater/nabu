@@ -4,7 +4,8 @@ import (
 	"sync"
 )
 
-// MultiErrGroup is like errgroup.Group but collects all errors and supports limiting concurrency.
+// MultiErrGroup is a wait group struct similar to errgroup.Group
+// but collects all errors and supports limiting concurrency.
 type MultiErrGroup struct {
 	wg     sync.WaitGroup
 	mu     sync.Mutex

@@ -3,6 +3,7 @@ package gleaner
 import (
 	"testing"
 
+	"github.com/h2non/gock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -10,12 +11,21 @@ import (
 
 // Test parsing the geoconnex sitemap index which contains links to other sitemaps
 func TestParseSitemapIndex(t *testing.T) {
+
+	defer gock.Off()
+	defer gock.DisableNetworking()
+
+	gock.New("https://geoconnex.us/sitemap.xml").
+		Reply(200).
+		File("testdata/sitemap.xml")
+
 	sitemapUrls, err := GetSitemapListFromIndex("https://geoconnex.us/sitemap.xml")
 	require.NotEmpty(t, sitemapUrls)
 	assert.NoError(t, err)
 	var emptyMaps []string
 	var group errgroup.Group
 	group.SetLimit(20)
+	gock.EnableNetworking()
 
 	for _, url := range sitemapUrls {
 		assert.NotEmpty(t, url)
@@ -35,6 +45,7 @@ func TestParseSitemapIndex(t *testing.T) {
 	assert.NoError(t, group.Wait())
 	// the array of empty sitemap names should be empty, signifying there are no empty sitemaps
 	assert.Len(t, emptyMaps, 0)
+	require.True(t, gock.IsDone())
 
 }
 
@@ -42,7 +53,7 @@ func TestHarvestSitemap(t *testing.T) {
 
 	t.Run("test one url", func(t *testing.T) {
 		sitemap := Sitemap{URL: []URL{{Loc: "https://waterdata.usgs.gov/monitoring-location/354820117401201"}}}
-		err := sitemap.Harvest(10)
+		err := sitemap.WithStorageType(DiscardCrawlStorage{}).Harvest(10)
 		for _, err := range err {
 			require.NoError(t, err)
 		}
@@ -53,6 +64,6 @@ func TestHarvestSitemap(t *testing.T) {
 		require.NoError(t, err)
 		sitemap, err := NewSitemap(sitemapUrls[0])
 		require.NoError(t, err)
-		_ = sitemap.Harvest(10)
+		_ = sitemap.WithStorageType(DiscardCrawlStorage{}).Harvest(10)
 	})
 }
