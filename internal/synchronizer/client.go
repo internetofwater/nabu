@@ -6,10 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"nabu/internal/config"
 	"nabu/internal/common"
+	"nabu/internal/config"
 	"nabu/internal/custom_http_trace"
-	"nabu/internal/opentelemetry"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
 	"net/http"
@@ -19,7 +18,6 @@ import (
 	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel/attribute"
 )
 
 // Client to perform operations that synchronize the graph database with the object store
@@ -172,9 +170,6 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 // to minio concurrently. We used a buffered channel to limit the
 // concurrency of the conversion process
 func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
-	span, ctx := opentelemetry.NewSpanWithContext()
-	span.SetAttributes(attribute.String("prefix", prefix))
-	defer span.End()
 
 	releaseNqName, err := makeReleaseNqName(prefix)
 	if err != nil {
@@ -187,8 +182,6 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
 
 	// Start processing NQ data concurrently
 	go func() {
-		span, _ := opentelemetry.SubSpanFromCtx(ctx, "streamNqFromPrefix")
-		defer span.End()
 		defer close(nqChan)
 		errChan <- synchronizer.streamNqFromPrefix(prefix, nqChan)
 	}()
@@ -212,8 +205,6 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
 		}
 	}()
 
-	minioSpan, _ := opentelemetry.SubSpanFromCtx(ctx, "minio.PutObject")
-	defer minioSpan.End()
 	// stream the nq data to s3
 	objInfo, err := synchronizer.S3Client.Client.PutObject(
 		context.Background(),
