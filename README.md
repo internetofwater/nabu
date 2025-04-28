@@ -1,4 +1,4 @@
-# Nabu
+# Nabu 
 Nabu's main goal is to load/synchronize a collection of RDF graphs (for example JSON-LD document) in an 
 object store (minio, S3, etc.) into a graph database/triplestore. 
 
