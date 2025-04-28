@@ -1,11 +1,16 @@
 package gleaner
 
 import (
+	"bytes"
+	"crypto/md5"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"nabu/internal/common"
 	"strings"
 	"time"
+
+	crawl "nabu/internal/crawl"
 
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 )
@@ -31,11 +36,11 @@ type Sitemap struct {
 	// - explicitly ignores xml marshaling
 	// since this is not an xml field but rather
 	// associated data with the sitemap struct
-	storageDestination CrawlStorage `xml:"-"`
+	storageDestination crawl.CrawlStorage `xml:"-"`
 }
 
 // Set the storage strategy for the struct
-func (s Sitemap) WithStorageType(storageDestination CrawlStorage) Sitemap {
+func (s Sitemap) SetStorageDestination(storageDestination crawl.CrawlStorage) Sitemap {
 	s.storageDestination = storageDestination
 	return s
 }
@@ -64,6 +69,7 @@ func (s Sitemap) Harvest(workers int) []error {
 
 	client := common.NewRetryableHTTPClient()
 	for _, url := range s.URL {
+		url := url
 		group.Go(func() error {
 			resp, err := client.Get(url.Loc)
 			if err != nil {
@@ -73,6 +79,33 @@ func (s Sitemap) Harvest(workers int) []error {
 
 			if resp.StatusCode >= 400 {
 				return fmt.Errorf("failed to fetch %s, got status %s", url.Loc, resp.Status)
+			}
+
+			hasher := md5.New()
+			var buf bytes.Buffer
+
+			// Write body into two writers: hasher and buf
+			tee := io.TeeReader(resp.Body, io.MultiWriter(hasher, &buf))
+
+			// Read all
+			_, err = io.Copy(io.Discard, tee)
+			if err != nil {
+				return err
+			}
+
+			// Now you have both the hash and the body
+			itemHash := fmt.Sprintf("%x", hasher.Sum(nil))
+
+			exists, err := s.storageDestination.Exists(itemHash)
+			if err != nil {
+				return err
+			}
+
+			if !exists {
+				// Store from the buffered copy
+				if err = s.storageDestination.Store(itemHash, &buf); err != nil {
+					return err
+				}
 			}
 
 			if robotstxt.CrawlDelay > 0 {

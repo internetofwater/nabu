@@ -6,6 +6,7 @@ import (
 	"io"
 	"nabu/internal/common"
 	"nabu/internal/config"
+	crawl "nabu/internal/crawl"
 	"os"
 	"strings"
 	"sync"
@@ -219,9 +220,49 @@ func (m *MinioClientWrapper) UploadFile(uploadPath string, localFileName string)
 	}
 	defer file.Close()
 
-	_, err = m.Client.PutObject(context.Background(), m.DefaultBucket, uploadPath, file, -1, minio.PutObjectOptions{})
+	err = m.Store(uploadPath, file)
+	return err
+}
+
+// Store bytes into the minio store
+func (m MinioClientWrapper) Store(path string, data io.Reader) error {
+	_, err := m.Client.PutObject(context.Background(), m.DefaultBucket, path, data, -1, minio.PutObjectOptions{})
 	if err != nil {
 		return err
 	}
 	return nil
 }
+
+// Get bytes from the minio store
+func (m MinioClientWrapper) Get(path string) (io.ReadCloser, error) {
+	return m.Client.GetObject(context.Background(), m.DefaultBucket, path, minio.GetObjectOptions{})
+}
+
+func (m MinioClientWrapper) Exists(path string) (bool, error) {
+	_, err := m.Client.StatObject(context.Background(), m.DefaultBucket, path, minio.StatObjectOptions{})
+	if err == nil {
+		return true, nil
+	}
+	// This is a string from the s3 spec, not an arbitrary magic val
+	if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+		return false, nil
+	}
+	return false, err
+}
+
+func (m MinioClientWrapper) BatchStore(batch chan crawl.BatchFileObject) error {
+	snowBallChan := make(chan minio.SnowballObject)
+
+	go func() {
+		for obj := range batch {
+			snowBallChan <- minio.SnowballObject{
+				Key:     obj.Path,
+				Content: obj.Reader,
+			}
+		}
+		close(snowBallChan)
+	}()
+	return m.Client.PutObjectsSnowball(context.Background(), m.DefaultBucket, minio.SnowballOptions{}, snowBallChan)
+}
+
+var _ crawl.BatchCrawlStorage = MinioClientWrapper{}
