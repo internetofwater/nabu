@@ -220,7 +220,6 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
 	if objInfo.Size == 0 {
 		return errors.New("empty nq file when uploading to s3")
 	}
-	minioSpan.End()
 
 	// Check for errors from the processing goroutine
 	if err := <-errChan; err != nil {
