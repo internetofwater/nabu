@@ -297,7 +297,8 @@ func (suite *S3ClientSuite) TestGetObjectAsNamedGraph() {
 // Test that the minio client conforms to the crud interface so gleaner can use it
 func (suite *S3ClientSuite) TestCRUD() {
 	testBytes := bytes.NewReader([]byte("test data"))
-	suite.minioContainer.ClientWrapper.Store("test/testCRUD", testBytes)
+	err := suite.minioContainer.ClientWrapper.Store("test/testCRUD", testBytes)
+	require.NoError(suite.T(), err)
 
 	exists, err := suite.minioContainer.ClientWrapper.Exists("test/testCRUD")
 	require.NoError(suite.T(), err)
