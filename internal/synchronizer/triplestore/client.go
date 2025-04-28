@@ -14,10 +14,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"nabu/pkg/config"
+	"nabu/internal/config"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type TriplesAsText = string
@@ -101,7 +102,7 @@ func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath stri
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	client := http.Client{}
+	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 
 	// Send the request
 	resp, err := client.Do(req)
@@ -146,7 +147,7 @@ func (graphClient *GraphDbClient) UpsertNamedGraphs(graphs []common.NamedGraph) 
 		req.SetBasicAuth(graphClient.SparqlConf.Username, graphClient.SparqlConf.Password)
 	}
 
-	client := &http.Client{}
+	client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Error(err)
@@ -203,7 +204,7 @@ func (graphClient *GraphDbClient) DropGraphs(graphs []string) error {
 	}
 	req.Header.Set("Content-Type", "application/sparql-update")
 
-	client := http.Client{}
+	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -235,7 +236,7 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 	}
 	req.Header.Set("Content-Type", "application/sparql-update")
 
-	client := http.Client{}
+	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -279,7 +280,7 @@ func (graphClient *GraphDbClient) GraphExists(graphURN string) (bool, error) {
 		return false, err
 	}
 
-	client := &http.Client{}
+	client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 	resp, err := client.Do(req)
 	if err != nil {
 		return false, err
@@ -331,7 +332,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix strin
 
 	req.Header.Set("Accept", "application/sparql-results+json")
 
-	client := &http.Client{}
+	client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 
 	resp, err := client.Do(req)
 	if err != nil {
