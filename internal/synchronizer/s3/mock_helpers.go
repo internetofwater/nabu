@@ -35,6 +35,22 @@ type MinioContainerConfig struct {
 	Network string
 }
 
+// Create a default minio container with default credentials, mainly for testing
+func NewDefaultMinioContainer() (MinioContainer, error) {
+	container, err := NewMinioContainer(MinioContainerConfig{
+		Username:      "minioadmin",
+		Password:      "minioadmin",
+		DefaultBucket: "iow",
+	})
+	if err != nil {
+		return container, err
+	}
+	if err = container.ClientWrapper.Client.MakeBucket(context.Background(), container.ClientWrapper.DefaultBucket, minio.MakeBucketOptions{}); err != nil {
+		return container, err
+	}
+	return container, err
+}
+
 // Spin up a local minio container
 func NewMinioContainer(config MinioContainerConfig) (MinioContainer, error) {
 	ctx := context.Background()

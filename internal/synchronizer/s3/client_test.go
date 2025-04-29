@@ -294,6 +294,33 @@ func (suite *S3ClientSuite) TestGetObjectAsNamedGraph() {
 	require.Contains(t, object.Triples, "http://schema.org/address")
 }
 
+// Test that the minio client conforms to the crud interface so gleaner can use it
+func (suite *S3ClientSuite) TestCRUD() {
+	testBytes := bytes.NewReader([]byte("test data"))
+	err := suite.minioContainer.ClientWrapper.Store("test/testCRUD", testBytes)
+	require.NoError(suite.T(), err)
+
+	exists, err := suite.minioContainer.ClientWrapper.Exists("test/testCRUD")
+	require.NoError(suite.T(), err)
+	require.True(suite.T(), exists)
+
+	data, err := suite.minioContainer.ClientWrapper.Get("test/testCRUD")
+	require.NoError(suite.T(), err)
+	defer data.Close()
+
+	bytes, err := io.ReadAll(data)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), "test data", string(bytes))
+
+	err = suite.minioContainer.ClientWrapper.Remove("test/testCRUD")
+	require.NoError(suite.T(), err)
+
+	exists, err = suite.minioContainer.ClientWrapper.Exists("test/testCRUD")
+	require.NoError(suite.T(), err)
+	require.False(suite.T(), exists)
+
+}
+
 // Run the entire test suite
 func TestS3ClientSuite(t *testing.T) {
 	suite.Run(t, new(S3ClientSuite))

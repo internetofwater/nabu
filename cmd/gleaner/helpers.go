@@ -1,6 +1,10 @@
 package gleaner
 
 import (
+	"bytes"
+	"crypto/md5"
+	"fmt"
+	"io"
 	"nabu/internal/common"
 	"net/url"
 
@@ -40,4 +44,17 @@ func newRobots(urlToCheck string) (*robotstxt.Group, error) {
 		return nil, err
 	}
 	return robots.FindGroup(gleanerAgent), nil
+}
+
+func copyReaderAndReturnHash(reader io.Reader) (io.Reader, string, error) {
+	var buf bytes.Buffer
+	tee := io.TeeReader(reader, &buf)
+
+	hasher := md5.New()
+	if _, err := io.Copy(hasher, tee); err != nil {
+		return nil, "", err
+	}
+
+	// Create a new reader from the buffered copy
+	return bytes.NewReader(buf.Bytes()), fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }

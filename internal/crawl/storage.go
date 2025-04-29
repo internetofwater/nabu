@@ -1,10 +1,21 @@
 package gleaner
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 )
+
+type BatchFileObject struct {
+	Path   string
+	Reader io.Reader
+}
+
+type BatchCrawlStorage interface {
+	CrawlStorage
+	BatchStore(chan BatchFileObject) error
+}
 
 type CrawlStorage interface {
 	Store(string, io.Reader) error
@@ -31,6 +42,10 @@ func NewLocalTempFSCrawlStorage() (*LocalTempFSCrawlStorage, error) {
 
 // Store saves the contents from the reader into a file named after `object`
 func (l *LocalTempFSCrawlStorage) Store(object string, reader io.Reader) error {
+	if l.baseDir == "" {
+		return fmt.Errorf("baseDir is empty")
+	}
+
 	destPath := filepath.Join(l.baseDir, object)
 
 	// Make sure directory exists
