@@ -1,11 +1,8 @@
 package gleaner
 
 import (
-	"bytes"
-	"crypto/md5"
 	"encoding/xml"
 	"fmt"
-	"io"
 	"nabu/internal/common"
 	"strings"
 	"time"
@@ -81,20 +78,11 @@ func (s Sitemap) Harvest(workers int) []error {
 				return fmt.Errorf("failed to fetch %s, got status %s", url.Loc, resp.Status)
 			}
 
-			hasher := md5.New()
-			var buf bytes.Buffer
-
-			// Write body into two writers: hasher and buf
-			tee := io.TeeReader(resp.Body, io.MultiWriter(hasher, &buf))
-
-			// Read all
-			_, err = io.Copy(io.Discard, tee)
+			// To generate a hash we need to copy the response body
+			respBodyCopy, itemHash, err := copyReaderAndReturnHash(resp.Body)
 			if err != nil {
 				return err
 			}
-
-			// Now you have both the hash and the body
-			itemHash := fmt.Sprintf("%x", hasher.Sum(nil))
 
 			exists, err := s.storageDestination.Exists(itemHash)
 			if err != nil {
@@ -103,7 +91,7 @@ func (s Sitemap) Harvest(workers int) []error {
 
 			if !exists {
 				// Store from the buffered copy
-				if err = s.storageDestination.Store(itemHash, &buf); err != nil {
+				if err = s.storageDestination.Store(itemHash, respBodyCopy); err != nil {
 					return err
 				}
 			}
