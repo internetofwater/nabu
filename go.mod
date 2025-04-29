@@ -29,7 +29,11 @@ require (
 	google.golang.org/protobuf v1.36.5 // indirect
 )
 
-require github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
+require (
+	github.com/alexflint/go-arg v1.5.1 // indirect
+	github.com/alexflint/go-scalar v1.2.0 // indirect
+	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
+)
 
 require (
 	dario.cat/mergo v1.0.0 // indirect

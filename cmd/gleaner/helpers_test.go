@@ -89,7 +89,7 @@ func FuzzCopyReaderAndReturnHash(f *testing.F) {
 		// Run function with fuzz input
 		reader := bytes.NewReader(input)
 
-		readerCopy, hash, err := copyReaderAndReturnHash(reader)
+		readerCopy, hash, err := copyReaderAndGenerateHashFilename(reader)
 		require.NoError(t, err)
 
 		// Read copied data
@@ -100,7 +100,7 @@ func FuzzCopyReaderAndReturnHash(f *testing.F) {
 		require.Equal(t, string(copiedData), string(input), "copied data should match input")
 
 		// rehash to verify correctness
-		expectedHash := fmt.Sprintf("%x", md5.Sum(input))
+		expectedHash := fmt.Sprintf("%x.jsonld", md5.Sum(input))
 		require.Equal(t, hash, expectedHash, "hash should match expected MD5")
 	})
 }

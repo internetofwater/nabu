@@ -10,19 +10,8 @@ import (
 	crawl "nabu/internal/crawl"
 
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
+	"golang.org/x/sync/errgroup"
 )
-
-// Index is a structure of <sitemapindex>
-type Index struct {
-	XMLName xml.Name `xml:"sitemapindex"`
-	Sitemap []parts  `xml:"sitemap"`
-}
-
-// parts is a structure of <sitemap> in <sitemapindex>
-type parts struct {
-	Loc     string `xml:"loc"`
-	LastMod string `xml:"lastmod"`
-}
 
 // Represents an XML sitemap
 type Sitemap struct {
@@ -43,25 +32,27 @@ func (s Sitemap) SetStorageDestination(storageDestination crawl.CrawlStorage) Si
 }
 
 // Harvest all the URLs in the sitemap
-func (s Sitemap) Harvest(workers int) []error {
-	var group MultiErrGroup
+func (s Sitemap) Harvest(workers int) error {
+	var group errgroup.Group
 	group.SetLimit(workers)
 
 	// For the time being, we assume that the first URL in the sitemap has the
 	// same robots.txt as the rest of the items
 	if len(s.URL) == 0 {
-		return []error{fmt.Errorf("no URLs found in sitemap")}
+		return fmt.Errorf("no URLs found in sitemap")
 	} else if s.storageDestination == nil {
-		return []error{fmt.Errorf("no storage destination set")}
+		return fmt.Errorf("no storage destination set")
+	} else if workers < 1 {
+		return fmt.Errorf("no workers set")
 	}
 
 	firstUrl := s.URL[0]
 	robotstxt, err := newRobots(firstUrl.Loc)
 	if err != nil {
-		return []error{err}
+		return err
 	}
 	if !robotstxt.Test(gleanerAgent) {
-		return []error{fmt.Errorf("robots.txt does not allow us to crawl %s", firstUrl.Loc)}
+		return fmt.Errorf("robots.txt does not allow us to crawl %s", firstUrl.Loc)
 	}
 
 	client := common.NewRetryableHTTPClient()
@@ -79,7 +70,7 @@ func (s Sitemap) Harvest(workers int) []error {
 			}
 
 			// To generate a hash we need to copy the response body
-			respBodyCopy, itemHash, err := copyReaderAndReturnHash(resp.Body)
+			respBodyCopy, itemHash, err := copyReaderAndGenerateHashFilename(resp.Body)
 			if err != nil {
 				return err
 			}
@@ -131,16 +122,4 @@ func NewSitemap(sitemapURL string) (Sitemap, error) {
 
 	serializedSitemap.URL = urls
 	return serializedSitemap, nil
-}
-
-// // This function takes a top level sitemap index like geoconnex.us/sitemap.xml and returns a list of sitemap urls
-// A sitemap index is a file that lists the URLs for multiple sitemaps
-func GetSitemapListFromIndex(sitemapURL string) ([]string, error) {
-	result := []string{}
-	err := sitemap.ParseIndexFromSite(sitemapURL, func(e sitemap.IndexEntry) error {
-		result = append(result, strings.TrimSpace(e.GetLocation()))
-		return nil
-	})
-
-	return result, err
 }
