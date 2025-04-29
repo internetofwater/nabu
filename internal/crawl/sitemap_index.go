@@ -1,9 +1,9 @@
-package gleaner
+package crawl
 
 import (
 	"encoding/xml"
 	"fmt"
-	crawl "nabu/internal/crawl"
+	"nabu/internal/interfaces"
 	"strings"
 	"time"
 
@@ -16,9 +16,9 @@ type Index struct {
 	XMLName  xml.Name `xml:"sitemapindex"`
 	Sitemaps []parts  `xml:"sitemap"`
 
-	storageDestination crawl.CrawlStorage `xml:"-"`
-	concurrentSitemaps int                `xml:"-"`
-	sitemapWorkers     int                `xml:"-"`
+	storageDestination interfaces.CrawlStorage `xml:"-"`
+	concurrentSitemaps int                     `xml:"-"`
+	sitemapWorkers     int                     `xml:"-"`
 }
 
 // parts is a structure of <sitemap> in <sitemapindex>
@@ -84,7 +84,7 @@ func (i Index) HarvestSitemap(sitemap string) error {
 	return fmt.Errorf("sitemap %s not found in sitemap", sitemap)
 }
 
-func (i Index) WithStorageDestination(storageDestination crawl.CrawlStorage) Index {
+func (i Index) WithStorageDestination(storageDestination interfaces.CrawlStorage) Index {
 	i.storageDestination = storageDestination
 	return i
 }

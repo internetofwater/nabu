@@ -1,10 +1,12 @@
-package gleaner
+package interfaces
 
 import (
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type BatchFileObject struct {
@@ -41,12 +43,15 @@ func NewLocalTempFSCrawlStorage() (*LocalTempFSCrawlStorage, error) {
 }
 
 // Store saves the contents from the reader into a file named after `object`
-func (l *LocalTempFSCrawlStorage) Store(object string, reader io.Reader) error {
+func (l *LocalTempFSCrawlStorage) Store(name string, reader io.Reader) error {
+
 	if l.baseDir == "" {
 		return fmt.Errorf("baseDir is empty")
 	}
 
-	destPath := filepath.Join(l.baseDir, object)
+	destPath := filepath.Join(l.baseDir, name)
+
+	log.Debugf("saving data to %s", destPath)
 
 	// Make sure directory exists
 	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {

@@ -1,9 +1,9 @@
-package gleaner
+package crawl
 
 import (
 	"testing"
 
-	crawl "nabu/internal/crawl"
+	"nabu/internal/interfaces"
 	"nabu/internal/synchronizer/s3"
 
 	"github.com/h2non/gock"
@@ -53,7 +53,7 @@ func TestHarvestSitemap(t *testing.T) {
 		File("testdata/sitemap.xml")
 
 	// initialize storage types
-	tmpStore, err := crawl.NewLocalTempFSCrawlStorage()
+	tmpStore, err := interfaces.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
 	container, err := s3.NewDefaultMinioContainer()
 	require.NoError(t, err)

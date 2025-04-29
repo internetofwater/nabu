@@ -1,4 +1,4 @@
-package gleaner
+package crawl
 
 import (
 	"sync"

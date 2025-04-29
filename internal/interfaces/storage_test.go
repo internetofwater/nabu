@@ -1,4 +1,4 @@
-package gleaner
+package interfaces
 
 import (
 	"bytes"

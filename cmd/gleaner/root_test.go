@@ -1,8 +1,9 @@
-package gleaner
+package main
 
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"nabu/internal/synchronizer/s3"
@@ -22,8 +23,8 @@ func (s *GleanerRootSuite) TestRunOnSitemapIndex() {
 		Reply(200).
 		File("testdata/sitemap.xml")
 
-	args := fmt.Sprintf("--sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
-	err := NewGleanerRunner(args).Run()
+	args := fmt.Sprintf("gleaner --log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
+	err := NewGleanerRunner(strings.Split(args, " ")).Run()
 	require.NoError(s.T(), err)
 
 	objs, err := s.minioContainer.ClientWrapper.ObjectList("")

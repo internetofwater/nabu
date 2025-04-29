@@ -1,15 +1,15 @@
-package gleaner
+package crawl
 
 import (
 	"encoding/xml"
 	"fmt"
 	"nabu/internal/common"
+	"nabu/internal/interfaces"
 	"strings"
 	"time"
 
-	crawl "nabu/internal/crawl"
-
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -22,11 +22,11 @@ type Sitemap struct {
 	// - explicitly ignores xml marshaling
 	// since this is not an xml field but rather
 	// associated data with the sitemap struct
-	storageDestination crawl.CrawlStorage `xml:"-"`
+	storageDestination interfaces.CrawlStorage `xml:"-"`
 }
 
 // Set the storage strategy for the struct
-func (s Sitemap) SetStorageDestination(storageDestination crawl.CrawlStorage) Sitemap {
+func (s Sitemap) SetStorageDestination(storageDestination interfaces.CrawlStorage) Sitemap {
 	s.storageDestination = storageDestination
 	return s
 }
@@ -85,6 +85,9 @@ func (s Sitemap) Harvest(workers int) error {
 				if err = s.storageDestination.Store(itemHash, respBodyCopy); err != nil {
 					return err
 				}
+				log.Debugf("stored %s as %s", url.Loc, itemHash)
+			} else {
+				log.Debugf("%s exists so skipping", url.Loc)
 			}
 
 			if robotstxt.CrawlDelay > 0 {
