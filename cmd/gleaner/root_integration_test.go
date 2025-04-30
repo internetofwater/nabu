@@ -9,6 +9,7 @@ import (
 	"nabu/internal/synchronizer"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
+	"os"
 	"testing"
 	"time"
 
@@ -26,6 +27,7 @@ type GleanerInterationSuite struct {
 }
 
 func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
+	os.Setenv("NABU_PROFILING", "False")
 	startMocks()
 	// need to enable networking to make graph http requests
 	gock.EnableNetworking()
