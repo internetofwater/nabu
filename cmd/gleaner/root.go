@@ -65,7 +65,11 @@ func (g GleanerRunner) Run() error {
 		var configuredSitemap crawl.Index
 		if g.args.ToDisk {
 			log.Info("Saving to fetched files to disk")
-			configuredSitemap = index.WithStorageDestination(&interfaces.LocalTempFSCrawlStorage{})
+			tmpFSStorage, err := interfaces.NewLocalTempFSCrawlStorage()
+			if err != nil {
+				return err
+			}
+			configuredSitemap = index.WithStorageDestination(tmpFSStorage)
 		} else {
 			log.Infof("Saving to fetched files to s3 bucket at %s:%d", g.args.Address, g.args.Port)
 			minioS3, err := s3.NewMinioClientWrapper(config.MinioConfig{
