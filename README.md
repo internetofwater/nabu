@@ -37,3 +37,4 @@ The repo was refactored to:
     - There are no linter errors when runing `golangci-lint`
 - add tests extensively 
 - the sparql section in the nabu config file was simplified; the user just needs to specify the endpoint and any triplestore-specific features are handled by us in go
+
