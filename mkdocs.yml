@@ -1,3 +1,6 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
+
 site_name: Nabu
 # this is intended to be included in the Earthcube Documentation.
 # see the action: https://github.com/earthcube/geocodes_documentation/blob/main/.github/workflows/runscript.yml
