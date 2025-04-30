@@ -67,6 +67,18 @@ func NewMinioClientWrapper(mcfg config.MinioConfig) (*MinioClientWrapper, error)
 	return &MinioClientWrapper{Client: minioClient, DefaultBucket: mcfg.Bucket}, err
 }
 
+// Create the default bucket
+func (m *MinioClientWrapper) MakeDefaultBucket() error {
+	exists, err := m.Client.BucketExists(context.Background(), m.DefaultBucket)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	return m.Client.MakeBucket(context.Background(), m.DefaultBucket, minio.MakeBucketOptions{})
+}
+
 // Remove an object from the store
 func (m *MinioClientWrapper) Remove(object string) error {
 	opts := minio.RemoveObjectOptions{

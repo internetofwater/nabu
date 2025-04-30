@@ -33,12 +33,12 @@ func (suite *S3ClientSuite) SetupSuite() {
 		DefaultBucket: "gleanerbucket",
 		ContainerName: "objects_test_minio",
 	}
-	minioContainer, err := NewMinioContainer(config)
+	minioContainer, err := NewMinioContainerFromConfig(config)
 	require.NoError(suite.T(), err)
 	suite.minioContainer = minioContainer
 
 	// create the bucket
-	err = suite.minioContainer.ClientWrapper.Client.MakeBucket(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, minio.MakeBucketOptions{})
+	err = suite.minioContainer.ClientWrapper.MakeDefaultBucket()
 	require.NoError(suite.T(), err)
 
 }

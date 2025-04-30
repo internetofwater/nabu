@@ -30,12 +30,11 @@ func (suite *RootCliSuite) SetupSuite() {
 		Password:      "minioadmin",
 		DefaultBucket: "iow",
 	}
-	minioContainer, err := s3.NewMinioContainer(config)
+	minioContainer, err := s3.NewMinioContainerFromConfig(config)
 	require.NoError(suite.T(), err)
 	suite.minioContainer = minioContainer
 
-	// create the bucket
-	err = suite.minioContainer.ClientWrapper.Client.MakeBucket(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, minio.MakeBucketOptions{})
+	err = suite.minioContainer.ClientWrapper.MakeDefaultBucket()
 	require.NoError(suite.T(), err)
 
 }

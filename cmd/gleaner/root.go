@@ -18,7 +18,7 @@ import (
 
 type GleanerArgs struct {
 	Address      string `arg:"--address" default:"127.0.0.1"`
-	Port         int    `arg:"--port" default:"7200"`
+	Port         int    `arg:"--port" default:"9000"`
 	Bucket       string `arg:"--bucket" default:"iow"` // minio bucket to put data
 	SitemapIndex string `arg:"--sitemap-index"`
 	Source       string `arg:"--source"` // source to crawl from the config
@@ -27,7 +27,6 @@ type GleanerArgs struct {
 	SecretKey    string `arg:"--secret-key" default:"minioadmin"` // secret key for minio
 	AccessKey    string `arg:"--access-key" default:"minioadmin"` // access key for minio
 	SSL          bool   `arg:"--ssl"`                             // use SSL for HTTP requests
-	SetupBuckets bool   `arg:"--setup-buckets"`                   // setup buckets before crawling
 	Rude         bool   `arg:"--rude"`                            // ignore robots.txt
 	ToDisk       bool   `arg:"--to-disk" default:"false"`         // save to disk instead of minio
 	LogLevel     string `arg:"--log-level" default:"INFO"`
@@ -42,9 +41,8 @@ type GleanerRunner struct {
 
 func NewGleanerRunner(cliArgs []string) GleanerRunner {
 	args := GleanerArgs{}
-	allArgsButBinary := cliArgs[1:]
-	const dummyBinaryName = "gleaner" // we need to add some arbitrary binary name
-	os.Args = append([]string{dummyBinaryName}, allArgsButBinary...)
+	const dummyBinaryName = "gleaner" // we need to add some arbitrary binary name; it doesn't matter
+	os.Args = append([]string{dummyBinaryName}, cliArgs...)
 	arg.MustParse(&args)
 	return GleanerRunner{
 		args: args,
@@ -59,6 +57,7 @@ func (g GleanerRunner) Run() error {
 	log.SetLevel(level)
 	log.SetOutput(os.Stdout)
 	log.Info("Starting Gleaner")
+	log.Debug("Running in debug mode")
 
 	if g.args.SitemapIndex != "" {
 		index, err := crawl.NewSitemapIndexHarvester(g.args.SitemapIndex)
@@ -86,6 +85,10 @@ func (g GleanerRunner) Run() error {
 			if err != nil {
 				return err
 			}
+			if err := minioS3.MakeDefaultBucket(); err != nil {
+				return err
+			}
+
 			configuredSitemap = index.WithStorageDestination(minioS3)
 		}
 
@@ -104,7 +107,7 @@ func (g GleanerRunner) Run() error {
 }
 
 func main() {
-	if err := NewGleanerRunner(os.Args).Run(); err != nil {
+	if err := NewGleanerRunner(os.Args[1:]).Run(); err != nil {
 		log.Fatal(err)
 	}
 }

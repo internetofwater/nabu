@@ -18,7 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -91,7 +90,7 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 		Network:       net.Name,
 	}
 
-	minioContainer, err := s3.NewMinioContainer(config)
+	minioContainer, err := s3.NewMinioContainerFromConfig(config)
 	suite.Require().NoError(err)
 	suite.minioContainer = minioContainer
 
@@ -102,7 +101,7 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 		return suite.minioContainer.ClientWrapper.Client.IsOnline()
 	}, 10*time.Second, 500*time.Millisecond, "MinIO container did not become online in time")
 
-	err = suite.minioContainer.ClientWrapper.Client.MakeBucket(ctx, suite.minioContainer.ClientWrapper.DefaultBucket, minio.MakeBucketOptions{})
+	err = suite.minioContainer.ClientWrapper.MakeDefaultBucket()
 	require.NoError(t, err)
 
 	graphdbContainer, err := triplestore.NewGraphDBContainer("iow", "./triplestore/testdata/iow-config.ttl")

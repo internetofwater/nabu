@@ -28,7 +28,7 @@ func startMocks() {
 
 func (s *GleanerRootSuite) TestHarvestToS3() {
 	startMocks()
-	args := fmt.Sprintf("gleaner --log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
+	args := fmt.Sprintf("--log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 	err := NewGleanerRunner(strings.Split(args, " ")).Run()
 	require.NoError(s.T(), err)
 	objs, err := s.minioContainer.ClientWrapper.ObjectList("summoned/")
@@ -42,7 +42,7 @@ func (s *GleanerRootSuite) TestHarvestToS3() {
 
 func (s *GleanerRootSuite) TestHarvestToDisk() {
 	startMocks()
-	args := "gleaner --log-level DEBUG --to-disk --sitemap-index testdata/sitemap_index.xml"
+	args := "--log-level DEBUG --to-disk --sitemap-index testdata/sitemap_index.xml"
 	err := NewGleanerRunner(strings.Split(args, " ")).Run()
 	require.NoError(s.T(), err)
 }

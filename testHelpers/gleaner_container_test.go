@@ -38,7 +38,7 @@ func (suite *GleanerContainerSuite) SetupSuite() {
 		DefaultBucket: "iow",
 		Network:       net.Name,
 	}
-	minioContainer, err := s3.NewMinioContainer(minioConfig)
+	minioContainer, err := s3.NewMinioContainerFromConfig(minioConfig)
 	suite.Require().NoError(err)
 	suite.minioContainer = minioContainer
 
