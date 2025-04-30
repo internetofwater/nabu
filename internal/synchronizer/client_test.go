@@ -56,8 +56,6 @@ type SynchronizerClientSuite struct {
 	network *testcontainers.DockerNetwork
 }
 
-
-
 func (suite *SynchronizerClientSuite) SetupSuite() {
 
 	ctx := context.Background()
@@ -136,7 +134,7 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 
 	err = suite.client.SyncTriplestoreGraphs("summoned/", false)
 	require.NoError(t, err)
-	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/cdss0/")
 	require.NoError(t, err)
 	require.Len(t, graphs, sourcesInSitemap)
 
