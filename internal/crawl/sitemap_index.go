@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"nabu/internal/interfaces"
+	"net/url"
 	"strings"
 	"time"
 
@@ -27,17 +28,33 @@ type parts struct {
 	LastMod string `xml:"lastmod"`
 }
 
-func NewSitemapIndexHarvester(url string) (Index, error) {
+func isUrl(str string) bool {
+	u, err := url.Parse(str)
+	return err == nil && u.Scheme != "" && u.Host != ""
+}
+
+func NewSitemapIndexHarvester(sitemapRef string) (Index, error) {
 
 	serializedSitemapIndex := Index{}
 
-	return serializedSitemapIndex, sitemap.ParseIndexFromSite(url, func(ie sitemap.IndexEntry) error {
-		part := parts{}
-		part.Loc = strings.TrimSpace(ie.GetLocation())
-		part.LastMod = ie.GetLastModified().Format(time.RFC3339)
-		serializedSitemapIndex.Sitemaps = append(serializedSitemapIndex.Sitemaps, part)
-		return nil
-	})
+	if isUrl(sitemapRef) {
+		return serializedSitemapIndex, sitemap.ParseIndexFromSite(sitemapRef, func(ie sitemap.IndexEntry) error {
+			part := parts{}
+			part.Loc = strings.TrimSpace(ie.GetLocation())
+			part.LastMod = ie.GetLastModified().Format(time.RFC3339)
+			serializedSitemapIndex.Sitemaps = append(serializedSitemapIndex.Sitemaps, part)
+			return nil
+		})
+	} else {
+		return serializedSitemapIndex, sitemap.ParseIndexFromFile(sitemapRef, func(ie sitemap.IndexEntry) error {
+			part := parts{}
+			part.Loc = strings.TrimSpace(ie.GetLocation())
+			part.LastMod = ie.GetLastModified().Format(time.RFC3339)
+			serializedSitemapIndex.Sitemaps = append(serializedSitemapIndex.Sitemaps, part)
+			return nil
+		})
+	}
+
 }
 
 func (i Index) GetUrlList() []string {
