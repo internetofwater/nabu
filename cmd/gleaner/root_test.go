@@ -18,6 +18,9 @@ func (s *GleanerRootSuite) TestRunOnSitemapIndex() {
 	args := fmt.Sprintf("gleaner --log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 	err := NewGleanerRunner(strings.Split(args, " ")).Run()
 	require.NoError(s.T(), err)
+	objs, err := s.minioContainer.ClientWrapper.ObjectList("summoned/")
+	require.NoError(s.T(), err)
+	require.Len(s.T(), objs, 3)
 }
 
 func (s *GleanerRootSuite) TestRunOnSitemapIndexWithLocalFS() {
