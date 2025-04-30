@@ -6,10 +6,11 @@ import (
 	"io"
 	"nabu/internal/common"
 	"nabu/internal/config"
-	crawl "nabu/internal/crawl"
 	"os"
 	"strings"
 	"sync"
+
+	interfaces "nabu/internal/interfaces"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -250,7 +251,7 @@ func (m MinioClientWrapper) Exists(path string) (bool, error) {
 	return false, err
 }
 
-func (m MinioClientWrapper) BatchStore(batch chan crawl.BatchFileObject) error {
+func (m MinioClientWrapper) BatchStore(batch chan interfaces.BatchFileObject) error {
 	snowBallChan := make(chan minio.SnowballObject)
 
 	go func() {
@@ -265,4 +266,4 @@ func (m MinioClientWrapper) BatchStore(batch chan crawl.BatchFileObject) error {
 	return m.Client.PutObjectsSnowball(context.Background(), m.DefaultBucket, minio.SnowballOptions{}, snowBallChan)
 }
 
-var _ crawl.BatchCrawlStorage = MinioClientWrapper{}
+var _ interfaces.BatchCrawlStorage = MinioClientWrapper{}

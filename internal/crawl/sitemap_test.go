@@ -1,9 +1,9 @@
-package gleaner
+package crawl
 
 import (
 	"testing"
 
-	crawl "nabu/internal/crawl"
+	"nabu/internal/interfaces"
 	"nabu/internal/synchronizer/s3"
 
 	"github.com/h2non/gock"
@@ -24,12 +24,12 @@ func TestParseSitemapIndex(t *testing.T) {
 		Reply(200).
 		File("testdata/sitemap.xml")
 
-	sitemapUrls, err := GetSitemapListFromIndex("https://geoconnex.us/sitemap.xml")
-	require.NotEmpty(t, sitemapUrls)
+	indexHarvester, err := NewSitemapIndexHarvester("https://geoconnex.us/sitemap.xml")
+	require.NotEmpty(t, indexHarvester)
 	assert.NoError(t, err)
 	var emptyMaps []string
 
-	for _, url := range sitemapUrls {
+	for _, url := range indexHarvester.GetUrlList() {
 		assert.NotEmpty(t, url)
 		sitemap, err := NewSitemap(url)
 		require.NoError(t, err)
@@ -53,16 +53,16 @@ func TestHarvestSitemap(t *testing.T) {
 		File("testdata/sitemap.xml")
 
 	// initialize storage types
-	tmpStore, err := crawl.NewLocalTempFSCrawlStorage()
+	tmpStore, err := interfaces.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
 	container, err := s3.NewDefaultMinioContainer()
 	require.NoError(t, err)
 
 	// get the sitemap index
-	sitemapUrls, err := GetSitemapListFromIndex("https://geoconnex.us/sitemap.xml")
+	sitemapUrls, err := NewSitemapIndexHarvester("https://geoconnex.us/sitemap.xml")
 	require.NoError(t, err)
 	// just test the first for the sake of brevity
-	sitemap, err := NewSitemap(sitemapUrls[0])
+	sitemap, err := NewSitemap(sitemapUrls.GetUrlList()[0])
 	require.NoError(t, err)
 
 	errs := sitemap.SetStorageDestination(tmpStore).Harvest(10)

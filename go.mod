@@ -5,6 +5,7 @@ go 1.23
 toolchain go1.23.3
 
 require (
+	github.com/alexflint/go-arg v1.5.1
 	github.com/h2non/gock v1.2.0
 	github.com/knakk/rdf v0.0.0-20190304171630-8521bf4c5042
 	github.com/minio/minio-go/v7 v7.0.84
@@ -29,7 +30,10 @@ require (
 	google.golang.org/protobuf v1.36.5 // indirect
 )
 
-require github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
+require (
+	github.com/alexflint/go-scalar v1.2.0 // indirect
+	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
+)
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
