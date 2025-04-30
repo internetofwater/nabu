@@ -1,3 +1,6 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
+
 # This codecov file is used to configure codecov.io
 # it just gives us information on each PR but does not 
 # return failure status regardless of coverage.

@@ -1,3 +1,6 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
+
 # This is a sample config file for Nabu that points to a Google Cloud Storage bucket
 
 context:
