@@ -69,7 +69,8 @@ func (s Sitemap) Harvest(workers int) error {
 			defer resp.Body.Close()
 
 			if resp.StatusCode >= 400 {
-				return fmt.Errorf("failed to fetch %s, got status %s", url.Loc, resp.Status)
+				log.Errorf("failed to fetch %s, got status %s", url.Loc, resp.Status)
+				return nil
 			}
 
 			// To generate a hash we need to copy the response body

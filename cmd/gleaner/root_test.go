@@ -34,6 +34,10 @@ func (s *GleanerRootSuite) TestHarvestToS3() {
 	objs, err := s.minioContainer.ClientWrapper.ObjectList("summoned/")
 	require.NoError(s.T(), err)
 	require.Len(s.T(), objs, 3)
+
+	orgsObjs, err := s.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"orgs/"})
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), orgsObjs, 1)
 }
 
 func (s *GleanerRootSuite) TestHarvestToDisk() {

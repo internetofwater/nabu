@@ -32,7 +32,7 @@ func (suite *GleanerContainerSuite) SetupSuite() {
 	minioConfig := s3.MinioContainerConfig{
 		// note that the container name must be a full word with no special characters
 		// this appears to mess with the docker network somehow and prevents connecting
-		ContainerName: "gleanerTestMinio",
+		ContainerName: "gleanerContainerTestMinio",
 		Username:      "minioadmin",
 		Password:      "minioadmin",
 		DefaultBucket: "iow",
@@ -66,7 +66,7 @@ func (suite *GleanerContainerSuite) TestGleanerHarvest() {
 	t := suite.T()
 	gleaner, err := NewGleanerContainer("../config/iow/gleanerconfig.yaml", []string{
 		"--source", "cdss0",
-		"--address", "gleanerTestMinio",
+		"--address", "gleanerContainerTestMinio",
 		"--setup",
 		"--port", "9000",
 	}, suite.network.Name)

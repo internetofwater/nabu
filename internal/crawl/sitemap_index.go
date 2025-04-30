@@ -31,6 +31,18 @@ type parts struct {
 	LastMod string `xml:"lastmod"`
 }
 
+func (p parts) associatedID() (string, error) {
+	url, err := url.Parse(p.Loc)
+	if err != nil {
+		return "", err
+	}
+	segments := strings.Split(url.Path, "/")
+	if len(segments) > 2 {
+		return segments[2], nil
+	}
+	return "", fmt.Errorf("path does not contain enough segments")
+}
+
 func isUrl(str string) bool {
 	u, err := url.Parse(str)
 	return err == nil && u.Scheme != "" && u.Host != ""
@@ -81,7 +93,27 @@ func (i Index) HarvestAll() error {
 			if err != nil {
 				return err
 			}
-			return sitemap.SetStorageDestination(i.storageDestination).Harvest(i.sitemapWorkers)
+
+			nq, err := NewOrgsNq(part.Loc, part.Loc)
+			if err != nil {
+				return err
+			}
+
+			id, err := part.associatedID()
+			if err != nil {
+				return err
+			}
+			errChan := make(chan error, 1)
+			go func(id string) {
+				errChan <- i.storageDestination.Store("orgs/"+id+".nq", strings.NewReader(nq))
+			}(id)
+
+			harvestResult := sitemap.SetStorageDestination(i.storageDestination).Harvest(i.sitemapWorkers)
+
+			if err := <-errChan; err != nil {
+				return err
+			}
+			return harvestResult
 		})
 	}
 

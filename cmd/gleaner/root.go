@@ -105,6 +105,6 @@ func (g GleanerRunner) Run() error {
 
 func main() {
 	if err := NewGleanerRunner(os.Args).Run(); err != nil {
-		log.Fatalf("Failed to run: %v", err)
+		log.Fatal(err)
 	}
 }
