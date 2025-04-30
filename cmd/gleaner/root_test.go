@@ -13,8 +13,18 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-func (s *GleanerRootSuite) TestRunOnSitemapIndex() {
+func startMocks() {
+	gock.New("https://geoconnex.us/sitemap.xml").
+		Reply(200).
+		File("testdata/sitemap_index.xml")
 
+	gock.New("https://geoconnex.us/sitemap/iow/wqp/stations__5.xml").
+		Reply(200).
+		File("testdata/sitemap.xml")
+}
+
+func (s *GleanerRootSuite) TestHarvestToS3() {
+	startMocks()
 	args := fmt.Sprintf("gleaner --log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 	err := NewGleanerRunner(strings.Split(args, " ")).Run()
 	require.NoError(s.T(), err)
@@ -23,7 +33,8 @@ func (s *GleanerRootSuite) TestRunOnSitemapIndex() {
 	require.Len(s.T(), objs, 3)
 }
 
-func (s *GleanerRootSuite) TestRunOnSitemapIndexWithLocalFS() {
+func (s *GleanerRootSuite) TestHarvestToDisk() {
+	startMocks()
 	args := "gleaner --log-level DEBUG --to-disk --sitemap-index testdata/sitemap_index.xml"
 	err := NewGleanerRunner(strings.Split(args, " ")).Run()
 	require.NoError(s.T(), err)
@@ -41,13 +52,6 @@ func (suite *GleanerRootSuite) SetupSuite() {
 	require.NoError(suite.T(), err)
 	suite.minioContainer = container
 
-	gock.New("https://geoconnex.us/sitemap.xml").
-		Reply(200).
-		File("testdata/sitemap_index.xml")
-
-	gock.New("https://geoconnex.us/sitemap/iow/wqp/stations__5.xml").
-		Reply(200).
-		File("testdata/sitemap.xml")
 }
 
 func (s *GleanerRootSuite) TearDownSuite() {
