@@ -20,6 +20,6 @@ func TestHarvestSitemap(t *testing.T) {
 
 	sitemap, err := NewSitemap("https://geoconnex.us/sitemap/iow/wqp/stations__5.xml")
 	require.NoError(t, err)
-	errs := sitemap.SetStorageDestination(interfaces.DiscardCrawlStorage{}).Harvest(10)
+	errs := sitemap.SetStorageDestination(interfaces.DiscardCrawlStorage{}).Harvest(10, "test")
 	require.Empty(t, errs)
 }
