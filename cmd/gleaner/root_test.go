@@ -27,7 +27,7 @@ func (s *GleanerRootSuite) TestRunOnSitemapIndex() {
 	err := NewGleanerRunner(strings.Split(args, " ")).Run()
 	require.NoError(s.T(), err)
 
-	objs, err := s.minioContainer.ClientWrapper.ObjectList("")
+	objs, err := s.minioContainer.ClientWrapper.ObjectList("summoned/")
 	require.NoError(s.T(), err)
 	require.Len(s.T(), objs, 3)
 }

@@ -75,19 +75,21 @@ func (s Sitemap) Harvest(workers int) error {
 				return err
 			}
 
-			exists, err := s.storageDestination.Exists(itemHash)
+			summonedPath := fmt.Sprintf("summoned/%s", itemHash)
+
+			exists, err := s.storageDestination.Exists(summonedPath)
 			if err != nil {
 				return err
 			}
 
 			if !exists {
 				// Store from the buffered copy
-				if err = s.storageDestination.Store(itemHash, respBodyCopy); err != nil {
+				if err = s.storageDestination.Store(summonedPath, respBodyCopy); err != nil {
 					return err
 				}
 				log.Debugf("stored %s as %s", url.Loc, itemHash)
 			} else {
-				log.Debugf("%s exists so skipping", url.Loc)
+				log.Debugf("%s already exists so skipping", url.Loc)
 			}
 
 			if robotstxt.CrawlDelay > 0 {
