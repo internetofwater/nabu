@@ -15,7 +15,7 @@ COPY . .
 ARG TARGETOS TARGETARCH
 
 RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go mod tidy && \
-    go build -o nabu
+    go build -o nabu ./cmd/nabu
 
 FROM alpine
 
