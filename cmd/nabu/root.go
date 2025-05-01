@@ -104,6 +104,7 @@ func (n NabuArgs) GetSparqlConfig() config.SparqlConfig {
 		Username:     n.Access,
 		Password:     n.Secret,
 		Repository:   n.Repository,
+		Batch:        n.UpsertBatchSize,
 	}
 }
 
@@ -157,7 +158,6 @@ func NewNabuRunner(cliArgs []string) NabuRunner {
 		parseResult.WriteHelp(os.Stderr)
 		os.Exit(1)
 	}
-
 	return NabuRunner{
 		args: args,
 	}

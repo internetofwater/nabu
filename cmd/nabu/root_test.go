@@ -18,6 +18,14 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+func TestDefaultArgs(t *testing.T) {
+	// Test the default args
+	defaultRunner := NewNabuRunner([]string{"test"})
+	require.Equal(t, "minio", defaultRunner.args.Address)
+	require.Equal(t, 9000, defaultRunner.args.Port)
+	require.Equal(t, 1, defaultRunner.args.UpsertBatchSize)
+}
+
 // Wrapper struct to store a handle to the container for all
 type RootCliSuite struct {
 	suite.Suite
@@ -46,7 +54,6 @@ func (s *RootCliSuite) TearDownSuite() {
 }
 
 func (suite *RootCliSuite) TestRootCmdWithTracing() {
-	t := suite.T()
 
 	// make sure that the trace file is created if we specify the cli arg even if the env var is not set
 	args := []string{"test", "--trace", "--address", suite.minioContainer.Hostname, "--port",
@@ -54,6 +61,7 @@ func (suite *RootCliSuite) TestRootCmdWithTracing() {
 		"--access", "minioadmin", "--secret", "minioadmin"}
 
 	err := NewNabuRunner(args).Run(context.Background())
+	t := suite.T()
 	require.NoError(t, err)
 
 	_, err = os.Stat(filepath.Join(projectpath.Root, "trace.out"))
