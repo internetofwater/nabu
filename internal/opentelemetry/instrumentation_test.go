@@ -20,7 +20,7 @@ func TestInitTracer(t *testing.T) {
 func TestCreateSpan(t *testing.T) {
 	Tracer = nil
 	InitTracer("gleanerTest", "127.0.0.1:4317")
-	span, ctx := NewSpanWithContext()
+	span, ctx := NewSpanAndContext()
 	defer span.End()
 	require.NotNil(t, span)
 	require.True(t, span.SpanContext().IsValid())

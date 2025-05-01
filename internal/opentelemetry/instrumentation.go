@@ -19,13 +19,19 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const DefaultCollectorEndpoint = "127.0.0.1:4317"
+
 // the global tracer instance that keeps track of client spans
 var Tracer trace.Tracer
 var TracerProvider *sdktrace.TracerProvider
 
 // Generate a new span and use the caller's function name as the span name
 // This allows the span to be easily identified and prevents accidental mislabeling
-func NewSpanWithContext() (trace.Span, context.Context) {
+func NewSpanAndContext() (trace.Span, context.Context) {
+	if Tracer == nil {
+		log.Fatal("Tracer is nil so cannot create span")
+	}
+
 	pc, _, _, _ := runtime.Caller(1)
 
 	fn := runtime.FuncForPC(pc)
@@ -34,11 +40,20 @@ func NewSpanWithContext() (trace.Span, context.Context) {
 	return span, ctx
 }
 
+func NewSpanAndContextWithName(name string) (trace.Span, context.Context) {
+	if Tracer == nil {
+		log.Fatal("Tracer is nil so cannot create span")
+	}
+
+	ctx, span := Tracer.Start(context.Background(), name)
+	return span, ctx
+}
+
 func SubSpanFromCtx(ctx context.Context) (trace.Span, context.Context) {
 	// If tracer is nil and we aren't using open telemetry, return a dummy
 	// span that fulfills the interface but doesn't do anything
 	if Tracer == nil {
-		return trace.SpanFromContext(ctx), ctx
+		return trace.SpanFromContext(context.Background()), ctx
 	}
 
 	pc, _, _, _ := runtime.Caller(1)
@@ -53,7 +68,7 @@ func SubSpanFromCtxWithName(ctx context.Context, name string) (trace.Span, conte
 	// If tracer is nil and we aren't using open telemetry, return a dummy
 	// span that fulfills the interface but doesn't do anything
 	if Tracer == nil {
-		return trace.SpanFromContext(ctx), ctx
+		return trace.SpanFromContext(context.Background()), ctx
 	}
 	ctx, span := Tracer.Start(ctx, name)
 	return span, ctx
@@ -130,6 +145,8 @@ func InitTracer(serviceName string, endpoint string) {
 	otel.SetTracerProvider(TracerProvider)
 
 	Tracer = TracerProvider.Tracer(serviceName) // Set the global tracer
+
+	log.Infof("OpenTelemetry Tracer initialized, sending traces to %s", endpoint)
 }
 
 // Shutdown the tracer provider and flush any remaining spans
