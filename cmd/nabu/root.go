@@ -52,7 +52,7 @@ type NabuArgs struct {
 
 	// GraphDB config
 	Endpoint   string `arg:"--endpoint" help:"endpoint for server for the SPARQL endpoints" default:"http://graphdb:7200"`
-	Repository string `arg:"--repository" help:"the default repository to use for graphdb"` // the default repository to use for graphdb
+	Repository string `arg:"--repository" help:"the default repository to use for graphdb" default:"iow"` // the default repository to use for graphdb
 
 	/// Minio config
 	Address string `arg:"--address" help:"The address of the s3 server" default:"minio"` // The address of the minio server
