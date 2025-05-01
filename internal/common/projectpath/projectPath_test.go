@@ -10,8 +10,8 @@ import (
 )
 
 func TestProjectPath(t *testing.T) {
-	mainGo := filepath.Join(Root, "main.go")
-	if _, err := os.Stat(mainGo); os.IsNotExist(err) {
-		t.Fatalf("main.go does not exist at %s; the project path does not seem to point to the root of the repo", mainGo)
+	licensePath := filepath.Join(Root, "LICENSE")
+	if _, err := os.Stat(licensePath); os.IsNotExist(err) {
+		t.Fatalf("LICENSE does not exist at %s; the project path does not seem to point to the root of the repo", licensePath)
 	}
 }

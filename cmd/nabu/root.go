@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/trace"
 	"strings"
 
 	"nabu/internal/common/projectpath"
@@ -15,60 +16,50 @@ import (
 	"nabu/internal/opentelemetry"
 	"nabu/internal/synchronizer/s3"
 
-	"runtime/trace"
-
 	"github.com/alexflint/go-arg"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	otelTrace "go.opentelemetry.io/otel/trace"
 )
 
-type ClearCmd struct {
-	Prefixes []string
-}
+type ClearCmd struct{}
 
 type ObjectCmd struct {
 	ObjectName string
 }
 
-type SyncCmd struct {
-	Prefixes []string
-}
+type SyncCmd struct{}
 
-type ReleaseCmd struct {
-	Prefixes []string
-}
+type ReleaseCmd struct{}
 
-type PrefixCmd struct {
-	Prefixes []string
-}
+type PrefixCmd struct{}
 
-type TestCmd struct {
-	Prefixes []string
-}
+type TestCmd struct{}
 
 type NabuArgs struct {
-	// subcommands
-	Clear  *ClearCmd  `arg:"subcommand:clear" help:"clear all graphs from the triplestore"`      // clear all graphs from the triplestore
-	Object *ObjectCmd `arg:"subcommand:object" help:"upload a single object to the triplestore"` // upload a single object to the triplestore
-	Prefix *PrefixCmd `arg:"subcommand:prefix" help:"upload a prefix to the triplestore"`        // upload a prefix to the triplestore
-	Sync   *SyncCmd   `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`     // sync the triplestore with the s3 bucket
-	Test   *TestCmd   `arg:"subcommand:test" help:"test the connection to the s3 bucket"`        // test the connection to the s3 bucket
+	// Subcommands that can be run
+	Clear   *ClearCmd   `arg:"subcommand:clear" help:"clear all graphs from the triplestore"`      // clear all graphs from the triplestore
+	Object  *ObjectCmd  `arg:"subcommand:object" help:"upload a single object to the triplestore"` // upload a single object to the triplestore
+	Release *ReleaseCmd `arg:"subcommand:release" help:"upload a release to the triplestore"`      // upload a release to the triplestore
+	Prefix  *PrefixCmd  `arg:"subcommand:prefix" help:"upload a prefix to the triplestore"`        // upload a prefix to the triplestore
+	Sync    *SyncCmd    `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`     // sync the triplestore with the s3 bucket
+	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`        // test the connection to the s3 bucket
 
-	// Global args
-	Endpoint        string `arg:"--endpoint" help:"endpoint for server for the SPARQL endpoints"`
-	Cfg             string `arg:"--cfg" help:"full path to yaml config file for nabu"`           // full path to yaml config file for nabu
-	Address         string `arg:"--address" help:"The address of the minio server"`              // The address of the minio server
-	Access          string `arg:"--access" help:"Access Key (i.e. username)"`                    // Access Key (i.e. username)
-	Secret          string `arg:"--secret" help:"Secret Key (i.e. password)"`                    // Secret Key (i.e. password)
-	Bucket          string `arg:"--bucket" help:"The configuration bucket"`                      // The configuration bucket
-	Repository      string `arg:"--repository" help:"the default repository to use for graphdb"` // the default repository to use for graphdb
-	LogLevel        string `arg:"--log-level" default:"INFO"`                                    // the log level to use for the nabu logger
-	SSL             bool   `arg:"--ssl"`                                                         // Use SSL boolean
-	Trace           bool   `arg:"--trace"`                                                       // Enable tracing
-	Dangerous       bool   `arg:"--dangerous"`                                                   // Use dangerous mode boolean
-	Port            int    `arg:"--port" default:"9000"`
-	UpsertBatchSize int    `arg:"--upsert-batch-size" default:"1"` // Port for s3 server
+	// These args are applied to all subcommands
+	Endpoint        string   `arg:"--endpoint" help:"endpoint for server for the SPARQL endpoints"`
+	Cfg             string   `arg:"--cfg" help:"full path to yaml config file for nabu"`                                 // full path to yaml config file for nabu
+	Address         string   `arg:"--address" help:"The address of the minio server"`                                    // The address of the minio server
+	Access          string   `arg:"--access" help:"Access Key (i.e. username)" env:"S3_ACCESS_KEY" default:"minioadmin"` // Access Key (i.e. username)
+	Secret          string   `arg:"--secret" help:"Secret Key (i.e. password)" env:"S3_SECRET_KEY" default:"minioadmin"` // Secret Key (i.e. password)
+	Bucket          string   `arg:"--bucket" help:"The configuration bucket"`                                            // The configuration bucket
+	Repository      string   `arg:"--repository" help:"the default repository to use for graphdb"`                       // the default repository to use for graphdb
+	LogLevel        string   `arg:"--log-level" default:"INFO"`                                                          // the log level to use for the nabu logger
+	SSL             bool     `arg:"--ssl"`                                                                               // Use SSL boolean
+	Trace           bool     `arg:"--trace"`                                                                             // Enable tracing
+	Dangerous       bool     `arg:"--dangerous"`                                                                         // Use dangerous mode boolean
+	Port            int      `arg:"--port" default:"9000"`
+	UpsertBatchSize int      `arg:"--upsert-batch-size" default:"1"`    // Port for s3 server
+	Prefixes        []string `arg:"--prefix" help:"prefixes to upload"` // prefixes to upload
 
 	PrefixesToFile map[string]string `arg:"--prefixes-to-file" help:"prefixes to file mapping"`
 	Cache          bool              `arg:"--cache" help:"use cache for context"`
@@ -76,6 +67,18 @@ type NabuArgs struct {
 
 	UseOtel      bool   `arg:"--use-otel"`
 	OtelEndpoint string `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
+}
+
+// ToStructuredConfig converts the args to a structured config
+// that can be used for more config isolation
+func (n NabuArgs) ToStructuredConfig() config.NabuConfig {
+	return config.NabuConfig{
+		Minio:       n.GetMinioConfig(),
+		Sparql:      n.GetSparqlConfig(),
+		Context:     n.GetContextConfig(),
+		ContextMaps: n.GetContextMaps(),
+		Prefixes:    n.Prefixes,
+	}
 }
 
 func (n NabuArgs) GetMinioConfig() config.MinioConfig {
@@ -119,12 +122,11 @@ func (n NabuArgs) GetContextMaps() []config.ContextMap {
 
 type NabuRunner struct {
 	args NabuArgs
-	cfg  *config.NabuConfig
 }
 
 func NewNabuRunner(cliArgs []string) NabuRunner {
 	args := NabuArgs{}
-	const dummyBinaryName = "nabu" // we need to add some arbitrary binary name; it doesn't matter
+	const dummyBinaryName = "nabu" // we need to add some arbitrary binary name before the args; it doesn't matter
 	os.Args = append([]string{dummyBinaryName}, cliArgs...)
 
 	v := viper.New()
@@ -138,13 +140,16 @@ func NewNabuRunner(cliArgs []string) NabuRunner {
 		}
 	} else {
 		if err := v.Unmarshal(&args); err != nil {
-			log.Fatalf("error unmarshaling config: %w", err)
+			log.Fatalf("error unmarshaling config: %v", err)
 		}
 	}
 
 	parseResult := arg.MustParse(&args)
-	if parseResult.Subcommand() == "" {
-		parseResult.Fail("missing nabu subcommand")
+	subCmd := parseResult.Subcommand()
+	if subCmd == nil || subCmd == "" {
+		log.Error("no subcommand provided")
+		parseResult.WriteHelp(os.Stderr)
+		os.Exit(1)
 	}
 
 	return NabuRunner{
@@ -153,16 +158,29 @@ func NewNabuRunner(cliArgs []string) NabuRunner {
 
 }
 
+func uploadTracefile(minioConfig config.MinioConfig) error {
+	mc, err := s3.NewMinioClientWrapper(minioConfig)
+	if err != nil {
+		return err
+	}
+	traceFile := filepath.Join(projectpath.Root, "trace.out")
+	joinedArgs := strings.Join(os.Args[1:], "_")
+	traceName := fmt.Sprintf("traces/trace_%s.out", joinedArgs)
+	err = mc.UploadFile(traceName, traceFile)
+	if err != nil {
+		return err
+	}
+	return mc.UploadFile(fmt.Sprintf("traces/http_trace_%s.csv", joinedArgs), filepath.Join(projectpath.Root, "http_trace.csv"))
+}
+
 func (n NabuRunner) Run(ctx context.Context) error {
+	defer trace.Stop()
+
 	level, err := log.ParseLevel(n.args.LogLevel)
 	if err != nil {
 		return fmt.Errorf("invalid log level %s: %w", n.args.LogLevel, err)
 	}
 	log.SetLevel(level)
-
-	if trace.IsEnabled() {
-		trace.Stop()
-	}
 
 	if n.args.UseOtel || n.args.OtelEndpoint != "" {
 		if n.args.OtelEndpoint == "" {
@@ -177,49 +195,40 @@ func (n NabuRunner) Run(ctx context.Context) error {
 	}
 
 	if n.args.Trace {
-		mc, err := s3.NewMinioClientWrapper(n.cfg.Minio)
+		filePath := filepath.Join(projectpath.Root, "trace.out")
+		log.Infof("Trace enabled; Outputting to %s", filePath)
+		f, err := os.Create(filePath)
 		if err != nil {
-			return err
+			log.Fatal(err)
 		}
-		traceFile := filepath.Join(projectpath.Root, "trace.out")
-
-		joinedArgs := strings.Join(os.Args[1:], "_")
-		traceName := fmt.Sprintf("traces/trace_%s.out", joinedArgs)
-		err = mc.UploadFile(traceName, traceFile)
-		if err != nil {
-			return err
+		if err := trace.Start(f); err != nil {
+			log.Fatal(err)
 		}
-		if err = mc.UploadFile(fmt.Sprintf("traces/http_trace_%s.csv", joinedArgs), filepath.Join(projectpath.Root, "http_trace.csv")); err != nil {
-			return err
-		}
+		defer func() {
+			err := uploadTracefile(n.args.GetMinioConfig())
+			if err != nil {
+				log.Errorf("error uploading trace file: %v", err)
+			}
+		}()
 	}
 
-	cfgStruct := config.NabuConfig{
-		Minio: config.MinioConfig{
-			Endpoint: n.args.Address,
-			Access:   n.args.Access,
-			Secret:   n.args.Secret,
-			Bucket:   n.args.Bucket,
-		},
-		Repository:      n.args.Repository,
-		SSL:             n.args.SSL,
-		Port:            n.args.Port,
-		Dangerous:       n.args.Dangerous,
-		UpsertBatchSize: n.args.UpsertBatchSize,
-	}
+	cfgStruct := n.args.ToStructuredConfig()
 
 	switch {
 	case n.args.Clear != nil:
-		return clear(n.args.Clear)
+		return clear(cfgStruct)
 	case n.args.Object != nil:
-		return object(n.args.ObjectName)
+		return object(n.args.Object.ObjectName, cfgStruct)
+	case n.args.Release != nil:
+		return release(cfgStruct)
 	case n.args.Prefix != nil:
-		return prefix(n.args.Prefix)
+		return prefix(cfgStruct)
 	case n.args.Sync != nil:
-		return sync(n.args.Prefix)
+		return Sync(cfgStruct)
+	case n.args.Test != nil:
+		return Test(cfgStruct)
 	default:
 		return fmt.Errorf("unknown nabu subcommand")
-
 	}
 }
 

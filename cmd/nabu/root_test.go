@@ -48,13 +48,13 @@ func (s *RootCliSuite) TearDownSuite() {
 func (suite *RootCliSuite) TestRootCmdWithTracing() {
 	t := suite.T()
 
-	t.Setenv("NABU_PROFILING", "true")
-
 	// make sure that the trace file is created if we specify the cli arg even if the env var is not set
-	args := []string{"test", "--cfg", filepath.Join(projectpath.Root, "config", "iow", "nabuconfig.yaml"), "--address", suite.minioContainer.Hostname, "--port", fmt.Sprint(suite.minioContainer.APIPort), suite.minioContainer.Hostname}
-	rootCmd.SetArgs(args)
-	Execute()
-	_, err := os.Stat(filepath.Join(projectpath.Root, "trace.out"))
+	args := []string{"test", "--trace", "--address", suite.minioContainer.Hostname, "--port", fmt.Sprint(suite.minioContainer.APIPort), "--bucket", suite.minioContainer.ClientWrapper.DefaultBucket}
+
+	err := NewNabuRunner(args).Run(context.Background())
+	require.NoError(t, err)
+
+	_, err = os.Stat(filepath.Join(projectpath.Root, "trace.out"))
 	require.NoError(t, err)
 	defer os.Remove(filepath.Join(projectpath.Root, "trace.out"))
 

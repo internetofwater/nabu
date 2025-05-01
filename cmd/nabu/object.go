@@ -8,8 +8,6 @@ import (
 	"nabu/internal/synchronizer"
 )
 
-
-
 func object(objectName string, cfgStruct config.NabuConfig) error {
 	client, err := synchronizer.NewSynchronizerClientFromConfig(cfgStruct)
 	if err != nil {

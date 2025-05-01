@@ -10,13 +10,13 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"nabu/internal/common"
 	"nabu/internal/common/projectpath"
 	"net/http"
 	"net/http/httptrace"
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/trace"
 	"sort"
 	"strconv"
 	"sync"
@@ -147,7 +147,7 @@ func NewRequestWithContext(method, url string, body io.Reader) (*http.Request, e
 		return nil, fmt.Errorf("body is nil")
 	}
 
-	if !common.PROFILING_ENABLED() {
+	if !trace.IsEnabled() {
 		return http.NewRequest(method, url, body)
 	}
 
