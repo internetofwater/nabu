@@ -49,7 +49,7 @@ type NabuArgs struct {
 	Cfg string `arg:"--cfg" help:"full path to yaml config file for nabu"` // full path to yaml config file for nabu
 
 	Endpoint string `arg:"--endpoint" help:"endpoint for server for the SPARQL endpoints"`
-	Address  string `arg:"--address" help:"The address of the s3 server"` // The address of the minio server
+	Address  string `arg:"--address" help:"The address of the s3 server" default:"127.0.0.1"` // The address of the minio server
 	Port     int    `arg:"--port" default:"9000"`
 	Access   string `arg:"--access,env:S3_ACCESS_KEY" help:"Access Key (i.e. username)" default:"minioadmin"` // Access Key (i.e. username)
 	Secret   string `arg:"--secret,env:S3_SECRET_KEY" help:"Secret Key (i.e. password)" default:"minioadmin"` // Secret Key (i.e. password)
