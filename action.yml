@@ -33,7 +33,7 @@ runs:
       run: go version
     - name: Install dependencies
       shell: bash
-      run: go get .
+      run: go get ./cmd/nabu
 
     - name: Build
       shell: bash
