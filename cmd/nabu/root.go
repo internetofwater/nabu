@@ -51,11 +51,11 @@ type NabuArgs struct {
 	Endpoint string `arg:"--eqndpoint" help:"endpoint for server for the SPARQL endpoints"`
 	Address  string `arg:"--address" help:"The address of the s3 server" default:"minio"` // The address of the minio server
 	Port     int    `arg:"--port" default:"9000"`
-	Access   string `arg:"--access,env:S3_ACCESS_KEY" help:"Access Key (i.e. username)" default:"minioadmin"` // Access Key (i.e. username)
-	Secret   string `arg:"--secret,env:S3_SECRET_KEY" help:"Secret Key (i.e. password)" default:"minioadmin"` // Secret Key (i.e. password)
-	Bucket   string `arg:"--bucket" help:"The s3 bucket to use for sync operations" default:"gleanerbucket"`  // The configuration bucket
-	Region   string `arg:"--region" help:"region for the s3 server"`                                          // region for the minio server
-	SSL      bool   `arg:"--ssl" help:"Use SSL when connecting to s3"`                                        // Use SSL boolean
+	Access   string `arg:"--access,env:S3_ACCESS_KEY" help:"Access Key (i.e. username)" default:"minio_access_key"` // Access Key (i.e. username)
+	Secret   string `arg:"--secret,env:S3_SECRET_KEY" help:"Secret Key (i.e. password)" default:"minio_secret_key"` // Secret Key (i.e. password)
+	Bucket   string `arg:"--bucket" help:"The s3 bucket to use for sync operations" default:"gleanerbucket"`        // The configuration bucket
+	Region   string `arg:"--region" help:"region for the s3 server"`                                                // region for the minio server
+	SSL      bool   `arg:"--ssl" help:"Use SSL when connecting to s3"`                                              // Use SSL boolean
 
 	Repository string `arg:"--repository" help:"the default repository to use for graphdb"` // the default repository to use for graphdb
 	LogLevel   string `arg:"--log-level" default:"INFO"`                                    // the log level to use for the nabu logger
