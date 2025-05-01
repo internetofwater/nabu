@@ -205,6 +205,10 @@ func (m *MinioClientWrapper) GetObjectAndConvertToGraph(objectName string, jsonl
 		return common.NamedGraph{}, err
 	}
 
+	if len(objBytes) == 0 {
+		log.Warnf("Object %s is empty", objectName)
+	}
+
 	graphResourceIdentifier, err := common.MakeURN(objectName)
 	if err != nil {
 		return common.NamedGraph{}, err
@@ -216,6 +220,10 @@ func (m *MinioClientWrapper) GetObjectAndConvertToGraph(objectName string, jsonl
 			log.Errorf("JSONLD to NQ conversion error: %s", err)
 			return common.NamedGraph{}, err
 		}
+		if nTriples == "" {
+			return common.NamedGraph{}, fmt.Errorf("JSONLD to NQ conversion returned empty string for object %s with data %s", objectName, string(objBytes))
+		}
+
 		return common.NamedGraph{GraphURI: graphResourceIdentifier, Triples: nTriples}, nil
 	} else if strings.HasSuffix(objectName, ".nq") {
 		graph, err := common.QuadsToTripleWithCtx(string(objBytes))

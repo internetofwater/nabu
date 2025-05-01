@@ -56,25 +56,6 @@ type SynchronizerClientSuite struct {
 	network *testcontainers.DockerNetwork
 }
 
-// Create a new SynchronizerClient by directly passing in the clients
-// Mainly used for testing
-func newSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *s3.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
-	processor, options, err := common.NewJsonldProcessor(false, nil)
-	if err != nil {
-		return SynchronizerClient{}, err
-	}
-
-	client := SynchronizerClient{
-		GraphClient:     graphClient,
-		S3Client:        s3Client,
-		syncBucketName:  bucketName,
-		jsonldProcessor: processor,
-		jsonldOptions:   options,
-		upsertBatchSize: 100,
-	}
-	return client, nil
-}
-
 func (suite *SynchronizerClientSuite) SetupSuite() {
 
 	ctx := context.Background()
@@ -108,7 +89,7 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 	suite.Require().NoError(err)
 	suite.graphdbContainer = graphdbContainer
 
-	client, err := newSynchronizerClient(&graphdbContainer.Client, suite.minioContainer.ClientWrapper, suite.minioContainer.ClientWrapper.DefaultBucket)
+	client, err := NewSynchronizerClientFromClients(&graphdbContainer.Client, suite.minioContainer.ClientWrapper, suite.minioContainer.ClientWrapper.DefaultBucket)
 	require.NoError(t, err)
 	suite.client = client
 }
@@ -153,7 +134,7 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 
 	err = suite.client.SyncTriplestoreGraphs("summoned/", false)
 	require.NoError(t, err)
-	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/cdss0/")
 	require.NoError(t, err)
 	require.Len(t, graphs, sourcesInSitemap)
 

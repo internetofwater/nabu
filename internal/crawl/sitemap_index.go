@@ -108,7 +108,7 @@ func (i Index) HarvestAll() error {
 				errChan <- i.storageDestination.Store("orgs/"+id+".nq", strings.NewReader(nq))
 			}(id)
 
-			harvestResult := sitemap.SetStorageDestination(i.storageDestination).Harvest(i.sitemapWorkers)
+			harvestResult := sitemap.SetStorageDestination(i.storageDestination).Harvest(i.sitemapWorkers, id)
 
 			if err := <-errChan; err != nil {
 				return err
@@ -131,7 +131,12 @@ func (i Index) HarvestSitemap(sitemap string) error {
 		if err != nil {
 			return err
 		}
-		return sitemap.SetStorageDestination(i.storageDestination).Harvest(i.sitemapWorkers)
+		id, err := part.associatedID()
+		if err != nil {
+			return err
+		}
+		return sitemap.SetStorageDestination(i.storageDestination).
+			Harvest(i.sitemapWorkers, id)
 	}
 	return fmt.Errorf("sitemap %s not found in sitemap", sitemap)
 }

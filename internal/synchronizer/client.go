@@ -40,6 +40,25 @@ type SynchronizerClient struct {
 	upsertBatchSize int
 }
 
+// Create a new SynchronizerClient by directly passing in the clients
+// Mainly used for testing
+func NewSynchronizerClientFromClients(graphClient *triplestore.GraphDbClient, s3Client *s3.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
+	processor, options, err := common.NewJsonldProcessor(false, nil)
+	if err != nil {
+		return SynchronizerClient{}, err
+	}
+
+	client := SynchronizerClient{
+		GraphClient:     graphClient,
+		S3Client:        s3Client,
+		syncBucketName:  bucketName,
+		jsonldProcessor: processor,
+		jsonldOptions:   options,
+		upsertBatchSize: 100,
+	}
+	return client, nil
+}
+
 // Generate a new SynchronizerClient from a top level nabu config
 func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClient, error) {
 	graphClient, err := triplestore.NewGraphDbClient(conf.Sparql)

@@ -39,7 +39,7 @@ func Execute() {
 	}
 	cobra.CheckErr(err)
 
-	if common.PROFILING_ENABLED() {
+	if common.PROFILING_ENABLED() || doTrace {
 		mc, minioErr := s3.NewMinioClientWrapper(cfgStruct.Minio)
 		cobra.CheckErr(minioErr)
 		traceFile := filepath.Join(projectpath.Root, "trace.out")

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"nabu/internal/common"
 	"nabu/internal/interfaces"
+	"net/http"
 	"strings"
 	"time"
 
@@ -35,7 +36,7 @@ func (s Sitemap) SetStorageDestination(storageDestination interfaces.CrawlStorag
 }
 
 // Harvest all the URLs in the sitemap
-func (s Sitemap) Harvest(workers int) error {
+func (s Sitemap) Harvest(workers int, outputFoldername string) error {
 	var group errgroup.Group
 	group.SetLimit(workers)
 
@@ -62,10 +63,19 @@ func (s Sitemap) Harvest(workers int) error {
 	for _, url := range s.URL {
 		url := url
 		group.Go(func() error {
-			resp, err := client.Get(url.Loc)
+
+			req, err := http.NewRequest("GET", url.Loc, nil)
 			if err != nil {
 				return err
 			}
+			req.Header.Set("User-Agent", gleanerAgent)
+			req.Header.Set("Accept", "application/ld+json")
+
+			resp, err := client.Do(req)
+			if err != nil {
+				return err
+			}
+
 			defer resp.Body.Close()
 
 			if resp.StatusCode >= 400 {
@@ -79,7 +89,7 @@ func (s Sitemap) Harvest(workers int) error {
 				return err
 			}
 
-			summonedPath := fmt.Sprintf("summoned/%s", itemHash)
+			summonedPath := fmt.Sprintf("summoned/%s/%s", outputFoldername, itemHash)
 
 			exists, err := s.storageDestination.Exists(summonedPath)
 			if err != nil {
