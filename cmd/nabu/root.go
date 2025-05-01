@@ -136,6 +136,7 @@ func NewNabuRunner(cliArgs []string) NabuRunner {
 
 	v := viper.New()
 	v.SetConfigName("config")
+	v.SetConfigType("yaml")
 	v.SetConfigName("nabu")
 	v.AddConfigPath(".")
 
