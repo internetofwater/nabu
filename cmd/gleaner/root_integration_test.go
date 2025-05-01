@@ -9,7 +9,6 @@ import (
 	"nabu/internal/synchronizer"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
-	"os"
 	"testing"
 	"time"
 
@@ -27,7 +26,7 @@ type GleanerInterationSuite struct {
 }
 
 func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
-	os.Setenv("NABU_PROFILING", "False")
+	s.T().Setenv("NABU_PROFILING", "False")
 	startMocks()
 	// need to enable networking to make graph http requests
 	gock.EnableNetworking()
@@ -43,10 +42,11 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 	)
 
 	require.NoError(s.T(), err)
+
 	err = client.SyncTriplestoreGraphs("summoned/", true)
 	require.NoError(s.T(), err)
 
-	exists, err := client.GraphClient.GraphExists("urn:iow:summoned:iow:61079cadccee26a377946d86157e106d.jsonld")
+	exists, err := client.GraphClient.GraphExists("urn:iow:summoned:stations__5:b38dced1575a8a83c1f5091c7de0b653.jsonld")
 	require.NoError(s.T(), err)
 	require.True(s.T(), exists)
 }

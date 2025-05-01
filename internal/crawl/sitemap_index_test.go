@@ -4,6 +4,7 @@
 package crawl
 
 import (
+	"context"
 	"nabu/internal/interfaces"
 	"nabu/internal/synchronizer/s3"
 	"testing"
@@ -17,7 +18,7 @@ func TestSitemapPartId(t *testing.T) {
 	p := parts{Loc: "https://geoconnex.us/sitemap/CUAHSI/CUAHSI_HIS_GHCN_ids__0.xml"}
 	id, err := p.associatedID()
 	require.NoError(t, err)
-	require.Equal(t, "CUAHSI", id)
+	require.Equal(t, "CUAHSI_HIS_GHCN_ids__0", id)
 
 	badp := parts{Loc: "https://geoconnex.us"}
 	id, err = badp.associatedID()
@@ -45,7 +46,7 @@ func TestParseSitemapIndex(t *testing.T) {
 
 	for _, url := range indexHarvester.GetUrlList() {
 		assert.NotEmpty(t, url)
-		sitemap, err := NewSitemap(url)
+		sitemap, err := NewSitemap(context.Background(), url)
 		require.NoError(t, err)
 		if len(sitemap.URL) == 0 {
 			emptyMaps = append(emptyMaps, url)
@@ -76,13 +77,13 @@ func TestHarvestSitemapIndex(t *testing.T) {
 	sitemapUrls, err := NewSitemapIndexHarvester("https://geoconnex.us/sitemap.xml")
 	require.NoError(t, err)
 	// just test the first for the sake of brevity
-	sitemap, err := NewSitemap(sitemapUrls.GetUrlList()[0])
+	sitemap, err := NewSitemap(context.Background(), sitemapUrls.GetUrlList()[0])
 	require.NoError(t, err)
 
-	errs := sitemap.SetStorageDestination(tmpStore).Harvest(10, "test")
+	errs := sitemap.SetStorageDestination(tmpStore).Harvest(context.Background(), 10, "test")
 	require.Empty(t, errs)
 
-	errs = sitemap.SetStorageDestination(container.ClientWrapper).Harvest(1, "test")
+	errs = sitemap.SetStorageDestination(container.ClientWrapper).Harvest(context.Background(), 1, "test")
 	require.Empty(t, errs)
 	numObjs, err := container.ClientWrapper.NumberOfMatchingObjects([]string{""})
 	require.NoError(t, err)
