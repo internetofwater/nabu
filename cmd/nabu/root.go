@@ -46,18 +46,22 @@ type NabuArgs struct {
 	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`        // test the connection to the s3 bucket
 
 	// These args are applied to all subcommands
-	Endpoint        string   `arg:"--endpoint" help:"endpoint for server for the SPARQL endpoints"`
-	Cfg             string   `arg:"--cfg" help:"full path to yaml config file for nabu"`                                 // full path to yaml config file for nabu
-	Address         string   `arg:"--address" help:"The address of the minio server"`                                    // The address of the minio server
-	Access          string   `arg:"--access" help:"Access Key (i.e. username)" env:"S3_ACCESS_KEY" default:"minioadmin"` // Access Key (i.e. username)
-	Secret          string   `arg:"--secret" help:"Secret Key (i.e. password)" env:"S3_SECRET_KEY" default:"minioadmin"` // Secret Key (i.e. password)
-	Bucket          string   `arg:"--bucket" help:"The configuration bucket"`                                            // The configuration bucket
-	Repository      string   `arg:"--repository" help:"the default repository to use for graphdb"`                       // the default repository to use for graphdb
-	LogLevel        string   `arg:"--log-level" default:"INFO"`                                                          // the log level to use for the nabu logger
-	SSL             bool     `arg:"--ssl"`                                                                               // Use SSL boolean
-	Trace           bool     `arg:"--trace"`                                                                             // Enable tracing
-	Dangerous       bool     `arg:"--dangerous"`                                                                         // Use dangerous mode boolean
-	Port            int      `arg:"--port" default:"9000"`
+	Cfg string `arg:"--cfg" help:"full path to yaml config file for nabu"` // full path to yaml config file for nabu
+
+	Endpoint string `arg:"--endpoint" help:"endpoint for server for the SPARQL endpoints"`
+	Address  string `arg:"--address" help:"The address of the s3 server"` // The address of the minio server
+	Port     int    `arg:"--port" default:"9000"`
+	Access   string `arg:"--access" help:"Access Key (i.e. username)" env:"S3_ACCESS_KEY" default:"minioadmin"` // Access Key (i.e. username)
+	Secret   string `arg:"--secret" help:"Secret Key (i.e. password)" env:"S3_SECRET_KEY" default:"minioadmin"` // Secret Key (i.e. password)
+	Bucket   string `arg:"--bucket" help:"The s3 bucket to use for sync operations"`                            // The configuration bucket
+	Region   string `arg:"--region" help:"region for the s3 server"`                                            // region for the minio server
+	SSL      bool   `arg:"--ssl" help:"Use SSL when connecting to s3"`                                          // Use SSL boolean
+
+	Repository string `arg:"--repository" help:"the default repository to use for graphdb"` // the default repository to use for graphdb
+	LogLevel   string `arg:"--log-level" default:"INFO"`                                    // the log level to use for the nabu logger
+
+	Trace           bool     `arg:"--trace"`                            // Enable tracing
+	Dangerous       bool     `arg:"--dangerous"`                        // Use dangerous mode boolean
 	UpsertBatchSize int      `arg:"--upsert-batch-size" default:"1"`    // Port for s3 server
 	Prefixes        []string `arg:"--prefix" help:"prefixes to upload"` // prefixes to upload
 
@@ -89,6 +93,7 @@ func (n NabuArgs) GetMinioConfig() config.MinioConfig {
 		Accesskey: n.Access,
 		Secretkey: n.Secret,
 		Bucket:    n.Bucket,
+		Region:    n.Region,
 	}
 }
 
