@@ -48,12 +48,12 @@ type NabuArgs struct {
 	// These args are applied to all subcommands
 	Cfg string `arg:"--cfg" help:"full path to yaml config file for nabu"` // full path to yaml config file for nabu
 
-	Endpoint string `arg:"--endpoint" help:"endpoint for server for the SPARQL endpoints"`
+	Endpoint string `arg:"--eqndpoint" help:"endpoint for server for the SPARQL endpoints"`
 	Address  string `arg:"--address" help:"The address of the s3 server" default:"127.0.0.1"` // The address of the minio server
 	Port     int    `arg:"--port" default:"9000"`
 	Access   string `arg:"--access,env:S3_ACCESS_KEY" help:"Access Key (i.e. username)" default:"minioadmin"` // Access Key (i.e. username)
 	Secret   string `arg:"--secret,env:S3_SECRET_KEY" help:"Secret Key (i.e. password)" default:"minioadmin"` // Secret Key (i.e. password)
-	Bucket   string `arg:"--bucket" help:"The s3 bucket to use for sync operations"`                          // The configuration bucket
+	Bucket   string `arg:"--bucket" help:"The s3 bucket to use for sync operations" default:"gleanerbucket"`  // The configuration bucket
 	Region   string `arg:"--region" help:"region for the s3 server"`                                          // region for the minio server
 	SSL      bool   `arg:"--ssl" help:"Use SSL when connecting to s3"`                                        // Use SSL boolean
 
