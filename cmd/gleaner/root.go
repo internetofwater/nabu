@@ -22,11 +22,10 @@ import (
 type GleanerArgs struct {
 	Address      string `arg:"--address" default:"127.0.0.1" help:"address for s3"` // minio address to put data
 	Port         int    `arg:"--port" default:"9000" help:"port for s3"`
-	Bucket       string `arg:"--bucket" default:"iow" help:"default bucket for s3"` // minio bucket to put data
-	SitemapIndex string `arg:"--sitemap-index" help:"sitemap index to crawl"`       // sitemap index to crawl
-	Source       string `arg:"--source" help:"source to crawl from the sitemap"`    // source to crawl from the config
-	Config       string `arg:"--cfg" help:"path to config file"`                    // full path to config
-	// Mode         string `arg:"--mode"`
+	Bucket       string `arg:"--bucket" default:"iow" help:"default bucket for s3"`            // minio bucket to put data
+	SitemapIndex string `arg:"--sitemap-index" help:"sitemap index to crawl"`                  // sitemap index to crawl
+	Source       string `arg:"--source" help:"source to crawl from the sitemap"`               // source to crawl from the config
+	Config       string `arg:"--cfg" help:"path to config file"`                               // full path to config
 	SecretKey    string `arg:"--secret-key" default:"minioadmin"`                              // secret key for minio
 	AccessKey    string `arg:"--access-key" default:"minioadmin"`                              // access key for minio
 	SSL          bool   `arg:"--ssl"`                                                          // use SSL for HTTP requests
@@ -60,7 +59,6 @@ func (g GleanerRunner) Run(ctx context.Context) error {
 		return fmt.Errorf("invalid log level %s: %w", g.args.LogLevel, err)
 	}
 	log.SetLevel(level)
-	log.SetOutput(os.Stdout)
 	log.Info("Starting Gleaner")
 	log.Debug("Running in debug mode")
 

@@ -1,178 +1,230 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-package nabu
+package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"nabu/internal/common"
 	"nabu/internal/common/projectpath"
 	"nabu/internal/config"
+	"nabu/internal/opentelemetry"
 	"nabu/internal/synchronizer/s3"
 
 	"runtime/trace"
 
+	"github.com/alexflint/go-arg"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	otelTrace "go.opentelemetry.io/otel/trace"
 )
 
-var cfgFile, minioVal, accessVal, secretVal, bucketVal, endpointVal, prefixVal, repositoryVal, logVal string
-var portVal, batchVal int
-var sslVal, dangerousVal, doTrace bool
-
-var cfgStruct config.NabuConfig
-
-var rootCmd = &cobra.Command{
-	Use:   "nabu",
-	Short: "nabu",
-	Long:  "nabu",
+type ClearCmd struct {
+	Prefixes []string
 }
 
-func Execute() {
-	err := rootCmd.Execute()
+type ObjectCmd struct {
+	ObjectName string
+}
+
+type SyncCmd struct {
+	Prefixes []string
+}
+
+type ReleaseCmd struct {
+	Prefixes []string
+}
+
+type PrefixCmd struct {
+	Prefixes []string
+}
+
+type TestCmd struct {
+	Prefixes []string
+}
+
+type NabuArgs struct {
+	// subcommands
+	Clear  *ClearCmd  `arg:"subcommand:clear" help:"clear all graphs from the triplestore"`      // clear all graphs from the triplestore
+	Object *ObjectCmd `arg:"subcommand:object" help:"upload a single object to the triplestore"` // upload a single object to the triplestore
+	Prefix *PrefixCmd `arg:"subcommand:prefix" help:"upload a prefix to the triplestore"`        // upload a prefix to the triplestore
+	Sync   *SyncCmd   `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`     // sync the triplestore with the s3 bucket
+	Test   *TestCmd   `arg:"subcommand:test" help:"test the connection to the s3 bucket"`        // test the connection to the s3 bucket
+
+	// Global args
+	Endpoint        string `arg:"--endpoint" help:"endpoint for server for the SPARQL endpoints"`
+	Cfg             string `arg:"--cfg" help:"full path to yaml config file for nabu"`           // full path to yaml config file for nabu
+	Address         string `arg:"--address" help:"The address of the minio server"`              // The address of the minio server
+	Access          string `arg:"--access" help:"Access Key (i.e. username)"`                    // Access Key (i.e. username)
+	Secret          string `arg:"--secret" help:"Secret Key (i.e. password)"`                    // Secret Key (i.e. password)
+	Bucket          string `arg:"--bucket" help:"The configuration bucket"`                      // The configuration bucket
+	Repository      string `arg:"--repository" help:"the default repository to use for graphdb"` // the default repository to use for graphdb
+	LogLevel        string `arg:"--log-level" default:"INFO"`                                    // the log level to use for the nabu logger
+	SSL             bool   `arg:"--ssl"`                                                         // Use SSL boolean
+	Trace           bool   `arg:"--trace"`                                                       // Enable tracing
+	Dangerous       bool   `arg:"--dangerous"`                                                   // Use dangerous mode boolean
+	Port            int    `arg:"--port" default:"9000"`
+	UpsertBatchSize int    `arg:"--upsert-batch-size" default:"1"` // Port for s3 server
+
+	PrefixesToFile map[string]string `arg:"--prefixes-to-file" help:"prefixes to file mapping"`
+	Cache          bool              `arg:"--cache" help:"use cache for context"`
+	Strict         bool              `arg:"--strict" help:"use strict mode for context"`
+
+	UseOtel      bool   `arg:"--use-otel"`
+	OtelEndpoint string `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
+}
+
+func (n NabuArgs) GetMinioConfig() config.MinioConfig {
+	return config.MinioConfig{
+		Address:   n.Address,
+		Port:      n.Port,
+		Ssl:       n.SSL,
+		Accesskey: n.Access,
+		Secretkey: n.Secret,
+		Bucket:    n.Bucket,
+	}
+}
+
+func (n NabuArgs) GetSparqlConfig() config.SparqlConfig {
+	return config.SparqlConfig{
+		Endpoint:     n.Endpoint,
+		Authenticate: n.Secret != "",
+		Username:     n.Access,
+		Password:     n.Secret,
+		Repository:   n.Repository,
+	}
+}
+
+func (n NabuArgs) GetContextConfig() config.ContextConfig {
+	return config.ContextConfig{
+		Cache:  n.Cache,
+		Strict: n.Strict,
+	}
+}
+
+func (n NabuArgs) GetContextMaps() []config.ContextMap {
+	ctxMap := []config.ContextMap{}
+	for prefix, file := range n.PrefixesToFile {
+		ctxMap = append(ctxMap, config.ContextMap{
+			Prefix: prefix,
+			File:   file,
+		})
+	}
+	return ctxMap
+}
+
+type NabuRunner struct {
+	args NabuArgs
+	cfg  *config.NabuConfig
+}
+
+func NewNabuRunner(cliArgs []string) NabuRunner {
+	args := NabuArgs{}
+	const dummyBinaryName = "nabu" // we need to add some arbitrary binary name; it doesn't matter
+	os.Args = append([]string{dummyBinaryName}, cliArgs...)
+
+	v := viper.New()
+	v.SetConfigName("config")
+	v.SetConfigName("nabu")
+	v.AddConfigPath(".")
+
+	if err := v.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			log.Warn(err)
+		}
+	} else {
+		if err := v.Unmarshal(&args); err != nil {
+			log.Fatalf("error unmarshaling config: %w", err)
+		}
+	}
+
+	parseResult := arg.MustParse(&args)
+	if parseResult.Subcommand() == "" {
+		parseResult.Fail("missing nabu subcommand")
+	}
+
+	return NabuRunner{
+		args: args,
+	}
+
+}
+
+func (n NabuRunner) Run(ctx context.Context) error {
+	level, err := log.ParseLevel(n.args.LogLevel)
+	if err != nil {
+		return fmt.Errorf("invalid log level %s: %w", n.args.LogLevel, err)
+	}
+	log.SetLevel(level)
+
 	if trace.IsEnabled() {
 		trace.Stop()
 	}
-	cobra.CheckErr(err)
 
-	if common.PROFILING_ENABLED() || doTrace {
-		mc, minioErr := s3.NewMinioClientWrapper(cfgStruct.Minio)
-		cobra.CheckErr(minioErr)
+	if n.args.UseOtel || n.args.OtelEndpoint != "" {
+		if n.args.OtelEndpoint == "" {
+			n.args.OtelEndpoint = opentelemetry.DefaultCollectorEndpoint
+		}
+		log.Infof("Starting opentelemetry traces and exporting to: %s", n.args.OtelEndpoint)
+		opentelemetry.InitTracer("nabu", n.args.OtelEndpoint)
+		var span otelTrace.Span
+		span, ctx = opentelemetry.SubSpanFromCtx(ctx)
+		defer span.End()
+		defer opentelemetry.Shutdown()
+	}
+
+	if n.args.Trace {
+		mc, err := s3.NewMinioClientWrapper(n.cfg.Minio)
+		if err != nil {
+			return err
+		}
 		traceFile := filepath.Join(projectpath.Root, "trace.out")
-		joinedArgs := strings.Join(rootCmd.Flags().Args(), "_")
 
+		joinedArgs := strings.Join(os.Args[1:], "_")
 		traceName := fmt.Sprintf("traces/trace_%s.out", joinedArgs)
-		uploadErr := mc.UploadFile(traceName, traceFile)
-		cobra.CheckErr(uploadErr)
-
-		uploadErr = mc.UploadFile(fmt.Sprintf("traces/http_trace_%s.csv", joinedArgs), filepath.Join(projectpath.Root, "http_trace.csv"))
-		cobra.CheckErr(uploadErr)
-	}
-
-}
-
-func init() {
-
-	cobra.OnInitialize(initLogging)
-	cobra.OnInitialize(initConfig)
-
-	rootCmd.PersistentFlags().StringVar(&prefixVal, "prefix", "", "prefix to operate upon")
-	rootCmd.PersistentFlags().StringVar(&endpointVal, "endpoint", "", "endpoint for server for the SPARQL endpoints")
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "cfg", "", "full path to yaml config file for nabu")
-	rootCmd.PersistentFlags().StringVar(&minioVal, "address", "", "The address of the minio server")
-	rootCmd.PersistentFlags().StringVar(&accessVal, "access", os.Getenv("S3_ACCESS_KEY"), "Access Key (i.e. username)")
-	rootCmd.PersistentFlags().StringVar(&secretVal, "secret", os.Getenv("S3_SECRET_KEY"), "Secret access key")
-	rootCmd.PersistentFlags().StringVar(&bucketVal, "bucket", "", "The configuration bucket")
-	rootCmd.PersistentFlags().StringVar(&repositoryVal, "repository", "", "the default repository to use for graphdb")
-	rootCmd.PersistentFlags().StringVar(&logVal, "log-level", "INFO", "the log level to use for the nabu logger")
-
-	rootCmd.PersistentFlags().BoolVar(&sslVal, "ssl", false, "Use SSL boolean")
-	rootCmd.PersistentFlags().BoolVar(&dangerousVal, "dangerous", false, "Use dangerous mode boolean")
-	rootCmd.PersistentFlags().BoolVar(&doTrace, "trace", false, "Enable tracing")
-
-	rootCmd.PersistentFlags().IntVar(&portVal, "port", -1, "Port for s3 server")
-	rootCmd.PersistentFlags().IntVar(&batchVal, "upsert-batch-size", 1, "The batch size to use when syncing data from s3 to triplestore")
-}
-
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	var err error
-	if cfgFile != "" {
-		var configPath string
-		fileName := filepath.Base(cfgFile)
-
-		// If the path is absolute, use it directly
-		if filepath.IsAbs(cfgFile) {
-			configPath = filepath.Dir(cfgFile)
-		} else {
-			// If it's a relative path, resolve it against the current working directory
-			configPath, err = os.Getwd()
-			if err != nil {
-				log.Fatalf("cannot get current directory: %s", err)
-			}
-			configPath = filepath.Join(configPath, filepath.Dir(cfgFile))
-		}
-
-		// Make sure the file exists in the resolved path
-		if _, err = os.Stat(filepath.Join(configPath, fileName)); os.IsNotExist(err) {
-			log.Fatalf("config file does not exist at path: %s", filepath.Join(configPath, fileName))
-		}
-
-		cfgStruct, err = config.ReadNabuConfig(configPath, fileName)
+		err = mc.UploadFile(traceName, traceFile)
 		if err != nil {
-			log.Fatalf("cannot read config %s", err)
+			return err
 		}
-	} else {
-		log.Fatal("FATAL: no config file provided with --cfg")
-	}
-
-	if endpointVal != "" {
-		cfgStruct.Sparql.Endpoint = endpointVal
-	}
-	if minioVal != "" {
-		cfgStruct.Minio.Address = minioVal
-	}
-	if portVal != -1 {
-		cfgStruct.Minio.Port = portVal
-	}
-	if accessVal != "" {
-		cfgStruct.Minio.Accesskey = accessVal
-	}
-	if secretVal != "" {
-		cfgStruct.Minio.Secretkey = secretVal
-	}
-	if bucketVal != "" {
-		cfgStruct.Minio.Bucket = bucketVal
-	}
-	if sslVal {
-		cfgStruct.Minio.Ssl = sslVal
-	}
-	if prefixVal != "" {
-		cfgStruct.Prefixes = []string{prefixVal}
-	}
-	if repositoryVal != "" {
-		cfgStruct.Sparql.Repository = repositoryVal
-	}
-	// go structs default to 0 so we need to set it to 1 by defaults
-	cfgStruct.Sparql.Batch = 1
-	if batchVal != 1 {
-		cfgStruct.Sparql.Batch = batchVal
-	}
-
-	if common.PROFILING_ENABLED() || doTrace {
-		filePath := filepath.Join(projectpath.Root, "trace.out")
-		log.Infof("Trace enabled; Outputting to %s", filePath)
-		cfgStruct.Trace = true
-		os.Setenv("NABU_PROFILING", "True")
-
-		f, err := os.Create(filePath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if err := trace.Start(f); err != nil {
-			log.Fatal(err)
+		if err = mc.UploadFile(fmt.Sprintf("traces/http_trace_%s.csv", joinedArgs), filepath.Join(projectpath.Root, "http_trace.csv")); err != nil {
+			return err
 		}
 	}
-}
 
-func initLogging() {
-	switch logVal {
-	case "DEBUG":
-		log.SetLevel(log.DebugLevel)
-	case "INFO":
-		log.SetLevel(log.InfoLevel)
-	case "WARN":
-		log.SetLevel(log.WarnLevel)
-	case "ERROR":
-		log.SetLevel(log.ErrorLevel)
-	case "FATAL":
-		log.SetLevel(log.FatalLevel)
+	cfgStruct := config.NabuConfig{
+		Minio: config.MinioConfig{
+			Endpoint: n.args.Address,
+			Access:   n.args.Access,
+			Secret:   n.args.Secret,
+			Bucket:   n.args.Bucket,
+		},
+		Repository:      n.args.Repository,
+		SSL:             n.args.SSL,
+		Port:            n.args.Port,
+		Dangerous:       n.args.Dangerous,
+		UpsertBatchSize: n.args.UpsertBatchSize,
+	}
+
+	switch {
+	case n.args.Clear != nil:
+		return clear(n.args.Clear)
+	case n.args.Object != nil:
+		return object(n.args.ObjectName)
+	case n.args.Prefix != nil:
+		return prefix(n.args.Prefix)
+	case n.args.Sync != nil:
+		return sync(n.args.Prefix)
 	default:
-		log.Fatalf("Invalid log level: %s", logVal)
+		return fmt.Errorf("unknown nabu subcommand")
+
 	}
-	log.SetFormatter(&log.JSONFormatter{})
+}
+
+func main() {
+	if err := NewNabuRunner(os.Args[1:]).Run(context.Background()); err != nil {
+		log.Fatal(err)
+	}
 }
