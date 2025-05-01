@@ -25,7 +25,7 @@ import (
 type ClearCmd struct{}
 
 type ObjectCmd struct {
-	ObjectName string
+	Object string `arg:"positional"`
 }
 
 type SyncCmd struct{}
@@ -229,7 +229,7 @@ func (n NabuRunner) Run(ctx context.Context) error {
 	case n.args.Clear != nil:
 		return clear(cfgStruct)
 	case n.args.Object != nil:
-		return object(n.args.Object.ObjectName, cfgStruct)
+		return object(n.args.Object.Object, cfgStruct)
 	case n.args.Release != nil:
 		return release(cfgStruct)
 	case n.args.Prefix != nil:

@@ -26,6 +26,15 @@ func TestDefaultArgs(t *testing.T) {
 	require.Equal(t, 1, defaultRunner.args.UpsertBatchSize)
 }
 
+func TestSubcommand(t *testing.T) {
+	// Test the subcommand args to make sure that the subcommand is set properly
+	defaultRunner := NewNabuRunner([]string{"object", "test", "--address", "DUMMY"})
+	err := defaultRunner.Run(context.Background())
+	require.ErrorContains(t, err, "dial tcp: lookup")
+	subCommandErr := strings.Contains(err.Error(), "subcommand 'object' requires a positional argument")
+	require.False(t, subCommandErr)
+}
+
 // Wrapper struct to store a handle to the container for all
 type RootCliSuite struct {
 	suite.Suite
