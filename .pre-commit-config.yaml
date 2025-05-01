@@ -36,3 +36,8 @@ repos:
       - id: addlicense
         args:
           ["-s=only", -l, "Apache-2.0", -c, "Lincoln Institute of Land Policy"]
+
+  - repo: https://github.com/golangci/golangci-lint/
+    rev: v2.1.5
+    hooks:
+      - id: golangci-lint

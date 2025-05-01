@@ -224,7 +224,7 @@ func (n NabuRunner) Run(ctx context.Context) error {
 	case n.args.Prefix != nil:
 		return prefix(cfgStruct)
 	case n.args.Sync != nil:
-		return Sync(cfgStruct)
+		return Sync(ctx, cfgStruct)
 	case n.args.Test != nil:
 		return Test(cfgStruct)
 	default:
