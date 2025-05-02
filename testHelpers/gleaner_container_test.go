@@ -52,7 +52,7 @@ func (suite *GleanerContainerSuite) TearDownSuite() {
 
 func (suite *GleanerContainerSuite) TestGleanerContainerHelpMsg() {
 	t := suite.T()
-	gleaner, err := NewGleanerContainer("../config/iow/gleanerconfig.yaml", []string{"--help"}, suite.network.Name)
+	gleaner, err := NewGleanerContainer("../config/gleanerconfig.yaml", []string{"--help"}, suite.network.Name)
 	require.NoError(t, err)
 	logs, err := gleaner.Container.Logs(context.Background())
 	require.NoError(t, err)
@@ -64,7 +64,7 @@ func (suite *GleanerContainerSuite) TestGleanerContainerHelpMsg() {
 
 func (suite *GleanerContainerSuite) TestGleanerHarvest() {
 	t := suite.T()
-	gleaner, err := NewGleanerContainer("../config/iow/gleanerconfig.yaml", []string{
+	gleaner, err := NewGleanerContainer("../config/gleanerconfig.yaml", []string{
 		"--source", "cdss0",
 		"--address", "gleanerContainerTestMinio",
 		"--setup",
