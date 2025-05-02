@@ -4,10 +4,8 @@
 package common
 
 import (
-	"nabu/internal/common/projectpath"
 	"nabu/internal/config"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/piprate/json-gold/ld"
@@ -22,10 +20,7 @@ func TestCreateNewProcessor(t *testing.T) {
 	})
 
 	t.Run("use full config with caching", func(t *testing.T) {
-		configPath := filepath.Join(projectpath.Root, "config/iow")
-		absPath, err := filepath.Abs(configPath)
-		require.NoError(t, err)
-		conf, err := config.ReadNabuConfig(absPath, "nabuconfig.yaml")
+		conf, err := config.ReadNabuConfig("testdata", "nabuconfig.yaml")
 		require.NoError(t, err)
 		processor, options, err := NewJsonldProcessor(conf.Context.Cache, conf.ContextMaps)
 		require.NoError(t, err)

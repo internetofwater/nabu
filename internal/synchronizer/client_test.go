@@ -110,7 +110,7 @@ func (s *SynchronizerClientSuite) TearDownSuite() {
 
 func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 	t := suite.T()
-	gleanerContainer, err := testhelpers.NewGleanerContainer("../../config/iow/gleanerconfig.yaml", []string{
+	gleanerContainer, err := testhelpers.NewGleanerContainer("../../config/gleanerconfig.yaml", []string{
 		"--source", "cdss0",
 		"--address", "synchronizerTestMinio",
 		"--setup",
@@ -142,7 +142,7 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 
 func (suite *SynchronizerClientSuite) TestMoveNqToTriplestore() {
 	t := suite.T()
-	gleanerContainer, err := testhelpers.NewGleanerContainer("../../config/iow/gleanerconfig.yaml", []string{
+	gleanerContainer, err := testhelpers.NewGleanerContainer("../../config/gleanerconfig.yaml", []string{
 		"--source", "cdss0",
 		"--address", "synchronizerTestMinio",
 		"--setup",
@@ -175,7 +175,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	require.NoError(t, err)
 	require.True(t, exists)
 
-	gleanerContainer, err := testhelpers.NewGleanerContainer("../../config/iow/gleanerconfig.yaml", []string{
+	gleanerContainer, err := testhelpers.NewGleanerContainer("../../config/gleanerconfig.yaml", []string{
 		"--source", "cdss0",
 		"--address", "synchronizerTestMinio",
 		"--setup",
@@ -219,7 +219,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 
 	// Harvest another source to make sure that the sync works with a new source
 	// syncing from the same prefix with more data this time
-	gleanerContainer, err = testhelpers.NewGleanerContainer("../../config/iow/gleanerconfig.yaml", []string{
+	gleanerContainer, err = testhelpers.NewGleanerContainer("../../config/gleanerconfig.yaml", []string{
 		"--source", "refgages0",
 		"--address", "synchronizerTestMinio",
 		"--setup",
@@ -257,7 +257,7 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 	err := suite.graphdbContainer.Client.ClearAllGraphs()
 	require.NoError(suite.T(), err)
 
-	gleanerContainer, err := testhelpers.NewGleanerContainer("../../config/iow/gleanerconfig.yaml", []string{
+	gleanerContainer, err := testhelpers.NewGleanerContainer("../../config/gleanerconfig.yaml", []string{
 		"--source", "cdss0",
 		"--address", "synchronizerTestMinio",
 		"--setup",

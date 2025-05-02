@@ -26,6 +26,13 @@ func TestDefaultArgs(t *testing.T) {
 	require.Equal(t, 1, defaultRunner.args.UpsertBatchSize)
 }
 
+func TestParseCfgArgs(t *testing.T) {
+	// Test the config args
+	defaultRunner := NewNabuRunner([]string{"test", "--cfg", "testdata/nabuconfig.yaml"})
+	require.Equal(t, "testdata/nabuconfig.yaml", defaultRunner.args.Cfg)
+	require.Equal(t, "DUMMY_BUCKET", defaultRunner.args.Bucket)
+}
+
 func TestSubcommand(t *testing.T) {
 	// Test the subcommand args to make sure that the subcommand is set properly
 	defaultRunner := NewNabuRunner([]string{"object", "test", "--address", "DUMMY"})
@@ -42,18 +49,9 @@ type RootCliSuite struct {
 }
 
 func (suite *RootCliSuite) SetupSuite() {
-	config := s3.MinioContainerConfig{
-		Username:      "minioadmin",
-		Password:      "minioadmin",
-		DefaultBucket: "iow",
-	}
-	minioContainer, err := s3.NewMinioContainerFromConfig(config)
+	minioContainer, err := s3.NewDefaultMinioContainer()
 	require.NoError(suite.T(), err)
 	suite.minioContainer = minioContainer
-
-	err = suite.minioContainer.ClientWrapper.MakeDefaultBucket()
-	require.NoError(suite.T(), err)
-
 }
 
 func (s *RootCliSuite) TearDownSuite() {
