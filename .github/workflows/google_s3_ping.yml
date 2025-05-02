@@ -21,7 +21,6 @@ jobs:
       - name: Run Nabu
         run: |
             docker run --network mynetwork \
-            -v ./config/iow/google.yaml:/app/google.yaml \
             -e S3_ACCESS_KEY=${{ secrets.GOOGLE_S3_ACCESS_KEY }} \
             -e S3_SECRET_KEY=${{ secrets.GOOGLE_S3_SECRET_KEY }} \
             --rm nabu test --port 443 --region us --ssl --bucket harvest-bucket-dev --address storage.googleapis.com 
