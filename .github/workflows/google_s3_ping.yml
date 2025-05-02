@@ -16,7 +16,7 @@ jobs:
         run: docker network create mynetwork
 
       - name: Build Nabu Docker Image
-        run: docker build -t nabu .
+        run: docker build --build-arg BINARY_NAME=nabu  -t nabu .
 
       - name: Run Nabu
         run: |
