@@ -8,7 +8,7 @@ import (
 	"nabu/internal/synchronizer"
 )
 
-
+type ReleaseCmd struct{}
 
 func release(cfgStruct config.NabuConfig) error {
 	client, err := synchronizer.NewSynchronizerClientFromConfig(cfgStruct)

@@ -19,18 +19,30 @@ import (
 )
 
 func TestDefaultArgs(t *testing.T) {
-	// Test the default args
 	defaultRunner := NewNabuRunner([]string{"test"})
 	require.Equal(t, "minio", defaultRunner.args.Address)
 	require.Equal(t, 9000, defaultRunner.args.Port)
 	require.Equal(t, 1, defaultRunner.args.UpsertBatchSize)
+
+	t.Run("TestDefaultsWithConfig", func(t *testing.T) {
+		defaultRunner := NewNabuRunner([]string{"test", "--cfg", "testdata/nabuconfig.yaml", "--ssl"})
+		require.Equal(t, "testdata/nabuconfig.yaml", defaultRunner.args.Cfg)
+		require.Equal(t, "DUMMY_BUCKET", defaultRunner.args.Bucket)
+		require.Equal(t, "", defaultRunner.args.Minio.Region)
+		require.Equal(t, 1, defaultRunner.args.UpsertBatchSize)
+		require.True(t, defaultRunner.args.SSL)
+	})
+
 }
 
 func TestParseCfgArgs(t *testing.T) {
 	// Test the config args
 	defaultRunner := NewNabuRunner([]string{"test", "--cfg", "testdata/nabuconfig.yaml"})
 	require.Equal(t, "testdata/nabuconfig.yaml", defaultRunner.args.Cfg)
+	// Because of that fact that we are using anonymous embeddings, both args.Bucket and args.Minio.Bucket
+	// refer to the same object in memory. So they are equal
 	require.Equal(t, "DUMMY_BUCKET", defaultRunner.args.Bucket)
+	require.Same(t, &defaultRunner.args.Bucket, &defaultRunner.args.Minio.Bucket)
 }
 
 func TestSubcommand(t *testing.T) {

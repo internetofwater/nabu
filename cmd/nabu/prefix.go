@@ -9,7 +9,7 @@ import (
 	"nabu/internal/synchronizer"
 )
 
-
+type PrefixCmd struct{}
 
 func prefix(cfgStruct config.NabuConfig) error {
 	client, err := synchronizer.NewSynchronizerClientFromConfig(cfgStruct)

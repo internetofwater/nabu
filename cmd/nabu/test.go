@@ -12,6 +12,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type TestCmd struct{}
+
 func Test(cfgStruct config.NabuConfig) error {
 	client, err := synchronizer.NewSynchronizerClientFromConfig(cfgStruct)
 	if err != nil {
