@@ -126,15 +126,15 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 	summonedObjs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{"summoned/cdss0/"})
 	require.NoError(t, err)
 	require.Equal(t, sourcesInSitemap, summonedObjs)
-	err = suite.client.SyncTriplestoreGraphs("orgs/", false)
+	err = suite.client.SyncTriplestoreGraphs(context.Background(), "orgs/", false)
 	require.NoError(t, err)
-	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
+	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "orgs/")
 	require.NoError(t, err)
 	require.Len(t, graphs, 1)
 
-	err = suite.client.SyncTriplestoreGraphs("summoned/", false)
+	err = suite.client.SyncTriplestoreGraphs(context.Background(), "summoned/", false)
 	require.NoError(t, err)
-	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/cdss0/")
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "summoned/cdss0/")
 	require.NoError(t, err)
 	require.Len(t, graphs, sourcesInSitemap)
 
@@ -188,32 +188,32 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 
 	// make sure that an old graph is no longer there when
 	// we sync new org data
-	err = suite.client.SyncTriplestoreGraphs("orgs/", true)
+	err = suite.client.SyncTriplestoreGraphs(context.Background(), "orgs/", true)
 	require.NoError(t, err)
 	exists, err = suite.graphdbContainer.Client.GraphExists(oldGraph)
 	require.False(t, exists)
 	require.NoError(t, err)
-	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
+	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "orgs/")
 	require.NoError(t, err)
 	// 1 graph should be associated with the orgs prefix; old one should be dropped
 	require.Equal(t, len(graphs), 1)
 
 	// make sure that there is prov data for every source in the sitemap
-	err = suite.client.SyncTriplestoreGraphs("prov/", true)
+	err = suite.client.SyncTriplestoreGraphs(context.Background(), "prov/", true)
 	require.NoError(t, err)
-	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("prov/")
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "prov/")
 	require.NoError(t, err)
 	require.Equal(t, len(graphs), sourcesInCdss0Sitemap)
 
 	// make sure that after a prov sync that the org graph is still there
-	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("orgs/")
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "orgs/")
 	require.NoError(t, err)
 	require.Equal(t, len(graphs), 1)
 
 	// make sure that summoned data matches the amount of sources in the sitemap
-	err = suite.client.SyncTriplestoreGraphs("summoned/", true)
+	err = suite.client.SyncTriplestoreGraphs(context.Background(), "summoned/", true)
 	require.NoError(t, err)
-	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "summoned/")
 	require.NoError(t, err)
 	require.Equal(t, len(graphs), sourcesInCdss0Sitemap)
 
@@ -232,21 +232,21 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 
 	// make sure that graph syncs are additive between sources and that
 	// sources are not overwritten or removed
-	err = suite.client.SyncTriplestoreGraphs("summoned/refgages0", true)
+	err = suite.client.SyncTriplestoreGraphs(context.Background(), "summoned/refgages0", true)
 	require.NoError(t, err)
-	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "summoned/")
 	require.NoError(t, err)
 	require.Equal(t, len(graphs), sourcesInCdss0Sitemap+sourcesInRefGagesSitemap)
 
 	// delete 1 item from the s3 bucket and make sure that after
 	// we sync again, we have the same number of graphs - 1
-	objs, err := suite.client.S3Client.ObjectList("summoned/")
+	objs, err := suite.client.S3Client.ObjectList(context.Background(), "summoned/")
 	require.NoError(t, err)
 	err = suite.client.S3Client.Remove(objs[0].Key)
 	require.NoError(t, err)
-	err = suite.client.SyncTriplestoreGraphs("summoned/", true)
+	err = suite.client.SyncTriplestoreGraphs(context.Background(), "summoned/", true)
 	require.NoError(t, err)
-	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "summoned/")
 	require.NoError(t, err)
 	require.Equal(t, len(graphs), sourcesInCdss0Sitemap+sourcesInRefGagesSitemap-1)
 
@@ -314,7 +314,7 @@ func (suite *SynchronizerClientSuite) TestGraphDiff() {
 		require.NoError(t, err)
 	}()
 
-	diff, err := suite.client.getGraphDiff("testgraph/")
+	diff, err := suite.client.getGraphDiff(context.Background(), "testgraph/")
 	require.NoError(t, err)
 	require.Contains(t, diff.S3GraphsNotInTriplestore, "urn:iow:testgraph:hu02.jsonld")
 	require.Contains(t, diff.S3GraphsNotInTriplestore, "urn:iow:testgraph:test.nq")

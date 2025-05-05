@@ -5,9 +5,10 @@ package opentelemetry
 
 import (
 	"context"
-	"log"
 	"runtime"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -18,12 +19,19 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const DefaultCollectorEndpoint = "127.0.0.1:4317"
+
 // the global tracer instance that keeps track of client spans
 var Tracer trace.Tracer
+var TracerProvider *sdktrace.TracerProvider
 
 // Generate a new span and use the caller's function name as the span name
 // This allows the span to be easily identified and prevents accidental mislabeling
-func NewSpanWithContext() (trace.Span, context.Context) {
+func NewSpanAndContext() (trace.Span, context.Context) {
+	if Tracer == nil {
+		log.Fatal("Tracer is nil so cannot create span")
+	}
+
 	pc, _, _, _ := runtime.Caller(1)
 
 	fn := runtime.FuncForPC(pc)
@@ -32,7 +40,36 @@ func NewSpanWithContext() (trace.Span, context.Context) {
 	return span, ctx
 }
 
-func SubSpanFromCtx(ctx context.Context, name string) (trace.Span, context.Context) {
+func NewSpanAndContextWithName(name string) (trace.Span, context.Context) {
+	if Tracer == nil {
+		log.Fatal("Tracer is nil so cannot create span")
+	}
+
+	ctx, span := Tracer.Start(context.Background(), name)
+	return span, ctx
+}
+
+func SubSpanFromCtx(ctx context.Context) (trace.Span, context.Context) {
+	// If tracer is nil and we aren't using open telemetry, return a dummy
+	// span that fulfills the interface but doesn't do anything
+	if Tracer == nil {
+		return trace.SpanFromContext(context.Background()), ctx
+	}
+
+	pc, _, _, _ := runtime.Caller(1)
+
+	fn := runtime.FuncForPC(pc)
+	name := fn.Name()
+	newCtx, span := Tracer.Start(ctx, name)
+	return span, newCtx
+}
+
+func SubSpanFromCtxWithName(ctx context.Context, name string) (trace.Span, context.Context) {
+	// If tracer is nil and we aren't using open telemetry, return a dummy
+	// span that fulfills the interface but doesn't do anything
+	if Tracer == nil {
+		return trace.SpanFromContext(context.Background()), ctx
+	}
 	ctx, span := Tracer.Start(ctx, name)
 	return span, ctx
 }
@@ -77,18 +114,18 @@ func shouldFilterOutSpan(span sdktrace.ReadOnlySpan) bool {
 	return false
 }
 
-func InitTracer() {
+func InitTracer(serviceName string, endpoint string) {
 	ctx := context.Background()
 
 	resource, err := resource.New(ctx,
-		resource.WithAttributes(attribute.String("service.name", "nabu")),
+		resource.WithAttributes(attribute.String("service.name", serviceName)),
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	client := otlptracegrpc.NewClient(
-		otlptracegrpc.WithEndpoint("127.0.0.1:4317"),
+		otlptracegrpc.WithEndpoint(endpoint),
 		otlptracegrpc.WithInsecure(),
 	)
 
@@ -100,12 +137,32 @@ func InitTracer() {
 	batchSpanProcessor := sdktrace.NewBatchSpanProcessor(otlpTraceExporter)
 	filteringProcessor := &FilteringSpanProcessor{next: batchSpanProcessor}
 
-	tracerProvider := sdktrace.NewTracerProvider(
+	TracerProvider = sdktrace.NewTracerProvider(
 		sdktrace.WithSpanProcessor(filteringProcessor), // Use filtered processor
 		sdktrace.WithResource(resource),
 	)
 
-	otel.SetTracerProvider(tracerProvider)
+	otel.SetTracerProvider(TracerProvider)
 
-	Tracer = tracerProvider.Tracer("nabu")
+	Tracer = TracerProvider.Tracer(serviceName) // Set the global tracer
+
+	log.Infof("OpenTelemetry Tracer initialized, sending traces to %s", endpoint)
+}
+
+// Shutdown the tracer provider and flush any remaining spans
+// This should be called when the application is shutting down
+func Shutdown() {
+	if TracerProvider == nil {
+		log.Warn("TracerProvider is nil, skipping shutdown")
+		return
+	}
+
+	err := TracerProvider.ForceFlush(context.Background())
+	if err != nil {
+		log.Errorf("Error flushing traces: %v", err)
+	}
+	err = TracerProvider.Shutdown(context.Background())
+	if err != nil {
+		log.Errorf("Error shutting down tracer provider: %v", err)
+	}
 }

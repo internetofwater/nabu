@@ -4,10 +4,13 @@
 package crawl
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"nabu/internal/interfaces"
+	"nabu/internal/opentelemetry"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -36,11 +39,17 @@ func (p parts) associatedID() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	segments := strings.Split(url.Path, "/")
-	if len(segments) > 2 {
-		return segments[2], nil
+	segments := strings.Split(strings.Trim(url.Path, "/"), "/")
+	if len(segments) == 0 {
+		return "", fmt.Errorf("path does not contain any segments")
 	}
-	return "", fmt.Errorf("path does not contain enough segments")
+	last := segments[len(segments)-1]
+	ext := filepath.Ext(last)
+	if ext == "" {
+		return "", fmt.Errorf("no file extension found in path")
+	}
+	id := strings.TrimSuffix(last, ext)
+	return id, nil
 }
 
 func isUrl(str string) bool {
@@ -81,7 +90,7 @@ func (i Index) GetUrlList() []string {
 }
 
 // Harvest all the URLs in the sitemap
-func (i Index) HarvestAll() error {
+func (i Index) HarvestAll(ctx context.Context) error {
 
 	var group errgroup.Group
 	group.SetLimit(i.concurrentSitemaps)
@@ -89,7 +98,7 @@ func (i Index) HarvestAll() error {
 	for _, part := range i.Sitemaps {
 		part := part
 		group.Go(func() error {
-			sitemap, err := NewSitemap(part.Loc)
+			sitemap, err := NewSitemap(ctx, part.Loc)
 			if err != nil {
 				return err
 			}
@@ -108,7 +117,8 @@ func (i Index) HarvestAll() error {
 				errChan <- i.storageDestination.Store("orgs/"+id+".nq", strings.NewReader(nq))
 			}(id)
 
-			harvestResult := sitemap.SetStorageDestination(i.storageDestination).Harvest(i.sitemapWorkers, id)
+			harvestResult := sitemap.SetStorageDestination(i.storageDestination).
+				Harvest(ctx, i.sitemapWorkers, id)
 
 			if err := <-errChan; err != nil {
 				return err
@@ -121,13 +131,17 @@ func (i Index) HarvestAll() error {
 }
 
 // Harvest one particular sitemap
-func (i Index) HarvestSitemap(sitemap string) error {
+func (i Index) HarvestSitemap(ctx context.Context, sitemap string) error {
 
 	for _, part := range i.Sitemaps {
+
+		span, ctx := opentelemetry.SubSpanFromCtx(ctx)
+		defer span.End()
+
 		if part.Loc != sitemap {
 			continue
 		}
-		sitemap, err := NewSitemap(part.Loc)
+		sitemap, err := NewSitemap(ctx, part.Loc)
 		if err != nil {
 			return err
 		}
@@ -136,7 +150,7 @@ func (i Index) HarvestSitemap(sitemap string) error {
 			return err
 		}
 		return sitemap.SetStorageDestination(i.storageDestination).
-			Harvest(i.sitemapWorkers, id)
+			Harvest(ctx, i.sitemapWorkers, id)
 	}
 	return fmt.Errorf("sitemap %s not found in sitemap", sitemap)
 }

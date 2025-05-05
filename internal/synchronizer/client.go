@@ -12,6 +12,7 @@ import (
 	"nabu/internal/common"
 	"nabu/internal/config"
 	"nabu/internal/custom_http_trace"
+	"nabu/internal/opentelemetry"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
 	"net/http"
@@ -88,17 +89,20 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 
 // Get rid of graphs with specific prefix in the triplestore that are not in the object store
 // Drops are determined by mapping a prefix to the associated URN
-func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string, checkAndRemoveOrphans bool) error {
+func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(ctx context.Context, prefix string, checkAndRemoveOrphans bool) error {
 	if synchronizer.upsertBatchSize == 0 {
 		return fmt.Errorf("got invalid upsert batch size of 0")
 	}
+
+	span, ctx := opentelemetry.SubSpanFromCtx(ctx)
+	defer span.End()
 
 	var s3GraphsNotInTriplestore []string
 	// if we want to check for orphaned graphs
 	// we need to get the diff between the graph and s3
 	// then drop the orphaned graphs
 	if checkAndRemoveOrphans {
-		graphDiff, err := synchronizer.getGraphDiff(prefix)
+		graphDiff, err := synchronizer.getGraphDiff(ctx, prefix)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -120,7 +124,7 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string, che
 		// if we don't want to remove orphaned graphs
 		// just get the list of graphs that are not in s3
 	} else {
-		objects, err := synchronizer.S3Client.ObjectList(prefix)
+		objects, err := synchronizer.S3Client.ObjectList(ctx, prefix)
 		if err != nil {
 			log.Error(err)
 			return err
@@ -130,7 +134,7 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(prefix string, che
 		}
 	}
 
-	if err := synchronizer.batchedUpsert(s3GraphsNotInTriplestore); err != nil {
+	if err := synchronizer.batchedUpsert(ctx, s3GraphsNotInTriplestore); err != nil {
 		return err
 	}
 

@@ -10,15 +10,13 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"nabu/internal/common"
 	"nabu/internal/common/projectpath"
 	"net/http"
 	"net/http/httptrace"
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
-	"strconv"
+	"runtime/trace"
 	"sync"
 	"time"
 )
@@ -147,7 +145,7 @@ func NewRequestWithContext(method, url string, body io.Reader) (*http.Request, e
 		return nil, fmt.Errorf("body is nil")
 	}
 
-	if !common.PROFILING_ENABLED() {
+	if !trace.IsEnabled() {
 		return http.NewRequest(method, url, body)
 	}
 
@@ -168,57 +166,4 @@ func NewRequestWithContext(method, url string, body io.Reader) (*http.Request, e
 	traceCtx := httptrace.WithClientTrace(ctx, trace)
 
 	return http.NewRequestWithContext(traceCtx, method, url, body)
-}
-
-func SortTraceHttpInCurrentDir() error {
-	// Open the CSV file
-	file, err := os.Open(trace_file)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil // No need to sort if the file doesn't exist
-		}
-		return fmt.Errorf("failed to open CSV file: %v", err)
-	}
-	defer file.Close()
-
-	// Read the CSV content
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
-	if err != nil {
-		return fmt.Errorf("failed to read CSV file: %v", err)
-	}
-
-	// Ensure there's at least one row besides the header
-	if len(records) <= 1 {
-		return nil
-	}
-
-	sort.SliceStable(records[1:], func(i, j int) bool {
-		// Convert the duration values to integers for sorting
-		d1, err1 := strconv.Atoi(records[i+1][2])
-		d2, err2 := strconv.Atoi(records[j+1][2])
-
-		if err1 != nil || err2 != nil {
-			log.Fatal(fmt.Errorf("failed to convert duration to integer: %v, %v", err1, err2))
-		}
-
-		// Sort in **descending order** (biggest duration first)
-		return d1 > d2
-	})
-
-	file, err = os.OpenFile(trace_file, os.O_WRONLY|os.O_TRUNC, 0666)
-	if err != nil {
-		return fmt.Errorf("failed to open CSV file for writing: %v", err)
-	}
-	defer file.Close()
-
-	writer := csv.NewWriter(file)
-
-	err = writer.WriteAll(records)
-	if err != nil {
-		return fmt.Errorf("failed to write sorted records: %v", err)
-	}
-
-	writer.Flush()
-	return nil
 }

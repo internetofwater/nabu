@@ -6,10 +6,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"nabu/internal/opentelemetry"
 	"nabu/internal/synchronizer"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
-	"os"
 	"testing"
 	"time"
 
@@ -27,13 +27,21 @@ type GleanerInterationSuite struct {
 }
 
 func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
-	os.Setenv("NABU_PROFILING", "False")
+	s.T().Setenv("NABU_PROFILING", "False")
 	startMocks()
 	// need to enable networking to make graph http requests
 	gock.EnableNetworking()
 	defer gock.DisableNetworking()
+
+	opentelemetry.InitTracer("gleaner_integration_test", opentelemetry.DefaultCollectorEndpoint)
+	defer opentelemetry.Shutdown()
+
 	args := fmt.Sprintf("--log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
-	err := NewGleanerRunnerFromString(args).Run()
+
+	span, ctx := opentelemetry.NewSpanAndContextWithName("gleaner_nabu_integration_test_sync_graphs")
+	defer span.End()
+
+	err := NewGleanerRunnerFromString(args).Run(ctx)
 	require.NoError(s.T(), err)
 
 	client, err := synchronizer.NewSynchronizerClientFromClients(
@@ -43,10 +51,11 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 	)
 
 	require.NoError(s.T(), err)
-	err = client.SyncTriplestoreGraphs("summoned/", true)
+
+	err = client.SyncTriplestoreGraphs(ctx, "summoned/", true)
 	require.NoError(s.T(), err)
 
-	exists, err := client.GraphClient.GraphExists("urn:iow:summoned:iow:61079cadccee26a377946d86157e106d.jsonld")
+	exists, err := client.GraphClient.GraphExists("urn:iow:summoned:stations__5:b38dced1575a8a83c1f5091c7de0b653.jsonld")
 	require.NoError(s.T(), err)
 	require.True(s.T(), exists)
 }

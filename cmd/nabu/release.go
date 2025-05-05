@@ -1,17 +1,16 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-package nabu
+package main
 
 import (
+	"nabu/internal/config"
 	"nabu/internal/synchronizer"
-
-	log "github.com/sirupsen/logrus"
-
-	"github.com/spf13/cobra"
 )
 
-func release() error {
+
+
+func release(cfgStruct config.NabuConfig) error {
 	client, err := synchronizer.NewSynchronizerClientFromConfig(cfgStruct)
 	if err != nil {
 		return err
@@ -19,23 +18,10 @@ func release() error {
 
 	for _, prefix := range cfgStruct.Prefixes {
 		err = client.GenerateNqRelease(prefix)
+		if err != nil {
+			return err
+		}
 	}
 
 	return err
-}
-
-var releaseCmd = &cobra.Command{
-	Use:   "release",
-	Short: "nabu release command",
-	Long:  `Generate static file nq releases from jsonld files`,
-	Run: func(cmd *cobra.Command, args []string) {
-		err := release()
-		if err != nil {
-			log.Fatal(err)
-		}
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(releaseCmd)
 }
