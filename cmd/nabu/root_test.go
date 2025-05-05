@@ -33,6 +33,14 @@ func TestDefaultArgs(t *testing.T) {
 		require.True(t, defaultRunner.args.SSL)
 	})
 
+	t.Run("TestFieldInBothConfigAndCli", func(t *testing.T) {
+		defaultRunner := NewNabuRunner([]string{"test", "--cfg", "testdata/nabuconfig.yaml", "--bucket", "CLI_TEST_BUCKET"})
+		require.Equal(t, "CLI_TEST_BUCKET", defaultRunner.args.Bucket)
+		require.Equal(t, "localhost", defaultRunner.args.Address)
+		require.Equal(t, "test_iow", defaultRunner.args.Sparql.Repository)
+		require.Equal(t, "minioadmin", defaultRunner.args.Password)
+	})
+
 }
 
 func TestParseCfgArgs(t *testing.T) {

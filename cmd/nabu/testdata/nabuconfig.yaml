@@ -5,7 +5,7 @@ minio:
   address: localhost
   port: 9000
   accesskey: minioadmin
-  secretkey: minioadmin
+  secretkey: ""
   bucket: DUMMY_BUCKET
   region: ""
   ssl: false
@@ -18,9 +18,9 @@ contextmaps:
 sparql:
   endpoint: http://localhost:7200
   authenticate: false
-  username: test
-  password: password
-  repository: iow
+  username: ""
+  password: ""
+  repository: "test_iow"
 prefixes:
   - test
   - test

@@ -134,8 +134,8 @@ func NewNabuRunner(cliArgs []string) NabuRunner {
 	v.SetConfigType("yaml")
 	v.AddConfigPath(".")
 
-	// In order to support cfg files at an arbitrary location, we need to
-	// read in the arg first, then parse the config file, then parse the args again
+	// In order to support config file at an arbitrary location, we read in
+	// the args, then merge in the config file if it exists
 	getCfgArg := NabuArgs{}
 	arg.MustParse(&getCfgArg)
 	if getCfgArg.Cfg != "" {
