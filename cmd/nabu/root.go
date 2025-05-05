@@ -24,10 +24,10 @@ import (
 type MinioOptions struct {
 	Address  string `arg:"--address" help:"The address of the s3 server" default:"minio"` // The address of the minio server
 	Port     int    `arg:"--port" default:"9000"`
-	Username string `arg:"--s3-access-key,env:S3_ACCESS_KEY" help:"Access Key (i.e. username)" default:"minio_access_key"` // Access Key (i.e. username)
-	Password string `arg:"--s3-secret-key,env:S3_SECRET_KEY" help:"Secret Key (i.e. password)" default:"minio_secret_key"` // Secret Key (i.e. password)
-	Bucket   string `arg:"--bucket" help:"The s3 bucket to use for sync operations" default:"gleanerbucket"`               // The configuration bucket
-	Region   string `arg:"--region" help:"region for the s3 server"`                                                       // region for the minio server
+	Username string `arg:"--s3-access-key,env:S3_ACCESS_KEY" help:"Access Key (i.e. username)" default:"minioadmin"` // Access Key (i.e. username)
+	Password string `arg:"--s3-secret-key,env:S3_SECRET_KEY" help:"Secret Key (i.e. password)" default:"minioadmin"` // Secret Key (i.e. password)
+	Bucket   string `arg:"--bucket" help:"The s3 bucket to use for sync operations" default:"gleanerbucket"`         // The configuration bucket
+	Region   string `arg:"--region" help:"region for the s3 server"`                                                 // region for the minio server
 	SSL      bool   `arg:"--ssl" help:"Use SSL when connecting to s3"`
 }
 

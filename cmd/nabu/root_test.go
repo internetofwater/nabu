@@ -58,7 +58,7 @@ func (suite *RootCliSuite) TestRootCmdWithTracing() {
 	// make sure that the trace file is created if we specify the cli arg even if the env var is not set
 	args := []string{"test", "--trace", "--address", suite.minioContainer.Hostname, "--port",
 		fmt.Sprint(suite.minioContainer.APIPort), "--bucket", suite.minioContainer.ClientWrapper.DefaultBucket,
-		"--access", "minioadmin", "--secret", "minioadmin"}
+		"--s3-access-key", "minioadmin", "--s3-secret-key", "minioadmin"}
 
 	err := NewNabuRunner(args).Run(context.Background())
 	t := suite.T()
