@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 	"nabu/internal/config"
-	"nabu/internal/interfaces"
 	"nabu/internal/opentelemetry"
+	"nabu/internal/storage"
 	"nabu/internal/synchronizer/s3"
 	"os"
 
@@ -79,10 +79,10 @@ func (g GleanerRunner) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var storageDestination interfaces.CrawlStorage
+	var storageDestination storage.CrawlStorage
 	if g.args.ToDisk {
 		log.Info("Saving fetched files to disk")
-		tmpFSStorage, err := interfaces.NewLocalTempFSCrawlStorage()
+		tmpFSStorage, err := storage.NewLocalTempFSCrawlStorage()
 		if err != nil {
 			return err
 		}

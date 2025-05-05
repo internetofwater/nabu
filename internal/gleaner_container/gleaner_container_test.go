@@ -1,7 +1,7 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-package testhelpers
+package gleaner_container
 
 import (
 	"context"
@@ -52,30 +52,29 @@ func (suite *GleanerContainerSuite) TearDownSuite() {
 
 func (suite *GleanerContainerSuite) TestGleanerContainerHelpMsg() {
 	t := suite.T()
-	gleaner, err := NewGleanerContainer("../config/gleanerconfig.yaml", []string{"--help"}, suite.network.Name)
+	gleaner, err := NewGleanerContainer("--help", suite.network.Name)
 	require.NoError(t, err)
 	logs, err := gleaner.Container.Logs(context.Background())
 	require.NoError(t, err)
 	data, err := io.ReadAll(logs)
 	defer logs.Close() // Close after reading
 	require.NoError(t, err)
-	require.Contains(t, string(data), "Extract JSON-LD from web pages exposed in a domains sitemap file")
+	require.Contains(t, string(data), "bucket")
+	require.Contains(t, string(data), "address")
+	require.Contains(t, string(data), "port")
 }
 
 func (suite *GleanerContainerSuite) TestGleanerHarvest() {
 	t := suite.T()
-	gleaner, err := NewGleanerContainer("../config/gleanerconfig.yaml", []string{
-		"--source", "cdss0",
-		"--address", "gleanerContainerTestMinio",
-		"--setup",
-		"--port", "9000",
-	}, suite.network.Name)
+	gleaner, err := NewGleanerContainer(
+		"--sitemap-index https://pids.geoconnex.dev/sitemap.xml --source cdss_co_gages__0 --address gleanerContainerTestMinio",
+		suite.network.Name)
 	require.NoError(t, err)
 	ctx := context.Background()
 	name, err := gleaner.Container.Name(ctx)
 	require.NoError(t, err)
 	suite.T().Log(name)
-	require.Equal(t, gleaner.ExitCode, 0, gleaner.Logs)
+	require.Equal(t, 0, gleaner.ExitCode, gleaner.Logs)
 
 	orgsObjs, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"orgs/"})
 	require.NoError(t, err)

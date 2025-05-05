@@ -27,7 +27,6 @@ type GleanerInterationSuite struct {
 }
 
 func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
-	s.T().Setenv("NABU_PROFILING", "False")
 	startMocks()
 	// need to enable networking to make graph http requests
 	gock.EnableNetworking()
@@ -55,7 +54,7 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 	err = client.SyncTriplestoreGraphs(ctx, "summoned/", true)
 	require.NoError(s.T(), err)
 
-	exists, err := client.GraphClient.GraphExists("urn:iow:summoned:stations__5:b38dced1575a8a83c1f5091c7de0b653.jsonld")
+	exists, err := client.GraphClient.GraphExists("urn:iow:summoned:iow_wqp_stations__5:b38dced1575a8a83c1f5091c7de0b653.jsonld")
 	require.NoError(s.T(), err)
 	require.True(s.T(), exists)
 }
