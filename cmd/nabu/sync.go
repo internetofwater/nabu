@@ -11,6 +11,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type SyncCmd struct{}
+
 func Sync(ctx context.Context, cfgStruct config.NabuConfig) error {
 	log.Info("dropping graphs in triplestore not in s3 and adding graphs to triplestore that are missing from it but present in s3")
 	client, err := synchronizer.NewSynchronizerClientFromConfig(cfgStruct)

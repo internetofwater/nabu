@@ -12,9 +12,7 @@ import (
 // test reading in a sample config
 func TestReadConfig(t *testing.T) {
 
-	configPath := "../../config/iow"
-
-	conf, err := ReadNabuConfig(configPath, "nabuconfig.yaml")
+	conf, err := ReadNabuConfig("testdata", "nabuconfig.yaml")
 	require.NoError(t, err)
 	require.Equal(t, conf.Minio.Accesskey, "minioadmin")
 	require.Equal(t, conf.Minio.Secretkey, "minioadmin")

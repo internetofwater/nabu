@@ -8,6 +8,10 @@ import (
 	"nabu/internal/synchronizer"
 )
 
+type ObjectCmd struct {
+	Object string `arg:"positional"`
+}
+
 func object(objectName string, cfgStruct config.NabuConfig) error {
 	client, err := synchronizer.NewSynchronizerClientFromConfig(cfgStruct)
 	if err != nil {

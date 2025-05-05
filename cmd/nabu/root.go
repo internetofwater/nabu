@@ -18,23 +18,23 @@ import (
 
 	"github.com/alexflint/go-arg"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	otelTrace "go.opentelemetry.io/otel/trace"
 )
 
-type ClearCmd struct{}
-
-type ObjectCmd struct {
-	Object string `arg:"positional"`
+type MinioOptions struct {
+	Address  string `arg:"--address" help:"The address of the s3 server" default:"minio"` // The address of the minio server
+	Port     int    `arg:"--port" default:"9000"`
+	Username string `arg:"--s3-access-key,env:S3_ACCESS_KEY" help:"Access Key (i.e. username)" default:"minioadmin"` // Access Key (i.e. username)
+	Password string `arg:"--s3-secret-key,env:S3_SECRET_KEY" help:"Secret Key (i.e. password)" default:"minioadmin"` // Secret Key (i.e. password)
+	Bucket   string `arg:"--bucket" help:"The s3 bucket to use for sync operations" default:"gleanerbucket"`         // The configuration bucket
+	Region   string `arg:"--region" help:"region for the s3 server"`                                                 // region for the minio server
+	SSL      bool   `arg:"--ssl" help:"Use SSL when connecting to s3"`
 }
 
-type SyncCmd struct{}
-
-type ReleaseCmd struct{}
-
-type PrefixCmd struct{}
-
-type TestCmd struct{}
+type SparqlOptions struct {
+	Endpoint   string `arg:"--endpoint" help:"endpoint for server for the SPARQL endpoints" default:"http://graphdb:7200"`
+	Repository string `arg:"--repository" help:"the default repository to use for graphdb" default:"iow"` // the default repository to use for graphdb
+}
 
 type NabuArgs struct {
 	// Subcommands that can be run
@@ -45,37 +45,21 @@ type NabuArgs struct {
 	Sync    *SyncCmd    `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`     // sync the triplestore with the s3 bucket
 	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`        // test the connection to the s3 bucket
 
-	// These args are applied to all subcommands
+	MinioOptions
+	SparqlOptions
 
-	// Config file
 	Cfg string `arg:"--cfg" help:"full path to yaml config file for nabu"` // full path to yaml config file for nabu
 
-	// GraphDB config
-	Endpoint   string `arg:"--endpoint" help:"endpoint for server for the SPARQL endpoints" default:"http://graphdb:7200"`
-	Repository string `arg:"--repository" help:"the default repository to use for graphdb" default:"iow"` // the default repository to use for graphdb
-
-	/// Minio config
-	Address string `arg:"--address" help:"The address of the s3 server" default:"minio"` // The address of the minio server
-	Port    int    `arg:"--port" default:"9000"`
-	Access  string `arg:"--access,env:S3_ACCESS_KEY" help:"Access Key (i.e. username)" default:"minioadmin"` // Access Key (i.e. username)
-	Secret  string `arg:"--secret,env:S3_SECRET_KEY" help:"Secret Key (i.e. password)" default:"minioadmin"` // Secret Key (i.e. password)
-	Bucket  string `arg:"--bucket" help:"The s3 bucket to use for sync operations" default:"gleanerbucket"`  // The configuration bucket
-	Region  string `arg:"--region" help:"region for the s3 server"`                                          // region for the minio server
-	SSL     bool   `arg:"--ssl" help:"Use SSL when connecting to s3"`                                        // Use SSL boolean
-
-	LogLevel string `arg:"--log-level" default:"INFO"` // the log level to use for the nabu logger
-
-	Trace           bool     `arg:"--trace"`                            // Enable tracing
-	Dangerous       bool     `arg:"--dangerous"`                        // Use dangerous mode boolean
-	UpsertBatchSize int      `arg:"--upsert-batch-size" default:"1"`    // Port for s3 server
-	Prefixes        []string `arg:"--prefix" help:"prefixes to upload"` // prefixes to upload
-
-	PrefixesToFile map[string]string `arg:"--prefixes-to-file" help:"prefixes to file mapping"`
-	Cache          bool              `arg:"--cache" help:"use cache for context"`
-	Strict         bool              `arg:"--strict" help:"use strict mode for context"`
-
-	UseOtel      bool   `arg:"--use-otel"`
-	OtelEndpoint string `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
+	LogLevel        string            `arg:"--log-level" default:"INFO"`         // the log level to use for the nabu logger
+	Trace           bool              `arg:"--trace"`                            // Enable tracing
+	Dangerous       bool              `arg:"--dangerous"`                        // Use dangerous mode boolean
+	UpsertBatchSize int               `arg:"--upsert-batch-size" default:"1"`    // Port for s3 server
+	Prefixes        []string          `arg:"--prefix" help:"prefixes to upload"` // prefixes to upload
+	PrefixesToFile  map[string]string `arg:"--prefixes-to-file" help:"prefixes to file mapping"`
+	Cache           bool              `arg:"--cache" help:"use cache for context"`
+	Strict          bool              `arg:"--strict" help:"use strict mode for context"`
+	UseOtel         bool              `arg:"--use-otel"`
+	OtelEndpoint    string            `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
 }
 
 // ToStructuredConfig converts the args to a structured config
@@ -95,8 +79,8 @@ func (n NabuArgs) GetMinioConfig() config.MinioConfig {
 		Address:   n.Address,
 		Port:      n.Port,
 		Ssl:       n.SSL,
-		Accesskey: n.Access,
-		Secretkey: n.Secret,
+		Accesskey: n.Username,
+		Secretkey: n.Password,
 		Bucket:    n.Bucket,
 		Region:    n.Region,
 	}
@@ -105,9 +89,9 @@ func (n NabuArgs) GetMinioConfig() config.MinioConfig {
 func (n NabuArgs) GetSparqlConfig() config.SparqlConfig {
 	return config.SparqlConfig{
 		Endpoint:     n.Endpoint,
-		Authenticate: n.Secret != "",
-		Username:     n.Access,
-		Password:     n.Secret,
+		Authenticate: n.Password != "",
+		Username:     n.Username,
+		Password:     n.Password,
 		Repository:   n.Repository,
 		Batch:        n.UpsertBatchSize,
 	}
@@ -140,33 +124,16 @@ func NewNabuRunner(cliArgs []string) NabuRunner {
 	const dummyBinaryName = "nabu" // we need to add some arbitrary binary name before the args; it doesn't matter
 	os.Args = append([]string{dummyBinaryName}, cliArgs...)
 
-	v := viper.New()
-	v.SetConfigName("config")
-	v.SetConfigType("yaml")
-	v.SetConfigName("nabu")
-	v.AddConfigPath(".")
-
-	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			log.Warn(err)
-		}
-	} else {
-		if err := v.Unmarshal(&args); err != nil {
-			log.Fatalf("error unmarshaling config: %v", err)
-		}
-	}
-
-	parseResult := arg.MustParse(&args)
-	subCmd := parseResult.Subcommand()
+	parser := arg.MustParse(&args)
+	subCmd := parser.Subcommand()
 	if subCmd == nil || subCmd == "" {
 		log.Error("no subcommand provided")
-		parseResult.WriteHelp(os.Stderr)
+		parser.WriteHelp(os.Stderr)
 		os.Exit(1)
 	}
 	return NabuRunner{
 		args: args,
 	}
-
 }
 
 func uploadTracefile(minioConfig config.MinioConfig) error {

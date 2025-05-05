@@ -20,23 +20,22 @@ import (
 )
 
 type GleanerArgs struct {
-	Address      string `arg:"--address" default:"127.0.0.1" help:"address for s3"` // minio address to put data
-	Port         int    `arg:"--port" default:"9000" help:"port for s3"`
-	Bucket       string `arg:"--bucket" default:"iow" help:"default bucket for s3"`            // minio bucket to put data
-	SitemapIndex string `arg:"--sitemap-index" help:"sitemap index to crawl"`                  // sitemap index to crawl
-	Source       string `arg:"--source" help:"source to crawl from the sitemap"`               // source to crawl from the config
-	Config       string `arg:"--cfg" help:"path to config file"`                               // full path to config
-	SecretKey    string `arg:"--secret-key" default:"minioadmin"`                              // secret key for minio
-	AccessKey    string `arg:"--access-key" default:"minioadmin"`                              // access key for minio
-	SSL          bool   `arg:"--ssl"`                                                          // use SSL for HTTP requests
-	IgnoreRobots bool   `arg:"--ignore-robots" help:"ignore robots.txt"`                       // ignore robots.txt
-	ToDisk       bool   `arg:"--to-disk" default:"false" help:"save to disk instead of minio"` // save to disk instead of minio
-	LogLevel     string `arg:"--log-level" default:"INFO"`
-	UseOtel      bool   `arg:"--use-otel"`
-	OtelEndpoint string `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
-
-	ConcurrentSitemaps int `arg:"--concurrent-sitemaps" default:"10"`
-	SitemapWorkers     int `arg:"--sitemap-workers" default:"10"`
+	Address            string `arg:"--address" default:"127.0.0.1" help:"address for s3"` // minio address to put data
+	Port               int    `arg:"--port" default:"9000" help:"port for s3"`
+	Bucket             string `arg:"--bucket" default:"iow" help:"default bucket for s3"`            // minio bucket to put data
+	SitemapIndex       string `arg:"--sitemap-index" help:"sitemap index to crawl"`                  // sitemap index to crawl
+	Source             string `arg:"--source" help:"source to crawl from the sitemap"`               // source to crawl from the config
+	Config             string `arg:"--cfg" help:"path to config file"`                               // full path to config
+	SecretKey          string `arg:"--s3-secret-key,env:S3_SECRET_KEY" default:"minioadmin"`         // secret key for minio
+	AccessKey          string `arg:"--s3-access-key,env:S3_ACCESS_KEY" default:"minioadmin"`         // access key for minio
+	SSL                bool   `arg:"--ssl"`                                                          // use SSL for HTTP requests
+	IgnoreRobots       bool   `arg:"--ignore-robots" help:"ignore robots.txt"`                       // ignore robots.txt
+	ToDisk             bool   `arg:"--to-disk" default:"false" help:"save to disk instead of minio"` // save to disk instead of minio
+	LogLevel           string `arg:"--log-level" default:"INFO"`
+	UseOtel            bool   `arg:"--use-otel"`
+	OtelEndpoint       string `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
+	ConcurrentSitemaps int    `arg:"--concurrent-sitemaps" default:"10"`
+	SitemapWorkers     int    `arg:"--sitemap-workers" default:"10"`
 }
 
 type GleanerRunner struct {

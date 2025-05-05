@@ -1,0 +1,26 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
+
+minio:
+  address: localhost
+  port: 9000
+  accesskey: minioadmin
+  secretkey: ""
+  bucket: DUMMY_BUCKET
+  region: ""
+  ssl: false
+context:
+  cache: true
+  strict: true
+contextmaps:
+  - prefix: https://schema.org/
+    file: ./assets/schemaorg-current-https.jsonld
+sparql:
+  endpoint: http://localhost:7200
+  authenticate: false
+  username: ""
+  password: ""
+  repository: "test_iow"
+prefixes:
+  - test
+  - test
