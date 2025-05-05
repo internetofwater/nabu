@@ -6,6 +6,7 @@ package common
 import (
 	"nabu/internal/common/projectpath"
 	"nabu/internal/config"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -41,9 +42,16 @@ func TestCreateNewProcessor(t *testing.T) {
 			}`
 		nq, err := JsonldToNQ(simpleJSONLDExample, processor, options)
 		require.NoError(t, err)
-
+		require.NotEmpty(t, nq)
 		birthDateLine := `<http://dbpedia.org/resource/John_Lennon> <http://schema.org/birthDate> "1940-10-09"`
 		require.Contains(t, nq, birthDateLine)
 
+		// read in a file as a string
+		data, err := os.ReadFile("testdata/BPMWQX-1084.jsonld")
+		require.NoError(t, err)
+		require.NoError(t, err)
+		nq, err = JsonldToNQ(string(data), processor, options)
+		require.NoError(t, err)
+		require.NotEmpty(t, nq)
 	})
 }

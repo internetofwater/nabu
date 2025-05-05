@@ -67,6 +67,18 @@ func NewMinioClientWrapper(mcfg config.MinioConfig) (*MinioClientWrapper, error)
 	return &MinioClientWrapper{Client: minioClient, DefaultBucket: mcfg.Bucket}, err
 }
 
+// Create the default bucket
+func (m *MinioClientWrapper) MakeDefaultBucket() error {
+	exists, err := m.Client.BucketExists(context.Background(), m.DefaultBucket)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	return m.Client.MakeBucket(context.Background(), m.DefaultBucket, minio.MakeBucketOptions{})
+}
+
 // Remove an object from the store
 func (m *MinioClientWrapper) Remove(object string) error {
 	opts := minio.RemoveObjectOptions{
@@ -193,6 +205,10 @@ func (m *MinioClientWrapper) GetObjectAndConvertToGraph(objectName string, jsonl
 		return common.NamedGraph{}, err
 	}
 
+	if len(objBytes) == 0 {
+		log.Warnf("Object %s is empty", objectName)
+	}
+
 	graphResourceIdentifier, err := common.MakeURN(objectName)
 	if err != nil {
 		return common.NamedGraph{}, err
@@ -204,6 +220,10 @@ func (m *MinioClientWrapper) GetObjectAndConvertToGraph(objectName string, jsonl
 			log.Errorf("JSONLD to NQ conversion error: %s", err)
 			return common.NamedGraph{}, err
 		}
+		if nTriples == "" {
+			return common.NamedGraph{}, fmt.Errorf("JSONLD to NQ conversion returned empty string for object %s with data %s", objectName, string(objBytes))
+		}
+
 		return common.NamedGraph{GraphURI: graphResourceIdentifier, Triples: nTriples}, nil
 	} else if strings.HasSuffix(objectName, ".nq") {
 		graph, err := common.QuadsToTripleWithCtx(string(objBytes))

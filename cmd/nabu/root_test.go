@@ -30,12 +30,11 @@ func (suite *RootCliSuite) SetupSuite() {
 		Password:      "minioadmin",
 		DefaultBucket: "iow",
 	}
-	minioContainer, err := s3.NewMinioContainer(config)
+	minioContainer, err := s3.NewMinioContainerFromConfig(config)
 	require.NoError(suite.T(), err)
 	suite.minioContainer = minioContainer
 
-	// create the bucket
-	err = suite.minioContainer.ClientWrapper.Client.MakeBucket(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, minio.MakeBucketOptions{})
+	err = suite.minioContainer.ClientWrapper.MakeDefaultBucket()
 	require.NoError(suite.T(), err)
 
 }
@@ -49,9 +48,10 @@ func (s *RootCliSuite) TearDownSuite() {
 func (suite *RootCliSuite) TestRootCmdWithTracing() {
 	t := suite.T()
 
-	os.Setenv("NABU_PROFILING", "False")
+	t.Setenv("NABU_PROFILING", "true")
+
 	// make sure that the trace file is created if we specify the cli arg even if the env var is not set
-	args := []string{"test", "--trace", "--cfg", filepath.Join(projectpath.Root, "config", "iow", "nabuconfig.yaml"), "--address", suite.minioContainer.Hostname, "--port", fmt.Sprint(suite.minioContainer.APIPort), suite.minioContainer.Hostname}
+	args := []string{"test", "--cfg", filepath.Join(projectpath.Root, "config", "iow", "nabuconfig.yaml"), "--address", suite.minioContainer.Hostname, "--port", fmt.Sprint(suite.minioContainer.APIPort), suite.minioContainer.Hostname}
 	rootCmd.SetArgs(args)
 	Execute()
 	_, err := os.Stat(filepath.Join(projectpath.Root, "trace.out"))

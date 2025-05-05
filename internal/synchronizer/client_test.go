@@ -18,7 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -57,25 +56,6 @@ type SynchronizerClientSuite struct {
 	network *testcontainers.DockerNetwork
 }
 
-// Create a new SynchronizerClient by directly passing in the clients
-// Mainly used for testing
-func newSynchronizerClient(graphClient *triplestore.GraphDbClient, s3Client *s3.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
-	processor, options, err := common.NewJsonldProcessor(false, nil)
-	if err != nil {
-		return SynchronizerClient{}, err
-	}
-
-	client := SynchronizerClient{
-		GraphClient:     graphClient,
-		S3Client:        s3Client,
-		syncBucketName:  bucketName,
-		jsonldProcessor: processor,
-		jsonldOptions:   options,
-		upsertBatchSize: 100,
-	}
-	return client, nil
-}
-
 func (suite *SynchronizerClientSuite) SetupSuite() {
 
 	ctx := context.Background()
@@ -91,7 +71,7 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 		Network:       net.Name,
 	}
 
-	minioContainer, err := s3.NewMinioContainer(config)
+	minioContainer, err := s3.NewMinioContainerFromConfig(config)
 	suite.Require().NoError(err)
 	suite.minioContainer = minioContainer
 
@@ -102,14 +82,14 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 		return suite.minioContainer.ClientWrapper.Client.IsOnline()
 	}, 10*time.Second, 500*time.Millisecond, "MinIO container did not become online in time")
 
-	err = suite.minioContainer.ClientWrapper.Client.MakeBucket(ctx, suite.minioContainer.ClientWrapper.DefaultBucket, minio.MakeBucketOptions{})
+	err = suite.minioContainer.ClientWrapper.MakeDefaultBucket()
 	require.NoError(t, err)
 
 	graphdbContainer, err := triplestore.NewGraphDBContainer("iow", "./triplestore/testdata/iow-config.ttl")
 	suite.Require().NoError(err)
 	suite.graphdbContainer = graphdbContainer
 
-	client, err := newSynchronizerClient(&graphdbContainer.Client, suite.minioContainer.ClientWrapper, suite.minioContainer.ClientWrapper.DefaultBucket)
+	client, err := NewSynchronizerClientFromClients(&graphdbContainer.Client, suite.minioContainer.ClientWrapper, suite.minioContainer.ClientWrapper.DefaultBucket)
 	require.NoError(t, err)
 	suite.client = client
 }
@@ -154,7 +134,7 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 
 	err = suite.client.SyncTriplestoreGraphs("summoned/", false)
 	require.NoError(t, err)
-	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/")
+	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix("summoned/cdss0/")
 	require.NoError(t, err)
 	require.Len(t, graphs, sourcesInSitemap)
 
