@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"nabu/internal/config"
 	"nabu/internal/interfaces"
@@ -15,6 +16,7 @@ import (
 
 	arg "github.com/alexflint/go-arg"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type GleanerArgs struct {
@@ -32,7 +34,7 @@ type GleanerArgs struct {
 	ToDisk       bool   `arg:"--to-disk" default:"false" help:"save to disk instead of minio"` // save to disk instead of minio
 	LogLevel     string `arg:"--log-level" default:"INFO"`
 	UseOtel      bool   `arg:"--use-otel"`
-	OtelEndpoint string `arg:"--otel-endpoint" help:"OpenTelemetry endpoint" default:"127.0.0.1:4317"`
+	OtelEndpoint string `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
 
 	ConcurrentSitemaps int `arg:"--concurrent-sitemaps" default:"10"`
 	SitemapWorkers     int `arg:"--sitemap-workers" default:"10"`
@@ -52,7 +54,7 @@ func NewGleanerRunner(cliArgs []string) GleanerRunner {
 	}
 }
 
-func (g GleanerRunner) Run() error {
+func (g GleanerRunner) Run(ctx context.Context) error {
 	level, err := log.ParseLevel(g.args.LogLevel)
 	if err != nil {
 		return fmt.Errorf("invalid log level %s: %w", g.args.LogLevel, err)
@@ -62,15 +64,15 @@ func (g GleanerRunner) Run() error {
 	log.Info("Starting Gleaner")
 	log.Debug("Running in debug mode")
 
-	const defaultOtelEndpoint = "127.0.0.1:4317"
-
 	if g.args.UseOtel || g.args.OtelEndpoint != "" {
 		if g.args.OtelEndpoint == "" {
-			g.args.OtelEndpoint = defaultOtelEndpoint
+			g.args.OtelEndpoint = opentelemetry.DefaultCollectorEndpoint
 		}
 		log.Infof("Starting opentelemetry traces and exporting to: %s", g.args.OtelEndpoint)
 		opentelemetry.InitTracer("gleaner", g.args.OtelEndpoint)
-
+		var span trace.Span
+		span, ctx = opentelemetry.SubSpanFromCtx(ctx)
+		defer span.End()
 		defer opentelemetry.Shutdown()
 	}
 
@@ -109,9 +111,6 @@ func (g GleanerRunner) Run() error {
 
 		configuredSitemap = configuredSitemap.WithConcurrencyConfig(g.args.ConcurrentSitemaps, g.args.SitemapWorkers)
 
-		span, ctx := opentelemetry.NewSpanWithContext()
-		defer span.End()
-
 		if g.args.Source != "" {
 			return configuredSitemap.HarvestSitemap(ctx, g.args.Source)
 		} else {
@@ -125,7 +124,7 @@ func (g GleanerRunner) Run() error {
 }
 
 func main() {
-	if err := NewGleanerRunner(os.Args[1:]).Run(); err != nil {
+	if err := NewGleanerRunner(os.Args[1:]).Run(context.Background()); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -4,6 +4,7 @@
 package nabu
 
 import (
+	"context"
 	"nabu/internal/synchronizer"
 
 	log "github.com/sirupsen/logrus"
@@ -19,7 +20,7 @@ func prefix() error {
 
 	for _, prefix := range cfgStruct.Prefixes {
 		// sync without removal is the same as copying an entire prefix
-		err = client.SyncTriplestoreGraphs(prefix, false)
+		err = client.SyncTriplestoreGraphs(context.Background(), prefix, false)
 		if err != nil {
 			log.Error(err)
 		}

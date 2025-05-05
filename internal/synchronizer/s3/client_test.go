@@ -183,7 +183,7 @@ func (suite *S3ClientSuite) TestGetObjects() {
 	insertTestData(newObjects)
 
 	// get the objects
-	objects, err := suite.minioContainer.ClientWrapper.ObjectList("")
+	objects, err := suite.minioContainer.ClientWrapper.ObjectList(context.Background(), "")
 	require.NoError(suite.T(), err)
 	require.Equal(suite.T(), newObjects+objsBeforeInsert, len(objects))
 

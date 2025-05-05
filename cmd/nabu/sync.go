@@ -4,6 +4,7 @@
 package nabu
 
 import (
+	"context"
 	"nabu/internal/synchronizer"
 
 	log "github.com/sirupsen/logrus"
@@ -18,7 +19,7 @@ func sync() error {
 		return err
 	}
 	for _, prefix := range cfgStruct.Prefixes {
-		err = client.SyncTriplestoreGraphs(prefix, true)
+		err = client.SyncTriplestoreGraphs(context.Background(), prefix, true)
 		if err != nil {
 			log.Error(err)
 		}

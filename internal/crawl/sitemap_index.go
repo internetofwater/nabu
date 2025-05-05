@@ -117,7 +117,8 @@ func (i Index) HarvestAll(ctx context.Context) error {
 				errChan <- i.storageDestination.Store("orgs/"+id+".nq", strings.NewReader(nq))
 			}(id)
 
-			harvestResult := sitemap.SetStorageDestination(i.storageDestination).Harvest(ctx, i.sitemapWorkers, id)
+			harvestResult := sitemap.SetStorageDestination(i.storageDestination).
+				Harvest(ctx, i.sitemapWorkers, id)
 
 			if err := <-errChan; err != nil {
 				return err

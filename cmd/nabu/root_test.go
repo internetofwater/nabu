@@ -62,7 +62,8 @@ func (suite *RootCliSuite) TestRootCmdWithTracing() {
 	require.NoError(t, err)
 	defer os.Remove(filepath.Join(projectpath.Root, "http_trace.csv"))
 
-	objs, err := suite.minioContainer.ClientWrapper.ObjectList("traces/")
+	objs, err := suite.minioContainer.ClientWrapper.ObjectList(context.Background(), "traces/")
+
 	require.NoError(t, err)
 	require.Len(t, objs, 2)
 
