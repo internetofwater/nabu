@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 	"nabu/internal/config"
+	"nabu/internal/crawl/storage"
 	"nabu/internal/opentelemetry"
-	"nabu/internal/storage"
 	"nabu/internal/synchronizer/s3"
 	"os"
 

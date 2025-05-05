@@ -21,6 +21,9 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        binary_name: [nabu, gleaner]
 
     steps:
       - name: Checkout code
@@ -40,18 +43,17 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            ${{ env.IMAGE_NAME }}
+            ${{ env.IMAGE_NAME }}-${{ matrix.binary_name }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
-
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v4
         with:
           context: .
           build-args: |
-            BINARY_NAME=nabu
+            BINARY_NAME=${{ matrix.binary_name }}
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}

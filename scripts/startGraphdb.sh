@@ -6,7 +6,7 @@
 set -e
 
 docker run -d \
-        --rm \
+	--rm \
 	-p 7200:7200 \
 	--name graphdb \
 	-e "JAVA_XMS=2048m" \

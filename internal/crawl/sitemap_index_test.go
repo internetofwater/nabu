@@ -5,7 +5,7 @@ package crawl
 
 import (
 	"context"
-	"nabu/internal/storage"
+	"nabu/internal/crawl/storage"
 	"nabu/internal/synchronizer/s3"
 	"testing"
 

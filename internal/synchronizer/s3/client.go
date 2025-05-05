@@ -14,7 +14,7 @@ import (
 	"strings"
 	"sync"
 
-	interfaces "nabu/internal/storage"
+	interfaces "nabu/internal/crawl/storage"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
