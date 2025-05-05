@@ -32,13 +32,13 @@ func (suite *GleanerContainerSuite) SetupSuite() {
 	minioConfig := s3.MinioContainerConfig{
 		// note that the container name must be a full word with no special characters
 		// this appears to mess with the docker network somehow and prevents connecting
-		ContainerName: "gleanerTestMinio",
+		ContainerName: "gleanerContainerTestMinio",
 		Username:      "minioadmin",
 		Password:      "minioadmin",
 		DefaultBucket: "iow",
 		Network:       net.Name,
 	}
-	minioContainer, err := s3.NewMinioContainer(minioConfig)
+	minioContainer, err := s3.NewMinioContainerFromConfig(minioConfig)
 	suite.Require().NoError(err)
 	suite.minioContainer = minioContainer
 
@@ -52,7 +52,7 @@ func (suite *GleanerContainerSuite) TearDownSuite() {
 
 func (suite *GleanerContainerSuite) TestGleanerContainerHelpMsg() {
 	t := suite.T()
-	gleaner, err := NewGleanerContainer("../config/iow/gleanerconfig.yaml", []string{"--help"}, suite.network.Name)
+	gleaner, err := NewGleanerContainer("../config/gleanerconfig.yaml", []string{"--help"}, suite.network.Name)
 	require.NoError(t, err)
 	logs, err := gleaner.Container.Logs(context.Background())
 	require.NoError(t, err)
@@ -64,9 +64,9 @@ func (suite *GleanerContainerSuite) TestGleanerContainerHelpMsg() {
 
 func (suite *GleanerContainerSuite) TestGleanerHarvest() {
 	t := suite.T()
-	gleaner, err := NewGleanerContainer("../config/iow/gleanerconfig.yaml", []string{
+	gleaner, err := NewGleanerContainer("../config/gleanerconfig.yaml", []string{
 		"--source", "cdss0",
-		"--address", "gleanerTestMinio",
+		"--address", "gleanerContainerTestMinio",
 		"--setup",
 		"--port", "9000",
 	}, suite.network.Name)

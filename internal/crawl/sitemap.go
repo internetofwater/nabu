@@ -4,10 +4,13 @@
 package crawl
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"nabu/internal/common"
 	"nabu/internal/interfaces"
+	"nabu/internal/opentelemetry"
+	"net/http"
 	"strings"
 	"time"
 
@@ -35,7 +38,11 @@ func (s Sitemap) SetStorageDestination(storageDestination interfaces.CrawlStorag
 }
 
 // Harvest all the URLs in the sitemap
-func (s Sitemap) Harvest(workers int) error {
+func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername string) error {
+
+	span, _ := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", outputFoldername))
+	defer span.End()
+
 	var group errgroup.Group
 	group.SetLimit(workers)
 
@@ -62,14 +69,24 @@ func (s Sitemap) Harvest(workers int) error {
 	for _, url := range s.URL {
 		url := url
 		group.Go(func() error {
-			resp, err := client.Get(url.Loc)
+
+			req, err := http.NewRequest("GET", url.Loc, nil)
 			if err != nil {
 				return err
 			}
+			req.Header.Set("User-Agent", gleanerAgent)
+			req.Header.Set("Accept", "application/ld+json")
+
+			resp, err := client.Do(req)
+			if err != nil {
+				return err
+			}
+
 			defer resp.Body.Close()
 
 			if resp.StatusCode >= 400 {
-				return fmt.Errorf("failed to fetch %s, got status %s", url.Loc, resp.Status)
+				log.Errorf("failed to fetch %s, got status %s", url.Loc, resp.Status)
+				return nil
 			}
 
 			// To generate a hash we need to copy the response body
@@ -78,7 +95,7 @@ func (s Sitemap) Harvest(workers int) error {
 				return err
 			}
 
-			summonedPath := fmt.Sprintf("summoned/%s", itemHash)
+			summonedPath := fmt.Sprintf("summoned/%s/%s", outputFoldername, itemHash)
 
 			exists, err := s.storageDestination.Exists(summonedPath)
 			if err != nil {
@@ -86,6 +103,7 @@ func (s Sitemap) Harvest(workers int) error {
 			}
 
 			if !exists {
+
 				// Store from the buffered copy
 				if err = s.storageDestination.Store(summonedPath, respBodyCopy); err != nil {
 					return err
@@ -113,7 +131,7 @@ type URL struct {
 }
 
 // Given a sitemap url, return a Sitemap object
-func NewSitemap(sitemapURL string) (Sitemap, error) {
+func NewSitemap(ctx context.Context, sitemapURL string) (Sitemap, error) {
 	serializedSitemap := Sitemap{}
 
 	urls := make([]URL, 0)

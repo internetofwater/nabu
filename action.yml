@@ -24,20 +24,20 @@ runs:
       with:
         repository: "internetofwater/nabu"
 
-    - name: Setup Go 1.22
+    - name: Setup Go
       uses: actions/setup-go@v5
       with:
-        go-version: 1.22
+        go-version: 1.23
     - name: Display Go version
       shell: bash
       run: go version
     - name: Install dependencies
       shell: bash
-      run: go get .
+      run: go get ./cmd/nabu
 
     - name: Build
       shell: bash
-      run: go build -v ./...
+      run: go build -v ./cmd/nabu
 
     - name: Test with the Go CLI
       shell: bash

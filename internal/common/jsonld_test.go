@@ -4,9 +4,8 @@
 package common
 
 import (
-	"nabu/internal/common/projectpath"
 	"nabu/internal/config"
-	"path/filepath"
+	"os"
 	"testing"
 
 	"github.com/piprate/json-gold/ld"
@@ -21,10 +20,7 @@ func TestCreateNewProcessor(t *testing.T) {
 	})
 
 	t.Run("use full config with caching", func(t *testing.T) {
-		configPath := filepath.Join(projectpath.Root, "config/iow")
-		absPath, err := filepath.Abs(configPath)
-		require.NoError(t, err)
-		conf, err := config.ReadNabuConfig(absPath, "nabuconfig.yaml")
+		conf, err := config.ReadNabuConfig("testdata", "nabuconfig.yaml")
 		require.NoError(t, err)
 		processor, options, err := NewJsonldProcessor(conf.Context.Cache, conf.ContextMaps)
 		require.NoError(t, err)
@@ -41,9 +37,16 @@ func TestCreateNewProcessor(t *testing.T) {
 			}`
 		nq, err := JsonldToNQ(simpleJSONLDExample, processor, options)
 		require.NoError(t, err)
-
+		require.NotEmpty(t, nq)
 		birthDateLine := `<http://dbpedia.org/resource/John_Lennon> <http://schema.org/birthDate> "1940-10-09"`
 		require.Contains(t, nq, birthDateLine)
 
+		// read in a file as a string
+		data, err := os.ReadFile("testdata/BPMWQX-1084.jsonld")
+		require.NoError(t, err)
+		require.NoError(t, err)
+		nq, err = JsonldToNQ(string(data), processor, options)
+		require.NoError(t, err)
+		require.NotEmpty(t, nq)
 	})
 }

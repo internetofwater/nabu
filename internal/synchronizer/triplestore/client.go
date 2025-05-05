@@ -5,12 +5,14 @@ package triplestore
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"nabu/internal/common"
 	"nabu/internal/custom_http_trace"
+	"nabu/internal/opentelemetry"
 	"net/http"
 	"net/url"
 	"os"
@@ -318,8 +320,11 @@ func (graphClient *GraphDbClient) GraphExists(graphURN string) (bool, error) {
 }
 
 // Get list of graphs in the triplestore
-func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(prefix string) ([]string, error) {
+func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(ctx context.Context, prefix string) ([]string, error) {
 	log.Debug("Getting list of named graphs")
+
+	span, _ := opentelemetry.SubSpanFromCtx(ctx)
+	defer span.End()
 
 	graphName, err := common.MakeURN(prefix)
 	if err != nil {

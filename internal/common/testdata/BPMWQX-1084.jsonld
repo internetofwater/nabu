@@ -1,0 +1,867 @@
+{
+    "@context":{
+        "@vocab":"https://schema.org/",
+        "xsd":"https://www.w3.org/TR/xmlschema-2/#",
+        "rdfs":"http://www.w3.org/2000/01/rdf-schema#",
+        "dc":"http://purl.org/dc/terms/",
+        "dcat":"https://www.w3.org/ns/dcat#",
+        "freq":"http://purl.org/cld/freq/",
+        "qudt":"http://qudt.org/schema/qudt/",
+        "qudt-units":"http://qudt.org/vocab/unit/",
+        "qudt-quantkinds":"http://qudt.org/vocab/quantitykind/",
+        "gsp":"http://www.opengis.net/ont/geosparql#",
+        "locType":"http://vocabulary.odm2.org/sitetype",
+        "odm2var":"http://vocabulary.odm2.org/variablename/",
+        "odm2varType":"http://vocabulary.odm2.org/variabletype/",
+        "hyf":"https://www.opengis.net/def/schema/hy_features/hyf/",
+        "skos":"https://www.opengis.net/def/schema/hy_features/hyf/HY_HydroLocationType",
+        "ssn":"http://www.w3.org/ns/ssn/",
+        "ssn-system":"http://www.w3.org/ns/ssn/systems/"
+    },
+    "@id":"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C",
+    "@type":[
+        "hyf:HY_HydrometricFeature",
+        "hyf:HY_HydroLocation"
+    ],
+    "hyf:HydroLocationType":"CERCLA Superfund Site",
+    "identifier":{
+        "@type":"PropertyValue",
+        "propertyID":"WQP Site identifier",
+        "value":"BPMWQX-1084-WR-CC01C"
+    },
+    "name":"WR CC01C",
+    "provider":{
+        "url":"https://www.waterqualitydata.us",
+        "@type":"GovernmentOrganization",
+        "name":"Bonita Peak Mining"
+    },
+    "geo":{
+        "@type":"schema:GeoCoordinates",
+        "schema:longitude":-107.630658496,
+        "schema:latitude":37.9100042178
+    },
+    "gsp:hasGeometry":{
+        "@type":"http://www.opengis.net/ont/sf#Point",
+        "gsp:asWKT":{
+            "@type":"http://www.opengis.net/ont/geosparql#wktLiteral",
+            "@value":"POINT (-107.630658496 37.9100042178)"
+        },
+        "gsp:crs":{
+            "@id":"http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        }
+    },
+    "hyf:referencedPosition":{
+        "hyf:HY_IndirectPosition":{
+            "hyf:linearElement":{
+                "@id":"https://geoconnex.us/ref/mainstems/99071"
+            }
+        }
+    },
+    "hyf:containingCatchment":[
+        {
+            "@id":"https://geoconnex.us/ref/hu08/14080104"
+        }
+    ],
+    "gsp:sfWithin":[
+        {
+            "@id":"https://geoconnex.us/ref/counties/08111"
+        },
+        {
+            "@id":"https://geoconnex.us/ref/states/08"
+        }
+    ],
+    "subjectOf":[
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Beryllium at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Beryllium",
+                "description":"Beryllium in parts per million",
+                "propertyID":"150003",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150003",
+                "unitText":"parts per million",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Beryllium Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Beryllium&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Chromium at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Chromium",
+                "description":"Chromium in parts per billion",
+                "propertyID":"150060",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150060",
+                "unitText":"parts per billion",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Chromium Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Chromium&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Iron at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Iron",
+                "description":"Iron in percent",
+                "propertyID":"149559",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149559",
+                "unitText":"percent",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Iron Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Iron&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Nickel at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Nickel",
+                "description":"Nickel in parts per million",
+                "propertyID":"149674",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149674",
+                "unitText":"parts per million",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Nickel Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Nickel&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Copper at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Copper",
+                "description":"Copper in Unknown",
+                "propertyID":"150086",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150086",
+                "unitText":"Unknown",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Copper Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Copper&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Thallium at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Thallium",
+                "description":"Thallium in parts per million",
+                "propertyID":"149898",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149898",
+                "unitText":"parts per million",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Thallium Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Thallium&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Manganese at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Manganese",
+                "description":"Manganese in micrograms per liter",
+                "propertyID":"149625",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149625",
+                "unitText":"micrograms per liter",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Manganese Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Manganese&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Arsenic at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Arsenic",
+                "description":"Arsenic in parts per million",
+                "propertyID":"149989",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149989",
+                "unitText":"parts per million",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Arsenic Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Arsenic&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Molybdenum at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Molybdenum",
+                "description":"Molybdenum in parts per billion",
+                "propertyID":"149641",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149641",
+                "unitText":"parts per billion",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Molybdenum Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Molybdenum&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Calcium at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Calcium",
+                "description":"Calcium in milligrams per liter",
+                "propertyID":"150268",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150268",
+                "unitText":"milligrams per liter",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Calcium Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Calcium&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Silver at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Silver",
+                "description":"Silver in Unknown",
+                "propertyID":"149849",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149849",
+                "unitText":"Unknown",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Silver Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Silver&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Cobalt at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Cobalt",
+                "description":"Cobalt in milligrams per liter",
+                "propertyID":"150078",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150078",
+                "unitText":"milligrams per liter",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Cobalt Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Cobalt&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Barium at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Barium",
+                "description":"Barium in micrograms per liter",
+                "propertyID":"149997",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149997",
+                "unitText":"micrograms per liter",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Barium Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Barium&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Selenium at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Selenium",
+                "description":"Selenium in micrograms per liter",
+                "propertyID":"154310",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/154310",
+                "unitText":"micrograms per liter",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Selenium Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Selenium&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Antimony at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Antimony",
+                "description":"Antimony in parts per million",
+                "propertyID":"149963",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149963",
+                "unitText":"parts per million",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Antimony Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Antimony&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Lead at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Lead",
+                "description":"Lead in micrograms per liter",
+                "propertyID":"149583",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149583",
+                "unitText":"micrograms per liter",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Lead Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Lead&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Vanadium at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Vanadium",
+                "description":"Vanadium in milligrams per kilogram",
+                "propertyID":"150193",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150193",
+                "unitText":"milligrams per kilogram",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Vanadium Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Vanadium&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Aluminum at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Aluminum",
+                "description":"Aluminum in Unknown",
+                "propertyID":"149476",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149476",
+                "unitText":"Unknown",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Aluminum Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Aluminum&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Cadmium at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Cadmium",
+                "description":"Cadmium in micrograms per liter",
+                "propertyID":"150029",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150029",
+                "unitText":"micrograms per liter",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Cadmium Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Cadmium&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Magnesium at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Magnesium",
+                "description":"Magnesium in percent",
+                "propertyID":"149617",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149617",
+                "unitText":"percent",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Magnesium Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Magnesium&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Mercury at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Mercury",
+                "description":"Mercury in Unknown",
+                "propertyID":"149633",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149633",
+                "unitText":"Unknown",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Mercury Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Mercury&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        },
+        {
+            "@type":"Dataset",
+            "name":"BPMWQX-1084-WR-CC01C",
+            "description":"Zinc at BPMWQX-1084-WR-CC01C",
+            "provider":{
+                "url":"https://www.waterqualitydata.us",
+                "@type":"GovernmentOrganization",
+                "name":"Bonita Peak Mining"
+            },
+            "url":"https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1084-WR-CC01C/",
+            "variableMeasured":{
+                "@type":"PropertyValue",
+                "name":"Zinc",
+                "description":"Zinc in Unknown",
+                "propertyID":"150235",
+                "url":"https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150235",
+                "unitText":"Unknown",
+                "measurementTechnique":"observation",
+                "measurementMethod":{
+                    "name":"Zinc Measurements",
+                    "publisher":"Bonita Peak Mining"
+                }
+            },
+            "temporalCoverage":"2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "distribution":[
+                {
+                    "@type":"DataDownload",
+                    "name":"Water Quality Portal",
+                    "contentUrl":"https://www.waterqualitydata.us/data/Result/search?siteid=BPMWQX-1084-WR-CC01C&CharacteristicName=Zinc&mimeType=csv",
+                    "encodingFormat":[
+                        "text/comma-separated-values"
+                    ],
+                    "dc:conformsTo":"https://www.waterqualitydata.us/webservices_documentation/"
+                }
+            ]
+        }
+    ]
+}

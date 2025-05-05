@@ -40,7 +40,7 @@ type MinioContainerConfig struct {
 
 // Create a default minio container with default credentials, mainly for testing
 func NewDefaultMinioContainer() (MinioContainer, error) {
-	container, err := NewMinioContainer(MinioContainerConfig{
+	container, err := NewMinioContainerFromConfig(MinioContainerConfig{
 		Username:      "minioadmin",
 		Password:      "minioadmin",
 		DefaultBucket: "iow",
@@ -48,14 +48,14 @@ func NewDefaultMinioContainer() (MinioContainer, error) {
 	if err != nil {
 		return container, err
 	}
-	if err = container.ClientWrapper.Client.MakeBucket(context.Background(), container.ClientWrapper.DefaultBucket, minio.MakeBucketOptions{}); err != nil {
+	if err := container.ClientWrapper.MakeDefaultBucket(); err != nil {
 		return container, err
 	}
 	return container, err
 }
 
 // Spin up a local minio container
-func NewMinioContainer(config MinioContainerConfig) (MinioContainer, error) {
+func NewMinioContainerFromConfig(config MinioContainerConfig) (MinioContainer, error) {
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
 		Image: "minio/minio:latest",

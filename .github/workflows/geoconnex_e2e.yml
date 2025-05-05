@@ -35,6 +35,8 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v4
         with:
+          build-args: |
+            BINARY_NAME=nabu
           context: .
           push: true
           tags: internetofwater/nabu:${{ env.tag }}
