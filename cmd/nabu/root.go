@@ -16,10 +16,8 @@ import (
 	"nabu/internal/opentelemetry"
 	"nabu/internal/synchronizer/s3"
 
-	"dario.cat/mergo"
 	"github.com/alexflint/go-arg"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	otelTrace "go.opentelemetry.io/otel/trace"
 )
 
@@ -128,34 +126,6 @@ func NewNabuRunner(cliArgs []string) NabuRunner {
 	args := NabuArgs{}
 	const dummyBinaryName = "nabu" // we need to add some arbitrary binary name before the args; it doesn't matter
 	os.Args = append([]string{dummyBinaryName}, cliArgs...)
-
-	v := viper.New()
-	v.SetConfigName("nabuconfig")
-	v.SetConfigType("yaml")
-	v.AddConfigPath(".")
-
-	// In order to support config file at an arbitrary location, we read in
-	// the args, then merge in the config file if it exists
-	getCfgArg := NabuArgs{}
-	arg.MustParse(&getCfgArg)
-	if getCfgArg.Cfg != "" {
-		v.SetConfigFile(getCfgArg.Cfg)
-	}
-
-	cfgStruct := NabuArgs{}
-	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			log.Warn(err)
-		}
-
-	} else {
-		if err := v.Unmarshal(&cfgStruct); err != nil {
-			log.Fatalf("error unmarshaling config: %v", err)
-		}
-		if err := mergo.Merge(&args, cfgStruct, mergo.WithOverride); err != nil {
-			log.Fatalf("error merging config: %v", err)
-		}
-	}
 
 	parser := arg.MustParse(&args)
 	subCmd := parser.Subcommand()
