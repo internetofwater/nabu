@@ -14,3 +14,5 @@ google.yml
 trace.out
 
 /nabu
+
+*.out
