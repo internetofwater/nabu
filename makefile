@@ -3,10 +3,8 @@
 # they are not required for building or running nabu
 # and are just intended for local development
 
-
 # Generate a csv report of the http requests (requires R to be installed)
 report:
-	NABU_PROFILING=true go test ./... -count=1
 	Rscript scripts/clean_report.r ../http_trace.csv
 
 # clean up trace/profiling/build artifacts
@@ -28,3 +26,11 @@ dockerGleaner:
 # Build nabu as a docker image
 dockerNabu:
 	docker build --build-arg BINARY_NAME=nabu .
+
+# Generate coverage report and visualize it in a browser
+coverage:
+	go test ./... -coverprofile coverage.out
+	go tool cover -html=coverage.out
+
+deadcode:
+	deadcode -test ./... 

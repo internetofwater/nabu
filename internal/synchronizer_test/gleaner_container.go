@@ -1,13 +1,14 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-package testhelpers
+package synchronizer_test
 
 import (
 	"context"
 	"fmt"
 	"io"
-	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -24,29 +25,33 @@ type GleanerContainer struct {
 	Name string
 }
 
+const tmpImageName = "gleaner_local_test_image"
+
+func buildDockerImage() error {
+	// run docker build to create the gleaner image
+	buildCmd := exec.Command("docker", "build", "--build-arg", "BINARY_NAME=gleaner", ".", "-t", tmpImageName)
+	buildCmd.Dir = "../.."
+	output, err := buildCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed building gleaner image: %w\n%s", err, output)
+	}
+	return nil
+}
+
 // Create a handle to a struct which allows for easy handling of the minio container
-func NewGleanerContainer(configPath string, cmd []string, networkName string) (GleanerContainer, error) {
+func NewGleanerContainer(cmd string, networkName string) (GleanerContainer, error) {
+
 	ctx := context.Background()
 
-	fullCmd := append([]string{"--cfg", "/app/gleanerconfig.yaml"}, cmd...)
-
-	gleanerTestImage := os.Getenv("GLEANER_TEST_IMAGE")
-
-	if gleanerTestImage == "" {
-		gleanerTestImage = "internetofwater/gleaner:latest"
+	if err := buildDockerImage(); err != nil {
+		return GleanerContainer{}, fmt.Errorf("failed building gleaner image: %w", err)
 	}
 
 	req := testcontainers.ContainerRequest{
-		Image: gleanerTestImage,
-		Files: []testcontainers.ContainerFile{
-			{
-				HostFilePath:      configPath,
-				ContainerFilePath: "/app/gleanerconfig.yaml",
-			},
-		},
+		Image: tmpImageName,
 		// wait for the crawl to finish so our tests operate on the full data
 		WaitingFor: wait.ForExit(),
-		Cmd:        fullCmd,
+		Cmd:        strings.Split(cmd, " "),
 		// Entrypoint: []string{"/bin/sh", "-c", "while true; do sleep 30; done"}, <-- used for debugging if we need to go inside to inspect the network
 		Networks: []string{networkName},
 	}

@@ -46,7 +46,7 @@ func (s *GleanerRootSuite) TestHarvestToS3() {
 
 func (s *GleanerRootSuite) TestHarvestWithSourceSpecified() {
 	startMocks()
-	args := fmt.Sprintf("--log-level DEBUG --sitemap-index testdata/sitemap_index.xml --source stations__5 --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
+	args := fmt.Sprintf("--log-level DEBUG --sitemap-index testdata/sitemap_index.xml --source iow_wqp_stations__5 --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 	err := NewGleanerRunnerFromString(args).Run(context.Background())
 	require.NoError(s.T(), err)
 

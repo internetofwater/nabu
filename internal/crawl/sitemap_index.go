@@ -7,11 +7,11 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
-	"nabu/internal/interfaces"
+	"nabu/internal/crawl/storage"
 	"nabu/internal/opentelemetry"
 	"net/url"
-	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
@@ -23,10 +23,10 @@ type Index struct {
 	XMLName  xml.Name `xml:"sitemapindex"`
 	Sitemaps []parts  `xml:"sitemap"`
 
-	storageDestination      interfaces.CrawlStorage `xml:"-"`
-	concurrentSitemaps      int                     `xml:"-"`
-	specificSourceToHarvest string                  `xml:"-"`
-	sitemapWorkers          int                     `xml:"-"`
+	storageDestination      storage.CrawlStorage `xml:"-"`
+	concurrentSitemaps      int                  `xml:"-"`
+	specificSourceToHarvest string               `xml:"-"`
+	sitemapWorkers          int                  `xml:"-"`
 }
 
 // parts is a structure of <sitemap> in <sitemapindex>
@@ -36,21 +36,18 @@ type parts struct {
 }
 
 func (p parts) associatedID() (string, error) {
+	if p.Loc == "" {
+		return "", fmt.Errorf("empty sitemap location")
+	}
+
 	url, err := url.Parse(p.Loc)
 	if err != nil {
 		return "", err
 	}
-	segments := strings.Split(strings.Trim(url.Path, "/"), "/")
-	if len(segments) == 0 {
-		return "", fmt.Errorf("path does not contain any segments")
-	}
-	last := segments[len(segments)-1]
-	ext := filepath.Ext(last)
-	if ext == "" {
-		return "", fmt.Errorf("no file extension found in path")
-	}
-	id := strings.TrimSuffix(last, ext)
-	return id, nil
+	path := strings.TrimPrefix(url.Path, "/sitemap/")
+	removeXML := strings.TrimSuffix(path, ".xml")
+	underscoredPath := strings.ReplaceAll(removeXML, "/", "_")
+	return underscoredPath, nil
 }
 
 func isUrl(str string) bool {
@@ -90,23 +87,25 @@ func (i Index) GetUrlList() []string {
 	return result
 }
 
-// Harvest all the URLs in the sitemap
 func (i Index) HarvestSitemaps(ctx context.Context) error {
-
 	var group errgroup.Group
 	group.SetLimit(i.concurrentSitemaps)
+
+	var wasFound atomic.Bool
+	wasFound.Store(i.specificSourceToHarvest == "")
 
 	for _, part := range i.Sitemaps {
 		part := part
 		group.Go(func() error {
-
 			id, err := part.associatedID()
 			if err != nil {
 				return err
 			}
-			// If we are filtering by a specific source, skip all others
+
 			if i.specificSourceToHarvest != "" && id != i.specificSourceToHarvest {
 				return nil
+			} else {
+				wasFound.Store(true)
 			}
 
 			sitemap, err := NewSitemap(ctx, part.Loc)
@@ -119,22 +118,41 @@ func (i Index) HarvestSitemaps(ctx context.Context) error {
 				return err
 			}
 
-			errChan := make(chan error, 1)
-			go func(id string) {
+			prov, err := ProvData{SOURCE: part.Loc}.toNq()
+			if err != nil {
+				return err
+			}
+
+			const metadataFiles = 2
+			errChan := make(chan error, metadataFiles)
+			go func() {
 				errChan <- i.storageDestination.Store("orgs/"+id+".nq", strings.NewReader(nq))
-			}(id)
+				errChan <- i.storageDestination.Store("prov/"+id+".nq", strings.NewReader(prov))
+				close(errChan)
+			}()
 
 			harvestResult := sitemap.SetStorageDestination(i.storageDestination).
 				Harvest(ctx, i.sitemapWorkers, id)
 
-			if err := <-errChan; err != nil {
-				return err
+			for err := range errChan {
+				if err != nil {
+					return err
+				}
 			}
+
 			return harvestResult
 		})
 	}
 
-	return group.Wait()
+	if err := group.Wait(); err != nil {
+		return err
+	}
+
+	if !wasFound.Load() {
+		return fmt.Errorf("no sitemap found with id %s", i.specificSourceToHarvest)
+	}
+
+	return nil
 }
 
 // Harvest one particular sitemap
@@ -163,7 +181,7 @@ func (i Index) HarvestSitemap(ctx context.Context, sitemapIdentifier string) err
 	return fmt.Errorf("sitemap %s not found in sitemap", sitemapIdentifier)
 }
 
-func (i Index) WithStorageDestination(storageDestination interfaces.CrawlStorage) Index {
+func (i Index) WithStorageDestination(storageDestination storage.CrawlStorage) Index {
 	i.storageDestination = storageDestination
 	return i
 }

@@ -5,7 +5,7 @@ package crawl
 
 import (
 	"context"
-	"nabu/internal/interfaces"
+	"nabu/internal/crawl/storage"
 	"testing"
 
 	"github.com/h2non/gock"
@@ -21,6 +21,6 @@ func TestHarvestSitemap(t *testing.T) {
 
 	sitemap, err := NewSitemap(context.Background(), "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml")
 	require.NoError(t, err)
-	errs := sitemap.SetStorageDestination(interfaces.DiscardCrawlStorage{}).Harvest(context.Background(), 10, "test")
+	errs := sitemap.SetStorageDestination(storage.DiscardCrawlStorage{}).Harvest(context.Background(), 10, "test")
 	require.Empty(t, errs)
 }

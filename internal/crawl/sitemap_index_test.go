@@ -5,7 +5,7 @@ package crawl
 
 import (
 	"context"
-	"nabu/internal/interfaces"
+	"nabu/internal/crawl/storage"
 	"nabu/internal/synchronizer/s3"
 	"testing"
 
@@ -18,12 +18,17 @@ func TestSitemapPartId(t *testing.T) {
 	p := parts{Loc: "https://geoconnex.us/sitemap/CUAHSI/CUAHSI_HIS_GHCN_ids__0.xml"}
 	id, err := p.associatedID()
 	require.NoError(t, err)
-	require.Equal(t, "CUAHSI_HIS_GHCN_ids__0", id)
+	require.Equal(t, "CUAHSI_CUAHSI_HIS_GHCN_ids__0", id)
 
-	badp := parts{Loc: "https://geoconnex.us"}
+	p = parts{Loc: "https://geoconnex.us/sitemap/nhdplusv2/huc12pp/huc12pp__0.xml"}
+	id, err = p.associatedID()
+	require.NoError(t, err)
+	require.Equal(t, "nhdplusv2_huc12pp_huc12pp__0", id)
+
+	badp := parts{Loc: ""}
 	id, err = badp.associatedID()
-	require.Error(t, err)
 	require.Equal(t, "", id)
+	require.Error(t, err)
 }
 
 // Test parsing the geoconnex sitemap index which contains links to other sitemaps
@@ -56,6 +61,21 @@ func TestParseSitemapIndex(t *testing.T) {
 	assert.Len(t, emptyMaps, 0)
 }
 
+func TestHarvestNonExistantSource(t *testing.T) {
+
+	defer gock.Off()
+
+	gock.New("https://geoconnex.us/sitemap.xml").
+		Reply(200).
+		File("testdata/sitemap_index.xml")
+
+	indexHarvester, err := NewSitemapIndexHarvester("https://geoconnex.us/sitemap.xml")
+	assert.NoError(t, err)
+	err = indexHarvester.HarvestSitemap(context.Background(), "does_not_exist")
+	require.Error(t, err)
+	require.ErrorContains(t, err, "not found in sitemap")
+}
+
 func TestHarvestSitemapIndex(t *testing.T) {
 	// setup mocks
 	defer gock.Off()
@@ -68,7 +88,7 @@ func TestHarvestSitemapIndex(t *testing.T) {
 		File("testdata/sitemap.xml")
 
 	// initialize storage types
-	tmpStore, err := interfaces.NewLocalTempFSCrawlStorage()
+	tmpStore, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
 	container, err := s3.NewDefaultMinioContainer()
 	require.NoError(t, err)

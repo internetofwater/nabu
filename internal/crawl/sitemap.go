@@ -8,7 +8,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"nabu/internal/common"
-	"nabu/internal/interfaces"
+	"nabu/internal/crawl/storage"
 	"nabu/internal/opentelemetry"
 	"net/http"
 	"strings"
@@ -28,11 +28,11 @@ type Sitemap struct {
 	// - explicitly ignores xml marshaling
 	// since this is not an xml field but rather
 	// associated data with the sitemap struct
-	storageDestination interfaces.CrawlStorage `xml:"-"`
+	storageDestination storage.CrawlStorage `xml:"-"`
 }
 
 // Set the storage strategy for the struct
-func (s Sitemap) SetStorageDestination(storageDestination interfaces.CrawlStorage) Sitemap {
+func (s Sitemap) SetStorageDestination(storageDestination storage.CrawlStorage) Sitemap {
 	s.storageDestination = storageDestination
 	return s
 }

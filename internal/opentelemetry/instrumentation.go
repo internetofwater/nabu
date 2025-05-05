@@ -159,7 +159,7 @@ func Shutdown() {
 
 	err := TracerProvider.ForceFlush(context.Background())
 	if err != nil {
-		log.Errorf("Error flushing traces: %v", err)
+		log.Errorf("Error flushing traces; Is your opentelemetry collector running?; %v", err)
 	}
 	err = TracerProvider.Shutdown(context.Background())
 	if err != nil {
