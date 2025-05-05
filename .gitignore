@@ -14,5 +14,6 @@ google.yml
 trace.out
 
 /nabu
+/gleaner
 
 *.out
