@@ -1,0 +1,6 @@
+*.csv
+.git/
+.vscode/
+.github/
+scripts/
+assets/
