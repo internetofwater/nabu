@@ -20,3 +20,11 @@ clean:
 # aiming for cyclomatic complexity of 12 or less is a good rule of thumb
 cyclo:
 	gocyclo -top 8 .
+
+# Build gleaner as a docker image
+dockerGleaner:
+	docker build --build-arg BINARY_NAME=gleaner .
+
+# Build nabu as a docker image
+dockerNabu:
+	docker build --build-arg BINARY_NAME=nabu .
