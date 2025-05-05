@@ -23,9 +23,10 @@ type Index struct {
 	XMLName  xml.Name `xml:"sitemapindex"`
 	Sitemaps []parts  `xml:"sitemap"`
 
-	storageDestination interfaces.CrawlStorage `xml:"-"`
-	concurrentSitemaps int                     `xml:"-"`
-	sitemapWorkers     int                     `xml:"-"`
+	storageDestination      interfaces.CrawlStorage `xml:"-"`
+	concurrentSitemaps      int                     `xml:"-"`
+	specificSourceToHarvest string                  `xml:"-"`
+	sitemapWorkers          int                     `xml:"-"`
 }
 
 // parts is a structure of <sitemap> in <sitemapindex>
@@ -90,7 +91,7 @@ func (i Index) GetUrlList() []string {
 }
 
 // Harvest all the URLs in the sitemap
-func (i Index) HarvestAll(ctx context.Context) error {
+func (i Index) HarvestSitemaps(ctx context.Context) error {
 
 	var group errgroup.Group
 	group.SetLimit(i.concurrentSitemaps)
@@ -98,6 +99,16 @@ func (i Index) HarvestAll(ctx context.Context) error {
 	for _, part := range i.Sitemaps {
 		part := part
 		group.Go(func() error {
+
+			id, err := part.associatedID()
+			if err != nil {
+				return err
+			}
+			// If we are filtering by a specific source, skip all others
+			if i.specificSourceToHarvest != "" && id != i.specificSourceToHarvest {
+				return nil
+			}
+
 			sitemap, err := NewSitemap(ctx, part.Loc)
 			if err != nil {
 				return err
@@ -108,10 +119,6 @@ func (i Index) HarvestAll(ctx context.Context) error {
 				return err
 			}
 
-			id, err := part.associatedID()
-			if err != nil {
-				return err
-			}
 			errChan := make(chan error, 1)
 			go func(id string) {
 				errChan <- i.storageDestination.Store("orgs/"+id+".nq", strings.NewReader(nq))
@@ -131,28 +138,29 @@ func (i Index) HarvestAll(ctx context.Context) error {
 }
 
 // Harvest one particular sitemap
-func (i Index) HarvestSitemap(ctx context.Context, sitemap string) error {
+func (i Index) HarvestSitemap(ctx context.Context, sitemapIdentifier string) error {
 
 	for _, part := range i.Sitemaps {
 
-		span, ctx := opentelemetry.SubSpanFromCtx(ctx)
-		defer span.End()
-
-		if part.Loc != sitemap {
-			continue
-		}
-		sitemap, err := NewSitemap(ctx, part.Loc)
+		id, err := part.associatedID()
 		if err != nil {
 			return err
 		}
-		id, err := part.associatedID()
+
+		if id != sitemapIdentifier {
+			continue
+		}
+		span, ctx := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapIdentifier))
+		defer span.End()
+
+		sitemap, err := NewSitemap(ctx, part.Loc)
 		if err != nil {
 			return err
 		}
 		return sitemap.SetStorageDestination(i.storageDestination).
 			Harvest(ctx, i.sitemapWorkers, id)
 	}
-	return fmt.Errorf("sitemap %s not found in sitemap", sitemap)
+	return fmt.Errorf("sitemap %s not found in sitemap", sitemapIdentifier)
 }
 
 func (i Index) WithStorageDestination(storageDestination interfaces.CrawlStorage) Index {
@@ -172,5 +180,14 @@ func (i Index) WithConcurrencyConfig(concurrentSitemaps int, sitemapWorkers int)
 
 	i.concurrentSitemaps = concurrentSitemaps
 	i.sitemapWorkers = sitemapWorkers
+	return i
+}
+
+func (i Index) WithSpecifiedSourceFilter(sourceToHarvest string) Index {
+	// Set an id to filter by
+	// If a sitemap with this id is found, it will be harvested
+	// otherwise it will be skipped. If the id is an empty string
+	// it will harvest all sitemaps
+	i.specificSourceToHarvest = sourceToHarvest
 	return i
 }

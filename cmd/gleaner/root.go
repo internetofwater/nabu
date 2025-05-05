@@ -58,8 +58,7 @@ func (g GleanerRunner) Run(ctx context.Context) error {
 		return fmt.Errorf("invalid log level %s: %w", g.args.LogLevel, err)
 	}
 	log.SetLevel(level)
-	log.Info("Starting Gleaner")
-	log.Debug("Running in debug mode")
+	log.Infof("Starting Gleaner with log level: %s", g.args.LogLevel)
 
 	if g.args.UseOtel || g.args.OtelEndpoint != "" {
 		if g.args.OtelEndpoint == "" {
@@ -73,51 +72,45 @@ func (g GleanerRunner) Run(ctx context.Context) error {
 		defer opentelemetry.Shutdown()
 	}
 
-	if g.args.SitemapIndex != "" {
-		index, err := crawl.NewSitemapIndexHarvester(g.args.SitemapIndex)
+	if g.args.SitemapIndex == "" {
+		return fmt.Errorf("sitemap index must be provided")
+	}
+	index, err := crawl.NewSitemapIndexHarvester(g.args.SitemapIndex)
+	if err != nil {
+		return err
+	}
+	var storageDestination interfaces.CrawlStorage
+	if g.args.ToDisk {
+		log.Info("Saving fetched files to disk")
+		tmpFSStorage, err := interfaces.NewLocalTempFSCrawlStorage()
 		if err != nil {
 			return err
 		}
-		var configuredSitemap crawl.Index
-		if g.args.ToDisk {
-			log.Info("Saving fetched files to disk")
-			tmpFSStorage, err := interfaces.NewLocalTempFSCrawlStorage()
-			if err != nil {
-				return err
-			}
-			configuredSitemap = index.WithStorageDestination(tmpFSStorage)
-		} else {
-			log.Infof("Saving fetched files to s3 bucket at %s:%d", g.args.Address, g.args.Port)
-			minioS3, err := s3.NewMinioClientWrapper(config.MinioConfig{
-				Address:   g.args.Address,
-				Port:      g.args.Port,
-				Ssl:       g.args.SSL,
-				Accesskey: g.args.AccessKey,
-				Secretkey: g.args.SecretKey,
-				Bucket:    g.args.Bucket,
-			})
-			if err != nil {
-				return err
-			}
-			if err := minioS3.MakeDefaultBucket(); err != nil {
-				return err
-			}
-
-			configuredSitemap = index.WithStorageDestination(minioS3)
+		storageDestination = tmpFSStorage
+	} else {
+		log.Infof("Saving fetched files to s3 bucket at %s:%d", g.args.Address, g.args.Port)
+		minioS3, err := s3.NewMinioClientWrapper(config.MinioConfig{
+			Address:   g.args.Address,
+			Port:      g.args.Port,
+			Ssl:       g.args.SSL,
+			Accesskey: g.args.AccessKey,
+			Secretkey: g.args.SecretKey,
+			Bucket:    g.args.Bucket,
+		})
+		if err != nil {
+			return err
 		}
-
-		configuredSitemap = configuredSitemap.WithConcurrencyConfig(g.args.ConcurrentSitemaps, g.args.SitemapWorkers)
-
-		if g.args.Source != "" {
-			return configuredSitemap.HarvestSitemap(ctx, g.args.Source)
-		} else {
-			return configuredSitemap.HarvestAll(ctx)
+		if err := minioS3.MakeDefaultBucket(); err != nil {
+			return err
 		}
-	} else if g.args.Source != "" {
-		panic("not implemented")
+		storageDestination = minioS3
 	}
 
-	return nil
+	return index.
+		WithStorageDestination(storageDestination).
+		WithConcurrencyConfig(g.args.ConcurrentSitemaps, g.args.SitemapWorkers).
+		WithSpecifiedSourceFilter(g.args.Source).
+		HarvestSitemaps(ctx)
 }
 
 func main() {
