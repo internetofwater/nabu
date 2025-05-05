@@ -44,6 +44,17 @@ func (s *GleanerRootSuite) TestHarvestToS3() {
 	require.Equal(s.T(), orgsObjs, 1)
 }
 
+func (s *GleanerRootSuite) TestHarvestWithSourceSpecified() {
+	startMocks()
+	args := fmt.Sprintf("--log-level DEBUG --sitemap-index testdata/sitemap_index.xml --source stations__5 --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
+	err := NewGleanerRunnerFromString(args).Run(context.Background())
+	require.NoError(s.T(), err)
+
+	orgsObjs, err := s.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"orgs/"})
+	require.NoError(s.T(), err)
+	require.Equal(s.T(), orgsObjs, 1)
+}
+
 func (s *GleanerRootSuite) TestHarvestToDisk() {
 	startMocks()
 	args := "--log-level DEBUG --to-disk --sitemap-index testdata/sitemap_index.xml"
