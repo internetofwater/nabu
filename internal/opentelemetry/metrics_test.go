@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,8 +16,14 @@ func TestMetrics(t *testing.T) {
 	InitMetrics()
 
 	defer func() {
-		MeterProvider.ForceFlush(context.Background())
-		MeterProvider.Shutdown(context.Background())
+		err := MeterProvider.ForceFlush(context.Background())
+		if err != nil {
+			log.Errorf("Error flushing metrics; Is the collector for metrics running?; %v", err)
+		}
+		err = MeterProvider.Shutdown(context.Background())
+		if err != nil {
+			log.Errorf("Error shutting down meter provider: %v", err)
+		}
 	}()
 
 	SetFailuresForSitemap("https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 404)
