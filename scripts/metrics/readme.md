@@ -1,0 +1,1 @@
+This directory contains a simple set of scripts for running gleaner and outputting prometheus metrics that can be viewed in grafana

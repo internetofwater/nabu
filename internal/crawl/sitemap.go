@@ -12,6 +12,7 @@ import (
 	"nabu/internal/opentelemetry"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
@@ -66,10 +67,13 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 	}
 
 	client := common.NewRetryableHTTPClient()
+	failures := atomic.Int64{}
+
 	for _, url := range s.URL {
 		url := url
 		group.Go(func() error {
 
+			start := time.Now()
 			req, err := http.NewRequest("GET", url.Loc, nil)
 			if err != nil {
 				return err
@@ -86,6 +90,7 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 
 			if resp.StatusCode >= 400 {
 				log.Errorf("failed to fetch %s, got status %s", url.Loc, resp.Status)
+				failures.Add(1)
 				return nil
 			}
 
@@ -103,7 +108,6 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 			}
 
 			if !exists {
-
 				// Store from the buffered copy
 				if err = s.storageDestination.Store(summonedPath, respBodyCopy); err != nil {
 					return err
@@ -113,13 +117,20 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 				log.Debugf("%s already exists so skipping", url.Loc)
 			}
 
+			opentelemetry.SetHistogramValue(outputFoldername, time.Since(start).Seconds())
+
+			time.Sleep(10 * time.Second)
 			if robotstxt.CrawlDelay > 0 {
 				time.Sleep(robotstxt.CrawlDelay)
 			}
+
 			return nil
 		})
 	}
-	return group.Wait()
+	err = group.Wait()
+	failuresForSitemap := failures.Load()
+	opentelemetry.SetFailuresForSitemap(outputFoldername, int(failuresForSitemap))
+	return err
 }
 
 // Represents a URL tag and its attributes within a sitemap

@@ -162,7 +162,7 @@ func (n NabuRunner) Run(ctx context.Context) error {
 
 	if n.args.UseOtel || n.args.OtelEndpoint != "" {
 		if n.args.OtelEndpoint == "" {
-			n.args.OtelEndpoint = opentelemetry.DefaultCollectorEndpoint
+			n.args.OtelEndpoint = opentelemetry.DefaultTracingEndpoint
 		}
 		log.Infof("Starting opentelemetry traces and exporting to: %s", n.args.OtelEndpoint)
 		opentelemetry.InitTracer("nabu", n.args.OtelEndpoint)

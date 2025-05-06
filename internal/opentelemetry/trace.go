@@ -19,7 +19,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const DefaultCollectorEndpoint = "127.0.0.1:4317"
+const DefaultTracingEndpoint = "127.0.0.1:4317"
 
 // the global tracer instance that keeps track of client spans
 var Tracer trace.Tracer
@@ -149,20 +149,3 @@ func InitTracer(serviceName string, endpoint string) {
 	log.Infof("OpenTelemetry Tracer initialized, sending traces to %s", endpoint)
 }
 
-// Shutdown the tracer provider and flush any remaining spans
-// This should be called when the application is shutting down
-func Shutdown() {
-	if TracerProvider == nil {
-		log.Warn("TracerProvider is nil, skipping shutdown")
-		return
-	}
-
-	err := TracerProvider.ForceFlush(context.Background())
-	if err != nil {
-		log.Errorf("Error flushing traces; Is your opentelemetry collector running?; %v", err)
-	}
-	err = TracerProvider.Shutdown(context.Background())
-	if err != nil {
-		log.Errorf("Error shutting down tracer provider: %v", err)
-	}
-}
