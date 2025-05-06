@@ -43,7 +43,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            ${{ env.IMAGE_NAME }}-${{ matrix.binary_name }}
+            internetofwater/${{ matrix.binary_name }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
