@@ -17,6 +17,7 @@ import (
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -32,15 +33,34 @@ type Sitemap struct {
 	storageDestination storage.CrawlStorage `xml:"-"`
 }
 
-// Set the storage strategy for the struct
-func (s Sitemap) SetStorageDestination(storageDestination storage.CrawlStorage) Sitemap {
-	s.storageDestination = storageDestination
-	return s
+// handle any non-fatal errors with the response
+// such as bad status codes, or bad mime types
+// these should be presented to the user after a crawl and
+// not cause the entire sitemap to fail
+func nonFatalBadResponse(resp *http.Response, url URL, span trace.Span) UrlCrawlError {
+	if resp.StatusCode >= 400 {
+		errormsg := fmt.Sprintf("failed to fetch %s, got status %s", url.Loc, resp.Status)
+		log.Errorf(errormsg)
+		// status makes jaeger mark as failed with red, whereas SetEvent just marks it with a message
+		span.SetStatus(codes.Error, errormsg)
+		return UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
+	}
+
+	// check the mimetype
+	mime := resp.Header.Get("Content-Type")
+	if !strings.Contains(mime, "application/ld+json") {
+		errormsg := fmt.Sprintf("got wrong file type %s for %s", mime, url.Loc)
+		log.Errorf(errormsg)
+		span.SetStatus(codes.Error, errormsg)
+		return UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
+	}
+
+	return UrlCrawlError{}
 }
 
 // Harvest all the URLs in the sitemap
-func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername string) error {
-	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", outputFoldername))
+func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string) (SitemapCrawlStats, error) {
+	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapID))
 	defer span.End()
 
 	var group errgroup.Group
@@ -49,24 +69,25 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 	// For the time being, we assume that the first URL in the sitemap has the
 	// same robots.txt as the rest of the items
 	if len(s.URL) == 0 {
-		return fmt.Errorf("no URLs found in sitemap")
+		return SitemapCrawlStats{}, fmt.Errorf("no URLs found in sitemap")
 	} else if s.storageDestination == nil {
-		return fmt.Errorf("no storage destination set")
+		return SitemapCrawlStats{}, fmt.Errorf("no storage destination set")
 	} else if workers < 1 {
-		return fmt.Errorf("no workers set")
+		return SitemapCrawlStats{}, fmt.Errorf("no workers set")
 	}
 
 	firstUrl := s.URL[0]
 	robotstxt, err := newRobots(firstUrl.Loc)
 	if err != nil {
-		return err
+		return SitemapCrawlStats{}, err
 	}
 	if !robotstxt.Test(gleanerAgent) {
-		return fmt.Errorf("robots.txt does not allow us to crawl %s", firstUrl.Loc)
+		return SitemapCrawlStats{}, fmt.Errorf("robots.txt does not allow us to crawl %s", firstUrl.Loc)
 	}
 
+	crawlErrorChan := make(chan UrlCrawlError, len(s.URL))
 	client := common.NewRetryableHTTPClient()
-
+	start := time.Now()
 	for _, url := range s.URL {
 		// Capture the URL for use in the goroutine.
 		url := url
@@ -89,20 +110,9 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 
 			defer resp.Body.Close()
 
-			if resp.StatusCode >= 400 {
-				log.Errorf("failed to fetch %s, got status %s", url.Loc, resp.Status)
-				// status makes jaeger mark as failed with red, whereas SetEvent just marks it with a message
-				span.SetStatus(codes.Error, fmt.Sprintf("failed to fetch %s, got status %s", url.Loc, resp.Status))
+			if nonFatalError := nonFatalBadResponse(resp, url, span); nonFatalError != (UrlCrawlError{}) {
+				crawlErrorChan <- nonFatalError
 				return nil
-			}
-
-			// check the mimetype
-			mime := resp.Header.Get("Content-Type")
-			if !strings.Contains(mime, "application/ld+json") {
-				errormsg := fmt.Errorf("got wrong file type %s for %s", mime, url.Loc)
-				log.Errorf(errormsg.Error())
-				span.SetStatus(codes.Error, errormsg.Error())
-				return errormsg
 			}
 
 			// To generate a hash we need to copy the response body
@@ -111,7 +121,7 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 				return err
 			}
 
-			summonedPath := fmt.Sprintf("summoned/%s/%s", outputFoldername, itemHash)
+			summonedPath := fmt.Sprintf("summoned/%s/%s", sitemapID, itemHash)
 
 			exists, err := s.storageDestination.Exists(summonedPath)
 			if err != nil {
@@ -137,7 +147,16 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 		})
 	}
 	err = group.Wait()
-	return err
+
+	stats := SitemapCrawlStats{SecondsToComplete: time.Since(start).Seconds(), SitemapName: sitemapID}
+	// we close this here to make sure we can range without blocking
+	// We know we can close this since we have already waited on all go routines
+	close(crawlErrorChan)
+	for err := range crawlErrorChan {
+		stats.CrawlFailures = append(stats.CrawlFailures, err)
+	}
+
+	return stats, err
 }
 
 // Represents a URL tag and its attributes within a sitemap

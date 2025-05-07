@@ -14,6 +14,12 @@ func (i Index) WithStorageDestination(storageDestination storage.CrawlStorage) I
 	return i
 }
 
+// Set the storage strategy for the struct
+func (s Sitemap) SetStorageDestination(storageDestination storage.CrawlStorage) Sitemap {
+	s.storageDestination = storageDestination
+	return s
+}
+
 func (i Index) WithConcurrencyConfig(concurrentSitemaps int, sitemapWorkers int) Index {
 	// Make sure concurrency is at least 1
 	// otherwise go will block indefinitely

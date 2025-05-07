@@ -46,11 +46,12 @@ func NewGleanerRun(minioClient *s3.MinioClientWrapper, sitemap, source string) e
 	if err != nil {
 		return err
 	}
-	return index.
+	_, err = index.
 		WithStorageDestination(minioClient).
 		WithConcurrencyConfig(10, 10).
 		WithSpecifiedSourceFilter(source).
 		HarvestSitemaps(context.Background())
+	return err
 }
 
 type SynchronizerClientSuite struct {

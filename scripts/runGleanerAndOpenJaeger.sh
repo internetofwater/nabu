@@ -11,6 +11,6 @@ docker run -d --rm --name minio \
   --health-interval=10s --health-timeout=5s --health-retries=3 \
   minio/minio server /data --console-address ":9001" 2> /dev/null || echo "Minio already running so skipping start"
 
-time go run cmd/gleaner/root.go --log-level DEBUG --sitemap-index https://pids.geoconnex.dev/sitemap.xml  --concurrent-sitemaps 100 --sitemap-workers 150 --use-otel --to-disk
+time go run cmd/gleaner/root.go --log-level DEBUG --sitemap-index https://pids.geoconnex.dev/sitemap.xml  --concurrent-sitemaps 100 --sitemap-workers 150 --use-otel --to-disk --source ref_dams_dams__0
 
 open http://localhost:16686
