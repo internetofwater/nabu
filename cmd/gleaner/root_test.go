@@ -78,7 +78,7 @@ func startMocksForBadFileType() {
 
 func (s *GleanerRootSuite) TestBadFileType() {
 	startMocksForBadFileType()
-	args := "--sitemap-index https://geoconnex.us/sitemap.xml --source SELFIE_SELFIE_ids__0"
+	args := "--sitemap-index https://geoconnex.us/sitemap.xml --source SELFIE_SELFIE_ids__0 --log-level DEBUG"
 	stats, err := NewGleanerRunnerFromString(args).Run(context.Background())
 	s.Require().NoError(err)
 	crawlError := stats[0].CrawlFailures[0]
