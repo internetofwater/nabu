@@ -106,12 +106,14 @@ func (i Index) GetUrlList() []string {
 	return result
 }
 
-func (i Index) HarvestSitemaps(ctx context.Context) error {
+func (i Index) HarvestSitemaps(ctx context.Context) ([]SitemapCrawlStats, error) {
 	var group errgroup.Group
 	group.SetLimit(i.concurrentSitemaps)
 
 	var wasFound atomic.Bool
 	wasFound.Store(i.specificSourceToHarvest == "")
+
+	crawlStatChan := make(chan SitemapCrawlStats, len(i.Sitemaps))
 
 	for _, part := range i.Sitemaps {
 		part := part
@@ -150,7 +152,7 @@ func (i Index) HarvestSitemaps(ctx context.Context) error {
 				close(errChan)
 			}()
 
-			harvestResult := sitemap.SetStorageDestination(i.storageDestination).
+			stats, harvestErr := sitemap.SetStorageDestination(i.storageDestination).
 				Harvest(ctx, i.sitemapWorkers, id)
 
 			for err := range errChan {
@@ -159,29 +161,39 @@ func (i Index) HarvestSitemaps(ctx context.Context) error {
 				}
 			}
 
-			return harvestResult
+			crawlStatChan <- stats
+
+			return harvestErr
 		})
 	}
 
 	if err := group.Wait(); err != nil {
-		return err
+		return []SitemapCrawlStats{}, err
 	}
 
 	if !wasFound.Load() {
-		return fmt.Errorf("no sitemap found with id %s", i.specificSourceToHarvest)
+		return []SitemapCrawlStats{}, fmt.Errorf("no sitemap found with id %s", i.specificSourceToHarvest)
 	}
 
-	return nil
+	// we close this here to make sure we can range without blocking
+	// We know we can close this since we have already waited on all go routines
+	close(crawlStatChan)
+	allStats := []SitemapCrawlStats{}
+	for stats := range crawlStatChan {
+		allStats = append(allStats, stats)
+	}
+
+	return allStats, nil
 }
 
 // Harvest one particular sitemap
-func (i Index) HarvestSitemap(ctx context.Context, sitemapIdentifier string) error {
+func (i Index) HarvestSitemap(ctx context.Context, sitemapIdentifier string) (SitemapCrawlStats, error) {
 
 	for _, part := range i.Sitemaps {
 
 		id, err := part.associatedID()
 		if err != nil {
-			return err
+			return SitemapCrawlStats{}, err
 		}
 
 		if id != sitemapIdentifier {
@@ -192,10 +204,10 @@ func (i Index) HarvestSitemap(ctx context.Context, sitemapIdentifier string) err
 
 		sitemap, err := NewSitemap(ctx, part.Loc)
 		if err != nil {
-			return err
+			return SitemapCrawlStats{}, err
 		}
 		return sitemap.SetStorageDestination(i.storageDestination).
 			Harvest(ctx, i.sitemapWorkers, id)
 	}
-	return fmt.Errorf("sitemap %s not found in sitemap", sitemapIdentifier)
+	return SitemapCrawlStats{}, fmt.Errorf("sitemap %s not found in sitemap", sitemapIdentifier)
 }

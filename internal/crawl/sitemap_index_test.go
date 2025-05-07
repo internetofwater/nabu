@@ -71,7 +71,7 @@ func TestHarvestNonExistantSource(t *testing.T) {
 
 	indexHarvester, err := NewSitemapIndexHarvester("https://geoconnex.us/sitemap.xml")
 	assert.NoError(t, err)
-	err = indexHarvester.HarvestSitemap(context.Background(), "does_not_exist")
+	_, err = indexHarvester.HarvestSitemap(context.Background(), "does_not_exist")
 	require.Error(t, err)
 	require.ErrorContains(t, err, "not found in sitemap")
 }
@@ -100,10 +100,10 @@ func TestHarvestSitemapIndex(t *testing.T) {
 	sitemap, err := NewSitemap(context.Background(), sitemapUrls.GetUrlList()[0])
 	require.NoError(t, err)
 
-	errs := sitemap.SetStorageDestination(tmpStore).Harvest(context.Background(), 10, "test")
+	_, errs := sitemap.SetStorageDestination(tmpStore).Harvest(context.Background(), 10, "test")
 	require.NoError(t, errs)
 
-	errs = sitemap.SetStorageDestination(container.ClientWrapper).Harvest(context.Background(), 1, "test")
+	_, errs = sitemap.SetStorageDestination(container.ClientWrapper).Harvest(context.Background(), 1, "test")
 	require.NoError(t, errs)
 	numObjs, err := container.ClientWrapper.NumberOfMatchingObjects([]string{""})
 	require.NoError(t, err)

@@ -6,6 +6,9 @@ name: Test Full Geoconnex Pipeline
 on:
   workflow_dispatch: # Allows manual triggering of the workflow
   push:
+    branches-ignore:
+      - master
+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

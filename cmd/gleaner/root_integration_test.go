@@ -40,7 +40,7 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 	ctx, span := opentelemetry.NewSpanAndContextWithName("gleaner_nabu_integration_test_sync_graphs")
 	defer span.End()
 
-	err := NewGleanerRunnerFromString(args).Run(ctx)
+	_, err := NewGleanerRunnerFromString(args).Run(ctx)
 	s.Require().NoError(err)
 
 	client, err := synchronizer.NewSynchronizerClientFromClients(

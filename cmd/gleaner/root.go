@@ -11,6 +11,7 @@ import (
 	"nabu/internal/opentelemetry"
 	"nabu/internal/synchronizer/s3"
 	"os"
+	"strings"
 
 	crawl "nabu/internal/crawl"
 
@@ -53,10 +54,10 @@ func NewGleanerRunner(cliArgs []string) GleanerRunner {
 	}
 }
 
-func (g GleanerRunner) Run(ctx context.Context) error {
+func (g GleanerRunner) Run(ctx context.Context) ([]crawl.SitemapCrawlStats, error) {
 	level, err := log.ParseLevel(g.args.LogLevel)
 	if err != nil {
-		return fmt.Errorf("invalid log level %s: %w", g.args.LogLevel, err)
+		return nil, fmt.Errorf("invalid log level %s: %w", g.args.LogLevel, err)
 	}
 	log.SetLevel(level)
 	log.Infof("Starting Gleaner with log level: %s", g.args.LogLevel)
@@ -74,18 +75,18 @@ func (g GleanerRunner) Run(ctx context.Context) error {
 	}
 
 	if g.args.SitemapIndex == "" {
-		return fmt.Errorf("sitemap index must be provided")
+		return nil, fmt.Errorf("sitemap index must be provided")
 	}
 	index, err := crawl.NewSitemapIndexHarvester(g.args.SitemapIndex)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var storageDestination storage.CrawlStorage
 	if g.args.ToDisk {
 		log.Info("Saving fetched files to disk")
 		tmpFSStorage, err := storage.NewLocalTempFSCrawlStorage()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		storageDestination = tmpFSStorage
 	} else {
@@ -99,24 +100,31 @@ func (g GleanerRunner) Run(ctx context.Context) error {
 			Bucket:    g.args.Bucket,
 		})
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if err := minioS3.MakeDefaultBucket(); err != nil {
-			return err
+			return nil, err
 		}
 		storageDestination = minioS3
 	}
 
-	return index.
+	stats, err := index.
 		WithStorageDestination(storageDestination).
 		WithConcurrencyConfig(g.args.ConcurrentSitemaps, g.args.SitemapWorkers).
 		WithSpecifiedSourceFilter(g.args.Source).
 		WithHeadlessChromeUrl(g.args.HeadlessChromeUrl).
 		HarvestSitemaps(ctx)
+
+	asJson := crawl.ToJson(stats)
+	if err := storageDestination.Store(fmt.Sprintf("stats/crawl_stats_%s.json", g.args.Source), strings.NewReader(asJson)); err != nil {
+		return nil, err
+	}
+
+	return stats, err
 }
 
 func main() {
-	if err := NewGleanerRunner(os.Args[1:]).Run(context.Background()); err != nil {
+	if _, err := NewGleanerRunner(os.Args[1:]).Run(context.Background()); err != nil {
 		log.Fatal(err)
 	}
 }

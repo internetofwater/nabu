@@ -3,7 +3,12 @@
 
 name: Go Lint
 
-on: [push]
+on:
+  workflow_dispatch: # Allows manual triggering of the workflow
+  push:
+    branches-ignore:
+      - master
+
 
 jobs:
   golangci:

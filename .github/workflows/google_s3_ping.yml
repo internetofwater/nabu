@@ -3,7 +3,12 @@
 
 name: Google S3 Ping Check
 
-on: [push]
+on:
+  workflow_dispatch: # Allows manual triggering of the workflow
+  push:
+    branches-ignore:
+      - master
+
 
 jobs:
   build-and-run:
