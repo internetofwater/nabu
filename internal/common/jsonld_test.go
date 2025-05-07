@@ -20,9 +20,14 @@ func TestCreateNewProcessor(t *testing.T) {
 	})
 
 	t.Run("use full config with caching", func(t *testing.T) {
-		conf, err := config.ReadNabuConfig("testdata", "nabuconfig.yaml")
-		require.NoError(t, err)
-		processor, options, err := NewJsonldProcessor(conf.Context.Cache, conf.ContextMaps)
+		ctxMaps := []config.ContextMap{
+			{
+				Prefix: "https://schema.org/",
+				File:   "./assets/schemaorg-current-https.jsonld",
+			},
+		}
+
+		processor, options, err := NewJsonldProcessor(true, ctxMaps)
 		require.NoError(t, err)
 		loader := options.DocumentLoader
 		require.IsType(t, &ld.CachingDocumentLoader{}, loader)

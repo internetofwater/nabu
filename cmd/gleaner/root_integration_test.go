@@ -41,7 +41,7 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 	defer span.End()
 
 	err := NewGleanerRunnerFromString(args).Run(ctx)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	client, err := synchronizer.NewSynchronizerClientFromClients(
 		&s.graphdbContainer.Client,
@@ -49,14 +49,14 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 		s.minioContainer.ClientWrapper.DefaultBucket,
 	)
 
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	err = client.SyncTriplestoreGraphs(ctx, "summoned/", true)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	exists, err := client.GraphClient.GraphExists("urn:iow:summoned:iow_wqp_stations__5:b38dced1575a8a83c1f5091c7de0b653.jsonld")
-	require.NoError(s.T(), err)
-	require.True(s.T(), exists)
+	s.Require().NoError(err)
+	s.Require().True(exists)
 }
 
 func (suite *GleanerInterationSuite) SetupSuite() {
@@ -94,7 +94,7 @@ func (s *GleanerInterationSuite) TearDownSuite() {
 	defer gock.Off()
 	c := *s.minioContainer.Container
 	err := c.Terminate(context.Background())
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 }
 
 // Run the entire test suite

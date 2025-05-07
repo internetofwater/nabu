@@ -34,32 +34,32 @@ func (s *GleanerRootSuite) TestHarvestToS3() {
 	startMocks()
 	args := fmt.Sprintf("--log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 	err := NewGleanerRunnerFromString(args).Run(context.Background())
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 	objs, err := s.minioContainer.ClientWrapper.ObjectList(context.Background(), "summoned/")
-	require.NoError(s.T(), err)
-	require.Len(s.T(), objs, 3)
+	s.Require().NoError(err)
+	s.Require().Len(objs, 3)
 
 	orgsObjs, err := s.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"orgs/"})
-	require.NoError(s.T(), err)
-	require.Equal(s.T(), orgsObjs, 1)
+	s.Require().NoError(err)
+	require.Equal(s.T(), 1, orgsObjs)
 }
 
 func (s *GleanerRootSuite) TestHarvestWithSourceSpecified() {
 	startMocks()
 	args := fmt.Sprintf("--log-level DEBUG --sitemap-index testdata/sitemap_index.xml --source iow_wqp_stations__5 --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 	err := NewGleanerRunnerFromString(args).Run(context.Background())
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 
 	orgsObjs, err := s.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"orgs/"})
-	require.NoError(s.T(), err)
-	require.Equal(s.T(), orgsObjs, 1)
+	s.Require().NoError(err)
+	require.Equal(s.T(), 1, orgsObjs)
 }
 
 func (s *GleanerRootSuite) TestHarvestToDisk() {
 	startMocks()
 	args := "--log-level DEBUG --to-disk --sitemap-index testdata/sitemap_index.xml"
 	err := NewGleanerRunnerFromString(args).Run(context.Background())
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 }
 
 // Wrapper struct to store a handle to the container for all
@@ -71,7 +71,7 @@ type GleanerRootSuite struct {
 // Setup common dependencies before starting the test suite
 func (suite *GleanerRootSuite) SetupSuite() {
 	container, err := s3.NewDefaultMinioContainer()
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 	suite.minioContainer = container
 
 }
@@ -80,7 +80,7 @@ func (s *GleanerRootSuite) TearDownSuite() {
 	defer gock.Off()
 	c := *s.minioContainer.Container
 	err := c.Terminate(context.Background())
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 }
 
 // Run the entire test suite

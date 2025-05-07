@@ -43,14 +43,14 @@ type RootCliSuite struct {
 
 func (suite *RootCliSuite) SetupSuite() {
 	minioContainer, err := s3.NewDefaultMinioContainer()
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 	suite.minioContainer = minioContainer
 }
 
 func (s *RootCliSuite) TearDownSuite() {
 	c := *s.minioContainer.Container
 	err := c.Terminate(context.Background())
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 }
 
 func (suite *RootCliSuite) TestRootCmdWithTracing() {
