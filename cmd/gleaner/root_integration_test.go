@@ -32,7 +32,7 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 	gock.EnableNetworking()
 	defer gock.DisableNetworking()
 
-	opentelemetry.InitTracer("gleaner_integration_test", opentelemetry.DefaultCollectorEndpoint)
+	opentelemetry.InitTracer("gleaner_integration_test", opentelemetry.DefaultTracingEndpoint)
 	defer opentelemetry.Shutdown()
 
 	args := fmt.Sprintf("--log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)

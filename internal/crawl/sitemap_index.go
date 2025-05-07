@@ -7,9 +7,12 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"nabu/internal/crawl/storage"
 	"nabu/internal/opentelemetry"
+	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -59,23 +62,38 @@ func NewSitemapIndexHarvester(sitemapRef string) (Index, error) {
 
 	serializedSitemapIndex := Index{}
 
+	var sitemapData io.Reader
+
 	if isUrl(sitemapRef) {
-		return serializedSitemapIndex, sitemap.ParseIndexFromSite(sitemapRef, func(ie sitemap.IndexEntry) error {
-			part := parts{}
-			part.Loc = strings.TrimSpace(ie.GetLocation())
-			part.LastMod = ie.GetLastModified().Format(time.RFC3339)
-			serializedSitemapIndex.Sitemaps = append(serializedSitemapIndex.Sitemaps, part)
-			return nil
-		})
+		// For some reason without this the server sometimes
+		// returns EOF
+		client := http.Client{
+			Timeout: 10 * time.Second,
+		}
+
+		res, err := client.Get(sitemapRef)
+		if err != nil {
+			return serializedSitemapIndex, err
+		}
+		defer res.Body.Close()
+		sitemapData = res.Body
 	} else {
-		return serializedSitemapIndex, sitemap.ParseIndexFromFile(sitemapRef, func(ie sitemap.IndexEntry) error {
-			part := parts{}
-			part.Loc = strings.TrimSpace(ie.GetLocation())
-			part.LastMod = ie.GetLastModified().Format(time.RFC3339)
-			serializedSitemapIndex.Sitemaps = append(serializedSitemapIndex.Sitemaps, part)
-			return nil
-		})
+		sitemapFile, err := os.Open(sitemapRef)
+		if err != nil {
+			return serializedSitemapIndex, err
+		}
+		defer sitemapFile.Close()
+		sitemapData = sitemapFile
 	}
+
+	err := sitemap.ParseIndex(sitemapData, func(ie sitemap.IndexEntry) error {
+		part := parts{}
+		part.Loc = strings.TrimSpace(ie.GetLocation())
+		part.LastMod = ie.GetLastModified().Format(time.RFC3339)
+		serializedSitemapIndex.Sitemaps = append(serializedSitemapIndex.Sitemaps, part)
+		return nil
+	})
+	return serializedSitemapIndex, err
 
 }
 

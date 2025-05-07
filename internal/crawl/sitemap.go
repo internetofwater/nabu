@@ -39,8 +39,7 @@ func (s Sitemap) SetStorageDestination(storageDestination storage.CrawlStorage) 
 
 // Harvest all the URLs in the sitemap
 func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername string) error {
-
-	span, _ := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", outputFoldername))
+	span, ctx := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", outputFoldername))
 	defer span.End()
 
 	var group errgroup.Group
@@ -66,9 +65,14 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 	}
 
 	client := common.NewRetryableHTTPClient()
+
 	for _, url := range s.URL {
+		// Capture the URL for use in the goroutine.
 		url := url
 		group.Go(func() error {
+			// Create a new span for each URL and propagate the updated context
+			span, _ := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
+			defer span.End()
 
 			req, err := http.NewRequest("GET", url.Loc, nil)
 			if err != nil {
@@ -86,6 +90,7 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 
 			if resp.StatusCode >= 400 {
 				log.Errorf("failed to fetch %s, got status %s", url.Loc, resp.Status)
+				span.AddEvent(fmt.Sprintf("failed to fetch %s, got status %s", url.Loc, resp.Status))
 				return nil
 			}
 
@@ -103,7 +108,6 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 			}
 
 			if !exists {
-
 				// Store from the buffered copy
 				if err = s.storageDestination.Store(summonedPath, respBodyCopy); err != nil {
 					return err
@@ -116,10 +120,12 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 			if robotstxt.CrawlDelay > 0 {
 				time.Sleep(robotstxt.CrawlDelay)
 			}
+
 			return nil
 		})
 	}
-	return group.Wait()
+	err = group.Wait()
+	return err
 }
 
 // Represents a URL tag and its attributes within a sitemap
