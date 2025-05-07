@@ -95,6 +95,15 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 				return nil
 			}
 
+			// check the mimetype
+			mime := resp.Header.Get("Content-Type")
+			if !strings.Contains(mime, "application/ld+json") {
+				errormsg := fmt.Errorf("got wrong file type %s for %s", mime, url.Loc)
+				log.Errorf(errormsg.Error())
+				span.SetStatus(codes.Error, errormsg.Error())
+				return errormsg
+			}
+
 			// To generate a hash we need to copy the response body
 			respBodyCopy, itemHash, err := copyReaderAndGenerateHashFilename(resp.Body)
 			if err != nil {

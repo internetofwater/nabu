@@ -62,6 +62,23 @@ func (s *GleanerRootSuite) TestHarvestToDisk() {
 	s.Require().NoError(err)
 }
 
+func startMocksForBadFileType() {
+	gock.New("https://geoconnex.us/sitemap.xml").
+		Reply(200).
+		File("testdata/sitemap_index_selfie.xml")
+
+	gock.New("https://geoconnex.us/sitemap/SELFIE/SELFIE_ids__0.xml").
+		Reply(200).
+		File("testdata/SELFIE_ids__0.xml")
+}
+
+func (s *GleanerRootSuite) TestBadFileType() {
+	startMocksForBadFileType()
+	args := "--sitemap-index https://geoconnex.us/sitemap.xml --source SELFIE_SELFIE_ids__0"
+	err := NewGleanerRunnerFromString(args).Run(context.Background())
+	s.Require().Error(err)
+}
+
 // Wrapper struct to store a handle to the container for all
 type GleanerRootSuite struct {
 	suite.Suite

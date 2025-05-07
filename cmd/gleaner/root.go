@@ -36,6 +36,7 @@ type GleanerArgs struct {
 	OtelEndpoint       string `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
 	ConcurrentSitemaps int    `arg:"--concurrent-sitemaps" default:"10"`
 	SitemapWorkers     int    `arg:"--sitemap-workers" default:"10"`
+	HeadlessChromeUrl  string `arg:"--headless-chrome-url" default:"0.0.0.0:9222" help:"port for interacting with the headless chrome devtools"`
 }
 
 type GleanerRunner struct {
@@ -110,6 +111,7 @@ func (g GleanerRunner) Run(ctx context.Context) error {
 		WithStorageDestination(storageDestination).
 		WithConcurrencyConfig(g.args.ConcurrentSitemaps, g.args.SitemapWorkers).
 		WithSpecifiedSourceFilter(g.args.Source).
+		WithHeadlessChromeUrl(g.args.HeadlessChromeUrl).
 		HarvestSitemaps(ctx)
 }
 

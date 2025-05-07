@@ -30,6 +30,7 @@ type Index struct {
 	concurrentSitemaps      int                  `xml:"-"`
 	specificSourceToHarvest string               `xml:"-"`
 	sitemapWorkers          int                  `xml:"-"`
+	headlessChromeUrl       string               `xml:"-"`
 }
 
 // parts is a structure of <sitemap> in <sitemapindex>
@@ -197,33 +198,4 @@ func (i Index) HarvestSitemap(ctx context.Context, sitemapIdentifier string) err
 			Harvest(ctx, i.sitemapWorkers, id)
 	}
 	return fmt.Errorf("sitemap %s not found in sitemap", sitemapIdentifier)
-}
-
-func (i Index) WithStorageDestination(storageDestination storage.CrawlStorage) Index {
-	i.storageDestination = storageDestination
-	return i
-}
-
-func (i Index) WithConcurrencyConfig(concurrentSitemaps int, sitemapWorkers int) Index {
-	// Make sure concurrency is at least 1
-	// otherwise go will block indefinitely
-	if concurrentSitemaps < 1 {
-		concurrentSitemaps = 1
-	}
-	if sitemapWorkers < 1 {
-		sitemapWorkers = 1
-	}
-
-	i.concurrentSitemaps = concurrentSitemaps
-	i.sitemapWorkers = sitemapWorkers
-	return i
-}
-
-func (i Index) WithSpecifiedSourceFilter(sourceToHarvest string) Index {
-	// Set an id to filter by
-	// If a sitemap with this id is found, it will be harvested
-	// otherwise it will be skipped. If the id is an empty string
-	// it will harvest all sitemaps
-	i.specificSourceToHarvest = sourceToHarvest
-	return i
 }
