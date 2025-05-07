@@ -19,7 +19,7 @@ type GraphDbClientSuite struct {
 // Setup common dependencies before starting the test suite
 func (suite *GraphDbClientSuite) SetupSuite() {
 	graphdb, err := NewGraphDBContainer("iow", "./testdata/iow-config.ttl")
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 	suite.graphdb = graphdb
 }
 
@@ -27,7 +27,7 @@ func (suite *GraphDbClientSuite) TestGraphExists() {
 	t := suite.T()
 	isGraph, err := suite.graphdb.Client.GraphExists("http://example.org/DUMMY_GRAPH")
 
-	require.Equal(t, false, isGraph)
+	require.False(t, isGraph)
 	require.NoError(t, err)
 
 	// try a malformed query, make sure it errors
@@ -99,7 +99,7 @@ func (suite *GraphDbClientSuite) TestDropGraphs() {
 
 func (suite *GraphDbClientSuite) TestClearAll() {
 	err := suite.graphdb.Client.ClearAllGraphs()
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 }
 
 // Run the entire test suite

@@ -99,7 +99,7 @@ func (m *MinioClientWrapper) Remove(object string) error {
 // This uses goroutines and thus does not guarantee order
 func (m *MinioClientWrapper) ObjectList(ctx context.Context, prefix string) ([]minio.ObjectInfo, error) {
 
-	span, ctx := opentelemetry.SubSpanFromCtx(ctx)
+	ctx, span := opentelemetry.SubSpanFromCtx(ctx)
 	defer span.End()
 
 	var mu sync.Mutex

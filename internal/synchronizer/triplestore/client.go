@@ -323,7 +323,7 @@ func (graphClient *GraphDbClient) GraphExists(graphURN string) (bool, error) {
 func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(ctx context.Context, prefix string) ([]string, error) {
 	log.Debug("Getting list of named graphs")
 
-	span, _ := opentelemetry.SubSpanFromCtx(ctx)
+	_, span := opentelemetry.SubSpanFromCtx(ctx)
 	defer span.End()
 
 	graphName, err := common.MakeURN(prefix)

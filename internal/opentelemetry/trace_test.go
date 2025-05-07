@@ -25,7 +25,7 @@ func TestCreateSpan(t *testing.T) {
 	require.NotNil(t, span)
 	require.True(t, span.SpanContext().IsValid())
 
-	subspan, _ := SubSpanFromCtx(ctx)
+	_, subspan := SubSpanFromCtx(ctx)
 	defer subspan.End()
 	client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 	req, err := http.NewRequest("GET", "http://example.com", nil)

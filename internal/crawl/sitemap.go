@@ -16,6 +16,7 @@ import (
 
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/codes"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -39,7 +40,7 @@ func (s Sitemap) SetStorageDestination(storageDestination storage.CrawlStorage) 
 
 // Harvest all the URLs in the sitemap
 func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername string) error {
-	span, ctx := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", outputFoldername))
+	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", outputFoldername))
 	defer span.End()
 
 	var group errgroup.Group
@@ -71,7 +72,7 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 		url := url
 		group.Go(func() error {
 			// Create a new span for each URL and propagate the updated context
-			span, _ := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
+			_, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
 			defer span.End()
 
 			req, err := http.NewRequest("GET", url.Loc, nil)
@@ -90,8 +91,18 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 
 			if resp.StatusCode >= 400 {
 				log.Errorf("failed to fetch %s, got status %s", url.Loc, resp.Status)
-				span.AddEvent(fmt.Sprintf("failed to fetch %s, got status %s", url.Loc, resp.Status))
+				// status makes jaeger mark as failed with red, whereas SetEvent just marks it with a message
+				span.SetStatus(codes.Error, fmt.Sprintf("failed to fetch %s, got status %s", url.Loc, resp.Status))
 				return nil
+			}
+
+			// check the mimetype
+			mime := resp.Header.Get("Content-Type")
+			if !strings.Contains(mime, "application/ld+json") {
+				errormsg := fmt.Errorf("got wrong file type %s for %s", mime, url.Loc)
+				log.Errorf(errormsg.Error())
+				span.SetStatus(codes.Error, errormsg.Error())
+				return errormsg
 			}
 
 			// To generate a hash we need to copy the response body
@@ -118,6 +129,7 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 			}
 
 			if robotstxt.CrawlDelay > 0 {
+				log.Debug("sleeping for", robotstxt.CrawlDelay)
 				time.Sleep(robotstxt.CrawlDelay)
 			}
 

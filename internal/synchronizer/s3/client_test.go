@@ -34,19 +34,19 @@ func (suite *S3ClientSuite) SetupSuite() {
 		ContainerName: "objects_test_minio",
 	}
 	minioContainer, err := NewMinioContainerFromConfig(config)
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 	suite.minioContainer = minioContainer
 
 	// create the bucket
 	err = suite.minioContainer.ClientWrapper.MakeDefaultBucket()
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 }
 
 func (s *S3ClientSuite) TearDownSuite() {
 	c := *s.minioContainer.Container
 	err := c.Terminate(context.Background())
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 }
 
 // Make sure the number of matched objects is correct
@@ -114,7 +114,7 @@ func (suite *S3ClientSuite) TestRemove() {
 	// Validate the number of matched objects
 	// before inserting so we dont need to wipe the bucket
 	beforeInsert, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	// Insert test data into MinIO
 	insertTestData := func(count int) {
@@ -129,7 +129,7 @@ func (suite *S3ClientSuite) TestRemove() {
 				int64(len(objectData)),
 				minio.PutObjectOptions{},
 			)
-			require.NoError(suite.T(), err)
+			suite.Require().NoError(err)
 		}
 	}
 
@@ -139,17 +139,17 @@ func (suite *S3ClientSuite) TestRemove() {
 
 	// Validate the number of matched objects
 	matchedObjectsAfterInsert, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
-	require.NoError(suite.T(), err)
-	require.Equal(suite.T(), newObjects+beforeInsert, matchedObjectsAfterInsert)
+	suite.Require().NoError(err)
+	suite.Require().Equal(newObjects+beforeInsert, matchedObjectsAfterInsert)
 
 	// Remove an object
 	err = suite.minioContainer.ClientWrapper.Remove("removable-object-0")
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	// Validate the number of matched objects
 	matchedObjectsAfterInsert, err = suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
-	require.NoError(suite.T(), err)
-	require.Equal(suite.T(), beforeInsert+newObjects-1, matchedObjectsAfterInsert)
+	suite.Require().NoError(err)
+	suite.Require().Equal(beforeInsert+newObjects-1, matchedObjectsAfterInsert)
 }
 
 // Make sure that we can retrieve object info from a given bucket
@@ -158,7 +158,7 @@ func (suite *S3ClientSuite) TestGetObjects() {
 	// Validate the number of matched objects
 	// before inserting so we dont need to wipe the bucket
 	objsBeforeInsert, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	// Insert test data into MinIO
 	insertTestData := func(count int) {
@@ -174,7 +174,7 @@ func (suite *S3ClientSuite) TestGetObjects() {
 				int64(len(objectData)),
 				minio.PutObjectOptions{},
 			)
-			require.NoError(suite.T(), err)
+			suite.Require().NoError(err)
 		}
 	}
 
@@ -184,20 +184,20 @@ func (suite *S3ClientSuite) TestGetObjects() {
 
 	// get the objects
 	objects, err := suite.minioContainer.ClientWrapper.ObjectList(context.Background(), "")
-	require.NoError(suite.T(), err)
-	require.Equal(suite.T(), newObjects+objsBeforeInsert, len(objects))
+	suite.Require().NoError(err)
+	require.Len(suite.T(), objects, newObjects+objsBeforeInsert)
 
 	// get the first key and use that to get the data from within that object
 	firstKey := objects[0].Key
 	object, err := suite.minioContainer.ClientWrapper.Client.GetObject(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, firstKey, minio.GetObjectOptions{})
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 	// check the data
 	data, err := io.ReadAll(object)
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	keyNumber := strings.Split(firstKey, "-")[2]
 	matchingData := fmt.Sprintf("test data %s", keyNumber)
-	require.Equal(suite.T(), matchingData, string(data))
+	suite.Require().Equal(matchingData, string(data))
 }
 
 // Make sure that we can copy data between the same bucket
@@ -205,7 +205,7 @@ func (suite *S3ClientSuite) TestCopyBetweenBuckets() {
 
 	// check the number of items in the default bucket
 	_, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	testObj := "test-object-for-copy-test"
 
@@ -218,12 +218,12 @@ func (suite *S3ClientSuite) TestCopyBetweenBuckets() {
 		int64(len(testObj)),
 		minio.PutObjectOptions{},
 	)
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	newBucket := "new-bucket"
 	// make a new bucket
 	err = suite.minioContainer.ClientWrapper.Client.MakeBucket(context.Background(), newBucket, minio.MakeBucketOptions{})
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	// copy the object to the new bucket
 	err = suite.minioContainer.ClientWrapper.Copy(
@@ -232,15 +232,15 @@ func (suite *S3ClientSuite) TestCopyBetweenBuckets() {
 		suite.minioContainer.ClientWrapper.DefaultBucket,
 		testObj+"2",
 	)
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	// get the data in testObj2 and make sure it is the same as testObj
 	object, err := suite.minioContainer.ClientWrapper.Client.GetObject(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, testObj+"2", minio.GetObjectOptions{})
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 	// check the data
 	data, err := io.ReadAll(object)
-	require.NoError(suite.T(), err)
-	require.Equal(suite.T(), testObj, string(data))
+	suite.Require().NoError(err)
+	suite.Require().Equal(testObj, string(data))
 }
 
 func (suite *S3ClientSuite) TestGetObjectAsBytes() {
@@ -255,26 +255,26 @@ func (suite *S3ClientSuite) TestGetObjectAsBytes() {
 		int64(len(dummyData)),
 		minio.PutObjectOptions{},
 	)
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	data, err := suite.minioContainer.ClientWrapper.GetObjectAsBytes("test-object-for-get-test")
-	require.NoError(suite.T(), err)
-	require.Equal(suite.T(), dummyData, string(data))
+	suite.Require().NoError(err)
+	suite.Require().Equal(dummyData, string(data))
 
 }
 
 func (suite *S3ClientSuite) TestUploadFile() {
 	testfile := filepath.Join(projectpath.Root, "LICENSE")
 	err := suite.minioContainer.ClientWrapper.UploadFile("testFiles/LICENSE", testfile)
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	// get the data in testObj2 and make sure it is the same as testObj
 	object, err := suite.minioContainer.ClientWrapper.Client.GetObject(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, "testFiles/LICENSE", minio.GetObjectOptions{})
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 	// check the data
 	data, err := io.ReadAll(object)
-	require.NoError(suite.T(), err)
-	require.Contains(suite.T(), string(data), "Copyright")
+	suite.Require().NoError(err)
+	suite.Require().Contains(string(data), "Copyright")
 
 }
 
@@ -301,26 +301,26 @@ func (suite *S3ClientSuite) TestGetObjectAsNamedGraph() {
 func (suite *S3ClientSuite) TestCRUD() {
 	testBytes := bytes.NewReader([]byte("test data"))
 	err := suite.minioContainer.ClientWrapper.Store("test/testCRUD", testBytes)
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	exists, err := suite.minioContainer.ClientWrapper.Exists("test/testCRUD")
-	require.NoError(suite.T(), err)
-	require.True(suite.T(), exists)
+	suite.Require().NoError(err)
+	suite.Require().True(exists)
 
 	data, err := suite.minioContainer.ClientWrapper.Get("test/testCRUD")
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 	defer data.Close()
 
 	bytes, err := io.ReadAll(data)
-	require.NoError(suite.T(), err)
-	require.Equal(suite.T(), "test data", string(bytes))
+	suite.Require().NoError(err)
+	suite.Require().Equal("test data", string(bytes))
 
 	err = suite.minioContainer.ClientWrapper.Remove("test/testCRUD")
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	exists, err = suite.minioContainer.ClientWrapper.Exists("test/testCRUD")
-	require.NoError(suite.T(), err)
-	require.False(suite.T(), exists)
+	suite.Require().NoError(err)
+	suite.Require().False(exists)
 
 }
 

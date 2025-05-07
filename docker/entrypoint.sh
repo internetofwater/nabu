@@ -9,5 +9,6 @@ if [ -z "$BINARY_NAME" ]; then
   exit 1
 fi
 
+#  
 exec "/app/$BINARY_NAME" "$@"
 

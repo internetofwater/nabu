@@ -36,6 +36,7 @@ type GleanerArgs struct {
 	OtelEndpoint       string `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
 	ConcurrentSitemaps int    `arg:"--concurrent-sitemaps" default:"10"`
 	SitemapWorkers     int    `arg:"--sitemap-workers" default:"10"`
+	HeadlessChromeUrl  string `arg:"--headless-chrome-url" default:"0.0.0.0:9222" help:"port for interacting with the headless chrome devtools"`
 }
 
 type GleanerRunner struct {
@@ -67,9 +68,9 @@ func (g GleanerRunner) Run(ctx context.Context) error {
 		log.Infof("Starting opentelemetry traces and exporting to: %s", g.args.OtelEndpoint)
 		opentelemetry.InitTracer("gleaner", g.args.OtelEndpoint)
 		var span trace.Span
-		span, ctx = opentelemetry.SubSpanFromCtx(ctx)
-		defer span.End()
+		ctx, span = opentelemetry.SubSpanFromCtx(ctx)
 		defer opentelemetry.Shutdown()
+		defer span.End()
 	}
 
 	if g.args.SitemapIndex == "" {
@@ -110,6 +111,7 @@ func (g GleanerRunner) Run(ctx context.Context) error {
 		WithStorageDestination(storageDestination).
 		WithConcurrencyConfig(g.args.ConcurrentSitemaps, g.args.SitemapWorkers).
 		WithSpecifiedSourceFilter(g.args.Source).
+		WithHeadlessChromeUrl(g.args.HeadlessChromeUrl).
 		HarvestSitemaps(ctx)
 }
 

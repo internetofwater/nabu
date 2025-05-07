@@ -40,38 +40,35 @@ func NewSpanAndContext() (trace.Span, context.Context) {
 	return span, ctx
 }
 
-func NewSpanAndContextWithName(name string) (trace.Span, context.Context) {
+func NewSpanAndContextWithName(name string) (context.Context, trace.Span) {
 	if Tracer == nil {
 		log.Fatal("Tracer is nil so cannot create span")
 	}
 
-	ctx, span := Tracer.Start(context.Background(), name)
-	return span, ctx
+	return Tracer.Start(context.Background(), name)
 }
 
-func SubSpanFromCtx(ctx context.Context) (trace.Span, context.Context) {
+func SubSpanFromCtx(ctx context.Context) (context.Context, trace.Span) {
 	// If tracer is nil and we aren't using open telemetry, return a dummy
 	// span that fulfills the interface but doesn't do anything
 	if Tracer == nil {
-		return trace.SpanFromContext(context.Background()), ctx
+		return ctx, trace.SpanFromContext(context.Background())
 	}
 
 	pc, _, _, _ := runtime.Caller(1)
 
 	fn := runtime.FuncForPC(pc)
 	name := fn.Name()
-	newCtx, span := Tracer.Start(ctx, name)
-	return span, newCtx
+	return Tracer.Start(ctx, name)
 }
 
-func SubSpanFromCtxWithName(ctx context.Context, name string) (trace.Span, context.Context) {
+func SubSpanFromCtxWithName(ctx context.Context, name string) (context.Context, trace.Span) {
 	// If tracer is nil and we aren't using open telemetry, return a dummy
 	// span that fulfills the interface but doesn't do anything
 	if Tracer == nil {
-		return trace.SpanFromContext(context.Background()), ctx
+		return ctx, trace.SpanFromContext(context.Background())
 	}
-	ctx, span := Tracer.Start(ctx, name)
-	return span, ctx
+	return Tracer.Start(ctx, name)
 }
 
 // CustomSpanProcessor filters out Testcontainers spans
@@ -148,4 +145,3 @@ func InitTracer(serviceName string, endpoint string) {
 
 	log.Infof("OpenTelemetry Tracer initialized, sending traces to %s", endpoint)
 }
-

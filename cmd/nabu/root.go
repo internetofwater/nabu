@@ -167,7 +167,7 @@ func (n NabuRunner) Run(ctx context.Context) error {
 		log.Infof("Starting opentelemetry traces and exporting to: %s", n.args.OtelEndpoint)
 		opentelemetry.InitTracer("nabu", n.args.OtelEndpoint)
 		var span otelTrace.Span
-		span, ctx = opentelemetry.SubSpanFromCtx(ctx)
+		ctx, span = opentelemetry.SubSpanFromCtx(ctx)
 		defer span.End()
 		defer opentelemetry.Shutdown()
 	}

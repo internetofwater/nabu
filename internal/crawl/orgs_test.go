@@ -13,7 +13,7 @@ func TestOrgsJsonld(t *testing.T) {
 	template, err := newOrgsJsonLD("https://example.com", "example")
 	require.NoError(t, err)
 
-	require.Equal(t, `{
+	require.JSONEq(t, `{
 		"@context": {
 			"@vocab": "https://schema.org/"
 		},

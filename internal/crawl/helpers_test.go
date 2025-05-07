@@ -104,6 +104,6 @@ func FuzzCopyReaderAndReturnHash(f *testing.F) {
 
 		// rehash to verify correctness
 		expectedHash := fmt.Sprintf("%x.jsonld", md5.Sum(input))
-		require.Equal(t, hash, expectedHash, "hash should match expected MD5")
+		require.Equal(t, expectedHash, hash, "hash should match expected MD5")
 	})
 }

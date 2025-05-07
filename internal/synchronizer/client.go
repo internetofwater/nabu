@@ -94,7 +94,7 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(ctx context.Contex
 		return fmt.Errorf("got invalid upsert batch size of 0")
 	}
 
-	span, ctx := opentelemetry.SubSpanFromCtx(ctx)
+	ctx, span := opentelemetry.SubSpanFromCtx(ctx)
 	defer span.End()
 
 	var s3GraphsNotInTriplestore []string

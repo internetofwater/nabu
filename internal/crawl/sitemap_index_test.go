@@ -27,7 +27,7 @@ func TestSitemapPartId(t *testing.T) {
 
 	badp := parts{Loc: ""}
 	id, err = badp.associatedID()
-	require.Equal(t, "", id)
+	require.Empty(t, id)
 	require.Error(t, err)
 }
 
@@ -58,7 +58,7 @@ func TestParseSitemapIndex(t *testing.T) {
 		}
 	}
 	// the array of empty sitemap names should be empty, signifying there are no empty sitemaps
-	assert.Len(t, emptyMaps, 0)
+	assert.Empty(t, emptyMaps)
 }
 
 func TestHarvestNonExistantSource(t *testing.T) {
@@ -101,13 +101,13 @@ func TestHarvestSitemapIndex(t *testing.T) {
 	require.NoError(t, err)
 
 	errs := sitemap.SetStorageDestination(tmpStore).Harvest(context.Background(), 10, "test")
-	require.Empty(t, errs)
+	require.NoError(t, errs)
 
 	errs = sitemap.SetStorageDestination(container.ClientWrapper).Harvest(context.Background(), 1, "test")
-	require.Empty(t, errs)
+	require.NoError(t, errs)
 	numObjs, err := container.ClientWrapper.NumberOfMatchingObjects([]string{""})
 	require.NoError(t, err)
-	require.Equal(t, numObjs, 3)
+	require.Equal(t, 3, numObjs)
 
 	require.True(t, gock.IsDone())
 }

@@ -5,12 +5,11 @@ package synchronizer
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"nabu/internal/common"
+	"nabu/internal/crawl"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
-	testhelpers "nabu/internal/synchronizer_test"
 	"net/http"
 	"strings"
 	"testing"
@@ -39,6 +38,19 @@ func countSourcesInSitemap(url string) (int, error) {
 	// thus the number of /loc tags is the number of sources
 	count := strings.Count(string(body), "/loc")
 	return count, nil
+}
+
+// Run gleaner and output the data to minio so it can be synchronized
+func NewGleanerRun(minioClient *s3.MinioClientWrapper, sitemap, source string) error {
+	index, err := crawl.NewSitemapIndexHarvester(sitemap)
+	if err != nil {
+		return err
+	}
+	return index.
+		WithStorageDestination(minioClient).
+		WithConcurrencyConfig(10, 10).
+		WithSpecifiedSourceFilter(source).
+		HarvestSitemaps(context.Background())
 }
 
 type SynchronizerClientSuite struct {
@@ -94,24 +106,21 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 
 func (s *SynchronizerClientSuite) TearDownSuite() {
 	err := testcontainers.TerminateContainer(*s.minioContainer.Container)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 	err = testcontainers.TerminateContainer(*s.graphdbContainer.Container)
-	require.NoError(s.T(), err)
+	s.Require().NoError(err)
 }
 
 func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 	t := suite.T()
 
 	const source = "cdss_co_gages__0"
-	gleanerContainer, err := testhelpers.NewGleanerContainer(
-		fmt.Sprintf("--sitemap-index https://pids.geoconnex.dev/sitemap.xml --source %s --address synchronizerTestMinio", source),
-		suite.network.Name)
-
+	err := NewGleanerRun(suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", source)
 	require.NoError(t, err)
-	require.Zero(t, gleanerContainer.ExitCode, gleanerContainer.Logs)
+
 	orgsObjs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{"orgs/"})
 	require.NoError(t, err)
-	require.Equal(t, orgsObjs, 1)
+	require.Equal(t, 1, orgsObjs)
 	sourcesInSitemap, err := countSourcesInSitemap("https://pids.geoconnex.dev/sitemap/cdss/co_gages__0.xml")
 	require.NoError(t, err)
 	summonedObjs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{"summoned/" + source + "/"})
@@ -122,7 +131,6 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "orgs/")
 	require.NoError(t, err)
 	require.Len(t, graphs, 1)
-
 	err = suite.client.SyncTriplestoreGraphs(context.Background(), "summoned/", false)
 	require.NoError(t, err)
 	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "summoned/"+source+"/")
@@ -134,11 +142,8 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 func (suite *SynchronizerClientSuite) TestMoveNqToTriplestore() {
 	t := suite.T()
 	const source = "cdss_co_gages__0"
-	gleanerContainer, err := testhelpers.NewGleanerContainer(
-		fmt.Sprintf("--sitemap-index https://pids.geoconnex.dev/sitemap.xml --source %s --address synchronizerTestMinio", source),
-		suite.network.Name)
+	err := NewGleanerRun(suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", source)
 	require.NoError(t, err)
-	require.Zero(t, gleanerContainer.ExitCode, gleanerContainer.Logs)
 	err = suite.client.UploadNqFileToTriplestore("orgs/" + source + ".nq")
 	require.NoError(t, err)
 }
@@ -146,7 +151,7 @@ func (suite *SynchronizerClientSuite) TestMoveNqToTriplestore() {
 func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	t := suite.T()
 	err := suite.graphdbContainer.Client.ClearAllGraphs()
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 	// this is the urn version of orgs/
 	// we insert this to make sure that it gets removed
 	oldGraph := "urn:iow:orgs:dummy"
@@ -165,12 +170,8 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	require.True(t, exists)
 
 	const source = "cdss_co_gages__0"
-	gleanerContainer, err := testhelpers.NewGleanerContainer(
-		fmt.Sprintf("--sitemap-index https://pids.geoconnex.dev/sitemap.xml --source %s --address synchronizerTestMinio", source),
-		suite.network.Name)
-
+	err = NewGleanerRun(suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", source)
 	require.NoError(t, err)
-	require.Zero(t, gleanerContainer.ExitCode, gleanerContainer.Logs)
 	sourcesInCdss0Sitemap, err := countSourcesInSitemap("https://pids.geoconnex.dev/sitemap/cdss/co_gages__0.xml")
 	require.NoError(t, err)
 
@@ -184,36 +185,32 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "orgs/")
 	require.NoError(t, err)
 	// 1 graph should be associated with the orgs prefix; old one should be dropped
-	require.Equal(t, len(graphs), 1)
+	require.Equal(t, 1, len(graphs))
 
 	// make sure that there is prov data for every source in the sitemap
 	err = suite.client.SyncTriplestoreGraphs(context.Background(), "prov/", true)
 	require.NoError(t, err)
 	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "prov/")
 	require.NoError(t, err)
-	require.Equal(t, len(graphs), 1)
+	require.Equal(t, 1, len(graphs))
 
 	// make sure that after a prov sync that the org graph is still there
 	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "orgs/")
 	require.NoError(t, err)
-	require.Equal(t, len(graphs), 1)
+	require.Equal(t, 1, len(graphs))
 
 	// make sure that summoned data matches the amount of sources in the sitemap
 	err = suite.client.SyncTriplestoreGraphs(context.Background(), "summoned/", true)
 	require.NoError(t, err)
 	graphs, err = suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "summoned/")
 	require.NoError(t, err)
-	require.Equal(t, sourcesInCdss0Sitemap, len(graphs))
+	require.Len(t, graphs, sourcesInCdss0Sitemap)
 
 	// Harvest another source to make sure that the sync works with a new source
 	// syncing from the same prefix with more data this time
 	const gages = "ref_gages_gages__0"
-	gleanerContainer, err = testhelpers.NewGleanerContainer(
-		fmt.Sprintf("--sitemap-index https://pids.geoconnex.dev/sitemap.xml --source %s --address synchronizerTestMinio", gages),
-		suite.network.Name)
-
+	err = NewGleanerRun(suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", gages)
 	require.NoError(t, err)
-	require.Zero(t, gleanerContainer.ExitCode, gleanerContainer.Logs)
 	sourcesInRefGagesSitemap, err := countSourcesInSitemap("https://pids.geoconnex.dev/sitemap/ref/gages/gages__0.xml")
 	require.NoError(t, err)
 
@@ -242,29 +239,25 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 func (suite *SynchronizerClientSuite) TestNqRelease() {
 	t := suite.T()
 	err := suite.graphdbContainer.Client.ClearAllGraphs()
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 
 	const source = "cdss_co_gages__0"
-	gleanerContainer, err := testhelpers.NewGleanerContainer(
-		fmt.Sprintf("--sitemap-index https://pids.geoconnex.dev/sitemap.xml --source %s --address synchronizerTestMinio", source),
-		suite.network.Name)
-
+	err = NewGleanerRun(suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", source)
 	require.NoError(t, err)
-	require.Zero(t, gleanerContainer.ExitCode, gleanerContainer.Logs)
 
 	err = suite.client.GenerateNqRelease("orgs/" + source)
 	require.NoError(t, err)
 	const orgsPath = "graphs/latest/" + source + "_organizations.nq"
 	objs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{orgsPath})
 	require.NoError(t, err)
-	require.Equal(t, objs, 1)
+	require.Equal(t, 1, objs)
 
 	err = suite.client.GenerateNqRelease("summoned/" + source)
 	require.NoError(t, err)
 	const summonedPath = "graphs/latest/" + source + "_release.nq"
 	objs, err = suite.client.S3Client.NumberOfMatchingObjects([]string{summonedPath})
 	require.NoError(t, err)
-	require.Equal(t, objs, 1)
+	require.Equal(t, 1, objs)
 
 	summonedContent, err := suite.client.S3Client.GetObjectAsBytes(summonedPath)
 	require.NoError(t, err)
@@ -277,7 +270,7 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 func (suite *SynchronizerClientSuite) TestGraphDiff() {
 	t := suite.T()
 	err := suite.graphdbContainer.Client.ClearAllGraphs()
-	require.NoError(suite.T(), err)
+	suite.Require().NoError(err)
 	oldGraph := "urn:iow:testgraph:dummy"
 	data := `
 	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .
@@ -304,11 +297,11 @@ func (suite *SynchronizerClientSuite) TestGraphDiff() {
 	require.NoError(t, err)
 	require.Contains(t, diff.S3GraphsNotInTriplestore, "urn:iow:testgraph:hu02.jsonld")
 	require.Contains(t, diff.S3GraphsNotInTriplestore, "urn:iow:testgraph:test.nq")
-	require.Equal(t, diff.TriplestoreGraphsNotInS3, []string{"urn:iow:testgraph:dummy"})
-	require.Equal(t, diff.s3UrnToAssociatedObjName, map[string]string{
+	require.Equal(t, []string{"urn:iow:testgraph:dummy"}, diff.TriplestoreGraphsNotInS3)
+	require.Equal(t, map[string]string{
 		"urn:iow:testgraph:hu02.jsonld": "testgraph/hu02.jsonld",
 		"urn:iow:testgraph:test.nq":     "testgraph/test.nq",
-	})
+	}, diff.s3UrnToAssociatedObjName)
 }
 
 func TestSynchronizerClientSuite(t *testing.T) {

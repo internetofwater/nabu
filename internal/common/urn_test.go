@@ -40,7 +40,7 @@ func TestSkolemize(t *testing.T) {
 		// TODO check do we want an empty nq to error?
 		output, err := Skolemization("")
 		require.NoError(t, err)
-		require.Equal(t, "", output)
+		require.Empty(t, output)
 	})
 
 	t.Run("full nq with no replacements", func(t *testing.T) {
