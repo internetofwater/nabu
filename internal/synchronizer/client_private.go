@@ -36,7 +36,7 @@ and thus are not directly called by any CLI commands
 //
 // This function runs two goroutines to fetch the triplestore and s3 data in parallel
 func (synchronizer *SynchronizerClient) getGraphDiff(ctx context.Context, prefix string) (GraphDiff, error) {
-	span, ctx := opentelemetry.SubSpanFromCtx(ctx)
+	ctx, span := opentelemetry.SubSpanFromCtx(ctx)
 	defer span.End()
 
 	var (
@@ -215,7 +215,7 @@ func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3Gra
 		return fmt.Errorf("got invalid upsert batch size of 0")
 	}
 
-	span, _ := opentelemetry.SubSpanFromCtx(ctx)
+	_, span := opentelemetry.SubSpanFromCtx(ctx)
 	defer span.End()
 
 	var errorGroup errgroup.Group

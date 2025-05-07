@@ -186,7 +186,7 @@ func (i Index) HarvestSitemap(ctx context.Context, sitemapIdentifier string) err
 		if id != sitemapIdentifier {
 			continue
 		}
-		span, ctx := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapIdentifier))
+		ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapIdentifier))
 		defer span.End()
 
 		sitemap, err := NewSitemap(ctx, part.Loc)
