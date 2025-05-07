@@ -91,6 +91,7 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 
 			if resp.StatusCode >= 400 {
 				log.Errorf("failed to fetch %s, got status %s", url.Loc, resp.Status)
+				// status makes jaeger mark as failed with red, whereas SetEvent just marks it with a message
 				span.SetStatus(codes.Error, fmt.Sprintf("failed to fetch %s, got status %s", url.Loc, resp.Status))
 				return nil
 			}
@@ -135,7 +136,8 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 			return nil
 		})
 	}
-	return group.Wait()
+	err = group.Wait()
+	return err
 }
 
 // Represents a URL tag and its attributes within a sitemap
