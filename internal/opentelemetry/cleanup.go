@@ -22,15 +22,4 @@ func Shutdown() {
 			log.Errorf("Error shutting down tracer provider: %v", err)
 		}
 	}
-
-	if MeterProvider != nil {
-		err := MeterProvider.ForceFlush(context.Background())
-		if err != nil {
-			log.Errorf("Error flushing metrics; Is the collector for metrics running?; %v", err)
-		}
-		err = MeterProvider.Shutdown(context.Background())
-		if err != nil {
-			log.Errorf("Error shutting down meter provider: %v", err)
-		}
-	}
 }

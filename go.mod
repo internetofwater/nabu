@@ -33,9 +33,6 @@ require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.43.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.35.0 // indirect
-	go.opentelemetry.io/otel/sdk/metric v1.35.0 // indirect
 )
 
 require (

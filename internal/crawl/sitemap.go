@@ -74,7 +74,6 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 			span, _ := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
 			defer span.End()
 
-			start := time.Now()
 			req, err := http.NewRequest("GET", url.Loc, nil)
 			if err != nil {
 				return err
@@ -117,8 +116,6 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, outputFoldername stri
 			} else {
 				log.Debugf("%s already exists so skipping", url.Loc)
 			}
-
-			opentelemetry.SetHistogramValue(outputFoldername, time.Since(start).Seconds())
 
 			if robotstxt.CrawlDelay > 0 {
 				time.Sleep(robotstxt.CrawlDelay)

@@ -66,7 +66,6 @@ func (g GleanerRunner) Run(ctx context.Context) error {
 		}
 		log.Infof("Starting opentelemetry traces and exporting to: %s", g.args.OtelEndpoint)
 		opentelemetry.InitTracer("gleaner", g.args.OtelEndpoint)
-		opentelemetry.InitMetrics()
 		var span trace.Span
 		span, ctx = opentelemetry.SubSpanFromCtx(ctx)
 		defer span.End()
