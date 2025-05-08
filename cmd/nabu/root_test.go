@@ -21,7 +21,7 @@ import (
 func TestDefaultArgs(t *testing.T) {
 	// Test the default args
 	defaultRunner := NewNabuRunner([]string{"test"})
-	require.Equal(t, "minio", defaultRunner.args.Address)
+	require.Equal(t, "127.0.0.1", defaultRunner.args.Address)
 	require.Equal(t, 9000, defaultRunner.args.Port)
 	require.Equal(t, 1, defaultRunner.args.UpsertBatchSize)
 }

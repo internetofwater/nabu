@@ -101,13 +101,13 @@ func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath stri
 
 	// Create the HTTP request
 	url := fmt.Sprintf("%s/repositories", graphClient.BaseRESTUrl)
-	req, err := custom_http_trace.NewRequestWithContext("POST", url, body)
+	req, err := custom_http_trace.NewRequestWithContext(context.Background(), "POST", url, body)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+	client := http.Client{}
 
 	// Send the request
 	resp, err := client.Do(req)
@@ -135,11 +135,11 @@ func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath stri
 }
 
 // Insert triples into the triplestore by listing them in the standard triple format and specifying an associated graph
-func (graphClient *GraphDbClient) UpsertNamedGraphs(graphs []common.NamedGraph) error {
+func (graphClient *GraphDbClient) UpsertNamedGraphs(ctx context.Context, graphs []common.NamedGraph) error {
 
 	query := createBatchedUpsertQuery(graphs)
 
-	req, err := custom_http_trace.NewRequestWithContext("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer([]byte(query)))
+	req, err := http.NewRequestWithContext(ctx, "POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer([]byte(query)))
 	if err != nil {
 		log.Error(err)
 		return err
@@ -202,7 +202,7 @@ func (graphClient *GraphDbClient) DropGraphs(graphs []string) error {
 
 	params := url.Values{}
 	params.Add("query", query)
-	req, err := custom_http_trace.NewRequestWithContext("POST", fmt.Sprintf("%s?%s", graphClient.BaseSparqlQueryUrl, params.Encode()), bytes.NewBuffer(pab))
+	req, err := custom_http_trace.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s?%s", graphClient.BaseSparqlQueryUrl, params.Encode()), bytes.NewBuffer(pab))
 	if err != nil {
 		log.Error(err)
 		return err
@@ -234,7 +234,7 @@ func (graphClient *GraphDbClient) DropGraphs(graphs []string) error {
 // Remove all triples from all graphs but keep the graphs themselves
 func (graphClient *GraphDbClient) ClearAllGraphs() error {
 	// For graphdb the query for clear needs to be in the body and not a query param in the url for some reason
-	req, err := custom_http_trace.NewRequestWithContext("POST", graphClient.BaseSparqlQueryUrl, bytes.NewBufferString("CLEAR ALL"))
+	req, err := custom_http_trace.NewRequestWithContext(context.Background(), "POST", graphClient.BaseSparqlQueryUrl, bytes.NewBufferString("CLEAR ALL"))
 	if err != nil {
 		log.Error(err)
 		return err
@@ -280,12 +280,12 @@ func (graphClient *GraphDbClient) GraphExists(graphURN string) (bool, error) {
 	pab := []byte("")
 	params := url.Values{}
 	params.Add("query", sparqlQuery)
-	req, err := custom_http_trace.NewRequestWithContext("GET", fmt.Sprintf("%s?%s", graphClient.BaseRepositoryUrl, params.Encode()), bytes.NewBuffer(pab))
+	req, err := custom_http_trace.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s?%s", graphClient.BaseRepositoryUrl, params.Encode()), bytes.NewBuffer(pab))
 	if err != nil {
 		return false, err
 	}
 
-	client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return false, err
@@ -332,7 +332,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(ctx context.
 		return []string{}, err
 	}
 
-	req, err := custom_http_trace.NewRequestWithContext("GET", fmt.Sprintf("%s/%s", graphClient.BaseRepositoryUrl, "contexts"), bytes.NewBuffer([]byte("")))
+	req, err := custom_http_trace.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/%s", graphClient.BaseRepositoryUrl, "contexts"), bytes.NewBuffer([]byte("")))
 	if err != nil {
 		log.Error(err)
 		return []string{}, err
@@ -340,7 +340,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(ctx context.
 
 	req.Header.Set("Accept", "application/sparql-results+json")
 
-	client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+	client := &http.Client{}
 
 	resp, err := client.Do(req)
 	if err != nil {

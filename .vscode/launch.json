@@ -1,12 +1,23 @@
 {
     "configurations": [
         {
-            "name": "Run Nabu CLI",
+            "name": "Debug Nabu sync command",
             "type": "go",
             "request": "launch",
-            "mode": "debug",
-            "program": "main.go",
-            "args": ["test", "--cfg", "google.yml"]
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/nabu",
+            "args": [
+                "--log-level",
+                "DEBUG",
+                "sync",
+                "--prefix",
+                "summoned/",
+                "--endpoint",
+                "http://localhost:7200",
+                "--repository",
+                "iow",
+                "--use-otel"
+            ]
         }
     ]
 }

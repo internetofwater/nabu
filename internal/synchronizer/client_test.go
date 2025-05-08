@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/network"
 )
 
 func countSourcesInSitemap(url string) (int, error) {
@@ -63,23 +62,15 @@ type SynchronizerClientSuite struct {
 	minioContainer s3.MinioContainer
 	// graphdb container that nabu will sync with
 	graphdbContainer triplestore.GraphDBContainer
-	// the docker network over which gleaner sends data to minio
-	network *testcontainers.DockerNetwork
 }
 
 func (suite *SynchronizerClientSuite) SetupSuite() {
 
-	ctx := context.Background()
-	net, err := network.New(ctx)
-	suite.Require().NoError(err)
-	suite.network = net
 	t := suite.T()
 	config := s3.MinioContainerConfig{
 		Username:      "minioadmin",
 		Password:      "minioadmin",
 		DefaultBucket: "iow",
-		ContainerName: "synchronizerTestMinio",
-		Network:       net.Name,
 	}
 
 	minioContainer, err := s3.NewMinioContainerFromConfig(config)
@@ -159,7 +150,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	data := `
 	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .
 	<http://example.org/resource/2> <http://example.org/property/name> "Bob" .`
-	err = suite.graphdbContainer.Client.UpsertNamedGraphs([]common.NamedGraph{
+	err = suite.graphdbContainer.Client.UpsertNamedGraphs(context.Background(), []common.NamedGraph{
 		{
 			GraphURI: oldGraph,
 			Triples:  data,
@@ -276,7 +267,7 @@ func (suite *SynchronizerClientSuite) TestGraphDiff() {
 	data := `
 	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .
 	<http://example.org/resource/2> <http://example.org/property/name> "Bob" .`
-	err = suite.graphdbContainer.Client.UpsertNamedGraphs([]common.NamedGraph{{GraphURI: oldGraph, Triples: data}})
+	err = suite.graphdbContainer.Client.UpsertNamedGraphs(context.Background(), []common.NamedGraph{{GraphURI: oldGraph, Triples: data}})
 	require.NoError(t, err)
 
 	err = suite.client.S3Client.UploadFile("testgraph/hu02.jsonld", "testdata/hu02.jsonld")

@@ -140,7 +140,7 @@ func getHttpTrace(ctx context.Context) *httptrace.ClientTrace {
 
 // NewRequestWithContext returns a new HTTP request and stores the URL and caller for future logging.
 // Context will only be added if profiling is enabled
-func NewRequestWithContext(method, url string, body io.Reader) (*http.Request, error) {
+func NewRequestWithContext(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
 	if body == nil {
 		return nil, fmt.Errorf("body is nil")
 	}
@@ -148,8 +148,6 @@ func NewRequestWithContext(method, url string, body io.Reader) (*http.Request, e
 	if !trace.IsEnabled() {
 		return http.NewRequest(method, url, body)
 	}
-
-	ctx := context.Background()
 
 	ctx = context.WithValue(ctx, urlContextKey, url)
 

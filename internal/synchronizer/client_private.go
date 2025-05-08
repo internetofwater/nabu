@@ -90,6 +90,9 @@ func (synchronizer *SynchronizerClient) getGraphDiff(ctx context.Context, prefix
 
 	if objs, ok := <-objChan; ok {
 		objectNamesInS3 = objs
+		if len(objectNamesInS3) == 1 && objectNamesInS3[0].Size == 0 {
+			log.Warnf("No objects found with prefix %s in bucket %s", prefix, synchronizer.S3Client.DefaultBucket)
+		}
 	}
 	if graphs, ok := <-graphChan; ok {
 		graphsInTriplestore = graphs
@@ -221,45 +224,25 @@ func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3Gra
 	var errorGroup errgroup.Group
 	errorGroup.SetLimit(50)
 
-	var graphsToInsert []common.NamedGraph
-	var insertMutex sync.Mutex
-
 	log.Infof("Upserting %d objects from S3 to triplestore", len(s3GraphNames))
-	for _, graphName := range s3GraphNames {
+	batches := allocateBatches(s3GraphNames, synchronizer.upsertBatchSize)
 
+	for i, batch := range batches {
+		batch := batch // capture range variable
 		errorGroup.Go(func() error {
-			namedGraph, err := synchronizer.S3Client.GetObjectAndConvertToGraph(graphName, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
-			if err != nil {
-				return err
-			}
-			insertMutex.Lock()
-			graphsToInsert = append(graphsToInsert, namedGraph)
-			if len(graphsToInsert) >= synchronizer.upsertBatchSize {
-				// make a copy so that we can pass in the data to upsert
-				// even if we don't have the lock
-				graphInsertCopy := graphsToInsert
-				// flush the batch
-				graphsToInsert = []common.NamedGraph{}
-				// unlock before sending to allow for multiple concurrent upserts
-				insertMutex.Unlock()
-				if err := synchronizer.GraphClient.UpsertNamedGraphs(graphInsertCopy); err != nil {
+			ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("batch_insertion_%d/%d", i, len(batches)))
+			defer span.End()
+			var namedGraphs []common.NamedGraph
+			for _, graphName := range batch {
+				namedGraph, err := synchronizer.S3Client.GetObjectAndConvertToGraph(graphName, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+				if err != nil {
 					return err
 				}
-			} else {
-				insertMutex.Unlock()
+				namedGraphs = append(namedGraphs, namedGraph)
 			}
-			return nil
+			return synchronizer.GraphClient.UpsertNamedGraphs(ctx, namedGraphs)
 		})
 	}
-	if err := errorGroup.Wait(); err != nil {
-		return err
-	}
 
-	// if there are any graphs left that werent big enough for a batch, send them at the end
-	if len(graphsToInsert) > 0 {
-		if err := synchronizer.GraphClient.UpsertNamedGraphs(graphsToInsert); err != nil {
-			return err
-		}
-	}
-	return nil
+	return errorGroup.Wait()
 }

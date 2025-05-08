@@ -11,7 +11,9 @@ report:
 clean:
 	find . -type f -name "http_trace.csv" -delete
 	find . -type f -name "coverage.out" -delete
+	rm -f __debug_bin*
 	rm -f nabu
+	rm -f gleaner
 
 # list the top 8 cyclomatic complexity in the repo
 # requires gocyclo to be installed.
@@ -32,5 +34,15 @@ coverage:
 	go test ./... -coverprofile coverage.out
 	go tool cover -html=coverage.out
 
+# Check for deadcode in the project
 deadcode:
 	deadcode -test ./... 
+
+
+# test with gotestsum, a helpful wrapper for go test
+test:
+	gotestsum
+
+slowest:	
+	gotestsum --jsonfile /tmp/json.log
+	gotestsum tool slowest --jsonfile /tmp/json.log

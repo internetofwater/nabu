@@ -59,3 +59,16 @@ func makeReleaseNqName(prefix string) (string, error) {
 	}
 	return release_nq_name, nil
 }
+
+func allocateBatches(graphNames []string, batchSize int) [][]string {
+	if batchSize == 0 {
+		return [][]string{}
+	}
+
+	batches := [][]string{}
+	for i := 0; i < len(graphNames); i += batchSize {
+		end := min(i+batchSize, len(graphNames))
+		batches = append(batches, graphNames[i:end])
+	}
+	return batches
+}
