@@ -14,6 +14,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -23,6 +24,8 @@ import (
 type GraphDiff struct {
 	TriplestoreGraphsNotInS3 []string
 	S3GraphsNotInTriplestore []string
+	// A map of URN to object name
+	// This includes all URNs not just the ones in the diff
 	s3UrnToAssociatedObjName map[string]string
 }
 
@@ -112,6 +115,9 @@ func (synchronizer *SynchronizerClient) getGraphDiff(ctx context.Context, prefix
 
 	triplestoreGraphsNotInS3 := findMissing(graphsInTriplestore, s3ObjGraphNames)
 	s3GraphsNotInTriplestore := findMissing(s3ObjGraphNames, graphsInTriplestore)
+
+	span.SetAttributes(attribute.Int("s3_graphs_not_in_triplestore", len(s3GraphsNotInTriplestore)))
+	span.SetAttributes(attribute.Int("triplestore_graphs_not_in_s3", len(triplestoreGraphsNotInS3)))
 
 	return GraphDiff{
 		TriplestoreGraphsNotInS3: triplestoreGraphsNotInS3,

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"nabu/internal/common"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 /*
@@ -28,7 +30,7 @@ Resulting queries will be in the form of:
 		}
 	};
 */
-func createBatchedUpsertQuery(graphs []common.NamedGraph) string {
+func createBatchedUpsertQuery(graphs []common.NamedGraph) (string, error) {
 
 	// Create a strings.Builder to efficiently build the query string
 	// and reduce memory allocations.
@@ -37,6 +39,10 @@ func createBatchedUpsertQuery(graphs []common.NamedGraph) string {
 	// run all drops first; chance this may speed things up rather than
 	// alternating between drop and insert
 	for _, graph := range graphs {
+		if !strings.Contains(graph.GraphURI, "urn") {
+			return "", fmt.Errorf("graph %s is not a valid URN; did you pass in a s3prefix instead of an URN?", graph.GraphURI)
+		}
+
 		queryBuilder.WriteString(fmt.Sprintf("DROP SILENT GRAPH <%s>;\n", graph.GraphURI))
 	}
 
@@ -46,5 +52,7 @@ func createBatchedUpsertQuery(graphs []common.NamedGraph) string {
 	}
 	queryBuilder.WriteString("};")
 
-	return queryBuilder.String()
+	result := queryBuilder.String()
+	log.Debugf("Created batched upsert query: %s", result)
+	return result, nil
 }

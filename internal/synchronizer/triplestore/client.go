@@ -136,7 +136,10 @@ func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath stri
 // Insert triples into the triplestore by listing them in the standard triple format and specifying an associated graph
 func (graphClient *GraphDbClient) UpsertNamedGraphs(ctx context.Context, graphs []common.NamedGraph) error {
 
-	query := createBatchedUpsertQuery(graphs)
+	query, err := createBatchedUpsertQuery(graphs)
+	if err != nil {
+		return err
+	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer([]byte(query)))
 	if err != nil {
@@ -192,6 +195,9 @@ func (graphClient *GraphDbClient) DropGraphs(ctx context.Context, graphs []strin
 
 	var graphStatements []string
 	for _, graph := range graphs {
+		if !strings.Contains(graph, "urn") {
+			return fmt.Errorf("graph %s is not a valid URN; did you pass in a s3prefix instead of an URN?", graph)
+		}
 		// we use silent to ignore any errors if the graph does not exist
 		graphStatements = append(graphStatements, fmt.Sprintf("DROP SILENT GRAPH <%s>", graph))
 	}

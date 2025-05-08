@@ -38,10 +38,10 @@ func (suite *GraphDbClientSuite) TestGraphExists() {
 }
 
 func (suite *GraphDbClientSuite) TestInsert() {
-	graph := "http://example.org/graph/test"
+	graph := "urn://example.org/graph/test"
 	data := `
-	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .
-	<http://example.org/resource/2> <http://example.org/property/name> "Bob" .
+	<urn://example.org/resource/1> <urn://example.org/property/name> "Alice" .
+	<urn://example.org/resource/2> <urn://example.org/property/name> "Bob" .
 `
 	t := suite.T()
 
@@ -53,7 +53,7 @@ func (suite *GraphDbClientSuite) TestInsert() {
 	require.True(t, graphExists)
 
 	bad_data := `
-	<http://example.org/resource/1> .`
+	<urn://example.org/resource/1> .`
 
 	err = suite.graphdb.Client.UpsertNamedGraphs(context.Background(), []common.NamedGraph{{GraphURI: graph, Triples: bad_data}})
 	require.Error(t, err)
@@ -63,11 +63,11 @@ func (suite *GraphDbClientSuite) TestInsert() {
 func (suite *GraphDbClientSuite) TestDropGraphs() {
 	t := suite.T()
 
-	graph1 := "http://example.org/graph/test"
+	graph1 := "urn://example.org/graph/test"
 
 	// insert data with the graph
 	data := `
-	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .`
+	<urn://example.org/resource/1> <urn://example.org/property/name> "Alice" .`
 
 	err := suite.graphdb.Client.UpsertNamedGraphs(context.Background(), []common.NamedGraph{{GraphURI: graph1, Triples: data}})
 	require.NoError(t, err)
@@ -76,7 +76,7 @@ func (suite *GraphDbClientSuite) TestDropGraphs() {
 	require.NoError(t, err)
 	require.True(t, graphExists)
 
-	graph2 := "http://example.org/graph/test2"
+	graph2 := "urn://example.org/graph/test2"
 	err = suite.graphdb.Client.UpsertNamedGraphs(context.Background(), []common.NamedGraph{{GraphURI: graph2, Triples: data}})
 	require.NoError(t, err)
 	graphExists, err = suite.graphdb.Client.GraphExists(context.Background(), graph2)
