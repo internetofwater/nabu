@@ -23,10 +23,12 @@ the two to perform synch operations
 
 const baseURN = "urn:iow"
 
+type URN = string
+
 // Map a s3 prefix to a URN
 // This is essentially just a serialized path that can be used for identifying a graph
 // We use a simple
-func MakeURN(s3Prefix string) (string, error) {
+func MakeURN(s3Prefix string) (URN, error) {
 	if s3Prefix == "" || s3Prefix == "." {
 		return "", fmt.Errorf("prefix cannot be empty")
 	} else if !strings.Contains(s3Prefix, "/") {

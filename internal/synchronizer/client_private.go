@@ -9,6 +9,7 @@ import (
 	"io"
 	"nabu/internal/common"
 	"nabu/internal/opentelemetry"
+	"nabu/internal/synchronizer/s3"
 	"runtime"
 	"strings"
 	"sync"
@@ -128,7 +129,7 @@ func (synchronizer *SynchronizerClient) getGraphDiff(ctx context.Context, prefix
 }
 
 // convert all objects in s3 with a specific prefix to nq and stream them to the channel
-func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix string, nqChan chan<- string) error {
+func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, nqChan chan<- string) error {
 	objects, err := synchronizer.S3Client.ObjectList(context.Background(), prefix)
 	if err != nil {
 		return err
@@ -220,7 +221,7 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix string, nqChan
 }
 
 // Batch upserts objects from s3 to triplestore using upsertBatchSize as defined in the synchronizer client
-func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3GraphNames []string) error {
+func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3GraphNames []s3.S3Prefix) error {
 	if synchronizer.upsertBatchSize == 0 {
 		return fmt.Errorf("got invalid upsert batch size of 0")
 	}

@@ -200,49 +200,6 @@ func (suite *S3ClientSuite) TestGetObjects() {
 	suite.Require().Equal(matchingData, string(data))
 }
 
-// Make sure that we can copy data between the same bucket
-func (suite *S3ClientSuite) TestCopyBetweenBuckets() {
-
-	// check the number of items in the default bucket
-	_, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
-	suite.Require().NoError(err)
-
-	testObj := "test-object-for-copy-test"
-
-	// Insert one item into minio as a test
-	_, err = suite.minioContainer.ClientWrapper.Client.PutObject(
-		context.Background(),
-		suite.minioContainer.ClientWrapper.DefaultBucket,
-		testObj,
-		bytes.NewReader([]byte(testObj)),
-		int64(len(testObj)),
-		minio.PutObjectOptions{},
-	)
-	suite.Require().NoError(err)
-
-	newBucket := "new-bucket"
-	// make a new bucket
-	err = suite.minioContainer.ClientWrapper.Client.MakeBucket(context.Background(), newBucket, minio.MakeBucketOptions{})
-	suite.Require().NoError(err)
-
-	// copy the object to the new bucket
-	err = suite.minioContainer.ClientWrapper.Copy(
-		suite.minioContainer.ClientWrapper.DefaultBucket,
-		testObj,
-		suite.minioContainer.ClientWrapper.DefaultBucket,
-		testObj+"2",
-	)
-	suite.Require().NoError(err)
-
-	// get the data in testObj2 and make sure it is the same as testObj
-	object, err := suite.minioContainer.ClientWrapper.Client.GetObject(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, testObj+"2", minio.GetObjectOptions{})
-	suite.Require().NoError(err)
-	// check the data
-	data, err := io.ReadAll(object)
-	suite.Require().NoError(err)
-	suite.Require().Equal(testObj, string(data))
-}
-
 func (suite *S3ClientSuite) TestGetObjectAsBytes() {
 
 	const dummyData = "dummy data"

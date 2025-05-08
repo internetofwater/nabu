@@ -125,7 +125,7 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(ctx context.Contex
 }
 
 // Loads a single stored release graph into the graph database
-func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 string) error {
+func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 s3.S3Prefix) error {
 
 	byt, err := synchronizer.S3Client.GetObjectAsBytes(nqPathInS3)
 	if err != nil {
@@ -178,7 +178,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 // this is accomplished by streaming the conversion of nq and uploading
 // to minio concurrently. We used a buffered channel to limit the
 // concurrency of the conversion process
-func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
+func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix) error {
 
 	releaseNqName, err := makeReleaseNqName(prefix)
 	if err != nil {

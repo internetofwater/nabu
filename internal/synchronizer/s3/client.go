@@ -32,6 +32,8 @@ type MinioClientWrapper struct {
 	DefaultBucket string
 }
 
+type S3Prefix = string
+
 // MinioConnection Set up minio and initialize client
 func NewMinioClientWrapper(mcfg config.MinioConfig) (*MinioClientWrapper, error) {
 
@@ -81,7 +83,7 @@ func (m *MinioClientWrapper) MakeDefaultBucket() error {
 }
 
 // Remove an object from the store
-func (m *MinioClientWrapper) Remove(object string) error {
+func (m *MinioClientWrapper) Remove(object S3Prefix) error {
 	opts := minio.RemoveObjectOptions{
 		GovernanceBypass: true,
 	}
@@ -97,7 +99,7 @@ func (m *MinioClientWrapper) Remove(object string) error {
 
 // Return a list of objects matching the specified prefix
 // This uses goroutines and thus does not guarantee order
-func (m *MinioClientWrapper) ObjectList(ctx context.Context, prefix string) ([]minio.ObjectInfo, error) {
+func (m *MinioClientWrapper) ObjectList(ctx context.Context, prefix S3Prefix) ([]minio.ObjectInfo, error) {
 
 	ctx, span := opentelemetry.SubSpanFromCtx(ctx)
 	defer span.End()
@@ -129,34 +131,9 @@ func (m *MinioClientWrapper) ObjectList(ctx context.Context, prefix string) ([]m
 	return objectInfo, nil
 }
 
-// Copy s3. Can be to either the same bucket or a different bucket
-func (m *MinioClientWrapper) Copy(srcbucket, srcobject, dstbucket, dstobject string) error {
-
-	// Source object
-	srcOpts := minio.CopySrcOptions{
-		Bucket: srcbucket,
-		Object: srcobject,
-	}
-
-	// Destination object
-	dstOpts := minio.CopyDestOptions{
-		Bucket: dstbucket,
-		Object: dstobject,
-	}
-
-	// Copy object call
-	_, err := m.Client.CopyObject(context.Background(), dstOpts, srcOpts)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
-	return nil
-}
-
 // Return the number of objects that match a given prefix within the
 // specified bucket
-func (m *MinioClientWrapper) NumberOfMatchingObjects(prefixes []string) (int, error) {
+func (m *MinioClientWrapper) NumberOfMatchingObjects(prefixes []S3Prefix) (int, error) {
 	count := 0
 	for _, prefix := range prefixes {
 		objectCh := m.Client.ListObjects(context.Background(), m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
@@ -172,7 +149,7 @@ func (m *MinioClientWrapper) NumberOfMatchingObjects(prefixes []string) (int, er
 	return count, nil
 }
 
-func (m *MinioClientWrapper) GetObjectAsBytes(objectName string) ([]byte, error) {
+func (m *MinioClientWrapper) GetObjectAsBytes(objectName S3Prefix) ([]byte, error) {
 	fileObject, err := m.Client.GetObject(context.Background(), m.DefaultBucket, objectName, minio.GetObjectOptions{})
 	if err != nil {
 		log.Info(err)
@@ -202,7 +179,7 @@ the graphname will be the urn representation of the object name
 1. nq files are converted are converted to triples and the graph name is set to the urn of the object name
 2. jsonld files are converted to nq with the graph name set to the urn of the object name
 */
-func (m *MinioClientWrapper) GetObjectAndConvertToGraph(objectName string, jsonldProcessor *ld.JsonLdProcessor, jsonldOptions *ld.JsonLdOptions) (common.NamedGraph, error) {
+func (m *MinioClientWrapper) GetObjectAndConvertToGraph(objectName S3Prefix, jsonldProcessor *ld.JsonLdProcessor, jsonldOptions *ld.JsonLdOptions) (common.NamedGraph, error) {
 	objBytes, err := m.GetObjectAsBytes(objectName)
 	if err != nil {
 		return common.NamedGraph{}, err
@@ -240,7 +217,7 @@ func (m *MinioClientWrapper) GetObjectAndConvertToGraph(objectName string, jsonl
 }
 
 // Upload a local file to the bucket at the specified remote path
-func (m *MinioClientWrapper) UploadFile(uploadPath string, localFileName string) error {
+func (m *MinioClientWrapper) UploadFile(uploadPath S3Prefix, localFileName string) error {
 	file, err := os.Open(localFileName)
 	if err != nil {
 		return err
@@ -252,20 +229,17 @@ func (m *MinioClientWrapper) UploadFile(uploadPath string, localFileName string)
 }
 
 // Store bytes into the minio store
-func (m MinioClientWrapper) Store(path string, data io.Reader) error {
+func (m MinioClientWrapper) Store(path S3Prefix, data io.Reader) error {
 	_, err := m.Client.PutObject(context.Background(), m.DefaultBucket, path, data, -1, minio.PutObjectOptions{})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // Get bytes from the minio store
-func (m MinioClientWrapper) Get(path string) (io.ReadCloser, error) {
+func (m MinioClientWrapper) Get(path S3Prefix) (io.ReadCloser, error) {
 	return m.Client.GetObject(context.Background(), m.DefaultBucket, path, minio.GetObjectOptions{})
 }
 
-func (m MinioClientWrapper) Exists(path string) (bool, error) {
+func (m MinioClientWrapper) Exists(path S3Prefix) (bool, error) {
 	_, err := m.Client.StatObject(context.Background(), m.DefaultBucket, path, minio.StatObjectOptions{})
 	if err == nil {
 		return true, nil
