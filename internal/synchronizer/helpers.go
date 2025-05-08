@@ -8,6 +8,8 @@ import (
 	"path"
 	"slices"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // returns the elements in `a` that aren't in `b`.
@@ -60,8 +62,10 @@ func makeReleaseNqName(prefix string) (string, error) {
 	return release_nq_name, nil
 }
 
-func allocateBatches(graphNames []string, batchSize int) [][]string {
+// Given a list of graph names, split them into an array of arrays of size batchSize
+func createBatches(graphNames []string, batchSize int) [][]string {
 	if batchSize == 0 {
+		log.Warn("Got batch size of 0 so returning empty array")
 		return [][]string{}
 	}
 

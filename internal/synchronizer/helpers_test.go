@@ -100,7 +100,7 @@ func TestAllocateBatches(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := allocateBatches(tt.graphNames, tt.batchSize)
+			got := createBatches(tt.graphNames, tt.batchSize)
 			require.Equal(t, tt.want, got)
 		})
 	}

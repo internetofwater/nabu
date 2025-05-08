@@ -1,11 +1,7 @@
 #############################################################################
-# This file contains helper scripts for nabu
-# they are not required for building or running nabu
-# and are just intended for local development
-
-# Generate a csv report of the http requests (requires R to be installed)
-report:
-	Rscript scripts/clean_report.r ../http_trace.csv
+# This file contains development commands
+# they are not required for running
+# and are just intended for local development/testing
 
 # clean up trace/profiling/build artifacts
 clean:
@@ -43,6 +39,7 @@ deadcode:
 test:
 	gotestsum
 
+# run tests and print the slowest tests in the project
 slowest:	
 	gotestsum --jsonfile /tmp/json.log
 	gotestsum tool slowest --jsonfile /tmp/json.log

@@ -225,7 +225,9 @@ func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3Gra
 	errorGroup.SetLimit(50)
 
 	log.Infof("Upserting %d objects from S3 to triplestore", len(s3GraphNames))
-	batches := allocateBatches(s3GraphNames, synchronizer.upsertBatchSize)
+	batches := createBatches(s3GraphNames, synchronizer.upsertBatchSize)
+
+	log.Debugf("Upserting with batch size %d", synchronizer.upsertBatchSize)
 
 	for i, batch := range batches {
 		batch := batch // capture range variable

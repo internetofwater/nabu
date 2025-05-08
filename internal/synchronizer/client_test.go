@@ -157,7 +157,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 		},
 	})
 	require.NoError(t, err)
-	exists, err := suite.graphdbContainer.Client.GraphExists(oldGraph)
+	exists, err := suite.graphdbContainer.Client.GraphExists(context.Background(), oldGraph)
 	require.NoError(t, err)
 	require.True(t, exists)
 
@@ -171,7 +171,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	// we sync new org data
 	err = suite.client.SyncTriplestoreGraphs(context.Background(), "orgs/", true)
 	require.NoError(t, err)
-	exists, err = suite.graphdbContainer.Client.GraphExists(oldGraph)
+	exists, err = suite.graphdbContainer.Client.GraphExists(context.Background(), oldGraph)
 	require.False(t, exists)
 	require.NoError(t, err)
 	graphs, err := suite.client.GraphClient.NamedGraphsAssociatedWithS3Prefix(context.Background(), "orgs/")

@@ -11,7 +11,6 @@ import (
 	"io"
 	"nabu/internal/common"
 	"nabu/internal/config"
-	"nabu/internal/custom_http_trace"
 	"nabu/internal/opentelemetry"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
@@ -115,14 +114,14 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(ctx context.Contex
 		if len(orphanedGraphs) > 0 {
 			log.Infof("Dropping %d graphs from triplestore", len(orphanedGraphs))
 			// All triplestore graphs not in s3 should be removed since s3 is the source of truth
-			if err := synchronizer.GraphClient.DropGraphs(orphanedGraphs); err != nil {
+			if err := synchronizer.GraphClient.DropGraphs(ctx, orphanedGraphs); err != nil {
 				log.Errorf("Drop graph issue when syncing %v\n", err)
 				return err
 			}
 		}
+	} else {
 		// if we don't want to remove orphaned graphs
 		// just get the list of graphs that are not in s3
-	} else {
 		objects, err := synchronizer.S3Client.ObjectList(ctx, prefix)
 		if err != nil {
 			log.Error(err)
@@ -163,7 +162,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 	// Correct GraphDB REST API endpoint
 	url := fmt.Sprintf("%s/statements", synchronizer.GraphClient.BaseRepositoryUrl)
 
-	req, err := custom_http_trace.NewRequestWithContext(context.Background(), "POST", synchronizer.GraphClient.BaseSparqlQueryUrl, bytes.NewReader(byt))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", synchronizer.GraphClient.BaseSparqlQueryUrl, bytes.NewReader(byt))
 	if err != nil {
 		return err
 	}
