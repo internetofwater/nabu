@@ -54,7 +54,7 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 	err = client.SyncTriplestoreGraphs(ctx, "summoned/", true)
 	s.Require().NoError(err)
 
-	exists, err := client.GraphClient.GraphExists("urn:iow:summoned:iow_wqp_stations__5:b38dced1575a8a83c1f5091c7de0b653.jsonld")
+	exists, err := client.GraphClient.GraphExists(context.Background(), "urn:iow:summoned:iow_wqp_stations__5:b38dced1575a8a83c1f5091c7de0b653.jsonld")
 	s.Require().NoError(err)
 	s.Require().True(exists)
 }

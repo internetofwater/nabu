@@ -16,7 +16,7 @@ import (
 // Representation of a triple with a graph name
 // that can be inserted into a triplestore
 type NamedGraph struct {
-	GraphURI string
+	GraphURI URN
 	Triples  string
 }
 

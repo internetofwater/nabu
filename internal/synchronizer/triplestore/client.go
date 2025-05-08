@@ -11,7 +11,6 @@ import (
 	"io"
 	"mime/multipart"
 	"nabu/internal/common"
-	"nabu/internal/custom_http_trace"
 	"nabu/internal/opentelemetry"
 	"net/http"
 	"net/url"
@@ -101,7 +100,7 @@ func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath stri
 
 	// Create the HTTP request
 	url := fmt.Sprintf("%s/repositories", graphClient.BaseRESTUrl)
-	req, err := custom_http_trace.NewRequestWithContext(context.Background(), "POST", url, body)
+	req, err := http.NewRequestWithContext(context.Background(), "POST", url, body)
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
 	}
@@ -137,7 +136,10 @@ func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath stri
 // Insert triples into the triplestore by listing them in the standard triple format and specifying an associated graph
 func (graphClient *GraphDbClient) UpsertNamedGraphs(ctx context.Context, graphs []common.NamedGraph) error {
 
-	query := createBatchedUpsertQuery(graphs)
+	query, err := createBatchedUpsertQuery(graphs)
+	if err != nil {
+		return err
+	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", graphClient.BaseSparqlQueryUrl, bytes.NewBuffer([]byte(query)))
 	if err != nil {
@@ -182,7 +184,7 @@ func (graphClient *GraphDbClient) UpsertNamedGraphs(ctx context.Context, graphs 
 }
 
 // Remove a set entirely from the graph database in one sparql query
-func (graphClient *GraphDbClient) DropGraphs(graphs []string) error {
+func (graphClient *GraphDbClient) DropGraphs(ctx context.Context, graphs []string) error {
 	if len(graphs) == 0 {
 		return fmt.Errorf("passed in an empty list of graphs to drop")
 	} else if graphs[0] == "" {
@@ -193,8 +195,11 @@ func (graphClient *GraphDbClient) DropGraphs(graphs []string) error {
 
 	var graphStatements []string
 	for _, graph := range graphs {
+		if !strings.Contains(graph, "urn") {
+			return fmt.Errorf("graph %s is not a valid URN; did you pass in a s3prefix instead of an URN?", graph)
+		}
 		// we use silent to ignore any errors if the graph does not exist
-		graphStatements = append(graphStatements, fmt.Sprintf("DROP SILENT GRAPH <%s>", graph))
+		graphStatements = append(graphStatements, fmt.Sprintf("DROP GRAPH <%s>", graph))
 	}
 
 	query := strings.Join(graphStatements, "; ") // Join multiple DROP statements in one query
@@ -202,7 +207,7 @@ func (graphClient *GraphDbClient) DropGraphs(graphs []string) error {
 
 	params := url.Values{}
 	params.Add("query", query)
-	req, err := custom_http_trace.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s?%s", graphClient.BaseSparqlQueryUrl, params.Encode()), bytes.NewBuffer(pab))
+	req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s?%s", graphClient.BaseSparqlQueryUrl, params.Encode()), bytes.NewBuffer(pab))
 	if err != nil {
 		log.Error(err)
 		return err
@@ -234,7 +239,7 @@ func (graphClient *GraphDbClient) DropGraphs(graphs []string) error {
 // Remove all triples from all graphs but keep the graphs themselves
 func (graphClient *GraphDbClient) ClearAllGraphs() error {
 	// For graphdb the query for clear needs to be in the body and not a query param in the url for some reason
-	req, err := custom_http_trace.NewRequestWithContext(context.Background(), "POST", graphClient.BaseSparqlQueryUrl, bytes.NewBufferString("CLEAR ALL"))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", graphClient.BaseSparqlQueryUrl, bytes.NewBufferString("CLEAR ALL"))
 	if err != nil {
 		log.Error(err)
 		return err
@@ -267,7 +272,7 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 }
 
 // Check if a graph exists in the graph database
-func (graphClient *GraphDbClient) GraphExists(graphURN string) (bool, error) {
+func (graphClient *GraphDbClient) GraphExists(ctx context.Context, graphURN string) (bool, error) {
 
 	// holds results from the sparql ASK query
 	type ask struct {
@@ -280,7 +285,7 @@ func (graphClient *GraphDbClient) GraphExists(graphURN string) (bool, error) {
 	pab := []byte("")
 	params := url.Values{}
 	params.Add("query", sparqlQuery)
-	req, err := custom_http_trace.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s?%s", graphClient.BaseRepositoryUrl, params.Encode()), bytes.NewBuffer(pab))
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s?%s", graphClient.BaseRepositoryUrl, params.Encode()), bytes.NewBuffer(pab))
 	if err != nil {
 		return false, err
 	}
@@ -332,7 +337,7 @@ func (graphClient *GraphDbClient) NamedGraphsAssociatedWithS3Prefix(ctx context.
 		return []string{}, err
 	}
 
-	req, err := custom_http_trace.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/%s", graphClient.BaseRepositoryUrl, "contexts"), bytes.NewBuffer([]byte("")))
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/%s", graphClient.BaseRepositoryUrl, "contexts"), bytes.NewBuffer([]byte("")))
 	if err != nil {
 		log.Error(err)
 		return []string{}, err

@@ -68,24 +68,15 @@ func (suite *RootCliSuite) TestRootCmdWithTracing() {
 	require.NoError(t, err)
 	defer os.Remove(filepath.Join(projectpath.Root, "trace.out"))
 
-	_, err = os.Stat(filepath.Join(projectpath.Root, "http_trace.csv"))
-	require.NoError(t, err)
-	defer os.Remove(filepath.Join(projectpath.Root, "http_trace.csv"))
-
 	objs, err := suite.minioContainer.ClientWrapper.ObjectList(context.Background(), "traces/")
 
 	require.NoError(t, err)
-	require.Len(t, objs, 2)
+	require.Len(t, objs, 1)
+	require.Contains(t, objs[0].Key, "trace")
+	require.Contains(t, objs[0].Key, ".out")
 
-	for _, obj := range objs {
-		if !strings.Contains(obj.Key, ".csv") && !strings.Contains(obj.Key, ".out") {
-			t.Fatal("not a trace file", obj.Key)
-		}
-
-		// clean up
-		err = suite.minioContainer.ClientWrapper.Client.RemoveObject(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, obj.Key, minio.RemoveObjectOptions{})
-		require.NoError(t, err)
-	}
+	err = suite.minioContainer.ClientWrapper.Client.RemoveObject(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, objs[0].Key, minio.RemoveObjectOptions{})
+	require.NoError(t, err)
 
 }
 

@@ -9,11 +9,14 @@ import (
 	"io"
 	"nabu/internal/common"
 	"nabu/internal/opentelemetry"
+	"nabu/internal/synchronizer/s3"
+	"runtime"
 	"strings"
 	"sync"
 
 	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -23,6 +26,8 @@ import (
 type GraphDiff struct {
 	TriplestoreGraphsNotInS3 []string
 	S3GraphsNotInTriplestore []string
+	// A map of URN to object name
+	// This includes all URNs not just the ones in the diff
 	s3UrnToAssociatedObjName map[string]string
 }
 
@@ -113,6 +118,9 @@ func (synchronizer *SynchronizerClient) getGraphDiff(ctx context.Context, prefix
 	triplestoreGraphsNotInS3 := findMissing(graphsInTriplestore, s3ObjGraphNames)
 	s3GraphsNotInTriplestore := findMissing(s3ObjGraphNames, graphsInTriplestore)
 
+	span.SetAttributes(attribute.Int("s3_graphs_not_in_triplestore", len(s3GraphsNotInTriplestore)))
+	span.SetAttributes(attribute.Int("triplestore_graphs_not_in_s3", len(triplestoreGraphsNotInS3)))
+
 	return GraphDiff{
 		TriplestoreGraphsNotInS3: triplestoreGraphsNotInS3,
 		S3GraphsNotInTriplestore: s3GraphsNotInTriplestore,
@@ -121,7 +129,7 @@ func (synchronizer *SynchronizerClient) getGraphDiff(ctx context.Context, prefix
 }
 
 // convert all objects in s3 with a specific prefix to nq and stream them to the channel
-func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix string, nqChan chan<- string) error {
+func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, nqChan chan<- string) error {
 	objects, err := synchronizer.S3Client.ObjectList(context.Background(), prefix)
 	if err != nil {
 		return err
@@ -213,7 +221,7 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix string, nqChan
 }
 
 // Batch upserts objects from s3 to triplestore using upsertBatchSize as defined in the synchronizer client
-func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3GraphNames []string) error {
+func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3GraphNames []s3.S3Prefix) error {
 	if synchronizer.upsertBatchSize == 0 {
 		return fmt.Errorf("got invalid upsert batch size of 0")
 	}
@@ -225,7 +233,9 @@ func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3Gra
 	errorGroup.SetLimit(50)
 
 	log.Infof("Upserting %d objects from S3 to triplestore", len(s3GraphNames))
-	batches := allocateBatches(s3GraphNames, synchronizer.upsertBatchSize)
+	batches := createBatches(s3GraphNames, synchronizer.upsertBatchSize)
+
+	log.Debugf("Upserting with batch size %d", synchronizer.upsertBatchSize)
 
 	for i, batch := range batches {
 		batch := batch // capture range variable
@@ -233,13 +243,29 @@ func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3Gra
 			ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("batch_insertion_%d/%d", i, len(batches)))
 			defer span.End()
 			var namedGraphs []common.NamedGraph
+			var graphUpdateMutex sync.Mutex
+
+			var eg errgroup.Group
+			eg.SetLimit(runtime.NumCPU())
+			ctx, subspan := opentelemetry.SubSpanFromCtxWithName(ctx, "get_obj_and_convert_to_graph")
 			for _, graphName := range batch {
-				namedGraph, err := synchronizer.S3Client.GetObjectAndConvertToGraph(graphName, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
-				if err != nil {
-					return err
-				}
-				namedGraphs = append(namedGraphs, namedGraph)
+				eg.Go(func() error {
+					namedGraph, err := synchronizer.S3Client.GetObjectAndConvertToGraph(graphName, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+					if err != nil {
+						return err
+					}
+
+					graphUpdateMutex.Lock()
+					defer graphUpdateMutex.Unlock()
+					namedGraphs = append(namedGraphs, namedGraph)
+					return nil
+				})
 			}
+
+			if err := eg.Wait(); err != nil {
+				return err
+			}
+			subspan.End()
 			return synchronizer.GraphClient.UpsertNamedGraphs(ctx, namedGraphs)
 		})
 	}

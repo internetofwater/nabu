@@ -27,14 +27,14 @@ func stripWhitespace(expected string, actual string) (string, string) {
 func TestCreateBatchedUpsertQuery(t *testing.T) {
 
 	graph := common.NamedGraph{
-		GraphURI: "http://example.com/graph",
-		Triples:  "<http://example.com/subject> <http://example.com/predicate> <http://example.com/object> .",
+		GraphURI: "urn://example.com/graph",
+		Triples:  "<urn://example.com/subject> <urn://example.com/predicate> <urn://example.com/object> .",
 	}
 
-	query := createBatchedUpsertQuery([]common.NamedGraph{graph})
-	expected := `DROP SILENT GRAPH <http://example.com/graph>; 
-				 INSERT DATA { GRAPH <http://example.com/graph> { 
-				      <http://example.com/subject> <http://example.com/predicate> <http://example.com/object> . 
+	query, err := createBatchedUpsertQuery([]common.NamedGraph{graph})
+	require.NoError(t, err)
+	expected := `INSERT DATA { GRAPH <urn://example.com/graph> { 
+				      <urn://example.com/subject> <urn://example.com/predicate> <urn://example.com/object> . 
 			     }};`
 
 	expected, query = stripWhitespace(expected, query)
@@ -42,26 +42,36 @@ func TestCreateBatchedUpsertQuery(t *testing.T) {
 
 	graphs := []common.NamedGraph{
 		{
-			GraphURI: "http://example.com/graph1",
-			Triples:  "<http://example.com/subject1> <http://example.com/predicate1> <http://example.com/object1> .",
+			GraphURI: "urn://example.com/graph1",
+			Triples:  "<urn://example.com/subject1> <urn://example.com/predicate1> <urn://example.com/object1> .",
 		},
 		{
-			GraphURI: "http://example.com/graph2",
-			Triples:  "<http://example.com/subject2> <http://example.com/predicate2> <http://example.com/object2> .",
+			GraphURI: "urn://example.com/graph2",
+			Triples:  "<urn://example.com/subject2> <urn://example.com/predicate2> <urn://example.com/object2> .",
 		},
 	}
 
-	query = createBatchedUpsertQuery(graphs)
-	expected = `DROP SILENT GRAPH <http://example.com/graph1>; 
-				DROP SILENT GRAPH <http://example.com/graph2>; 
-				INSERT DATA { 
-					GRAPH <http://example.com/graph1> { 
-					      <http://example.com/subject1> <http://example.com/predicate1> <http://example.com/object1> .
+	query, err = createBatchedUpsertQuery(graphs)
+	require.NoError(t, err)
+	expected = `INSERT DATA { 
+					GRAPH <urn://example.com/graph1> { 
+					      <urn://example.com/subject1> <urn://example.com/predicate1> <urn://example.com/object1> .
 						} 
-			         GRAPH <http://example.com/graph2> { 
-					       <http://example.com/subject2> <http://example.com/predicate2> <http://example.com/object2> . 
+			         GRAPH <urn://example.com/graph2> { 
+					       <urn://example.com/subject2> <urn://example.com/predicate2> <urn://example.com/object2> . 
 						}
 				};`
 	expected, query = stripWhitespace(expected, query)
 	require.Equal(t, expected, query)
+}
+
+func TestGraphWithoutUrnFailsBatch(t *testing.T) {
+	_, err := createBatchedUpsertQuery([]common.NamedGraph{
+		{
+			GraphURI: "test",
+			Triples:  "<summoned/test> <http://example.com/predicate> <http://example.com/object> .",
+		},
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "is not a valid URN")
 }

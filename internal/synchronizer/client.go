@@ -11,7 +11,6 @@ import (
 	"io"
 	"nabu/internal/common"
 	"nabu/internal/config"
-	"nabu/internal/custom_http_trace"
 	"nabu/internal/opentelemetry"
 	"nabu/internal/synchronizer/s3"
 	"nabu/internal/synchronizer/triplestore"
@@ -21,6 +20,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // Client to perform operations that synchronize the graph database with the object store
@@ -100,48 +100,32 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(ctx context.Contex
 	// if we want to check for orphaned graphs
 	// we need to get the diff between the graph and s3
 	// then drop the orphaned graphs
-	if checkAndRemoveOrphans {
-		graphDiff, err := synchronizer.getGraphDiff(ctx, prefix)
-		if err != nil {
-			log.Error(err)
-			return err
-		}
-		for _, urn := range graphDiff.s3UrnToAssociatedObjName {
-			s3GraphsNotInTriplestore = append(s3GraphsNotInTriplestore, urn)
-		}
-
-		orphanedGraphs := graphDiff.TriplestoreGraphsNotInS3
-		// Don't send a drop request if there are no graphs to remove
-		if len(orphanedGraphs) > 0 {
-			log.Infof("Dropping %d graphs from triplestore", len(orphanedGraphs))
-			// All triplestore graphs not in s3 should be removed since s3 is the source of truth
-			if err := synchronizer.GraphClient.DropGraphs(orphanedGraphs); err != nil {
-				log.Errorf("Drop graph issue when syncing %v\n", err)
-				return err
-			}
-		}
-		// if we don't want to remove orphaned graphs
-		// just get the list of graphs that are not in s3
-	} else {
-		objects, err := synchronizer.S3Client.ObjectList(ctx, prefix)
-		if err != nil {
-			log.Error(err)
-			return err
-		}
-		for _, obj := range objects {
-			s3GraphsNotInTriplestore = append(s3GraphsNotInTriplestore, obj.Key)
-		}
-	}
-
-	if err := synchronizer.batchedUpsert(ctx, s3GraphsNotInTriplestore); err != nil {
+	graphDiff, err := synchronizer.getGraphDiff(ctx, prefix)
+	if err != nil {
+		log.Error(err)
 		return err
 	}
+	for _, graphName := range graphDiff.S3GraphsNotInTriplestore {
+		asUrn := graphDiff.s3UrnToAssociatedObjName[graphName]
+		s3GraphsNotInTriplestore = append(s3GraphsNotInTriplestore, asUrn)
+	}
 
-	return nil
+	orphanedGraphs := graphDiff.TriplestoreGraphsNotInS3
+	// Don't send a drop request if there are no orphaned graphs in the triplestore to remove
+	if len(orphanedGraphs) > 0 && checkAndRemoveOrphans {
+		log.Infof("Dropping %d graphs from triplestore", len(orphanedGraphs))
+		// All triplestore graphs not in s3 should be removed since s3 is the source of truth
+		span.SetAttributes(attribute.Int("orphaned_graphs_to_drop", len(orphanedGraphs)))
+		if err := synchronizer.GraphClient.DropGraphs(ctx, orphanedGraphs); err != nil {
+			log.Errorf("Drop graph issue when syncing %v\n", err)
+			return err
+		}
+	}
+	return synchronizer.batchedUpsert(ctx, s3GraphsNotInTriplestore)
 }
 
 // Loads a single stored release graph into the graph database
-func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 string) error {
+func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 s3.S3Prefix) error {
 
 	byt, err := synchronizer.S3Client.GetObjectAsBytes(nqPathInS3)
 	if err != nil {
@@ -163,7 +147,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 	// Correct GraphDB REST API endpoint
 	url := fmt.Sprintf("%s/statements", synchronizer.GraphClient.BaseRepositoryUrl)
 
-	req, err := custom_http_trace.NewRequestWithContext(context.Background(), "POST", synchronizer.GraphClient.BaseSparqlQueryUrl, bytes.NewReader(byt))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", synchronizer.GraphClient.BaseSparqlQueryUrl, bytes.NewReader(byt))
 	if err != nil {
 		return err
 	}
@@ -194,7 +178,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 // this is accomplished by streaming the conversion of nq and uploading
 // to minio concurrently. We used a buffered channel to limit the
 // concurrency of the conversion process
-func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix string) error {
+func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix) error {
 
 	releaseNqName, err := makeReleaseNqName(prefix)
 	if err != nil {

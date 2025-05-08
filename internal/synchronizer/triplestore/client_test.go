@@ -26,34 +26,34 @@ func (suite *GraphDbClientSuite) SetupSuite() {
 
 func (suite *GraphDbClientSuite) TestGraphExists() {
 	t := suite.T()
-	isGraph, err := suite.graphdb.Client.GraphExists("http://example.org/DUMMY_GRAPH")
+	isGraph, err := suite.graphdb.Client.GraphExists(context.Background(), "http://example.org/DUMMY_GRAPH")
 
 	require.False(t, isGraph)
 	require.NoError(t, err)
 
 	// try a malformed query, make sure it errors
-	_, err = suite.graphdb.Client.GraphExists("")
+	_, err = suite.graphdb.Client.GraphExists(context.Background(), "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "MALFORMED QUERY")
 }
 
 func (suite *GraphDbClientSuite) TestInsert() {
-	graph := "http://example.org/graph/test"
+	graph := "urn://example.org/graph/test"
 	data := `
-	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .
-	<http://example.org/resource/2> <http://example.org/property/name> "Bob" .
+	<urn://example.org/resource/1> <urn://example.org/property/name> "Alice" .
+	<urn://example.org/resource/2> <urn://example.org/property/name> "Bob" .
 `
 	t := suite.T()
 
 	err := suite.graphdb.Client.UpsertNamedGraphs(context.Background(), []common.NamedGraph{{GraphURI: graph, Triples: data}})
 	require.NoError(t, err)
 
-	graphExists, err := suite.graphdb.Client.GraphExists(graph)
+	graphExists, err := suite.graphdb.Client.GraphExists(context.Background(), graph)
 	require.NoError(t, err)
 	require.True(t, graphExists)
 
 	bad_data := `
-	<http://example.org/resource/1> .`
+	<urn://example.org/resource/1> .`
 
 	err = suite.graphdb.Client.UpsertNamedGraphs(context.Background(), []common.NamedGraph{{GraphURI: graph, Triples: bad_data}})
 	require.Error(t, err)
@@ -63,38 +63,38 @@ func (suite *GraphDbClientSuite) TestInsert() {
 func (suite *GraphDbClientSuite) TestDropGraphs() {
 	t := suite.T()
 
-	graph1 := "http://example.org/graph/test"
+	graph1 := "urn://example.org/graph/test"
 
 	// insert data with the graph
 	data := `
-	<http://example.org/resource/1> <http://example.org/property/name> "Alice" .`
+	<urn://example.org/resource/1> <urn://example.org/property/name> "Alice" .`
 
 	err := suite.graphdb.Client.UpsertNamedGraphs(context.Background(), []common.NamedGraph{{GraphURI: graph1, Triples: data}})
 	require.NoError(t, err)
 
-	graphExists, err := suite.graphdb.Client.GraphExists(graph1)
+	graphExists, err := suite.graphdb.Client.GraphExists(context.Background(), graph1)
 	require.NoError(t, err)
 	require.True(t, graphExists)
 
-	graph2 := "http://example.org/graph/test2"
+	graph2 := "urn://example.org/graph/test2"
 	err = suite.graphdb.Client.UpsertNamedGraphs(context.Background(), []common.NamedGraph{{GraphURI: graph2, Triples: data}})
 	require.NoError(t, err)
-	graphExists, err = suite.graphdb.Client.GraphExists(graph2)
+	graphExists, err = suite.graphdb.Client.GraphExists(context.Background(), graph2)
 	require.NoError(t, err)
 	require.True(t, graphExists)
 
-	err = suite.graphdb.Client.DropGraphs([]string{graph1, graph2})
+	err = suite.graphdb.Client.DropGraphs(context.Background(), []string{graph1, graph2})
 	require.NoError(t, err)
 
-	graphExists, err = suite.graphdb.Client.GraphExists(graph1)
-	require.NoError(t, err)
-	require.False(t, graphExists)
-
-	graphExists, err = suite.graphdb.Client.GraphExists(graph2)
+	graphExists, err = suite.graphdb.Client.GraphExists(context.Background(), graph1)
 	require.NoError(t, err)
 	require.False(t, graphExists)
 
-	err = suite.graphdb.Client.DropGraphs([]string{})
+	graphExists, err = suite.graphdb.Client.GraphExists(context.Background(), graph2)
+	require.NoError(t, err)
+	require.False(t, graphExists)
+
+	err = suite.graphdb.Client.DropGraphs(context.Background(), []string{})
 	require.Error(t, err)
 }
 

@@ -5,9 +5,12 @@ package synchronizer
 
 import (
 	"fmt"
+	"nabu/internal/synchronizer/s3"
 	"path"
 	"slices"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // returns the elements in `a` that aren't in `b`.
@@ -35,7 +38,7 @@ func getTextBeforeDot(s string) string {
 
 // given a prefix, return the name of the release graph
 // that represents it
-func makeReleaseNqName(prefix string) (string, error) {
+func makeReleaseNqName(prefix s3.S3Prefix) (string, error) {
 	prefix_parts := strings.Split(prefix, "/")
 	if len(prefix_parts) <= 1 {
 		return "", fmt.Errorf("prefix %s did not contain a slash and thus is ambiguous", prefix)
@@ -60,8 +63,10 @@ func makeReleaseNqName(prefix string) (string, error) {
 	return release_nq_name, nil
 }
 
-func allocateBatches(graphNames []string, batchSize int) [][]string {
+// Given a list of graph names, split them into an array of arrays of size batchSize
+func createBatches(graphNames []s3.S3Prefix, batchSize int) [][]string {
 	if batchSize == 0 {
+		log.Warn("Got batch size of 0 so returning empty array")
 		return [][]string{}
 	}
 
