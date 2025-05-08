@@ -21,7 +21,6 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // Client to perform operations that synchronize the graph database with the object store
@@ -164,13 +163,13 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 str
 	// Correct GraphDB REST API endpoint
 	url := fmt.Sprintf("%s/statements", synchronizer.GraphClient.BaseRepositoryUrl)
 
-	req, err := custom_http_trace.NewRequestWithContext("POST", synchronizer.GraphClient.BaseSparqlQueryUrl, bytes.NewReader(byt))
+	req, err := custom_http_trace.NewRequestWithContext(context.Background(), "POST", synchronizer.GraphClient.BaseSparqlQueryUrl, bytes.NewReader(byt))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/n-quads") // Corrected content type
 
-	client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
