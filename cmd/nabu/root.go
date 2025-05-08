@@ -143,12 +143,11 @@ func uploadTracefile(minioConfig config.MinioConfig) error {
 	}
 	traceFile := filepath.Join(projectpath.Root, "trace.out")
 	joinedArgs := strings.Join(os.Args[1:], "_")
+	// replace all special characters with underscore
+	joinedArgs = strings.NewReplacer("/", "_", ".", "_", "-", "_", ":", "_").Replace(joinedArgs)
 	traceName := fmt.Sprintf("traces/trace_%s.out", joinedArgs)
-	err = mc.UploadFile(traceName, traceFile)
-	if err != nil {
-		return err
-	}
-	return mc.UploadFile(fmt.Sprintf("traces/http_trace_%s.csv", joinedArgs), filepath.Join(projectpath.Root, "http_trace.csv"))
+	log.Debugf("Uploading trace file %s", traceName)
+	return mc.UploadFile(traceName, traceFile)
 }
 
 func (n NabuRunner) Run(ctx context.Context) error {
