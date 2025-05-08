@@ -88,7 +88,7 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 
 // Get rid of graphs with specific prefix in the triplestore that are not in the object store
 // Drops are determined by mapping a prefix to the associated URN
-func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(ctx context.Context, prefix string, checkAndRemoveOrphans bool) error {
+func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(ctx context.Context, prefix s3.S3Prefix, checkAndRemoveOrphans bool) error {
 	if synchronizer.upsertBatchSize == 0 {
 		return fmt.Errorf("got invalid upsert batch size of 0")
 	}
