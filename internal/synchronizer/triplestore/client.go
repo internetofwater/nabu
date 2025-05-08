@@ -199,7 +199,7 @@ func (graphClient *GraphDbClient) DropGraphs(ctx context.Context, graphs []strin
 			return fmt.Errorf("graph %s is not a valid URN; did you pass in a s3prefix instead of an URN?", graph)
 		}
 		// we use silent to ignore any errors if the graph does not exist
-		graphStatements = append(graphStatements, fmt.Sprintf("DROP SILENT GRAPH <%s>", graph))
+		graphStatements = append(graphStatements, fmt.Sprintf("DROP GRAPH <%s>", graph))
 	}
 
 	query := strings.Join(graphStatements, "; ") // Join multiple DROP statements in one query

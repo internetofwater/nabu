@@ -33,8 +33,7 @@ func TestCreateBatchedUpsertQuery(t *testing.T) {
 
 	query, err := createBatchedUpsertQuery([]common.NamedGraph{graph})
 	require.NoError(t, err)
-	expected := `DROP SILENT GRAPH <urn://example.com/graph>; 
-				 INSERT DATA { GRAPH <urn://example.com/graph> { 
+	expected := `INSERT DATA { GRAPH <urn://example.com/graph> { 
 				      <urn://example.com/subject> <urn://example.com/predicate> <urn://example.com/object> . 
 			     }};`
 
@@ -54,9 +53,7 @@ func TestCreateBatchedUpsertQuery(t *testing.T) {
 
 	query, err = createBatchedUpsertQuery(graphs)
 	require.NoError(t, err)
-	expected = `DROP SILENT GRAPH <urn://example.com/graph1>; 
-				DROP SILENT GRAPH <urn://example.com/graph2>; 
-				INSERT DATA { 
+	expected = `INSERT DATA { 
 					GRAPH <urn://example.com/graph1> { 
 					      <urn://example.com/subject1> <urn://example.com/predicate1> <urn://example.com/object1> .
 						} 
