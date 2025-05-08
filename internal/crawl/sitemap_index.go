@@ -94,6 +94,10 @@ func NewSitemapIndexHarvester(sitemapRef string) (Index, error) {
 		serializedSitemapIndex.Sitemaps = append(serializedSitemapIndex.Sitemaps, part)
 		return nil
 	})
+	if len(serializedSitemapIndex.Sitemaps) == 0 {
+		return serializedSitemapIndex, fmt.Errorf("%s appears to be empty or an invalid sitemap index", sitemapRef)
+	}
+
 	return serializedSitemapIndex, err
 
 }

@@ -9,6 +9,7 @@ import (
 	"io"
 	"nabu/internal/common"
 	"nabu/internal/opentelemetry"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -241,13 +242,29 @@ func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3Gra
 			ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("batch_insertion_%d/%d", i, len(batches)))
 			defer span.End()
 			var namedGraphs []common.NamedGraph
+			var graphUpdateMutex sync.Mutex
+
+			var eg errgroup.Group
+			eg.SetLimit(runtime.NumCPU())
+			ctx, subspan := opentelemetry.SubSpanFromCtxWithName(ctx, "get_obj_and_convert_to_graph")
 			for _, graphName := range batch {
-				namedGraph, err := synchronizer.S3Client.GetObjectAndConvertToGraph(graphName, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
-				if err != nil {
-					return err
-				}
-				namedGraphs = append(namedGraphs, namedGraph)
+				eg.Go(func() error {
+					namedGraph, err := synchronizer.S3Client.GetObjectAndConvertToGraph(graphName, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+					if err != nil {
+						return err
+					}
+
+					graphUpdateMutex.Lock()
+					defer graphUpdateMutex.Unlock()
+					namedGraphs = append(namedGraphs, namedGraph)
+					return nil
+				})
 			}
+
+			if err := eg.Wait(); err != nil {
+				return err
+			}
+			subspan.End()
 			return synchronizer.GraphClient.UpsertNamedGraphs(ctx, namedGraphs)
 		})
 	}

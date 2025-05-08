@@ -111,3 +111,9 @@ func TestHarvestSitemapIndex(t *testing.T) {
 
 	require.True(t, gock.IsDone())
 }
+
+func TestSitemapInsteadOfSitemapIndex(t *testing.T) {
+	_, err := NewSitemapIndexHarvester("testdata/sitemap.xml")
+	require.Error(t, err)
+	require.ErrorContains(t, err, "empty")
+}

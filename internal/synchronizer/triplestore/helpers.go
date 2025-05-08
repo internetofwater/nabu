@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"nabu/internal/common"
 	"strings"
-
-	log "github.com/sirupsen/logrus"
 )
 
 /*
@@ -44,6 +42,5 @@ func createBatchedUpsertQuery(graphs []common.NamedGraph) (string, error) {
 	queryBuilder.WriteString("};")
 
 	result := queryBuilder.String()
-	log.Debugf("Created batched upsert query: %s", result)
 	return result, nil
 }
