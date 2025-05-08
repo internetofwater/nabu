@@ -6,7 +6,6 @@ package common
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/knakk/rdf"
@@ -48,22 +47,13 @@ func makeQuad(t rdf.Triple, c string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	ctx := rdf.Context(newctx)
 
 	quad := rdf.Quad{
 		Triple: t,
-		Ctx:    ctx,
+		Ctx:    rdf.Context(newctx),
 	}
 
-	buf := bytes.NewBufferString("")
-
-	quads := quad.Serialize(rdf.NQuads)
-	_, err = fmt.Fprintf(buf, "%s", quads)
-	if err != nil {
-		return "", err
-	}
-
-	return buf.String(), err
+	return quad.Serialize(rdf.NQuads), nil
 }
 
 // Converts nquads to ntriples plus a context (graph) string
