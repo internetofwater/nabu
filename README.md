@@ -1,6 +1,7 @@
 # Nabu 
 
-[![codecov](https://codecov.io/gh/internetofwater/nabu/branch/master/graph/badge.svg?token=KtA15glWkf)](https://codecov.io/gh/internetofwater/nabu) ![goreportcard A+ status](https://goreportcard.com/badge/github.com/internetofwater/nabu)
+[![codecov](https://codecov.io/gh/internetofwater/nabu/branch/master/graph/badge.svg?token=KtA15glWkf)](https://codecov.io/gh/internetofwater/nabu) 
+[![goreportcard status](https://goreportcard.com/badge/github.com/internetofwater/nabu)](https://goreportcard.com/report/github.com/internetofwater/nabu)
 
 Nabu's main goal is to load/synchronize a collection of RDF graphs (for example JSON-LD document) in an 
 object store (minio, S3, etc.) into a graph database/triplestore. 
