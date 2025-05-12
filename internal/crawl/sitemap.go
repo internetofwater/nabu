@@ -41,7 +41,7 @@ type Sitemap struct {
 func nonFatalBadResponse(resp *http.Response, url URL, span trace.Span) UrlCrawlError {
 	if resp.StatusCode >= 400 {
 		errormsg := fmt.Sprintf("failed to fetch %s, got status %s", url.Loc, resp.Status)
-		log.Errorf(errormsg)
+		log.Error(errormsg)
 		// status makes jaeger mark as failed with red, whereas SetEvent just marks it with a message
 		span.SetStatus(codes.Error, errormsg)
 		return UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
@@ -51,7 +51,7 @@ func nonFatalBadResponse(resp *http.Response, url URL, span trace.Span) UrlCrawl
 	mime := resp.Header.Get("Content-Type")
 	if !strings.Contains(mime, "application/ld+json") {
 		errormsg := fmt.Sprintf("got wrong file type %s for %s", mime, url.Loc)
-		log.Errorf(errormsg)
+		log.Error(errormsg)
 		span.SetStatus(codes.Error, errormsg)
 		return UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
 	}
