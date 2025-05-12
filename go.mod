@@ -1,4 +1,4 @@
-module nabu
+module github.com/internetofwater/nabu
 
 go 1.23
 

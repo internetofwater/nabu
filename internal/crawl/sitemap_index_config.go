@@ -4,7 +4,7 @@
 package crawl
 
 import (
-	"nabu/internal/crawl/storage"
+	"github.com/internetofwater/nabu/internal/crawl/storage"
 
 	log "github.com/sirupsen/logrus"
 )

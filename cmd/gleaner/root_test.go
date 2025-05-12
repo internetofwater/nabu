@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"nabu/internal/synchronizer/s3"
+	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 
 	"github.com/h2non/gock"
 	"github.com/stretchr/testify/require"

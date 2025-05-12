@@ -5,8 +5,9 @@ package main
 
 import (
 	"context"
-	"nabu/internal/config"
-	"nabu/internal/synchronizer"
+
+	"github.com/internetofwater/nabu/internal/config"
+	"github.com/internetofwater/nabu/internal/synchronizer"
 
 	log "github.com/sirupsen/logrus"
 )

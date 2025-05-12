@@ -5,9 +5,10 @@ package crawl
 
 import (
 	"context"
-	"nabu/internal/crawl/storage"
-	"nabu/internal/synchronizer/s3"
 	"testing"
+
+	"github.com/internetofwater/nabu/internal/crawl/storage"
+	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 
 	"github.com/h2non/gock"
 	"github.com/stretchr/testify/assert"

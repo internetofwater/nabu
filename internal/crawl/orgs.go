@@ -6,8 +6,9 @@ package crawl
 import (
 	"bytes"
 	"html/template"
-	common "nabu/internal/common"
-	"nabu/internal/config"
+
+	common "github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/config"
 )
 
 const orgJSONLDTemplate = `{

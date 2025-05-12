@@ -6,7 +6,8 @@ package triplestore
 import (
 	"context"
 	"fmt"
-	"nabu/internal/config"
+
+	"github.com/internetofwater/nabu/internal/config"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"

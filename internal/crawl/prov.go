@@ -7,8 +7,9 @@ import (
 	"bytes"
 	"html/template"
 	"io"
-	"nabu/internal/common"
-	"nabu/internal/config"
+
+	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/config"
 )
 
 // Holds the prov meatdata data for a summoned data graph

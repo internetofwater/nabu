@@ -7,12 +7,13 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
-	"nabu/internal/common"
-	"nabu/internal/crawl/storage"
-	"nabu/internal/opentelemetry"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/crawl/storage"
+	"github.com/internetofwater/nabu/internal/opentelemetry"
 
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	log "github.com/sirupsen/logrus"

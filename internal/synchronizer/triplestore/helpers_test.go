@@ -4,9 +4,10 @@
 package triplestore
 
 import (
-	"nabu/internal/common"
 	"strings"
 	"testing"
+
+	"github.com/internetofwater/nabu/internal/common"
 
 	"github.com/stretchr/testify/require"
 )

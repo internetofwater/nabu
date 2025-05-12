@@ -4,8 +4,8 @@
 package main
 
 import (
-	"nabu/internal/config"
-	"nabu/internal/synchronizer"
+	"github.com/internetofwater/nabu/internal/config"
+	"github.com/internetofwater/nabu/internal/synchronizer"
 )
 
 type ObjectCmd struct {

@@ -6,14 +6,15 @@ package synchronizer
 import (
 	"context"
 	"io"
-	"nabu/internal/common"
-	"nabu/internal/crawl"
-	"nabu/internal/synchronizer/s3"
-	"nabu/internal/synchronizer/triplestore"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/crawl"
+	"github.com/internetofwater/nabu/internal/synchronizer/s3"
+	"github.com/internetofwater/nabu/internal/synchronizer/triplestore"
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"

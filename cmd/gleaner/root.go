@@ -6,14 +6,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"nabu/internal/config"
-	"nabu/internal/crawl/storage"
-	"nabu/internal/opentelemetry"
-	"nabu/internal/synchronizer/s3"
 	"os"
 	"strings"
 
-	crawl "nabu/internal/crawl"
+	"github.com/internetofwater/nabu/internal/config"
+	"github.com/internetofwater/nabu/internal/crawl/storage"
+	"github.com/internetofwater/nabu/internal/opentelemetry"
+	"github.com/internetofwater/nabu/internal/synchronizer/s3"
+
+	crawl "github.com/internetofwater/nabu/internal/crawl"
 
 	arg "github.com/alexflint/go-arg"
 	log "github.com/sirupsen/logrus"

@@ -6,12 +6,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"nabu/internal/opentelemetry"
-	"nabu/internal/synchronizer"
-	"nabu/internal/synchronizer/s3"
-	"nabu/internal/synchronizer/triplestore"
 	"testing"
 	"time"
+
+	"github.com/internetofwater/nabu/internal/opentelemetry"
+	"github.com/internetofwater/nabu/internal/synchronizer"
+	"github.com/internetofwater/nabu/internal/synchronizer/s3"
+	"github.com/internetofwater/nabu/internal/synchronizer/triplestore"
 
 	"github.com/h2non/gock"
 	"github.com/stretchr/testify/require"
