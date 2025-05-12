@@ -10,15 +10,16 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
-	"nabu/internal/common"
-	"nabu/internal/opentelemetry"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"nabu/internal/config"
+	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/opentelemetry"
+
+	"github.com/internetofwater/nabu/internal/config"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"

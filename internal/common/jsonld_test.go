@@ -4,9 +4,10 @@
 package common
 
 import (
-	"nabu/internal/config"
 	"os"
 	"testing"
+
+	"github.com/internetofwater/nabu/internal/config"
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"

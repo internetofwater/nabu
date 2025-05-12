@@ -8,8 +8,9 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-	"nabu/internal/common"
 	"net/url"
+
+	"github.com/internetofwater/nabu/internal/common"
 
 	"github.com/temoto/robotstxt"
 )

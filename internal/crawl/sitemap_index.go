@@ -8,14 +8,15 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"nabu/internal/crawl/storage"
-	"nabu/internal/opentelemetry"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/internetofwater/nabu/internal/crawl/storage"
+	"github.com/internetofwater/nabu/internal/opentelemetry"
 
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	"golang.org/x/sync/errgroup"

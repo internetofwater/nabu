@@ -8,11 +8,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"nabu/internal/common"
-	"nabu/internal/common/projectpath"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/common/projectpath"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/require"

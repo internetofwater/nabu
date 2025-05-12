@@ -5,8 +5,9 @@ package triplestore
 
 import (
 	"context"
-	"nabu/internal/common"
 	"testing"
+
+	"github.com/internetofwater/nabu/internal/common"
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"

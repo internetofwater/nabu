@@ -6,12 +6,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"nabu/internal/common/projectpath"
-	"nabu/internal/synchronizer/s3"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/internetofwater/nabu/internal/common/projectpath"
+	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/require"

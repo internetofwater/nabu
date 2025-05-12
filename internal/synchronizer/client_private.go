@@ -7,12 +7,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"nabu/internal/common"
-	"nabu/internal/opentelemetry"
-	"nabu/internal/synchronizer/s3"
 	"runtime"
 	"strings"
 	"sync"
+
+	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/opentelemetry"
+	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 
 	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"

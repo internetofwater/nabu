@@ -11,10 +11,10 @@ import (
 	"runtime/trace"
 	"strings"
 
-	"nabu/internal/common/projectpath"
-	"nabu/internal/config"
-	"nabu/internal/opentelemetry"
-	"nabu/internal/synchronizer/s3"
+	"github.com/internetofwater/nabu/internal/common/projectpath"
+	"github.com/internetofwater/nabu/internal/config"
+	"github.com/internetofwater/nabu/internal/opentelemetry"
+	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 
 	"github.com/alexflint/go-arg"
 	log "github.com/sirupsen/logrus"

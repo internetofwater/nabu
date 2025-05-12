@@ -5,10 +5,11 @@ package synchronizer
 
 import (
 	"fmt"
-	"nabu/internal/synchronizer/s3"
 	"path"
 	"slices"
 	"strings"
+
+	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 
 	log "github.com/sirupsen/logrus"
 )

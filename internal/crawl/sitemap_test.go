@@ -5,8 +5,9 @@ package crawl
 
 import (
 	"context"
-	"nabu/internal/crawl/storage"
 	"testing"
+
+	"github.com/internetofwater/nabu/internal/crawl/storage"
 
 	"github.com/h2non/gock"
 	"github.com/stretchr/testify/require"

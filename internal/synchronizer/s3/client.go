@@ -7,14 +7,15 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"nabu/internal/common"
-	"nabu/internal/config"
-	"nabu/internal/opentelemetry"
 	"os"
 	"strings"
 	"sync"
 
-	interfaces "nabu/internal/crawl/storage"
+	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/config"
+	"github.com/internetofwater/nabu/internal/opentelemetry"
+
+	interfaces "github.com/internetofwater/nabu/internal/crawl/storage"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"

@@ -5,8 +5,9 @@ package triplestore
 
 import (
 	"fmt"
-	"nabu/internal/common"
 	"strings"
+
+	"github.com/internetofwater/nabu/internal/common"
 )
 
 /*

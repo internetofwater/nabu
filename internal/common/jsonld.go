@@ -6,10 +6,11 @@ package common
 import (
 	"encoding/json"
 	"fmt"
-	"nabu/internal/common/projectpath"
-	"nabu/internal/config"
 	"os"
 	"path/filepath"
+
+	"github.com/internetofwater/nabu/internal/common/projectpath"
+	"github.com/internetofwater/nabu/internal/config"
 
 	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
