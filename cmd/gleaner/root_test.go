@@ -32,6 +32,7 @@ func NewGleanerRunnerFromString(args string) GleanerRunner {
 
 func (s *GleanerRootSuite) TestHarvestToS3() {
 	startMocks()
+	defer gock.Off()
 	args := fmt.Sprintf("--log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 	_, err := NewGleanerRunnerFromString(args).Run(context.Background())
 	s.Require().NoError(err)
@@ -46,6 +47,7 @@ func (s *GleanerRootSuite) TestHarvestToS3() {
 
 func (s *GleanerRootSuite) TestHarvestWithSourceSpecified() {
 	startMocks()
+	defer gock.Off()
 	args := fmt.Sprintf("--log-level DEBUG --sitemap-index testdata/sitemap_index.xml --source iow_wqp_stations__5 --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 	_, err := NewGleanerRunnerFromString(args).Run(context.Background())
 	s.Require().NoError(err)
@@ -57,6 +59,7 @@ func (s *GleanerRootSuite) TestHarvestWithSourceSpecified() {
 
 func (s *GleanerRootSuite) TestHarvestToDisk() {
 	startMocks()
+	defer gock.Off()
 	args := "--log-level DEBUG --to-disk --sitemap-index testdata/sitemap_index.xml"
 	_, err := NewGleanerRunnerFromString(args).Run(context.Background())
 	s.Require().NoError(err)
@@ -78,12 +81,12 @@ func startMocksForBadFileType() {
 
 func (s *GleanerRootSuite) TestBadFileType() {
 	startMocksForBadFileType()
+	defer gock.Off()
 	args := "--sitemap-index https://geoconnex.us/sitemap.xml --source SELFIE_SELFIE_ids__0 --log-level DEBUG --to-disk"
 	stats, err := NewGleanerRunnerFromString(args).Run(context.Background())
 	s.Require().NoError(err)
-	crawlError := stats[0].CrawlFailures[0]
-	require.Equal(s.T(), len(stats[0].CrawlFailures), 1)
-	require.Equal(s.T(), crawlError.Status, 200)
+	s.Require().Len(stats, 1)
+	s.Require().Len(stats[0].CrawlFailures, 0)
 }
 
 // Wrapper struct to store a handle to the container for all

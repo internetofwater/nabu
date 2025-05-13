@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 
 	"github.com/internetofwater/nabu/internal/common"
+	"golang.org/x/net/html"
 
 	"github.com/temoto/robotstxt"
 )
@@ -61,4 +63,53 @@ func copyReaderAndGenerateHashFilename(reader io.Reader) (io.Reader, string, err
 
 	// Create a new reader from the buffered copy
 	return bytes.NewReader(buf.Bytes()), fmt.Sprintf("%x.jsonld", hasher.Sum(nil)), nil
+}
+
+func GetJsonLDFromHTML(data io.Reader) (string, error) {
+	document, err := html.Parse(data)
+	if err != nil {
+		return "", err
+	}
+	head := findHead(document)
+
+	scripts := getScriptTags(head)
+	for _, s := range scripts {
+		for _, attr := range s.Attr {
+			// We get the first one, since there should only be one
+			if attr.Key == "type" && strings.Contains(attr.Val, "application/ld+json") {
+				return s.FirstChild.Data, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no JSON-LD found in document")
+}
+
+// Recursively search for the <head> element
+func findHead(n *html.Node) *html.Node {
+	if n.Type == html.ElementNode && n.Data == "head" {
+		return n
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if result := findHead(c); result != nil {
+			return result
+		}
+	}
+	return nil
+}
+
+// Collect all <script> nodes under the given node
+func getScriptTags(n *html.Node) []*html.Node {
+	var scripts []*html.Node
+	var traverser func(*html.Node)
+	traverser = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "script" {
+			scripts = append(scripts, n)
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			traverser(c)
+		}
+	}
+	traverser(n)
+	return scripts
 }
