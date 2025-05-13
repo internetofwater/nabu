@@ -1,0 +1,18 @@
+// Copyright 2025 Lincoln Institute of Land Policy
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+package shacl_validator;
+
+service ShaclValidator {
+    rpc Validate (JsonldValidationRequest) returns (ValidationReply);
+}
+
+message JsonldValidationRequest {
+   string jsonld = 1;
+}
+
+message ValidationReply {
+    bool valid = 1;
+    string message = 2;
+}

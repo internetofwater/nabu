@@ -17,3 +17,5 @@ trace.out
 /gleaner
 
 *.out
+
+target/
