@@ -57,6 +57,33 @@ func getJSONLD(resp *http.Response, url URL) (io.Reader, error) {
 	return resp.Body, nil
 }
 
+func storeIfChanged(jsonld io.Reader, url URL, sitemapID string, storage storage.CrawlStorage) error {
+
+	// To generate a hash we need to copy the response body
+	respBodyCopy, itemHash, err := copyReaderAndGenerateHashFilename(jsonld)
+	if err != nil {
+		return err
+	}
+
+	summonedPath := fmt.Sprintf("summoned/%s/%s", sitemapID, itemHash)
+
+	exists, err := storage.Exists(summonedPath)
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		// Store from the buffered copy
+		if err = storage.Store(summonedPath, respBodyCopy); err != nil {
+			return err
+		}
+		log.Debugf("stored %s as %s", url.Loc, itemHash)
+	} else {
+		log.Debugf("%s already exists so skipping", url.Loc)
+	}
+	return nil
+}
+
 // Harvest all the URLs in the sitemap
 func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string) (SitemapCrawlStats, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapID))
@@ -131,27 +158,8 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string) (Si
 				return err
 			}
 
-			// To generate a hash we need to copy the response body
-			respBodyCopy, itemHash, err := copyReaderAndGenerateHashFilename(jsonld)
-			if err != nil {
+			if err = storeIfChanged(jsonld, url, sitemapID, s.storageDestination); err != nil {
 				return err
-			}
-
-			summonedPath := fmt.Sprintf("summoned/%s/%s", sitemapID, itemHash)
-
-			exists, err := s.storageDestination.Exists(summonedPath)
-			if err != nil {
-				return err
-			}
-
-			if !exists {
-				// Store from the buffered copy
-				if err = s.storageDestination.Store(summonedPath, respBodyCopy); err != nil {
-					return err
-				}
-				log.Debugf("stored %s as %s", url.Loc, itemHash)
-			} else {
-				log.Debugf("%s already exists so skipping", url.Loc)
 			}
 
 			if robotstxt.CrawlDelay > 0 {
