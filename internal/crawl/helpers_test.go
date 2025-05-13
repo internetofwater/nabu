@@ -8,6 +8,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -105,5 +106,21 @@ func FuzzCopyReaderAndReturnHash(f *testing.F) {
 		// rehash to verify correctness
 		expectedHash := fmt.Sprintf("%x.jsonld", md5.Sum(input))
 		require.Equal(t, expectedHash, hash, "hash should match expected MD5")
+	})
+}
+
+func TestGetJsonLdFromHTML(t *testing.T) {
+	t.Run("end to end", func(t *testing.T) {
+		data, err := os.ReadFile("testdata/html_with_jsonld.html")
+		require.NoError(t, err)
+		jsonld, err := GetJsonLDFromHTML(bytes.NewReader(data))
+		require.NoError(t, err)
+		require.Contains(t, jsonld, "https://opengeospatial.github.io/ELFIE/contexts/elfie-2/hy_features.jsonld")
+	})
+	t.Run("mislabeled jsonld script tag", func(t *testing.T) {
+		data, err := os.ReadFile("testdata/html_without_jsonld.html")
+		require.NoError(t, err)
+		_, err = GetJsonLDFromHTML(bytes.NewReader(data))
+		require.Error(t, err)
 	})
 }

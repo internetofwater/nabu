@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -18,7 +19,6 @@ import (
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -34,29 +34,27 @@ type Sitemap struct {
 	storageDestination storage.CrawlStorage `xml:"-"`
 }
 
-// handle any non-fatal errors with the response
-// such as bad status codes, or bad mime types
-// these should be presented to the user after a crawl and
-// not cause the entire sitemap to fail
-func nonFatalBadResponse(resp *http.Response, url URL, span trace.Span) UrlCrawlError {
-	if resp.StatusCode >= 400 {
-		errormsg := fmt.Sprintf("failed to fetch %s, got status %s", url.Loc, resp.Status)
-		log.Error(errormsg)
-		// status makes jaeger mark as failed with red, whereas SetEvent just marks it with a message
-		span.SetStatus(codes.Error, errormsg)
-		return UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
-	}
-
-	// check the mimetype
+// Given a response, get the jsonld within the response
+// it will first try to get the jsonld directly if the content
+// type is application/ld+json otherwise it tries to find it
+// inside the html
+func getJSONLD(resp *http.Response, url URL) (io.Reader, error) {
 	mime := resp.Header.Get("Content-Type")
 	if !strings.Contains(mime, "application/ld+json") {
-		errormsg := fmt.Sprintf("got wrong file type %s for %s", mime, url.Loc)
-		log.Error(errormsg)
-		span.SetStatus(codes.Error, errormsg)
-		return UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
+		if strings.Contains(mime, "text/html") {
+			jsonldString, err := GetJsonLDFromHTML(resp.Body)
+			if err != nil {
+				log.Errorf("failed to parse jsonld within the html for %s", url.Loc)
+				return nil, err
+			}
+			return strings.NewReader(jsonldString), nil
+		} else {
+			errormsg := fmt.Sprintf("got wrong file type %s for %s", mime, url.Loc)
+			log.Error(errormsg)
+			return nil, UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
+		}
 	}
-
-	return UrlCrawlError{}
+	return resp.Body, nil
 }
 
 // Harvest all the URLs in the sitemap
@@ -111,13 +109,30 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string) (Si
 
 			defer resp.Body.Close()
 
-			if nonFatalError := nonFatalBadResponse(resp, url, span); nonFatalError != (UrlCrawlError{}) {
-				crawlErrorChan <- nonFatalError
+			if resp.StatusCode >= 400 {
+				errormsg := fmt.Sprintf("failed to fetch %s, got status %s", url.Loc, resp.Status)
+				log.Error(errormsg)
+				// status makes jaeger mark as failed with red, whereas SetEvent just marks it with a message
+				span.SetStatus(codes.Error, errormsg)
+				crawlErrorChan <- UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
 				return nil
 			}
 
+			jsonld, err := getJSONLD(resp, url)
+			if err != nil {
+				// If it's a UrlCrawlError, store it for stats
+				// put don't return it, since it is non fatal
+				if urlErr, ok := err.(UrlCrawlError); ok {
+					span.SetStatus(codes.Error, urlErr.Message)
+					crawlErrorChan <- urlErr
+					return nil
+				}
+				// if it is an unknown error then return it
+				return err
+			}
+
 			// To generate a hash we need to copy the response body
-			respBodyCopy, itemHash, err := copyReaderAndGenerateHashFilename(resp.Body)
+			respBodyCopy, itemHash, err := copyReaderAndGenerateHashFilename(jsonld)
 			if err != nil {
 				return err
 			}
