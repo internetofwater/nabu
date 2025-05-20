@@ -3,7 +3,10 @@
 
 package crawl
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // An error for a particular URL in a sitemap
 type UrlCrawlError struct {
@@ -12,6 +15,10 @@ type UrlCrawlError struct {
 	Message           string
 	ShaclValid        bool
 	ShaclErrorMessage string
+}
+
+func (e UrlCrawlError) Error() string {
+	return fmt.Errorf("failed to crawl %s with status %d: %s", e.Url, e.Status, e.Message).Error()
 }
 
 // Crawl stats for a particular sitemap

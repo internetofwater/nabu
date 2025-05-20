@@ -24,7 +24,6 @@ import (
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -40,29 +39,27 @@ type Sitemap struct {
 	storageDestination storage.CrawlStorage `xml:"-"`
 }
 
-// handle any non-fatal errors with the response
-// such as bad status codes, or bad mime types
-// these should be presented to the user after a crawl and
-// not cause the entire sitemap to fail
-func nonFatalBadResponse(resp *http.Response, url URL, span trace.Span) UrlCrawlError {
-	if resp.StatusCode >= 400 {
-		errormsg := fmt.Sprintf("failed to fetch %s, got status %s", url.Loc, resp.Status)
-		log.Error(errormsg)
-		// status makes jaeger mark as failed with red, whereas SetEvent just marks it with a message
-		span.SetStatus(codes.Error, errormsg)
-		return UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
-	}
-
-	// check the mimetype
+// Given a response, get the jsonld within the response
+// it will first try to get the jsonld directly if the content
+// type is application/ld+json otherwise it tries to find it
+// inside the html
+func getJSONLD(resp *http.Response, url URL, body []byte) ([]byte, error) {
 	mime := resp.Header.Get("Content-Type")
 	if !strings.Contains(mime, "application/ld+json") {
-		errormsg := fmt.Sprintf("got wrong file type %s for %s", mime, url.Loc)
-		log.Error(errormsg)
-		span.SetStatus(codes.Error, errormsg)
-		return UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
+		if strings.Contains(mime, "text/html") {
+			jsonldString, err := GetJsonLDFromHTML(body)
+			if err != nil {
+				log.Errorf("failed to parse jsonld within the html for %s", url.Loc)
+				return nil, err
+			}
+			return []byte(jsonldString), nil
+		} else {
+			errormsg := fmt.Sprintf("got wrong file type %s for %s", mime, url.Loc)
+			log.Error(errormsg)
+			return nil, UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
+		}
 	}
-
-	return UrlCrawlError{}
+	return body, nil
 }
 
 // Harvest all the URLs in the sitemap
@@ -104,7 +101,7 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 	defer conn.Close()
 	grpcClient := protoBuild.NewShaclValidatorClient(conn)
 
-	JsonLdProc, JsonLdOpts, err := common.NewJsonldProcessor(false, []config.ContextMap{})
+	JsonLdProc, JsonLdOpts, err := common.NewJsonldProcessor(true, []config.ContextMap{})
 	if err != nil {
 		return SitemapCrawlStats{}, fmt.Errorf("failed to create JSON-LD processor: %w", err)
 	}
@@ -132,8 +129,12 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 
 			defer resp.Body.Close()
 
-			if nonFatalError := nonFatalBadResponse(resp, url, span); nonFatalError != (UrlCrawlError{}) {
-				crawlErrorChan <- nonFatalError
+			if resp.StatusCode >= 400 {
+				errormsg := fmt.Sprintf("failed to fetch %s, got status %s", url.Loc, resp.Status)
+				log.Error(errormsg)
+				// status makes jaeger mark as failed with red, whereas SetEvent just marks it with a message
+				span.SetStatus(codes.Error, errormsg)
+				crawlErrorChan <- UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
 				return nil
 			}
 
@@ -142,17 +143,29 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 				return fmt.Errorf("failed to read response body: %w", err)
 			}
 
-			triples, err := common.JsonldToNQ(string(bodyBytes), JsonLdProc, JsonLdOpts)
+			jsonld, err := getJSONLD(resp, url, bodyBytes)
+			if err != nil {
+				// If it's a UrlCrawlError, store it for stats
+				// put don't return it, since it is non fatal
+				if urlErr, ok := err.(UrlCrawlError); ok {
+					span.SetStatus(codes.Error, urlErr.Message)
+					crawlErrorChan <- urlErr
+					return nil
+				}
+				return fmt.Errorf("failed to get JSON-LD from response: %w", err)
+			}
+
+			triples, err := common.JsonldToNQ(string(jsonld), JsonLdProc, JsonLdOpts)
 			if err != nil {
 				return fmt.Errorf("failed to convert JSON-LD to N-Quads: %w", err)
 			}
-
 			if validateShacl {
 				ctx, grpcSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, "grpc_shacl_validation")
 				if reply, err := grpcClient.Validate(ctx, &protoBuild.TurtleValidationRequest{Triples: triples}); err != nil {
 					grpcSubspan.End()
 					return fmt.Errorf("failed sending validation request to gRPC server: %w", err)
 				} else if !reply.Valid {
+					grpcSubspan.SetStatus(codes.Error, reply.Message)
 					log.Errorf("SHACL validation failed for %s: %s", url.Loc, reply.Message)
 					crawlErrorChan <- UrlCrawlError{Url: url.Loc, ShaclValid: reply.Valid, ShaclErrorMessage: reply.Message}
 					grpcSubspan.End()
@@ -162,7 +175,7 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 			}
 
 			// To generate a hash we need to copy the response body
-			itemHash, err := generateHashFilename(bodyBytes)
+			itemHash, err := generateHashFilename(jsonld)
 			if err != nil {
 				return err
 			}
@@ -176,12 +189,9 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 
 			if !exists {
 				// Store from the buffered copy
-				if err = s.storageDestination.Store(summonedPath, bytes.NewReader(bodyBytes)); err != nil {
+				if err = s.storageDestination.Store(summonedPath, bytes.NewReader(jsonld)); err != nil {
 					return err
 				}
-				log.Debugf("stored %s as %s", url.Loc, itemHash)
-			} else {
-				log.Debugf("%s already exists so skipping", url.Loc)
 			}
 
 			if robotstxt.CrawlDelay > 0 {
