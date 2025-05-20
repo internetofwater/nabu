@@ -27,7 +27,7 @@ pub fn validate_triples(
     shacl: &str,
     triples: &str,
 ) -> Result<ValidationReport, ValidateError> {
-    if shacl == "" || triples == "" {
+    if shacl.is_empty() || triples.is_empty() {
         return Err(ValidateError::TargetNodeBlankNode);
     }
 
