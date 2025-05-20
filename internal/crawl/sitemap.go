@@ -159,20 +159,6 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 			if err != nil {
 				return fmt.Errorf("failed to convert JSON-LD to N-Quads: %w", err)
 			}
-			if validateShacl {
-				ctx, grpcSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, "grpc_shacl_validation")
-				if reply, err := grpcClient.Validate(ctx, &protoBuild.TurtleValidationRequest{Triples: triples}); err != nil {
-					grpcSubspan.End()
-					return fmt.Errorf("failed sending validation request to gRPC server: %w", err)
-				} else if !reply.Valid {
-					grpcSubspan.SetStatus(codes.Error, reply.Message)
-					log.Errorf("SHACL validation failed for %s: %s", url.Loc, reply.Message)
-					crawlErrorChan <- UrlCrawlError{Url: url.Loc, ShaclValid: reply.Valid, ShaclErrorMessage: reply.Message}
-					grpcSubspan.End()
-					return nil
-				}
-				grpcSubspan.End()
-			}
 
 			// To generate a hash we need to copy the response body
 			itemHash, err := generateHashFilename(jsonld)
@@ -186,12 +172,29 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 			if err != nil {
 				return err
 			}
+			if exists {
+				return nil
+			}
 
-			if !exists {
-				// Store from the buffered copy
-				if err = s.storageDestination.Store(summonedPath, bytes.NewReader(jsonld)); err != nil {
-					return err
+			if validateShacl {
+				ctx, grpcSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, "grpc_shacl_validation")
+				log.Debugf("validating triples of byte size %d", len(triples))
+				if reply, err := grpcClient.Validate(ctx, &protoBuild.TurtleValidationRequest{Triples: triples}); err != nil {
+					grpcSubspan.End()
+					return fmt.Errorf("failed sending validation request to gRPC server: %w", err)
+				} else if !reply.Valid {
+					grpcSubspan.SetStatus(codes.Error, reply.Message)
+					log.Errorf("SHACL validation failed for %s: %s", url.Loc, reply.Message)
+					crawlErrorChan <- UrlCrawlError{Url: url.Loc, ShaclValid: reply.Valid, ShaclErrorMessage: reply.Message}
+					grpcSubspan.End()
+					return nil
 				}
+				grpcSubspan.End()
+			}
+
+			// Store from the buffered copy
+			if err = s.storageDestination.Store(summonedPath, bytes.NewReader(jsonld)); err != nil {
+				return err
 			}
 
 			if robotstxt.CrawlDelay > 0 {
