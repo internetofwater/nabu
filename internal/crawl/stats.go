@@ -7,9 +7,11 @@ import "encoding/json"
 
 // An error for a particular URL in a sitemap
 type UrlCrawlError struct {
-	Url     string
-	Status  int
-	Message string
+	Url               string
+	Status            int
+	Message           string
+	ShaclValid        bool
+	ShaclErrorMessage string
 }
 
 // Crawl stats for a particular sitemap

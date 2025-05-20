@@ -3,6 +3,9 @@
 # they are not required for running
 # and are just intended for local development/testing
 
+protoc:
+	protoc --proto_path=. --go_out=. --go-grpc_out=. shacl_validator_grpc/proto/shacl_validator.proto
+
 # clean up trace/profiling/build artifacts
 clean:
 	find . -type f -name "http_trace.csv" -delete

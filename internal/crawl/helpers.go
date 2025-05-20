@@ -50,15 +50,12 @@ func newRobots(urlToCheck string) (*robotstxt.Group, error) {
 	return robots.FindGroup(gleanerAgent), nil
 }
 
-func copyReaderAndGenerateHashFilename(reader io.Reader) (io.Reader, string, error) {
-	var buf bytes.Buffer
-	tee := io.TeeReader(reader, &buf)
+func generateHashFilename(data []byte) (string, error) {
 
 	hasher := md5.New()
-	if _, err := io.Copy(hasher, tee); err != nil {
-		return nil, "", err
+	if _, err := io.Copy(hasher, bytes.NewReader(data)); err != nil {
+		return "", err
 	}
 
-	// Create a new reader from the buffered copy
-	return bytes.NewReader(buf.Bytes()), fmt.Sprintf("%x.jsonld", hasher.Sum(nil)), nil
+	return fmt.Sprintf("%x.jsonld", hasher.Sum(nil)), nil
 }

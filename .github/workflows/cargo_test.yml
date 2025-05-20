@@ -28,3 +28,7 @@ jobs:
       - name: Run cargo test in shacl_validator_grpc
         working-directory: ./shacl_validator_grpc
         run: cargo test --all
+
+      - name: Run cargo clippy in shacl_validator_grpc
+        working-directory: ./shacl_validator_grpc
+        run:  cargo clippy --workspace --all-targets --all-features -- -D warnings

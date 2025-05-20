@@ -4,10 +4,8 @@
 package crawl
 
 import (
-	"bytes"
 	"crypto/md5"
 	"fmt"
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -83,24 +81,15 @@ func TestRobots(t *testing.T) {
 
 }
 
-func FuzzCopyReaderAndReturnHash(f *testing.F) {
+func FuzzGetHash(f *testing.F) {
 	// Seed with example inputs
 	f.Add([]byte("test data"))
 	f.Add([]byte("test data2"))
 
 	f.Fuzz(func(t *testing.T, input []byte) {
 		// Run function with fuzz input
-		reader := bytes.NewReader(input)
-
-		readerCopy, hash, err := copyReaderAndGenerateHashFilename(reader)
+		hash, err := generateHashFilename(input)
 		require.NoError(t, err)
-
-		// Read copied data
-		copiedData, err := io.ReadAll(readerCopy)
-		require.NoError(t, err)
-
-		// The copied data should equal the input
-		require.Equal(t, string(copiedData), string(input), "copied data should match input")
 
 		// rehash to verify correctness
 		expectedHash := fmt.Sprintf("%x.jsonld", md5.Sum(input))

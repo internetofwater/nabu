@@ -31,11 +31,17 @@ impl ShaclValidator for Validator {
         &self,
         request: Request<TurtleValidationRequest>,
     ) -> Result<Response<ValidationReply>, Status> {
+        println!("Received request");
+
+        let start = std::time::Instant::now();
+
         let req = request.into_inner();
         let dataset_validation_report = validate_dataset_oriented(&req.triples);
         let location_validation_report = validate_location_oriented(&req.triples);
 
         let (dataset_result, location_result) = tokio::join!(dataset_validation_report, location_validation_report);
+
+        println!("Validation took: {:?}", start.elapsed());
 
         match (dataset_result, location_result) {
             // If one report is successful and the other fails, return the successful one
@@ -81,8 +87,8 @@ impl ShaclValidator for Validator {
                             valid: false,
                             message: format!(
                                 "Dataset validation report:\n{}\n\nLocation validation report:\n{}",
-                                report1.to_string(),
-                                report2.to_string()
+                                report1,
+                                report2
                             ),
                             shacl_type: None,
                         };
@@ -102,7 +108,8 @@ impl ShaclValidator for Validator {
     }
 }
 
-#[tokio::main]
+
+#[tokio::main(flavor = "multi_thread", worker_threads = 4)] // adjust based on cores
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let path = "/tmp/shacl_validator.sock";
@@ -118,6 +125,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let uds_stream = UnixListenerStream::new(uds);
 
     let validator = Validator::default();
+
+    println!("Starting gRPC server on {}", path);
 
     // Run the server and listen for Ctrl+C
     let server = Server::builder()

@@ -10,20 +10,14 @@ use sparql_service::RdfData;
 use srdf::{RDFFormat, SRDFGraph};
 use std::io::Cursor;
 
-
 /// Validate rdf triples against the location-oriented shacl shape
-pub async fn validate_location_oriented(
-    triples: &str,
-) -> Result<ValidationReport, ValidateError> {
+pub async fn validate_location_oriented(triples: &str) -> Result<ValidationReport, ValidateError> {
     let shacl = include_str!("../shapes/locationOriented.ttl");
     validate_triples(shacl, triples).await
 }
 
-
 /// Validate rdf triples against the dataset-oriented shacl shape
-pub async fn validate_dataset_oriented(
-    triples: &str,
-) -> Result<ValidationReport, ValidateError> {
+pub async fn validate_dataset_oriented(triples: &str) -> Result<ValidationReport, ValidateError> {
     let shacl = include_str!("../shapes/datasetOriented.ttl");
     validate_triples(shacl, triples).await
 }
@@ -56,23 +50,21 @@ pub async fn validate_triples(
     Ok(report)
 }
 
+#[cfg(test)]
 mod tests {
 
-    #[cfg(test)]
-    mod tests {
+    use crate::{validate_location_oriented, validate_triples};
 
-        use crate::{validate_triples, validate_location_oriented};
+    #[tokio::test]
+    async fn test_empty() {
+        let result = validate_triples("", "").await;
+        assert!(result.is_err());
+    }
 
-        #[tokio::test]
-        async fn test_empty() {
-            let result = validate_triples("", "").await;
-            assert!(result.is_err());
-        }
-
-        #[tokio::test]
-        async fn test_valid_triple() {
-            // Minimal SHACL shape: ex:Person must have an ex:name property of type xsd:string
-            let shacl = r#"
+    #[tokio::test]
+    async fn test_valid_triple() {
+        // Minimal SHACL shape: ex:Person must have an ex:name property of type xsd:string
+        let shacl = r#"
                 @prefix sh: <http://www.w3.org/ns/shacl#> .
                 @prefix ex: <http://example.org/> .
                 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -86,8 +78,8 @@ mod tests {
                     ] .
             "#;
 
-            // Valid triple: ex:alice is a ex:Person and has an ex:name "Alice"
-            let triples = r#"
+        // Valid triple: ex:alice is a ex:Person and has an ex:name "Alice"
+        let triples = r#"
                 @prefix ex: <http://example.org/> .
                 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
@@ -95,38 +87,50 @@ mod tests {
                     ex:name "Alice"^^xsd:string .
             "#;
 
-            let result = validate_triples(shacl, triples).await;
-            assert!(result.is_ok(), "Validation should succeed for valid data");
-            let report = result.unwrap();
-            assert!(report.conforms(), "Report should indicate conformance");
-        }
+        let result = validate_triples(shacl, triples).await;
+        assert!(result.is_ok(), "Validation should succeed for valid data");
+        let report = result.unwrap();
+        assert!(report.conforms(), "Report should indicate conformance");
+    }
 
-        #[tokio::test]
-        async fn test_location_oriented() {
-            // Minimal valid RDF data for the locationOriented.ttl SHACL shape
-            let triples = include_str!("testdata/locationOrientedExample.ttl");
+    #[tokio::test]
+    async fn test_location_oriented() {
+        // Minimal valid RDF data for the locationOriented.ttl SHACL shape
+        let triples = include_str!("testdata/locationOrientedExample.ttl");
 
-            let result = crate::validate_location_oriented(triples).await;
-            assert!(result.is_ok(), "Validation should succeed for valid location-oriented data");
-            let report = result.unwrap();
-            assert!(report.conforms(), "Report should indicate conformance for valid location-oriented data");
-        }
+        let result = crate::validate_location_oriented(triples).await;
+        assert!(
+            result.is_ok(),
+            "Validation should succeed for valid location-oriented data"
+        );
+        let report = result.unwrap();
+        assert!(
+            report.conforms(),
+            "Report should indicate conformance for valid location-oriented data"
+        );
+    }
 
-        #[tokio::test]
-        async fn test_invalid_location_oriented() {
-            // Minimal valid RDF data for the locationOriented.ttl SHACL shape
-            let triples = include_str!("testdata/locationOrientedInvalidExample.ttl");
+    #[tokio::test]
+    async fn test_invalid_location_oriented() {
+        // Minimal valid RDF data for the locationOriented.ttl SHACL shape
+        let triples = include_str!("testdata/locationOrientedInvalidExample.ttl");
 
-            let result = validate_location_oriented(triples).await;
-            assert!(result.is_ok(), "Validation should succeed for valid location-oriented data");
-            let report = result.unwrap();
-            assert!(!report.conforms(), "Report should indicate non conformance for invalid location-oriented data");
-        }
-        
-        #[tokio::test]
-        async fn test_invalid_triple() {
-            // Minimal SHACL shape: ex:Person must have an ex:name property of type xsd:string
-            let shacl = r#"
+        let result = validate_location_oriented(triples).await;
+        assert!(
+            result.is_ok(),
+            "Validation should succeed for valid location-oriented data"
+        );
+        let report = result.unwrap();
+        assert!(
+            !report.conforms(),
+            "Report should indicate non conformance for invalid location-oriented data"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_invalid_triple() {
+        // Minimal SHACL shape: ex:Person must have an ex:name property of type xsd:string
+        let shacl = r#"
             @prefix sh: <http://www.w3.org/ns/shacl#> .
             @prefix ex: <http://example.org/> .
             @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -141,8 +145,8 @@ mod tests {
                 ] .
         "#;
 
-            // Valid triple: ex:alice is a ex:Person and has an ex:name "Alice"
-            let triples = r#"
+        // Valid triple: ex:alice is a ex:Person and has an ex:name "Alice"
+        let triples = r#"
             @prefix ex: <http://example.org/> .
             @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
@@ -150,11 +154,12 @@ mod tests {
                 ex:invalidDummyProperty "Alice"^^xsd:string .
         "#;
 
-            let result = validate_triples(shacl, triples).await;
-            assert!(result.is_ok(), "Parsing should succeed even with invalid data");
-            let report = result.unwrap();
-            assert!(!report.conforms(), "Report should indicate non-conformance");
-        }
+        let result = validate_triples(shacl, triples).await;
+        assert!(
+            result.is_ok(),
+            "Parsing should succeed even with invalid data"
+        );
+        let report = result.unwrap();
+        assert!(!report.conforms(), "Report should indicate non-conformance");
     }
-
 }

@@ -4,6 +4,8 @@
 syntax = "proto3";
 package shacl_validator;
 
+option go_package = "internal/protoBuild";
+
 service ShaclValidator {
     rpc Validate (TurtleValidationRequest) returns (ValidationReply);
 }

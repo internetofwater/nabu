@@ -4,16 +4,21 @@
 package crawl
 
 import (
+	"bytes"
 	"context"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
+	"github.com/internetofwater/nabu/internal/protoBuild"
+	"google.golang.org/grpc"
 
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	log "github.com/sirupsen/logrus"
@@ -88,13 +93,27 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string) (Si
 
 	crawlErrorChan := make(chan UrlCrawlError, len(s.URL))
 	client := common.NewRetryableHTTPClient()
+
+	// TODO: Replace "localhost:50051" with your actual gRPC server address or inject the connection as needed.
+	conn, err := grpc.NewClient("unix:///tmp/shacl_validator.sock", grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		return SitemapCrawlStats{}, fmt.Errorf("failed to connect to gRPC server: %w", err)
+	}
+	defer conn.Close()
+	grpcClient := protoBuild.NewShaclValidatorClient(conn)
+
+	JsonLdProc, JsonLdOpts, err := common.NewJsonldProcessor(false, []config.ContextMap{})
+	if err != nil {
+		return SitemapCrawlStats{}, fmt.Errorf("failed to create JSON-LD processor: %w", err)
+	}
+
 	start := time.Now()
 	for _, url := range s.URL {
 		// Capture the URL for use in the goroutine.
 		url := url
 		group.Go(func() error {
 			// Create a new span for each URL and propagate the updated context
-			_, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
+			ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
 			defer span.End()
 
 			req, err := http.NewRequest("GET", url.Loc, nil)
@@ -116,8 +135,29 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string) (Si
 				return nil
 			}
 
+			bodyBytes, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return fmt.Errorf("failed to read response body: %w", err)
+			}
+
+			triples, err := common.JsonldToNQ(string(bodyBytes), JsonLdProc, JsonLdOpts)
+			if err != nil {
+				return fmt.Errorf("failed to convert JSON-LD to N-Quads: %w", err)
+			}
+
+			_, grpcSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, "grpc_shacl_validation")
+			if reply, err := grpcClient.Validate(ctx, &protoBuild.TurtleValidationRequest{Triples: triples}); err != nil {
+				grpcSubspan.End()
+				return fmt.Errorf("failed sending validation request to gRPC server: %w", err)
+			} else if !reply.Valid {
+				crawlErrorChan <- UrlCrawlError{Url: url.Loc, ShaclValid: reply.Valid, ShaclErrorMessage: reply.Message}
+				grpcSubspan.End()
+				return nil
+			}
+			grpcSubspan.End()
+
 			// To generate a hash we need to copy the response body
-			respBodyCopy, itemHash, err := copyReaderAndGenerateHashFilename(resp.Body)
+			itemHash, err := generateHashFilename(bodyBytes)
 			if err != nil {
 				return err
 			}
@@ -131,7 +171,7 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string) (Si
 
 			if !exists {
 				// Store from the buffered copy
-				if err = s.storageDestination.Store(summonedPath, respBodyCopy); err != nil {
+				if err = s.storageDestination.Store(summonedPath, bytes.NewReader(bodyBytes)); err != nil {
 					return err
 				}
 				log.Debugf("stored %s as %s", url.Loc, itemHash)
