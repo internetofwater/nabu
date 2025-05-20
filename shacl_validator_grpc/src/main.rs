@@ -1,9 +1,13 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use shacl_validator_grpc::{validate_dataset_oriented, validate_location_oriented};
-use tonic::{transport::Server, Request, Response, Status};
+use std::{fs, path::Path};
 
+use shacl_validator_grpc::{validate_dataset_oriented, validate_location_oriented};
+use tokio::net::UnixListener;
+use tonic::{transport::Server, Request, Response, Status};
+use tokio_stream::wrappers::UnixListenerStream;
+use tokio::signal;
 use shacl_validator::{
     shacl_validator_server::{ShaclValidator, ShaclValidatorServer},
     TurtleValidationRequest, ValidationReply, MatchingShaclType
@@ -100,13 +104,38 @@ impl ShaclValidator for Validator {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:50051".parse()?;
+
+    let path = "/tmp/shacl_validator.sock";
+
+    // Remove the socket file if it already exists
+    if Path::new(path).exists() {
+        fs::remove_file(path)?;
+    }
+
+    std::fs::create_dir_all(Path::new(path).parent().unwrap())?;
+
+    let uds = UnixListener::bind(path)?;
+    let uds_stream = UnixListenerStream::new(uds);
+
     let validator = Validator::default();
 
-    Server::builder()
+    // Run the server and listen for Ctrl+C
+    let server = Server::builder()
         .add_service(ShaclValidatorServer::new(validator))
-        .serve(addr)
-        .await?;
+        .serve_with_incoming_shutdown(
+            uds_stream,
+            async {
+                signal::ctrl_c().await.expect("failed to install Ctrl+C handler");
+            }
+        );
 
+    let result = server.await;
+
+    // Clean up the socket file on shutdown
+    if Path::new(path).exists() {
+        print!("Cleaning up socket file at {}", path);
+        fs::remove_file(path)?;
+    }
+    result?;
     Ok(())
 }
