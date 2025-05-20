@@ -40,7 +40,7 @@ deadcode:
 
 # test with gotestsum, a helpful wrapper for go test
 test:
-	gotestsum
+	gotestsum --max-fails 1 && cd shacl_validator_grpc && cargo test
 
 # run tests and print the slowest tests in the project
 slowest:	

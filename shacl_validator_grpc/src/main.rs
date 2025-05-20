@@ -39,11 +39,9 @@ impl ShaclValidator for Validator {
         let dataset_validation_report = validate_dataset_oriented(&req.triples);
         let location_validation_report = validate_location_oriented(&req.triples);
 
-        let (dataset_result, location_result) = tokio::join!(dataset_validation_report, location_validation_report);
-
         println!("Validation took: {:?}", start.elapsed());
 
-        match (dataset_result, location_result) {
+        match (dataset_validation_report, location_validation_report) {
             // If one report is successful and the other fails, return the successful one
             (Ok(report), Err(_)) => {
                 let reply = ValidationReply {
@@ -109,7 +107,7 @@ impl ShaclValidator for Validator {
 }
 
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 4)] // adjust based on cores
+#[tokio::main(flavor = "multi_thread")] // defaults to number of cpus on the system
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let path = "/tmp/shacl_validator.sock";
@@ -142,7 +140,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Clean up the socket file on shutdown
     if Path::new(path).exists() {
-        print!("Cleaning up socket file at {}", path);
+        println!("Cleaning up socket file at {}", path);
         fs::remove_file(path)?;
     }
     result?;

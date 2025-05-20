@@ -19,6 +19,7 @@ import (
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/protoBuild"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	log "github.com/sirupsen/logrus"
@@ -65,7 +66,7 @@ func nonFatalBadResponse(resp *http.Response, url URL, span trace.Span) UrlCrawl
 }
 
 // Harvest all the URLs in the sitemap
-func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string) (SitemapCrawlStats, error) {
+func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, validateShacl bool) (SitemapCrawlStats, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapID))
 	defer span.End()
 
@@ -94,8 +95,9 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string) (Si
 	crawlErrorChan := make(chan UrlCrawlError, len(s.URL))
 	client := common.NewRetryableHTTPClient()
 
-	// TODO: Replace "localhost:50051" with your actual gRPC server address or inject the connection as needed.
-	conn, err := grpc.NewClient("unix:///tmp/shacl_validator.sock", grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.NewClient("unix:///tmp/shacl_validator.sock",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
 		return SitemapCrawlStats{}, fmt.Errorf("failed to connect to gRPC server: %w", err)
 	}
@@ -145,16 +147,19 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string) (Si
 				return fmt.Errorf("failed to convert JSON-LD to N-Quads: %w", err)
 			}
 
-			_, grpcSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, "grpc_shacl_validation")
-			if reply, err := grpcClient.Validate(ctx, &protoBuild.TurtleValidationRequest{Triples: triples}); err != nil {
+			if validateShacl {
+				ctx, grpcSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, "grpc_shacl_validation")
+				if reply, err := grpcClient.Validate(ctx, &protoBuild.TurtleValidationRequest{Triples: triples}); err != nil {
+					grpcSubspan.End()
+					return fmt.Errorf("failed sending validation request to gRPC server: %w", err)
+				} else if !reply.Valid {
+					log.Errorf("SHACL validation failed for %s: %s", url.Loc, reply.Message)
+					crawlErrorChan <- UrlCrawlError{Url: url.Loc, ShaclValid: reply.Valid, ShaclErrorMessage: reply.Message}
+					grpcSubspan.End()
+					return nil
+				}
 				grpcSubspan.End()
-				return fmt.Errorf("failed sending validation request to gRPC server: %w", err)
-			} else if !reply.Valid {
-				crawlErrorChan <- UrlCrawlError{Url: url.Loc, ShaclValid: reply.Valid, ShaclErrorMessage: reply.Message}
-				grpcSubspan.End()
-				return nil
 			}
-			grpcSubspan.End()
 
 			// To generate a hash we need to copy the response body
 			itemHash, err := generateHashFilename(bodyBytes)

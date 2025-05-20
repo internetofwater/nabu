@@ -11,23 +11,23 @@ use srdf::{RDFFormat, SRDFGraph};
 use std::io::Cursor;
 
 /// Validate rdf triples against the location-oriented shacl shape
-pub async fn validate_location_oriented(triples: &str) -> Result<ValidationReport, ValidateError> {
+pub fn validate_location_oriented(triples: &str) -> Result<ValidationReport, ValidateError> {
     let shacl = include_str!("../shapes/locationOriented.ttl");
-    validate_triples(shacl, triples).await
+    validate_triples(shacl, triples)
 }
 
 /// Validate rdf triples against the dataset-oriented shacl shape
-pub async fn validate_dataset_oriented(triples: &str) -> Result<ValidationReport, ValidateError> {
+pub fn validate_dataset_oriented(triples: &str) -> Result<ValidationReport, ValidateError> {
     let shacl = include_str!("../shapes/datasetOriented.ttl");
-    validate_triples(shacl, triples).await
+    validate_triples(shacl, triples)
 }
 
 /// Validate an arbitrary string of rdf triples against a string of shacl shapes.
-pub async fn validate_triples(
+pub fn validate_triples(
     shacl: &str,
     triples: &str,
 ) -> Result<ValidationReport, ValidateError> {
-    if shacl.trim().is_empty() || triples.trim().is_empty() {
+    if shacl == "" || triples == "" {
         return Err(ValidateError::TargetNodeBlankNode);
     }
 
@@ -57,7 +57,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_empty() {
-        let result = validate_triples("", "").await;
+        let result = validate_triples("", "");
         assert!(result.is_err());
     }
 
@@ -87,7 +87,7 @@ mod tests {
                     ex:name "Alice"^^xsd:string .
             "#;
 
-        let result = validate_triples(shacl, triples).await;
+        let result = validate_triples(shacl, triples);
         assert!(result.is_ok(), "Validation should succeed for valid data");
         let report = result.unwrap();
         assert!(report.conforms(), "Report should indicate conformance");
@@ -98,7 +98,7 @@ mod tests {
         // Minimal valid RDF data for the locationOriented.ttl SHACL shape
         let triples = include_str!("testdata/locationOrientedExample.ttl");
 
-        let result = crate::validate_location_oriented(triples).await;
+        let result = crate::validate_location_oriented(triples);
         assert!(
             result.is_ok(),
             "Validation should succeed for valid location-oriented data"
@@ -115,7 +115,7 @@ mod tests {
         // Minimal valid RDF data for the locationOriented.ttl SHACL shape
         let triples = include_str!("testdata/locationOrientedInvalidExample.ttl");
 
-        let result = validate_location_oriented(triples).await;
+        let result = validate_location_oriented(triples);
         assert!(
             result.is_ok(),
             "Validation should succeed for valid location-oriented data"
@@ -154,7 +154,7 @@ mod tests {
                 ex:invalidDummyProperty "Alice"^^xsd:string .
         "#;
 
-        let result = validate_triples(shacl, triples).await;
+        let result = validate_triples(shacl, triples);
         assert!(
             result.is_ok(),
             "Parsing should succeed even with invalid data"
