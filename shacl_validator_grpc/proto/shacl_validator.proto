@@ -5,14 +5,22 @@ syntax = "proto3";
 package shacl_validator;
 
 service ShaclValidator {
-    rpc Validate (JsonldValidationRequest) returns (ValidationReply);
+    rpc Validate (TurtleValidationRequest) returns (ValidationReply);
 }
 
-message JsonldValidationRequest {
-   string jsonld = 1;
+message TurtleValidationRequest {
+   string triples = 1;
 }
 
+// Which shacl file we are in coformance with
+enum MatchingShaclType {
+    LocationOriented = 0;
+    DatasetOriented = 1;
+  }
+  
 message ValidationReply {
     bool valid = 1;
     string message = 2;
+    optional MatchingShaclType ShaclType = 3;
 }
+

@@ -3,6 +3,7 @@
 @prefix schema: <https://schema.org/> .
 @prefix gsp: <http://www.opengis.net/ont/geosparql#> .
 @prefix hyf: <https://www.opengis.net/def/schema/hy_features/hyf/> .
+@base <http://example.org/> .
 
 <#LocationOrientedShape> a sh:NodeShape ;
     sh:targetClass schema:Place ;
