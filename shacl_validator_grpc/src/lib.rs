@@ -28,8 +28,8 @@ pub struct Validator {
     pub location_schema: Arc<SchemaIR<RdfData>>,
 }
 
-impl Validator {
-    pub fn default() -> Self {
+impl Default for Validator {
+    fn default() -> Self {
         // Load the dataset-oriented schema
         let dataset_schema = {
             let shacl = include_str!("../shapes/datasetOriented.ttl");
@@ -45,7 +45,9 @@ impl Validator {
             location_schema,
         }
     }
+}
 
+impl Validator {
     /// Validate rdf triples against the location-oriented shacl shape
     pub fn validate_location_oriented(
         &self,
@@ -62,8 +64,6 @@ impl Validator {
         validate_triples(&self.dataset_schema, triples)
     }
 }
-
-
 
 /// Validate an arbitrary string of rdf triples against a string of shacl shapes.
 pub fn validate_triples(
@@ -87,7 +87,7 @@ pub fn validate_triples(
 
     let endpoint_validation = GraphValidation::from_graph(graph, ShaclValidationMode::Native);
 
-    let report = endpoint_validation.validate(&shacl)?;
+    let report = endpoint_validation.validate(shacl)?;
     Ok(report)
 }
 
