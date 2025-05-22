@@ -39,6 +39,7 @@ type GleanerArgs struct {
 	ConcurrentSitemaps int    `arg:"--concurrent-sitemaps" default:"10"`
 	SitemapWorkers     int    `arg:"--sitemap-workers" default:"10"`
 	HeadlessChromeUrl  string `arg:"--headless-chrome-url" default:"0.0.0.0:9222" help:"port for interacting with the headless chrome devtools"`
+	ValidateShacl      bool   `arg:"--validate-shacl" default:"false" help:"validate the sitemap against Geoconnex SHACL shapes; requires the gRPC server to be running"`
 }
 
 type GleanerRunner struct {
@@ -114,6 +115,7 @@ func (g GleanerRunner) Run(ctx context.Context) ([]crawl.SitemapCrawlStats, erro
 		WithConcurrencyConfig(g.args.ConcurrentSitemaps, g.args.SitemapWorkers).
 		WithSpecifiedSourceFilter(g.args.Source).
 		WithHeadlessChromeUrl(g.args.HeadlessChromeUrl).
+		WithShaclValidationConfig(g.args.ValidateShacl).
 		HarvestSitemaps(ctx)
 
 	asJson := crawl.ToJson(stats)

@@ -4,13 +4,13 @@
 package crawl
 
 import (
-	"bytes"
 	"crypto/md5"
 	"fmt"
-	"io"
 	"os"
 	"testing"
 
+	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -84,24 +84,15 @@ func TestRobots(t *testing.T) {
 
 }
 
-func FuzzCopyReaderAndReturnHash(f *testing.F) {
+func FuzzGetHash(f *testing.F) {
 	// Seed with example inputs
 	f.Add([]byte("test data"))
 	f.Add([]byte("test data2"))
 
 	f.Fuzz(func(t *testing.T, input []byte) {
 		// Run function with fuzz input
-		reader := bytes.NewReader(input)
-
-		readerCopy, hash, err := copyReaderAndGenerateHashFilename(reader)
+		hash, err := generateHashFilename(input)
 		require.NoError(t, err)
-
-		// Read copied data
-		copiedData, err := io.ReadAll(readerCopy)
-		require.NoError(t, err)
-
-		// The copied data should equal the input
-		require.Equal(t, string(copiedData), string(input), "copied data should match input")
 
 		// rehash to verify correctness
 		expectedHash := fmt.Sprintf("%x.jsonld", md5.Sum(input))
@@ -113,14 +104,19 @@ func TestGetJsonLdFromHTML(t *testing.T) {
 	t.Run("end to end", func(t *testing.T) {
 		data, err := os.ReadFile("testdata/html_with_jsonld.html")
 		require.NoError(t, err)
-		jsonld, err := GetJsonLDFromHTML(bytes.NewReader(data))
+		jsonld, err := GetJsonLDFromHTML(data)
 		require.NoError(t, err)
 		require.Contains(t, jsonld, "https://opengeospatial.github.io/ELFIE/contexts/elfie-2/hy_features.jsonld")
+
+		processor, options, err := common.NewJsonldProcessor(true, []config.ContextMap{})
+		require.NoError(t, err)
+		_, err = common.JsonldToNQ(jsonld, processor, options)
+		require.NoError(t, err)
 	})
 	t.Run("mislabeled jsonld script tag", func(t *testing.T) {
 		data, err := os.ReadFile("testdata/html_without_jsonld.html")
 		require.NoError(t, err)
-		_, err = GetJsonLDFromHTML(bytes.NewReader(data))
+		_, err = GetJsonLDFromHTML(data)
 		require.Error(t, err)
 	})
 }

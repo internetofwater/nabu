@@ -1,0 +1,49 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix schema: <https://schema.org/> .
+@prefix gsp: <http://www.opengis.net/ont/geosparql#> .
+@prefix hyf: <https://www.opengis.net/def/schema/hy_features/hyf/> .
+@base <http://example.org/> .
+
+<#LocationOrientedShape> a sh:NodeShape ;
+    sh:targetClass schema:Place ;
+
+    # Name is a required property
+    sh:property [
+        sh:path schema:name ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] ;
+
+    sh:property [
+        sh:path schema:description ;
+        sh:datatype xsd:string ;
+    ] ;
+
+    sh:property [
+        sh:path hyf:HydroLocationType ;
+        sh:datatype xsd:string ;
+    ] ;
+
+    sh:property [
+        sh:path schema:subjectOf ;
+        sh:datatype xsd:anyURI ;
+    ] ;
+
+    # schema for the wkt geometry and crs
+    # i.e. POINT(-100, 100)
+    sh:property [
+        sh:path gsp:hasGeometry ;
+        sh:node [
+            sh:property [
+                sh:path gsp:asWKT ;
+                sh:datatype gsp:wktLiteral ;
+            ] ;
+        ] ;
+    ] ;
+
+    # schema for the geo coordinates (i.e. lat / long key val mapping)
+    sh:property [
+        sh:path schema:geo ;
+    ] ;
+.

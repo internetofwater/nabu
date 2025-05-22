@@ -32,6 +32,7 @@ type Index struct {
 	specificSourceToHarvest string               `xml:"-"`
 	sitemapWorkers          int                  `xml:"-"`
 	headlessChromeUrl       string               `xml:"-"`
+	shaclValidationEnabled  bool                 `xml:"-"`
 }
 
 // parts is a structure of <sitemap> in <sitemapindex>
@@ -158,7 +159,7 @@ func (i Index) HarvestSitemaps(ctx context.Context) ([]SitemapCrawlStats, error)
 			}()
 
 			stats, harvestErr := sitemap.SetStorageDestination(i.storageDestination).
-				Harvest(ctx, i.sitemapWorkers, id)
+				Harvest(ctx, i.sitemapWorkers, id, i.shaclValidationEnabled)
 
 			for err := range errChan {
 				if err != nil {
@@ -212,7 +213,7 @@ func (i Index) HarvestSitemap(ctx context.Context, sitemapIdentifier string) (Si
 			return SitemapCrawlStats{}, err
 		}
 		return sitemap.SetStorageDestination(i.storageDestination).
-			Harvest(ctx, i.sitemapWorkers, id)
+			Harvest(ctx, i.sitemapWorkers, id, i.shaclValidationEnabled)
 	}
 	return SitemapCrawlStats{}, fmt.Errorf("sitemap %s not found in sitemap", sitemapIdentifier)
 }

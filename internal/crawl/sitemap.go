@@ -4,6 +4,7 @@
 package crawl
 
 import (
+	"bytes"
 	"context"
 	"encoding/xml"
 	"fmt"
@@ -13,8 +14,12 @@ import (
 	"time"
 
 	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
+	"github.com/internetofwater/nabu/internal/protoBuild"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	log "github.com/sirupsen/logrus"
@@ -38,54 +43,27 @@ type Sitemap struct {
 // it will first try to get the jsonld directly if the content
 // type is application/ld+json otherwise it tries to find it
 // inside the html
-func getJSONLD(resp *http.Response, url URL) (io.Reader, error) {
+func getJSONLD(resp *http.Response, url URL, body []byte) ([]byte, error) {
 	mime := resp.Header.Get("Content-Type")
 	if !strings.Contains(mime, "application/ld+json") {
 		if strings.Contains(mime, "text/html") {
-			jsonldString, err := GetJsonLDFromHTML(resp.Body)
+			jsonldString, err := GetJsonLDFromHTML(body)
 			if err != nil {
 				log.Errorf("failed to parse jsonld within the html for %s", url.Loc)
 				return nil, err
 			}
-			return strings.NewReader(jsonldString), nil
+			return []byte(jsonldString), nil
 		} else {
 			errormsg := fmt.Sprintf("got wrong file type %s for %s", mime, url.Loc)
 			log.Error(errormsg)
 			return nil, UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
 		}
 	}
-	return resp.Body, nil
-}
-
-func storeIfChanged(jsonld io.Reader, url URL, sitemapID string, storage storage.CrawlStorage) error {
-
-	// To generate a hash we need to copy the response body
-	respBodyCopy, itemHash, err := copyReaderAndGenerateHashFilename(jsonld)
-	if err != nil {
-		return err
-	}
-
-	summonedPath := fmt.Sprintf("summoned/%s/%s", sitemapID, itemHash)
-
-	exists, err := storage.Exists(summonedPath)
-	if err != nil {
-		return err
-	}
-
-	if !exists {
-		// Store from the buffered copy
-		if err = storage.Store(summonedPath, respBodyCopy); err != nil {
-			return err
-		}
-		log.Debugf("stored %s as %s", url.Loc, itemHash)
-	} else {
-		log.Debugf("%s already exists so skipping", url.Loc)
-	}
-	return nil
+	return body, nil
 }
 
 // Harvest all the URLs in the sitemap
-func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string) (SitemapCrawlStats, error) {
+func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, validateShacl bool) (SitemapCrawlStats, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapID))
 	defer span.End()
 
@@ -113,13 +91,28 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string) (Si
 
 	crawlErrorChan := make(chan UrlCrawlError, len(s.URL))
 	client := common.NewRetryableHTTPClient()
+
+	conn, err := grpc.NewClient("unix:///tmp/shacl_validator.sock",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return SitemapCrawlStats{}, fmt.Errorf("failed to connect to gRPC server: %w", err)
+	}
+	defer conn.Close()
+	grpcClient := protoBuild.NewShaclValidatorClient(conn)
+
+	JsonLdProc, JsonLdOpts, err := common.NewJsonldProcessor(true, []config.ContextMap{})
+	if err != nil {
+		return SitemapCrawlStats{}, fmt.Errorf("failed to create JSON-LD processor: %w", err)
+	}
+
 	start := time.Now()
 	for _, url := range s.URL {
 		// Capture the URL for use in the goroutine.
 		url := url
 		group.Go(func() error {
 			// Create a new span for each URL and propagate the updated context
-			_, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
+			ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
 			defer span.End()
 
 			req, err := http.NewRequest("GET", url.Loc, nil)
@@ -145,7 +138,12 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string) (Si
 				return nil
 			}
 
-			jsonld, err := getJSONLD(resp, url)
+			bodyBytes, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return fmt.Errorf("failed to read response body: %w", err)
+			}
+
+			jsonld, err := getJSONLD(resp, url, bodyBytes)
 			if err != nil {
 				// If it's a UrlCrawlError, store it for stats
 				// put don't return it, since it is non fatal
@@ -154,11 +152,48 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string) (Si
 					crawlErrorChan <- urlErr
 					return nil
 				}
-				// if it is an unknown error then return it
+				return fmt.Errorf("failed to get JSON-LD from response: %w", err)
+			}
+
+			triples, err := common.JsonldToNQ(string(jsonld), JsonLdProc, JsonLdOpts)
+			if err != nil {
+				return fmt.Errorf("failed to convert JSON-LD to N-Quads: %w", err)
+			}
+
+			// To generate a hash we need to copy the response body
+			itemHash, err := generateHashFilename(jsonld)
+			if err != nil {
 				return err
 			}
 
-			if err = storeIfChanged(jsonld, url, sitemapID, s.storageDestination); err != nil {
+			summonedPath := fmt.Sprintf("summoned/%s/%s", sitemapID, itemHash)
+
+			exists, err := s.storageDestination.Exists(summonedPath)
+			if err != nil {
+				return err
+			}
+			if exists {
+				return nil
+			}
+
+			if validateShacl {
+				ctx, grpcSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, "grpc_shacl_validation")
+				log.Debugf("validating triples of byte size %d", len(triples))
+				if reply, err := grpcClient.Validate(ctx, &protoBuild.TurtleValidationRequest{Triples: triples}); err != nil {
+					grpcSubspan.End()
+					return fmt.Errorf("failed sending validation request to gRPC server: %w", err)
+				} else if !reply.Valid {
+					grpcSubspan.SetStatus(codes.Error, reply.Message)
+					log.Errorf("SHACL validation failed for %s: %s", url.Loc, reply.Message)
+					crawlErrorChan <- UrlCrawlError{Url: url.Loc, ShaclValid: reply.Valid, ShaclErrorMessage: reply.Message}
+					grpcSubspan.End()
+					return nil
+				}
+				grpcSubspan.End()
+			}
+
+			// Store from the buffered copy
+			if err = s.storageDestination.Store(summonedPath, bytes.NewReader(jsonld)); err != nil {
 				return err
 			}
 

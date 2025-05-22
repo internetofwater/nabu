@@ -14,6 +14,11 @@ func (i Index) WithStorageDestination(storageDestination storage.CrawlStorage) I
 	return i
 }
 
+func (i Index) WithShaclValidationConfig(enabled bool) Index {
+	i.shaclValidationEnabled = enabled
+	return i
+}
+
 // Set the storage strategy for the struct
 func (s Sitemap) SetStorageDestination(storageDestination storage.CrawlStorage) Sitemap {
 	s.storageDestination = storageDestination

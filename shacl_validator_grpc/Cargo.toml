@@ -1,0 +1,20 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "shacl_validator_grpc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tonic = "*"
+prost = "0.13"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "signal"] }
+shacl_validation = "0.1.60"
+srdf = "0.1.60"
+sparql_service = "0.1.60"
+tokio-stream = "0.1.17"
+shacl_ast = "0.1.63"
+
+[build-dependencies]
+tonic-build = "*"

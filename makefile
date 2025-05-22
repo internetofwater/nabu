@@ -3,6 +3,9 @@
 # they are not required for running
 # and are just intended for local development/testing
 
+protoc:
+	protoc --proto_path=. --go_out=. --go-grpc_out=. shacl_validator_grpc/proto/shacl_validator.proto
+
 # clean up trace/profiling/build artifacts
 clean:
 	find . -type f -name "http_trace.csv" -delete
@@ -37,7 +40,7 @@ deadcode:
 
 # test with gotestsum, a helpful wrapper for go test
 test:
-	gotestsum
+	gotestsum --max-fails 1 && cd shacl_validator_grpc && cargo test
 
 # run tests and print the slowest tests in the project
 slowest:	
