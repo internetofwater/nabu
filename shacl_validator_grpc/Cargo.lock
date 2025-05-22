@@ -2087,6 +2087,7 @@ name = "shacl_validator_grpc"
 version = "0.1.0"
 dependencies = [
  "prost",
+ "shacl_ast",
  "shacl_validation",
  "sparql_service",
  "srdf",

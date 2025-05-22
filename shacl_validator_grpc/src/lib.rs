@@ -1,37 +1,78 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
+use shacl_ast::compiled::schema::SchemaIR;
 use shacl_validation::shacl_processor::{GraphValidation, ShaclProcessor, ShaclValidationMode};
 use shacl_validation::store::graph::Graph;
-use shacl_validation::store::ShaclDataManager;
 use shacl_validation::validate_error::ValidateError;
 use shacl_validation::validation_report::report::ValidationReport;
 use sparql_service::RdfData;
 use srdf::{RDFFormat, SRDFGraph};
+
+// Dynamically include the proto file using a macro
+pub mod shacl_validator {
+    tonic::include_proto!("shacl_validator");
+}
+
+use std::sync::Arc;
+
+use shacl_validation::store::ShaclDataManager;
+
 use std::io::Cursor;
 
-/// Validate rdf triples against the location-oriented shacl shape
-pub fn validate_location_oriented(triples: &str) -> Result<ValidationReport, ValidateError> {
-    let shacl = include_str!("../shapes/locationOriented.ttl");
-    validate_triples(shacl, triples)
+#[derive(Debug)]
+/// An empty struct upon which to implement the necessary traits
+/// for our grpc server with tokio and tonic
+pub struct Validator {
+    pub dataset_schema: Arc<SchemaIR<RdfData>>,
+    pub location_schema: Arc<SchemaIR<RdfData>>,
 }
 
-/// Validate rdf triples against the dataset-oriented shacl shape
-pub fn validate_dataset_oriented(triples: &str) -> Result<ValidationReport, ValidateError> {
-    let shacl = include_str!("../shapes/datasetOriented.ttl");
-    validate_triples(shacl, triples)
+impl Validator {
+    pub fn default() -> Self {
+        // Load the dataset-oriented schema
+        let dataset_schema = {
+            let shacl = include_str!("../shapes/datasetOriented.ttl");
+            Arc::new(ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap())
+        };
+        let location_schema = {
+            let shacl = include_str!("../shapes/locationOriented.ttl");
+            Arc::new(ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap())
+        };
+
+        Self {
+            dataset_schema,
+            location_schema,
+        }
+    }
+
+    /// Validate rdf triples against the location-oriented shacl shape
+    pub fn validate_location_oriented(
+        &self,
+        triples: &str,
+    ) -> Result<ValidationReport, ValidateError> {
+        validate_triples(&self.location_schema, triples)
+    }
+
+    /// Validate rdf triples against the dataset-oriented shacl shape
+    pub fn validate_dataset_oriented(
+        &self,
+        triples: &str,
+    ) -> Result<ValidationReport, ValidateError> {
+        validate_triples(&self.dataset_schema, triples)
+    }
 }
+
+
 
 /// Validate an arbitrary string of rdf triples against a string of shacl shapes.
 pub fn validate_triples(
-    shacl: &str,
+    shacl: &SchemaIR<RdfData>,
     triples: &str,
 ) -> Result<ValidationReport, ValidateError> {
-    if shacl.is_empty() || triples.is_empty() {
+    if triples.is_empty() {
         return Err(ValidateError::TargetNodeBlankNode);
     }
-
-    let schema = ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None)?;
 
     let srdf_graph = SRDFGraph::from_str(
         triples,
@@ -46,18 +87,24 @@ pub fn validate_triples(
 
     let endpoint_validation = GraphValidation::from_graph(graph, ShaclValidationMode::Native);
 
-    let report = endpoint_validation.validate(&schema)?;
+    let report = endpoint_validation.validate(&shacl)?;
     Ok(report)
 }
 
 #[cfg(test)]
 mod tests {
 
-    use crate::{validate_location_oriented, validate_triples};
+    use std::io::Cursor;
+
+    use shacl_validation::store::ShaclDataManager;
+    use srdf::RDFFormat;
+
+    use crate::validate_triples;
 
     #[tokio::test]
     async fn test_empty() {
-        let result = validate_triples("", "");
+        let schema = ShaclDataManager::load(Cursor::new(""), RDFFormat::Turtle, None).unwrap();
+        let result = validate_triples(&schema, "");
         assert!(result.is_err());
     }
 
@@ -87,7 +134,9 @@ mod tests {
                     ex:name "Alice"^^xsd:string .
             "#;
 
-        let result = validate_triples(shacl, triples);
+        let schema = ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap();
+
+        let result = validate_triples(&schema, triples);
         assert!(result.is_ok(), "Validation should succeed for valid data");
         let report = result.unwrap();
         assert!(report.conforms(), "Report should indicate conformance");
@@ -98,7 +147,9 @@ mod tests {
         // Minimal valid RDF data for the locationOriented.ttl SHACL shape
         let triples = include_str!("testdata/locationOrientedExample.ttl");
 
-        let result = crate::validate_location_oriented(triples);
+        let validator = crate::Validator::default();
+
+        let result = validator.validate_location_oriented(triples);
         assert!(
             result.is_ok(),
             "Validation should succeed for valid location-oriented data"
@@ -115,7 +166,9 @@ mod tests {
         // Minimal valid RDF data for the locationOriented.ttl SHACL shape
         let triples = include_str!("testdata/locationOrientedInvalidExample.ttl");
 
-        let result = validate_location_oriented(triples);
+        let validator = crate::Validator::default();
+
+        let result = validator.validate_location_oriented(triples);
         assert!(
             result.is_ok(),
             "Validation should succeed for valid location-oriented data"
@@ -154,7 +207,8 @@ mod tests {
                 ex:invalidDummyProperty "Alice"^^xsd:string .
         "#;
 
-        let result = validate_triples(shacl, triples);
+        let schema = ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap();
+        let result = validate_triples(&schema, triples);
         assert!(
             result.is_ok(),
             "Parsing should succeed even with invalid data"
