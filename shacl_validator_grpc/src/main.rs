@@ -1,7 +1,6 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use std::sync::Arc;
 use std::{fs, path::Path};
 
 use shacl_validator::shacl_validator_server::{ShaclValidator, ShaclValidatorServer};
@@ -9,7 +8,6 @@ use shacl_validator::ValidationReply;
 use shacl_validator::{
     MatchingShaclType, TurtleValidationRequest,
 };
-use shacl_validator_grpc::validate_triples;
 use shacl_validator_grpc::Validator;
 use tokio::net::UnixListener;
 use tokio::signal;
@@ -37,31 +35,10 @@ impl ShaclValidator for Validator {
 
         let req = request.into_inner();
 
-        let triples = Arc::new(req.triples);
-        let dataset_triples = triples.clone();
-        let location_triples = triples.clone();
+        let dataset_validation_report = self.validate_dataset_oriented(&req.triples);
+        let location_validation_report = self.validate_location_oriented(&req.triples);
 
-        let dataset_schema = self.dataset_schema.clone();
-        let location_schema = self.location_schema.clone();
-
-        let dataset_handle = tokio::task::spawn_blocking(move || {
-            let start_validation = std::time::Instant::now();
-            let res = validate_triples(&dataset_schema, &dataset_triples);
-            println!("Dataset validation took: {:?}", start_validation.elapsed());
-            res
-        });
-        let location_handle = tokio::task::spawn_blocking(move || {
-            let start_validation = std::time::Instant::now();
-            let res = validate_triples(&location_schema, &location_triples);
-            println!("Location validation took: {:?}", start_validation.elapsed());
-            res
-        });
-
-        let (dataset_validation_report, location_validation_report) =
-            tokio::try_join!(dataset_handle, location_handle)
-                .map_err(|e| Status::internal(format!("Join error: {:?}", e)))?;
-
-        println!("Validation took: {:?}", start.elapsed());
+        println!("Validation took {:?}", start.elapsed());
 
         match (dataset_validation_report, location_validation_report) {
             // If one report is successful and the other fails, return the successful one
