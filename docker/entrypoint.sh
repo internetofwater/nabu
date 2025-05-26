@@ -4,11 +4,9 @@
 
 set -e
 
-if [ -z "$BINARY_NAME" ]; then
-  echo "BINARY_NAME is not set!"
-  exit 1
-fi
+# Start both services in the background
+/app/shacl_validator_grpc &
+/app/nabu "$@" &
 
-#  
-exec "/app/$BINARY_NAME" "$@"
-
+# Wait for all background processes
+wait
