@@ -44,16 +44,6 @@ jobs:
           push: true
           tags: internetofwater/nabu:${{ env.tag }}
 
-
-      - name: Build and Push Docker Image
-        uses: docker/build-push-action@v4
-        with:
-          build-args: |
-            BINARY_NAME=gleaner
-          context: .
-          push: true
-          tags: internetofwater/gleaner:${{ env.tag }}
-
       - name: "Run Geoconnex Scheduler to simulate a full crawl"
         uses: internetofwater/scheduler@main
         with:
