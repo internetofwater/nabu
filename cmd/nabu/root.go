@@ -39,13 +39,13 @@ type SparqlOptions struct {
 
 type NabuArgs struct {
 	// Subcommands that can be run
-	Clear   *ClearCmd   `arg:"subcommand:clear" help:"clear all graphs from the triplestore"`                // clear all graphs from the triplestore
-	Object  *ObjectCmd  `arg:"subcommand:object" help:"upload a single object to the triplestore"`           // upload a single object to the triplestore
-	Release *ReleaseCmd `arg:"subcommand:release" help:"upload a release to the triplestore"`                // upload a release to the triplestore
-	Prefix  *PrefixCmd  `arg:"subcommand:prefix" help:"upload a prefix to the triplestore"`                  // upload a prefix to the triplestore
-	Sync    *SyncCmd    `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`               // sync the triplestore with the s3 bucket
-	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`                  // test the connection to the s3 bucket
-	Harvest *HarvestCmd `arg:"subcommand:harvest" help:"harvest sitemaps and store them in the triplestore"` // harvest sitemaps and store them in the triplestore
+	Clear   *ClearCmd   `arg:"subcommand:clear" help:"clear all graphs from the triplestore"`              // clear all graphs from the triplestore
+	Object  *ObjectCmd  `arg:"subcommand:object" help:"upload a single object to the triplestore"`         // upload a single object to the triplestore
+	Release *ReleaseCmd `arg:"subcommand:release" help:"upload a release to the triplestore"`              // upload a release to the triplestore
+	Prefix  *PrefixCmd  `arg:"subcommand:prefix" help:"upload a prefix to the triplestore"`                // upload a prefix to the triplestore
+	Sync    *SyncCmd    `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`             // sync the triplestore with the s3 bucket
+	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`                // test the connection to the s3 bucket
+	Harvest *HarvestCmd `arg:"subcommand:harvest" help:"harvest sitemaps and store them in the s3 bucket"` // harvest sitemaps and store them in the s3 bucket
 
 	MinioOptions
 	SparqlOptions
