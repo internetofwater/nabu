@@ -101,15 +101,15 @@ mod tests {
 
     use crate::validate_triples;
 
-    #[tokio::test]
-    async fn test_empty() {
+    #[test]
+    fn test_empty() {
         let schema = ShaclDataManager::load(Cursor::new(""), RDFFormat::Turtle, None).unwrap();
         let result = validate_triples(&schema, "");
         assert!(result.is_err());
     }
 
-    #[tokio::test]
-    async fn test_valid_triple() {
+    #[test]
+    fn test_valid_triple() {
         // Minimal SHACL shape: ex:Person must have an ex:name property of type xsd:string
         let shacl = r#"
                 @prefix sh: <http://www.w3.org/ns/shacl#> .
@@ -142,8 +142,8 @@ mod tests {
         assert!(report.conforms(), "Report should indicate conformance");
     }
 
-    #[tokio::test]
-    async fn test_location_oriented() {
+    #[test]
+    fn test_location_oriented() {
         // Minimal valid RDF data for the locationOriented.ttl SHACL shape
         let triples = include_str!("testdata/locationOrientedExample.ttl");
 
@@ -161,8 +161,8 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_invalid_location_oriented() {
+    #[test]
+    fn test_invalid_location_oriented() {
         // Minimal valid RDF data for the locationOriented.ttl SHACL shape
         let triples = include_str!("testdata/locationOrientedInvalidExample.ttl");
 
@@ -180,8 +180,8 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_invalid_triple() {
+    #[test]
+    fn test_invalid_triple() {
         // Minimal SHACL shape: ex:Person must have an ex:name property of type xsd:string
         let shacl = r#"
             @prefix sh: <http://www.w3.org/ns/shacl#> .
