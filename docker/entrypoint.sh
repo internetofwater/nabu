@@ -4,9 +4,12 @@
 
 set -e
 
-# Start both services in the background
+# Start the gRPC server in the background
 /app/shacl_validator_grpc &
-/app/nabu "$@" &
 
-# Wait for all background processes
-wait
+# Start nabu in the background and save its PID
+/app/nabu "$@" &
+nabu_pid=$!
+
+# Wait only for nabu to finish since the gRPC server runs indefinitely
+wait "$nabu_pid"
