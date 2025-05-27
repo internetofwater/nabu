@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        binary_name: [nabu, gleaner]
+        binary_name: [nabu]
 
     steps:
       - name: Checkout code
