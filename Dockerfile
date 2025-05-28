@@ -18,7 +18,7 @@ RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go mod tidy && \
     go build -o nabu ./cmd/nabu
 
 
-FROM rust AS rust-builder
+FROM rust:slim AS rust-builder
 
 WORKDIR /app
 
