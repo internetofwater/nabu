@@ -33,7 +33,7 @@ export GRPC_GO_LOG_VERBOSITY_LEVEL=99
 export GRPC_GO_LOG_SEVERITY_LEVEL=info
 
 # Run gleaner
-time go run cmd/gleaner/root.go --log-level DEBUG \
+time go run ./cmd/nabu harvest --log-level DEBUG \
   --sitemap-index https://pids.geoconnex.dev/sitemap.xml \
   --concurrent-sitemaps 100 --sitemap-workers 150 \
   --use-otel --to-disk --source ref_dams_dams__0 --validate-shacl
