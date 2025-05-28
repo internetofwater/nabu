@@ -4,11 +4,13 @@
 package crawl
 
 import (
+	"bufio"
 	"context"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -56,6 +58,8 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 	cargoPath, err := exec.LookPath("cargo")
 	if err != nil {
 		t.Skip("cargo not installed")
+	} else {
+		t.Logf("cargo found at %s", cargoPath)
 	}
 
 	rustProjRoot := filepath.Join(projectpath.Root, "shacl_validator_grpc")
@@ -64,17 +68,37 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 	require.NoError(t, err)
 	err = os.Chdir(rustProjRoot)
 	require.NoError(t, err)
+
 	cmd := exec.Command(cargoPath, "run")
+	stdout, err := cmd.StdoutPipe()
+	require.NoError(t, err)
 	err = cmd.Start()
 	require.NoError(t, err)
 	defer func() {
 		_ = cmd.Process.Kill()
-
 	}()
 	//  restore cwd
 	err = os.Chdir(cwd)
 	require.NoError(t, err)
-	time.Sleep(3 * time.Second)
+
+	// Wait for "Starting gRPC server" on stdout
+	found := make(chan struct{})
+	go func() {
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.Contains(line, "Starting gRPC server") {
+				close(found)
+				return
+			}
+		}
+	}()
+	select {
+	case <-found:
+		// Proceed
+	case <-time.After(20 * time.Second):
+		t.Fatal("Timed out waiting for gRPC server to start")
+	}
 
 	t.Run("valid jsonld", func(t *testing.T) {
 		defer gock.Off()
