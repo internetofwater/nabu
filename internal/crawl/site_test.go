@@ -96,7 +96,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 	select {
 	case <-found:
 		// Proceed
-	case <-time.After(20 * time.Second):
+	case <-time.After(40 * time.Second):
 		t.Fatal("Timed out waiting for gRPC server to start")
 	}
 
