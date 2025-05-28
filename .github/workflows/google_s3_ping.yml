@@ -14,11 +14,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          # don't push the image since we just need it locally to run 
+          # the s3 test
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: nabu
+
       - name: Create Docker Network
         run: docker network create mynetwork
-
-      - name: Build Nabu Docker Image
-        run: docker build --build-arg BINARY_NAME=nabu  -t nabu .
 
       - name: Run Nabu
         run: |
