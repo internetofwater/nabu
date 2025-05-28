@@ -22,7 +22,7 @@ jobs:
           # the s3 test
           push: false
           cache-from: type=gha
-          tags: nabu
+          tags: internetofwater/nabu:${{ env.tag }}
 
       - name: Create Docker Network
         run: docker network create mynetwork
