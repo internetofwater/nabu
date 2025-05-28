@@ -3,6 +3,7 @@
 # they are not required for running
 # and are just intended for local development/testing
 
+# Generate the protobuf client code needed to connect to the grpc server
 protoc:
 	protoc --proto_path=. --go_out=. --go-grpc_out=. shacl_validator_grpc/proto/shacl_validator.proto
 
