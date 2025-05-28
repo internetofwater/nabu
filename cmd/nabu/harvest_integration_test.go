@@ -36,12 +36,12 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 	opentelemetry.InitTracer("gleaner_integration_test", opentelemetry.DefaultTracingEndpoint)
 	defer opentelemetry.Shutdown()
 
-	args := fmt.Sprintf("--log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
+	args := fmt.Sprintf("harvest --log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 
 	ctx, span := opentelemetry.NewSpanAndContextWithName("gleaner_nabu_integration_test_sync_graphs")
 	defer span.End()
 
-	_, err := NewGleanerRunnerFromString(args).Run(ctx)
+	_, err := NewNabuRunnerFromString(args).Run(ctx)
 	s.Require().NoError(err)
 
 	client, err := synchronizer.NewSynchronizerClientFromClients(
