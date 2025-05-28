@@ -58,6 +58,8 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 	cargoPath, err := exec.LookPath("cargo")
 	if err != nil {
 		t.Skip("cargo not installed")
+	} else if os.Getenv("GITHUB_ACTIONS") != "" {
+		t.Skip("skipping check in github actions; cargo build takes too long in ci")
 	} else {
 		t.Logf("cargo found at %s", cargoPath)
 	}
@@ -96,7 +98,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 	select {
 	case <-found:
 		// Proceed
-	case <-time.After(400 * time.Second):
+	case <-time.After(30 * time.Second):
 		t.Fatal("Timed out waiting for gRPC server to start")
 	}
 
