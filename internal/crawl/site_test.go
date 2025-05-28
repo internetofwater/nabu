@@ -67,10 +67,14 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 	cmd := exec.Command(cargoPath, "run")
 	err = cmd.Start()
 	require.NoError(t, err)
-	defer cmd.Process.Kill()
+	defer func() {
+		_ = cmd.Process.Kill()
+
+	}()
+	//  restore cwd
 	err = os.Chdir(cwd)
 	require.NoError(t, err)
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	t.Run("valid jsonld", func(t *testing.T) {
 		defer gock.Off()
