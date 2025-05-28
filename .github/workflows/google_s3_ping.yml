@@ -14,16 +14,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create Docker Network
-        run: docker network create mynetwork
-
-      - name: Build Nabu Docker Image
-        run: docker build --build-arg BINARY_NAME=nabu  -t nabu .
+      - name: Setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
 
       - name: Run Nabu
+        env:
+          S3_ACCESS_KEY: ${{ secrets.GOOGLE_S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.GOOGLE_S3_SECRET_KEY }}
         run: |
-            docker run --network mynetwork \
-            -e S3_ACCESS_KEY=${{ secrets.GOOGLE_S3_ACCESS_KEY }} \
-            -e S3_SECRET_KEY=${{ secrets.GOOGLE_S3_SECRET_KEY }} \
-            --rm nabu test --port 443 --region us --ssl --bucket harvest-bucket-dev --address storage.googleapis.com 
+            go run ./cmd/nabu test --port 443 --region us --ssl --bucket harvest-bucket-dev --address storage.googleapis.com 
         
