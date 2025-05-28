@@ -4,7 +4,7 @@
 
 set -e
 
-# Run gleaner locally and open the UI for local exploration
+# Run harvest locally and open the UI for local exploration
 
 docker run -d --rm --name minio \
   -p 9000:9000 -p 9001:9001 \
@@ -22,14 +22,15 @@ docker run -d \
 
 cd "$(dirname "$0")"
 
+# initialize the graphdb config
 curl -X POST "localhost:7200/rest/repositories" \
   -H "Content-Type: multipart/form-data" \
   -F "config=@testdata/iow-config.ttl"
 
 cd ../
 
-go run ./cmd/gleaner --log-level DEBUG --sitemap-index https://pids.geoconnex.dev/sitemap.xml  --concurrent-sitemaps 100 --sitemap-workers 150 --use-otel
+go run ./cmd/nabu --log-level DEBUG --sitemap-index https://pids.geoconnex.dev/sitemap.xml  --concurrent-sitemaps 100 --sitemap-workers 150 --use-otel
 
-go run ./cmd/nabu --log-level DEBUG sync --prefix summoned/ --endpoint http://localhost:7200 --use-otel --upsert-batch-size 100 --trace
+go run ./cmd/nabu --log-level DEBUG sync --prefix summoned/ --endpoint http://localhost:7200 --use-otel --upsert-batch-size 100 
 
-go tool trace trace.out
+open http://localhost:16686

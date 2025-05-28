@@ -3,42 +3,43 @@
 [![codecov](https://codecov.io/gh/internetofwater/nabu/branch/master/graph/badge.svg?token=KtA15glWkf)](https://codecov.io/gh/internetofwater/nabu) 
 [![goreportcard status](https://goreportcard.com/badge/github.com/internetofwater/nabu)](https://goreportcard.com/report/github.com/internetofwater/nabu)
 
-Nabu's main goal is to load/synchronize a collection of RDF graphs (for example JSON-LD document) in an 
-object store (minio, S3, etc.) into a graph database/triplestore. 
+Nabu is a CLI program for:
+- crawling remote JSON-LD documents from a remote sitemap and storing them into an S3 bucket
+- synchronizing JSON-LD documents from the S3 bucket into a triplestore by:
+    1. removing old triples from the triplestore that are no longer present in S3
+    2. inserting triples into the triplestore which are present in S3 but not in the triplestore
 
-This repository is a fork of the gleanerio Nabu project. This fork refactored and trimmed code to make it easier to run e2e tests for Geoconnex.
+See the [examples](examples/) directory for example CLI usage.
 
-## Properties
+# Installation
 
-- Nabu does not try to manage state of inidividual triples inside the triplestore. If there is any potential for conflict, nabu just drops the entire graph and all its associated triples
-    - the s3 bucket is used as the source of truth
-        - If an item from one crawl is present in the s3 but it disappears in the next crawl, it will not continue to be present in the triplestore after running nabu synchronization
-    - Nabu uses the context item (the fourth context term of the triple) to associate each triple with a graph and thus an individual source
-    - All information regarding triples and quads is coming from gleaner output.
-        - Nabu does not mutate existing s3 objects 
-    - It simply checks if a named graph exists and will drop it before inserting triples of the same graph
-- Nabu does not use caching and there is no concept of statefulness from one nabu run to the other. 
-- Nabu is agnostic to the content contained inside individual jsonld/nq files as long as they are syntactically valid
+## Docker
 
-### Latency
+```sh
+docker run internetofwater/nabu:latest
+```
 
-- Nabu has to post very large triple payloads to the triplestore and thus performance is highly dependent on the efficiency of the backend and network connection
-## Repo Layout
+## Native Binary
 
-- `pkg` defines the cli and config readers that are public to the client
-- `internal` defines functions that are not directly user facing in the cli
-    - `/synchronizer` defines the top level synchronizer client that performs operations with both a triplestore and s3. Each method on this struct defines a top level operation that moves data between the graph and s3 or keeps them in sync in some way.
-        - `/graph` defines the operations on _just_ the triple store 
-        - `objects` defines the operations on _just_ the s3
-    - `/common` defines common helper functions across the repo
+```sh
+git clone https://github.com/internetofwater/nabu
+cd nabu
+go build ./cmd/nabu
+./nabu --help
+```
 
-## Changes in Refactor
+## Technical Details
 
-The repo was refactored to:
-- separate graph and s3 operations into separate packages according to what was defined [in the layout section](#repo-layout)
-- label functions with longer names that would be easier to understand for someone not familiar with the upstream project or RDF
-- handle errors more strictly. All err values are returned to the parent.
-    - There are no linter errors when runing `golangci-lint`
-- add tests extensively 
-- the sparql section in the nabu config file was simplified; the user just needs to specify the endpoint and any triplestore-specific features are handled by us in go
+For technical details and design rationale see the [docs](docs/) folder. 
 
+## Fork Details
+
+This repo is a heavily modified fork of the gleanerio [Nabu](https://github.com/gleanerio/nabu) repo: 
+
+It was edited to:
+- add unit tests, integration tests, code coverage, and linting to the entire project
+- add crawl support from [Gleaner](https://github.com/gleanerio/gleaner) into the Nabu binary
+- add shacl validation
+- refactor code to make it easier to maintain and extend
+- improve concurrency
+- add observability and tracing output using OpenTelemetry
