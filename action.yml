@@ -43,7 +43,7 @@ runs:
       shell: bash
       run: |
         if [[ "${{ inputs.generate_coverage }}" == "true" ]]; then
-          GLEANER_TEST_IMAGE="${{ inputs.gleaner_image }}" go test ./... -coverprofile=coverage.txt
+          go test ./... -coverprofile=coverage.txt
         else
-          GLEANER_TEST_IMAGE="${{ inputs.gleaner_image }}" go test ./...
+          go test ./...
         fi

@@ -20,12 +20,8 @@ clean:
 cyclo:
 	gocyclo -top 8 .
 
-# Build gleaner as a docker image
-dockerGleaner:
-	docker build --build-arg BINARY_NAME=gleaner .
-
 # Build nabu as a docker image
-dockerNabu:
+dockerBuild:
 	docker build --build-arg BINARY_NAME=nabu .
 
 # Generate coverage report and visualize it in a browser
@@ -36,7 +32,6 @@ coverage:
 # Check for deadcode in the project
 deadcode:
 	deadcode -test ./... 
-
 
 # test with gotestsum, a helpful wrapper for go test
 test:

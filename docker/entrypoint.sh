@@ -4,11 +4,12 @@
 
 set -e
 
-if [ -z "$BINARY_NAME" ]; then
-  echo "BINARY_NAME is not set!"
-  exit 1
-fi
+# Start the gRPC server in the background
+/app/shacl_validator_grpc &
 
-#  
-exec "/app/$BINARY_NAME" "$@"
+# Start nabu in the background and save its PID
+/app/nabu "$@" &
+nabu_pid=$!
 
+# Wait only for nabu to finish since the gRPC server runs indefinitely
+wait "$nabu_pid"
