@@ -5,10 +5,6 @@ name: "Nabu Tests"
 description: "Reusable GitHub Action to run Nabu tests"
 # Allow specifying a custom docker image so we can test specific versions
 inputs:
-  gleaner_image:
-    required: true
-    description: "Docker image to use for Gleaner"
-    default: "internetofwater/gleaner:latest"
   generate_coverage:
     required: false
     description: "Generate coverage report"
