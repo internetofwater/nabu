@@ -22,7 +22,6 @@ jobs:
           # the s3 test
           push: false
           cache-from: type=gha
-          cache-to: type=gha,mode=max
           tags: nabu
 
       - name: Create Docker Network
