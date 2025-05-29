@@ -16,6 +16,7 @@ import (
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/protoBuild"
+	log "github.com/sirupsen/logrus"
 	"github.com/temoto/robotstxt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -131,8 +132,8 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 		return SitemapCrawlStats{}, err
 	}
 
-	if validateShacl {
-		defer sitemapHarvestConf.grpcConn.Close()
+	if sitemapHarvestConf.grpcConn != nil {
+		defer func() { _ = sitemapHarvestConf.grpcConn.Close() }()
 	}
 
 	start := time.Now()
@@ -152,6 +153,8 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 	for err := range sitemapHarvestConf.nonFatalErrorChan {
 		stats.CrawlFailures = append(stats.CrawlFailures, err)
 	}
+
+	log.Debugf("Finished crawling sitemap %s in %f seconds", sitemapID, stats.SecondsToComplete)
 
 	return stats, err
 }

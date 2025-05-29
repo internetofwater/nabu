@@ -2,6 +2,8 @@
 # Copyright 2025 Lincoln Institute of Land Policy
 # SPDX-License-Identifier: Apache-2.0
 
+set -e 
+
 # Function to clean up background processes on exit
 cleanup() {
   echo "Cleaning up..."
@@ -13,15 +15,11 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# Start MinIO container
-docker run -d --rm --name minio \
-  -p 9000:9000 -p 9001:9001 \
-  --health-cmd="curl --silent --show-error --fail http://localhost:9000/minio/health/ready || exit 1" \
-  --health-interval=10s --health-timeout=5s --health-retries=3 \
-  minio/minio server /data --console-address ":9001" 2> /dev/null || echo "Minio already running so skipping start"
+cd "$(dirname "$0")"
+
+source ./containers/startMinio.sh
 
 # Start cargo server
-cd "$(dirname "$0")"
 cd ../shacl_validator_grpc
 cargo run &
 CARGO_PID=$!
@@ -29,8 +27,8 @@ cd - >/dev/null
 
 cd ../
 
-export GRPC_GO_LOG_VERBOSITY_LEVEL=99
-export GRPC_GO_LOG_SEVERITY_LEVEL=info
+# export GRPC_GO_LOG_VERBOSITY_LEVEL=99
+# export GRPC_GO_LOG_SEVERITY_LEVEL=info
 
 # Run gleaner
 time go run ./cmd/nabu harvest --log-level DEBUG \
