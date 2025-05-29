@@ -15,7 +15,9 @@ import (
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Given a response, get the jsonld within the response
@@ -47,7 +49,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
 	defer span.End()
 
-	req, err := http.NewRequest("GET", url.Loc, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url.Loc, nil)
 	if err != nil {
 		return err
 	}
@@ -58,6 +60,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	if err != nil {
 		return err
 	}
+	span.AddEvent("http_response", trace.WithAttributes(attribute.KeyValue{Key: "status", Value: attribute.StringValue(resp.Status)}))
 
 	defer resp.Body.Close()
 

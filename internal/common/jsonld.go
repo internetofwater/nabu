@@ -25,6 +25,10 @@ func NewJsonldProcessor(cache bool, contextMaps []config.ContextMap) (*ld.JsonLd
 	if cache {
 		// my understanding is that the fallbackLoader is what is used if
 		// the prefix cannot be retrieved from the cache.
+
+		// TODO: check if we want a different client transport here
+		// since the go default client limits maxconns to 100
+		// assume it is fine though since the context is cached
 		clientWithRetries := NewRetryableHTTPClient()
 		fallbackLoader := ld.NewDefaultDocumentLoader(clientWithRetries)
 

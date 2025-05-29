@@ -31,7 +31,8 @@ docker compose up -d
 
 cd ../../..
 
-go run ./cmd/nabu harvest --sitemap-index http://127.0.0.1:8080/sitemap.xml --log-level DEBUG --sitemap-workers 10000 --concurrent-sitemaps 10 --use-otel
+# yourls does not like too much concurrency; try to limit sitemap workers * concurrent sitemaps to less than 300 or so
+go run ./cmd/nabu harvest --sitemap-index http://127.0.0.1:8080/sitemap.xml --log-level DEBUG --sitemap-workers 30 --concurrent-sitemaps 10 --use-otel
 
 go run ./cmd/nabu --log-level DEBUG sync --prefix summoned/ --endpoint http://localhost:7200 --use-otel --upsert-batch-size 100 
 

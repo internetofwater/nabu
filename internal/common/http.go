@@ -15,7 +15,7 @@ func NewRetryableHTTPClient() *http.Client {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 3
 	retryClient.RetryWaitMin = 1 * time.Second
-	retryClient.RetryWaitMax = 5 * time.Second
+	retryClient.RetryWaitMax = 10 * time.Second
 	// don't spam in the logs with DEBUG messages
 	// we should define logs in the application
 	// not the library level
