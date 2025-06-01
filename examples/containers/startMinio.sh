@@ -3,23 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 set -e 
 
-<<<<<<<< HEAD:examples/containers/startMinio.sh
-set -e 
-
 docker run -d --rm --name minio \
   -p 9000:9000 -p 9001:9001 \
   --health-cmd="curl --silent --show-error --fail http://localhost:9000/minio/health/ready || exit 1" \
   --health-interval=10s --health-timeout=5s --health-retries=3 \
   minio/minio server /data --console-address ":9001" 2> /dev/null || echo "Minio already running so skipping start"
-========
-# Run harvest locally and open the UI for local exploration
-cd "$(dirname "$0")"
-
-source ./startMinio.sh
-
-cd ../
-
-time go run ./cmd/nabu harvest --log-level DEBUG --sitemap-index https://pids.geoconnex.dev/sitemap.xml  --concurrent-sitemaps 100 --sitemap-workers 150 --use-otel
-
-open http://localhost:9000
->>>>>>>> 7d920aa905b3f85736fbefd416f1bc4a3eb37e71:examples/harvestFullSitemap.sh
