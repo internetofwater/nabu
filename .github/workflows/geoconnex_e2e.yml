@@ -40,8 +40,8 @@ jobs:
         with:
           context: .
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=internetofwater/nabu:buildcache
+          cache-to: type=registry,ref=internetofwater/nabu:buildcache,mode=max
           tags: internetofwater/nabu:${{ env.tag }}
 
       - name: "Run Geoconnex Scheduler to simulate a full crawl"

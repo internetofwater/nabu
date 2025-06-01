@@ -43,5 +43,6 @@ slowest:
 	gotestsum --jsonfile /tmp/json.log
 	gotestsum tool slowest --jsonfile /tmp/json.log
 
+# Check for max tcp connections to ensure no throttling
 checkMaxTcpConnectionsPerProcess:
 	ulimit -n 
