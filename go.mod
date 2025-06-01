@@ -1,8 +1,6 @@
 module github.com/internetofwater/nabu
 
-go 1.23.0
-
-toolchain go1.23.3
+go 1.24
 
 require (
 	github.com/alexflint/go-arg v1.5.1
