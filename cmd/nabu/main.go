@@ -13,6 +13,7 @@ import (
 
 	"github.com/internetofwater/nabu/internal/common/projectpath"
 	"github.com/internetofwater/nabu/internal/config"
+	crawl "github.com/internetofwater/nabu/internal/crawl"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 
@@ -38,12 +39,13 @@ type SparqlOptions struct {
 
 type NabuArgs struct {
 	// Subcommands that can be run
-	Clear   *ClearCmd   `arg:"subcommand:clear" help:"clear all graphs from the triplestore"`      // clear all graphs from the triplestore
-	Object  *ObjectCmd  `arg:"subcommand:object" help:"upload a single object to the triplestore"` // upload a single object to the triplestore
-	Release *ReleaseCmd `arg:"subcommand:release" help:"upload a release to the triplestore"`      // upload a release to the triplestore
-	Prefix  *PrefixCmd  `arg:"subcommand:prefix" help:"upload a prefix to the triplestore"`        // upload a prefix to the triplestore
-	Sync    *SyncCmd    `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`     // sync the triplestore with the s3 bucket
-	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`        // test the connection to the s3 bucket
+	Clear   *ClearCmd   `arg:"subcommand:clear" help:"clear all graphs from the triplestore"`              // clear all graphs from the triplestore
+	Object  *ObjectCmd  `arg:"subcommand:object" help:"upload a single object to the triplestore"`         // upload a single object to the triplestore
+	Release *ReleaseCmd `arg:"subcommand:release" help:"upload a release to the triplestore"`              // upload a release to the triplestore
+	Prefix  *PrefixCmd  `arg:"subcommand:prefix" help:"upload a prefix to the triplestore"`                // upload a prefix to the triplestore
+	Sync    *SyncCmd    `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`             // sync the triplestore with the s3 bucket
+	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`                // test the connection to the s3 bucket
+	Harvest *HarvestCmd `arg:"subcommand:harvest" help:"harvest sitemaps and store them in the s3 bucket"` // harvest sitemaps and store them in the s3 bucket
 
 	MinioOptions
 	SparqlOptions
@@ -150,12 +152,12 @@ func uploadTracefile(minioConfig config.MinioConfig) error {
 	return mc.UploadFile(traceName, traceFile)
 }
 
-func (n NabuRunner) Run(ctx context.Context) error {
+func (n NabuRunner) Run(ctx context.Context) (harvestReport []crawl.SitemapCrawlStats, err error) {
 	defer trace.Stop()
 
 	level, err := log.ParseLevel(n.args.LogLevel)
 	if err != nil {
-		return fmt.Errorf("invalid log level %s: %w", n.args.LogLevel, err)
+		return nil, fmt.Errorf("invalid log level %s: %w", n.args.LogLevel, err)
 	}
 	log.SetLevel(level)
 
@@ -166,7 +168,8 @@ func (n NabuRunner) Run(ctx context.Context) error {
 		log.Infof("Starting opentelemetry traces and exporting to: %s", n.args.OtelEndpoint)
 		opentelemetry.InitTracer("nabu", n.args.OtelEndpoint)
 		var span otelTrace.Span
-		ctx, span = opentelemetry.SubSpanFromCtx(ctx)
+		argsAsStr := strings.Join(os.Args, "_")
+		ctx, span = opentelemetry.SubSpanFromCtxWithName(ctx, argsAsStr)
 		defer opentelemetry.Shutdown()
 		defer span.End()
 	}
@@ -193,24 +196,26 @@ func (n NabuRunner) Run(ctx context.Context) error {
 
 	switch {
 	case n.args.Clear != nil:
-		return clear(cfgStruct)
+		return nil, clear(cfgStruct)
 	case n.args.Object != nil:
-		return object(n.args.Object.Object, cfgStruct)
+		return nil, object(n.args.Object.Object, cfgStruct)
 	case n.args.Release != nil:
-		return release(cfgStruct)
+		return nil, release(cfgStruct)
 	case n.args.Prefix != nil:
-		return prefix(cfgStruct)
+		return nil, prefix(cfgStruct)
 	case n.args.Sync != nil:
-		return Sync(ctx, cfgStruct)
+		return nil, Sync(ctx, cfgStruct)
 	case n.args.Test != nil:
-		return Test(cfgStruct)
+		return nil, Test(cfgStruct)
+	case n.args.Harvest != nil:
+		return Harvest(ctx, cfgStruct.Minio, *n.args.Harvest)
 	default:
-		return fmt.Errorf("unknown nabu subcommand")
+		return nil, fmt.Errorf("unknown nabu subcommand")
 	}
 }
 
 func main() {
-	if err := NewNabuRunner(os.Args[1:]).Run(context.Background()); err != nil {
+	if _, err := NewNabuRunner(os.Args[1:]).Run(context.Background()); err != nil {
 		log.Fatal(err)
 	}
 }

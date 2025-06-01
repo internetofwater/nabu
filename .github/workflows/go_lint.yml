@@ -7,12 +7,21 @@ on:
   workflow_dispatch: # Allows manual triggering of the workflow
   push:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   golangci:
+    name: lint
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Run Golangci-lint
-        uses: golangci/golangci-lint-action@v6.1.1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: v1.23
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.60
 

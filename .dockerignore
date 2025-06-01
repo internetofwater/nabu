@@ -4,3 +4,8 @@
 .github/
 scripts/
 assets/
+
+target/
+node_modules/
+dist/
+coverage.out

@@ -1,0 +1,28 @@
+// Copyright 2025 Lincoln Institute of Land Policy
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+package shacl_validator;
+
+option go_package = "internal/protoBuild";
+
+service ShaclValidator {
+    rpc Validate (TurtleValidationRequest) returns (ValidationReply);
+}
+
+message TurtleValidationRequest {
+   string triples = 1;
+}
+
+// Which shacl file we are in coformance with
+enum MatchingShaclType {
+    LocationOriented = 0;
+    DatasetOriented = 1;
+  }
+  
+message ValidationReply {
+    bool valid = 1;
+    string message = 2;
+    optional MatchingShaclType ShaclType = 3;
+}
+

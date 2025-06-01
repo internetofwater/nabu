@@ -3,6 +3,10 @@
 # they are not required for running
 # and are just intended for local development/testing
 
+# Generate the protobuf client code needed to connect to the grpc server
+protoc:
+	protoc --proto_path=. --go_out=. --go-grpc_out=. shacl_validator_grpc/proto/shacl_validator.proto
+
 # clean up trace/profiling/build artifacts
 clean:
 	find . -type f -name "http_trace.csv" -delete
@@ -17,12 +21,8 @@ clean:
 cyclo:
 	gocyclo -top 8 .
 
-# Build gleaner as a docker image
-dockerGleaner:
-	docker build --build-arg BINARY_NAME=gleaner .
-
 # Build nabu as a docker image
-dockerNabu:
+dockerBuild:
 	docker build --build-arg BINARY_NAME=nabu .
 
 # Generate coverage report and visualize it in a browser
@@ -34,12 +34,14 @@ coverage:
 deadcode:
 	deadcode -test ./... 
 
-
 # test with gotestsum, a helpful wrapper for go test
 test:
-	gotestsum
+	gotestsum --max-fails 1 && cd shacl_validator_grpc && cargo test
 
 # run tests and print the slowest tests in the project
 slowest:	
 	gotestsum --jsonfile /tmp/json.log
 	gotestsum tool slowest --jsonfile /tmp/json.log
+
+checkMaxTcpConnectionsPerProcess:
+	ulimit -n 

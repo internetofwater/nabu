@@ -1,0 +1,55 @@
+{
+    "@context": {
+        "schema": "https://schema.org/",
+        "gsp": "http://www.opengis.net/ont/geosparql#",
+        "ex": "http://example.org/",
+        "dc": "http://purl.org/dc/terms/",
+        "dcat": "https://www.w3.org/ns/dcat#"
+    },
+    "@graph": [
+        {
+            "@id": "ex:dataset1",
+            "@type": "schema:Dataset",
+            "schema:identifier": 12345,
+            "schema:name": true,
+            "schema:license": "not-a-valid-uri",
+            "schema:isAccessibleForFree": "yes",
+            "schema:distribution": {
+                "@type": "schema:DataDownload",
+                "schema:name": 999,
+                "schema:contentUrl": "htp:/bad.uri",
+                "schema:encodingFormat": false,
+                "dc:conformsTo": "not-an-IRI"
+            },
+            "schema:variableMeasured": {
+                "schema:name": 555,
+                "schema:description": null,
+                "schema:propertyID": "not-a-uri",
+                "schema:url": "just-text",
+                "schema:unitText": 100,
+                "http://qudt.org/schema/qudt/hasQuantityKind": "still-not-an-iri",
+                "schema:unitCode": 42,
+                "schema:measurementTechnique": [
+                    "bad"
+                ],
+                "schema:measurementMethod": {
+                    "schema:name": 12,
+                    "schema:description": {},
+                    "schema:url": "not/a/uri"
+                }
+            },
+            "schema:temporalCoverage": {},
+            "dc:accrualPeriodicity": "string-not-iri",
+            "dcat:temporalResolution": "2 days",
+            "schema:about": 999
+        },
+        {
+            "@id": "ex:place1",
+            "@type": "schema:Place",
+            "schema:name": 9999,
+            "gsp:hasGeometry": {
+                "gsp:asWKT": "NOT A WKT"
+            }
+        }
+    ]
+}

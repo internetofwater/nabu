@@ -17,3 +17,7 @@ trace.out
 /gleaner
 
 *.out
+
+target/
+
+examples/geoconnex.us

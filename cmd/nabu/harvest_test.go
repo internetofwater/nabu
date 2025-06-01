@@ -26,15 +26,15 @@ func startMocks() {
 		File("testdata/sitemap.xml")
 }
 
-func NewGleanerRunnerFromString(args string) GleanerRunner {
-	return NewGleanerRunner(strings.Split(args, " "))
+func NewNabuRunnerFromString(args string) NabuRunner {
+	return NewNabuRunner(strings.Split(args, " "))
 }
 
 func (s *GleanerRootSuite) TestHarvestToS3() {
 	startMocks()
 	defer gock.Off()
-	args := fmt.Sprintf("--log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
-	_, err := NewGleanerRunnerFromString(args).Run(context.Background())
+	args := fmt.Sprintf("harvest --log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
+	_, err := NewNabuRunnerFromString(args).Run(context.Background())
 	s.Require().NoError(err)
 	objs, err := s.minioContainer.ClientWrapper.ObjectList(context.Background(), "summoned/")
 	s.Require().NoError(err)
@@ -48,8 +48,8 @@ func (s *GleanerRootSuite) TestHarvestToS3() {
 func (s *GleanerRootSuite) TestHarvestWithSourceSpecified() {
 	startMocks()
 	defer gock.Off()
-	args := fmt.Sprintf("--log-level DEBUG --sitemap-index testdata/sitemap_index.xml --source iow_wqp_stations__5 --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
-	_, err := NewGleanerRunnerFromString(args).Run(context.Background())
+	args := fmt.Sprintf("harvest --log-level DEBUG --sitemap-index testdata/sitemap_index.xml --source iow_wqp_stations__5 --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
+	_, err := NewNabuRunnerFromString(args).Run(context.Background())
 	s.Require().NoError(err)
 
 	orgsObjs, err := s.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"orgs/"})
@@ -60,8 +60,8 @@ func (s *GleanerRootSuite) TestHarvestWithSourceSpecified() {
 func (s *GleanerRootSuite) TestHarvestToDisk() {
 	startMocks()
 	defer gock.Off()
-	args := "--log-level DEBUG --to-disk --sitemap-index testdata/sitemap_index.xml"
-	_, err := NewGleanerRunnerFromString(args).Run(context.Background())
+	args := "harvest --log-level DEBUG --to-disk --sitemap-index testdata/sitemap_index.xml"
+	_, err := NewNabuRunnerFromString(args).Run(context.Background())
 	s.Require().NoError(err)
 }
 
@@ -82,8 +82,8 @@ func startMocksForBadFileType() {
 func (s *GleanerRootSuite) TestBadFileType() {
 	startMocksForBadFileType()
 	defer gock.Off()
-	args := "--sitemap-index https://geoconnex.us/sitemap.xml --source SELFIE_SELFIE_ids__0 --log-level DEBUG --to-disk"
-	stats, err := NewGleanerRunnerFromString(args).Run(context.Background())
+	args := "harvest --sitemap-index https://geoconnex.us/sitemap.xml --source SELFIE_SELFIE_ids__0 --log-level DEBUG --to-disk"
+	stats, err := NewNabuRunnerFromString(args).Run(context.Background())
 	s.Require().NoError(err)
 	s.Require().Len(stats, 1)
 	s.Require().Len(stats[0].CrawlFailures, 0)

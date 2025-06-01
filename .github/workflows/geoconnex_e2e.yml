@@ -36,23 +36,13 @@ jobs:
         run: echo "tag=tmp-${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Build and Push Docker Image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
-          build-args: |
-            BINARY_NAME=nabu
           context: .
           push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: internetofwater/nabu:${{ env.tag }}
-
-
-      - name: Build and Push Docker Image
-        uses: docker/build-push-action@v4
-        with:
-          build-args: |
-            BINARY_NAME=gleaner
-          context: .
-          push: true
-          tags: internetofwater/gleaner:${{ env.tag }}
 
       - name: "Run Geoconnex Scheduler to simulate a full crawl"
         uses: internetofwater/scheduler@main
