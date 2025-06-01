@@ -19,7 +19,7 @@ While harvesting, Nabu:
     - If not, the page is skipped and an error is logged
 6. Stores it in the S3 bucket
 
-## Synchronization 
+### Synchronization 
 
 While synchronizing data, Nabu:
 
