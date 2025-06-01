@@ -7,8 +7,11 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"math"
+	"net"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/internetofwater/nabu/internal/common"
@@ -18,6 +21,7 @@ import (
 	"github.com/internetofwater/nabu/internal/protoBuild"
 	log "github.com/sirupsen/logrus"
 	"github.com/temoto/robotstxt"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -66,7 +70,46 @@ func NewSitemapHarvestConfig(sitemap Sitemap, validateShacl bool) (SitemapHarves
 	}
 
 	crawlErrorChan := make(chan UrlCrawlError, len(sitemap.URL))
-	client := common.NewRetryableHTTPClient()
+
+	// create a client that is custom tuned for high throughput
+	// crawling; for some reason yourls doesn't respond well to the
+	// opentelemetry headers; so we do any otel events manually via
+	// transport hooks
+	client := &http.Client{
+		// a feature should not take more than 30 seconds to resolve
+		// otherwise it will be skipped
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			// allow for up to 5000 idle connections
+			// to the same host so that we can hit yourls
+			// by default the go http client limits these to 100
+			MaxIdleConns:          0,
+			MaxIdleConnsPerHost:   0,
+			MaxConnsPerHost:       0,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			DisableKeepAlives:     false, // keep-alives are good for performance
+			ForceAttemptHTTP2:     true,
+			// set event when connection is established
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				// You can implement custom logic here or use the default dialer
+				span := trace.SpanFromContext(ctx)
+				if span != nil {
+					span.AddEvent("HTTP connection")
+				}
+				return net.DialTimeout(network, addr, 30*time.Second)
+			},
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// Add an OpenTelemetry event when a redirect occurs
+			span := trace.SpanFromContext(req.Context())
+			if span != nil {
+				span.AddEvent("HTTP redirect")
+			}
+			return nil
+		},
+	}
 
 	var conn *grpc.ClientConn
 	var grpcClient protoBuild.ShaclValidatorClient
@@ -137,11 +180,20 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 	}
 
 	start := time.Now()
+	log.Infof("Harvesting sitemap %s with %d urls", sitemapID, len(s.URL))
+
+	sitesHarvested := atomic.Int64{}
+
 	for _, url := range s.URL {
 		// Capture the URL for use in the goroutine.
 		url := url
 		group.Go(func() error {
-			return harvestOneSite(ctx, sitemapID, url, &sitemapHarvestConf)
+			err := harvestOneSite(ctx, sitemapID, url, &sitemapHarvestConf)
+			sitesHarvested.Add(1)
+			if math.Mod(float64(sitesHarvested.Load()), 1000) == 0 {
+				log.Debugf("Harvested %d/%d sites for %s", sitesHarvested.Load(), len(s.URL), sitemapID)
+			}
+			return err
 		})
 	}
 	err = group.Wait()

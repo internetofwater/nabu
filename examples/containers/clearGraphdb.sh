@@ -26,6 +26,14 @@ until curl -s -o /dev/null http://localhost:7200; do
   sleep 1
 done
 
+cd $(dirname "$0")
+cd ../
+
+if [ ! -f testdata/iow-config.ttl ]; then
+  echo "iow-config.ttl doesn't exist!"
+  exit 1
+fi
+
 # Initialize the graphdb config
 echo "Initializing GraphDB repository..."
 curl -s -X POST "http://localhost:7200/rest/repositories" \
