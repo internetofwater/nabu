@@ -10,10 +10,15 @@ import (
 
 // An error for a particular URL in a sitemap
 type UrlCrawlError struct {
-	Url               string
-	Status            int
-	Message           string
-	ShaclValid        bool
+	// The URL that failed
+	Url string
+	// The http status code of the fetched Url
+	Status int
+	// a natural language error message describing the error
+	Message string
+	// whether the shacl validation succeeded
+	ShaclValid bool
+	// the shacl validation message
 	ShaclErrorMessage string
 }
 

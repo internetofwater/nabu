@@ -168,7 +168,8 @@ func (n NabuRunner) Run(ctx context.Context) (harvestReport []crawl.SitemapCrawl
 		log.Infof("Starting opentelemetry traces and exporting to: %s", n.args.OtelEndpoint)
 		opentelemetry.InitTracer("nabu", n.args.OtelEndpoint)
 		var span otelTrace.Span
-		ctx, span = opentelemetry.SubSpanFromCtx(ctx)
+		argsAsStr := strings.Join(os.Args, "_")
+		ctx, span = opentelemetry.SubSpanFromCtxWithName(ctx, argsAsStr)
 		defer opentelemetry.Shutdown()
 		defer span.End()
 	}

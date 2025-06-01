@@ -70,9 +70,6 @@ pub fn validate_triples(
     shacl: &SchemaIR<RdfData>,
     triples: &str,
 ) -> Result<ValidationReport, ValidateError> {
-    if triples.is_empty() {
-        return Err(ValidateError::TargetNodeBlankNode);
-    }
 
     let srdf_graph = SRDFGraph::from_str(
         triples,
@@ -105,7 +102,7 @@ mod tests {
     fn test_empty() {
         let schema = ShaclDataManager::load(Cursor::new(""), RDFFormat::Turtle, None).unwrap();
         let result = validate_triples(&schema, "");
-        assert!(result.is_err());
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -178,6 +175,39 @@ mod tests {
             !report.conforms(),
             "Report should indicate non conformance for invalid location-oriented data"
         );
+    }
+
+
+    #[test]
+    fn test_empty_triple() {
+        // Minimal SHACL shape: ex:Person must have an ex:name property of type xsd:string
+        let shacl = r#"
+            @prefix sh: <http://www.w3.org/ns/shacl#> .
+            @prefix ex: <http://example.org/> .
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+            ex:PersonShape
+                a sh:NodeShape ;
+                sh:targetClass ex:Person ;
+                sh:property [
+                    sh:path ex:name ;
+                    sh:datatype xsd:string ;
+                    sh:minCount 1 ;
+                ] .
+        "#;
+
+        // Valid triple: ex:alice is a ex:Person and has an ex:name "Alice"
+        let triples = "";
+
+        let schema = ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap();
+        let result = validate_triples(&schema, triples);
+        assert!(
+            result.is_ok(),
+            "Parsing should succeed even with invalid data"
+        );
+        let report = result.unwrap();
+        // this is confusing but appears to be correct vv
+        assert!(report.conforms(), "An empty triple has no nodes to validate and thus is valid");
     }
 
     #[test]

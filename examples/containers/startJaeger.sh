@@ -9,4 +9,4 @@ docker run -d --rm --name jaeger \
   -p 16686:16686 \
   -p 4317:4317 \
   -e LOG_LEVEL=debug \
-  jaegertracing/all-in-one
+  jaegertracing/all-in-one 2> /dev/null || echo "Jaeger already running so skipping start"
