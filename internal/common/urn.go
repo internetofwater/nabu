@@ -102,7 +102,7 @@ func Skolemization(nq string) (string, error) {
 		//fmt.Printf("Replace %s with %v \n", k, v)
 		// The +" " is need since we have to avoid
 		// _:b1 replacing _:b13 with ...3
-		filebytes = bytes.Replace(filebytes, []byte(k+" "), []byte(v+" "), -1)
+		filebytes = bytes.ReplaceAll(filebytes, []byte(k+" "), []byte(v+" "))
 	}
 
 	return string(filebytes), err

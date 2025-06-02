@@ -78,14 +78,14 @@ func NewSitemapIndexHarvester(sitemapRef string) (Index, error) {
 		if err != nil {
 			return serializedSitemapIndex, err
 		}
-		defer res.Body.Close()
+		defer func() { _ = res.Body.Close() }()
 		sitemapData = res.Body
 	} else {
 		sitemapFile, err := os.Open(sitemapRef)
 		if err != nil {
 			return serializedSitemapIndex, err
 		}
-		defer sitemapFile.Close()
+		defer func() { _ = sitemapFile.Close() }()
 		sitemapData = sitemapFile
 	}
 

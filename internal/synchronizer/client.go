@@ -159,7 +159,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 s3.
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response
 	body, err := io.ReadAll(resp.Body)
@@ -204,7 +204,7 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix) er
 	go func() {
 		// once the nqChan is closed we can close the pipe
 		// since there is nothing more to write
-		defer pw.Close()
+		defer func() { _ = pw.Close() }()
 
 		for nq := range nqChan {
 			_, err := pw.Write([]byte(nq))
