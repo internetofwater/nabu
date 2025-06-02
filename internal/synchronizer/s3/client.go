@@ -156,7 +156,7 @@ func (m *MinioClientWrapper) GetObjectAsBytes(objectName S3Prefix) ([]byte, erro
 		log.Info(err)
 		return nil, err
 	}
-	defer fileObject.Close()
+	defer func() { _ = fileObject.Close() }()
 
 	stat, err := fileObject.Stat()
 	if err != nil {
@@ -223,7 +223,7 @@ func (m *MinioClientWrapper) UploadFile(uploadPath S3Prefix, localFileName strin
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	err = m.Store(uploadPath, file)
 	return err

@@ -93,7 +93,7 @@ func QuadsToTripleWithCtx(nquads string) (NamedGraph, error) {
 		log.Errorf("Error encoding triples: %v\n", err)
 		return NamedGraph{}, err
 	}
-	encoder.Close()
+	defer func() { _ = encoder.Close() }()
 
 	tb := bytes.NewBuffer([]byte(""))
 	for k := range triples {

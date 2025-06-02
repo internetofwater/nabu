@@ -267,7 +267,7 @@ func (suite *S3ClientSuite) TestCRUD() {
 
 	data, err := suite.minioContainer.ClientWrapper.Get("test/testCRUD")
 	suite.Require().NoError(err)
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 
 	bytes, err := io.ReadAll(data)
 	suite.Require().NoError(err)

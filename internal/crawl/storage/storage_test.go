@@ -22,7 +22,7 @@ func TestGleanerTempFSCrawlStorage(t *testing.T) {
 	// Get data
 	reader, err := storage.Get("testfile.txt")
 	require.NoError(t, err)
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	readData, err := io.ReadAll(reader)
 	require.NoError(t, err)

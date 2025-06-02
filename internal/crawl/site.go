@@ -62,7 +62,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	}
 	span.AddEvent("http_response", trace.WithAttributes(attribute.KeyValue{Key: "status", Value: attribute.StringValue(resp.Status)}))
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		errormsg := fmt.Sprintf("failed to fetch %s, got status %s", url.Loc, resp.Status)

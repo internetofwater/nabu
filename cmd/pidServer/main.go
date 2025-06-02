@@ -81,7 +81,12 @@ func (rs *RedirectServer) loadNamespaceRules(ns *Namespace) error {
 	if err != nil {
 		return fmt.Errorf("failed to open CSV file %s: %w", ns.CSVFile, err)
 	}
-	defer file.Close()
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			log.Printf("Error closing file %s: %v", ns.CSVFile, err)
+		}
+	}()
 
 	// Check if file has been modified
 	stat, err := file.Stat()
@@ -147,7 +152,10 @@ func (rs *RedirectServer) loadAllRules() error {
 
 func (rs *RedirectServer) handleRedirect(w http.ResponseWriter, r *http.Request) {
 	// Reload rules if CSV files have been modified
-	rs.loadAllRules()
+	if err := rs.loadAllRules(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	path := r.URL.Path
 
@@ -166,7 +174,7 @@ func (rs *RedirectServer) handleRedirect(w http.ResponseWriter, r *http.Request)
 
 func (rs *RedirectServer) handleSitemapIndex(w http.ResponseWriter, r *http.Request) {
 	// Reload rules if CSV files have been modified
-	rs.loadAllRules()
+	_ = rs.loadAllRules()
 
 	// Get the host from the request
 	host := r.Host
@@ -195,7 +203,7 @@ func (rs *RedirectServer) handleSitemapIndex(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusOK)
 
 	// Write XML declaration
-	w.Write([]byte(xml.Header))
+	_, _ = w.Write([]byte(xml.Header))
 
 	// Encode and write the sitemap index
 	encoder := xml.NewEncoder(w)
@@ -222,7 +230,10 @@ func (rs *RedirectServer) handleNamespaceSitemap(w http.ResponseWriter, r *http.
 	}
 
 	// Reload rules if CSV file has been modified
-	rs.loadNamespaceRules(ns)
+	if err := rs.loadNamespaceRules(ns); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	// Get the host from the request
 	host := r.Host
@@ -249,7 +260,7 @@ func (rs *RedirectServer) handleNamespaceSitemap(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusOK)
 
 	// Write XML declaration
-	w.Write([]byte(xml.Header))
+	_, _ = w.Write([]byte(xml.Header))
 
 	// Encode and write the sitemap
 	encoder := xml.NewEncoder(w)
@@ -261,31 +272,33 @@ func (rs *RedirectServer) handleNamespaceSitemap(w http.ResponseWriter, r *http.
 }
 
 func (rs *RedirectServer) handleStatus(w http.ResponseWriter, r *http.Request) {
-	rs.loadAllRules()
+	if err := rs.loadAllRules(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 
 	w.Header().Set("Content-Type", "text/plain")
-	fmt.Fprintf(w, "Redirect Server Status\n")
-	fmt.Fprintf(w, "=====================\n")
-	fmt.Fprintf(w, "Namespaces: %d\n\n", len(rs.namespaces))
+	_, _ = fmt.Fprintf(w, "Redirect Server Status\n")
+	_, _ = fmt.Fprintf(w, "=====================\n")
+	_, _ = fmt.Fprintf(w, "Namespaces: %d\n\n", len(rs.namespaces))
 
 	totalRules := 0
 	for _, ns := range rs.namespaces {
 		totalRules += len(ns.Rules)
-		fmt.Fprintf(w, "Namespace: %s\n", ns.Name)
-		fmt.Fprintf(w, "  CSV File: %s\n", ns.CSVFile)
-		fmt.Fprintf(w, "  Last Modified: %s\n", ns.LastMod.Format(time.RFC3339))
-		fmt.Fprintf(w, "  Rules: %d\n", len(ns.Rules))
-		fmt.Fprintf(w, "  Sitemap: /sitemap/%s.xml\n\n", ns.Name)
+		_, _ = fmt.Fprintf(w, "Namespace: %s\n", ns.Name)
+		_, _ = fmt.Fprintf(w, "  CSV File: %s\n", ns.CSVFile)
+		_, _ = fmt.Fprintf(w, "  Last Modified: %s\n", ns.LastMod.Format(time.RFC3339))
+		_, _ = fmt.Fprintf(w, "  Rules: %d\n", len(ns.Rules))
+		_, _ = fmt.Fprintf(w, "  Sitemap: /sitemap/%s.xml\n\n", ns.Name)
 
-		fmt.Fprintf(w, "  Available Paths:\n")
+		_, _ = fmt.Fprintf(w, "  Available Paths:\n")
 		for path, rule := range ns.Rules {
-			fmt.Fprintf(w, "    %s -> %s\n", path, rule.Target)
-			fmt.Fprintf(w, "      Description: %s\n", rule.Description)
-			fmt.Fprintf(w, "      Creator: %s\n\n", rule.Creator)
+			_, _ = fmt.Fprintf(w, "    %s -> %s\n", path, rule.Target)
+			_, _ = fmt.Fprintf(w, "      Description: %s\n", rule.Description)
+			_, _ = fmt.Fprintf(w, "      Creator: %s\n\n", rule.Creator)
 		}
 	}
 
-	fmt.Fprintf(w, "Total Rules: %d\n", totalRules)
+	_, _ = fmt.Fprintf(w, "Total Rules: %d\n", totalRules)
 }
 
 func main() {

@@ -159,7 +159,7 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 				errChan <- err
 				return
 			}
-			defer retrievedObject.Close()
+			defer func() { _ = retrievedObject.Close() }()
 
 			rawBytes, err := io.ReadAll(retrievedObject)
 			if err != nil {

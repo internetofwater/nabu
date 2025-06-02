@@ -65,7 +65,7 @@ func (l *LocalTempFSCrawlStorage) Store(name string, reader io.Reader) error {
 	if err != nil {
 		return err
 	}
-	defer destFile.Close()
+	defer func() { _ = destFile.Close() }()
 
 	_, err = io.Copy(destFile, reader)
 	return err
