@@ -67,7 +67,10 @@ func (suite *RootCliSuite) TestRootCmdWithTracing() {
 
 	_, err = os.Stat(filepath.Join(projectpath.Root, "trace.out"))
 	require.NoError(t, err)
-	defer os.Remove(filepath.Join(projectpath.Root, "trace.out"))
+	defer func() {
+		err := os.Remove(filepath.Join(projectpath.Root, "trace.out"))
+		require.NoError(t, err)
+	}()
 
 	objs, err := suite.minioContainer.ClientWrapper.ObjectList(context.Background(), "traces/")
 

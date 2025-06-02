@@ -1,0 +1,1 @@
+This folder stores the code for implementing a Geoconnex-compatible pid server. It is mainly meant for local testing 

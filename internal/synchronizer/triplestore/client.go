@@ -77,7 +77,7 @@ func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath stri
 	if err != nil {
 		return fmt.Errorf("failed to open TTL config file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Create a buffer and multipart writer
 	body := &bytes.Buffer{}
@@ -114,7 +114,7 @@ func (graphClient *GraphDbClient) CreateRepositoryIfNotExists(ttlConfigPath stri
 	if err != nil {
 		return fmt.Errorf("HTTP request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == 400 {
 		bodyBytes, err := io.ReadAll(resp.Body)
@@ -161,7 +161,7 @@ func (graphClient *GraphDbClient) UpsertNamedGraphs(ctx context.Context, graphs 
 		log.Error(err)
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// TODO just string check for 200 or 204 rather than try to match
 	if resp.Status != "200 OK" && resp.Status != "204 No Content" && resp.Status != "204 " {
@@ -222,7 +222,7 @@ func (graphClient *GraphDbClient) DropGraphs(ctx context.Context, graphs []strin
 		log.Error(err)
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -257,7 +257,7 @@ func (graphClient *GraphDbClient) ClearAllGraphs() error {
 	if resp.StatusCode != 204 {
 		return fmt.Errorf("failed to clear graphs: response Status: %s with error %s", resp.Status, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -297,7 +297,7 @@ func (graphClient *GraphDbClient) GraphExists(ctx context.Context, graphURN stri
 		return false, err
 	}
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 {
