@@ -49,6 +49,8 @@ type URL struct {
 	LastMod string `xml:"lastmod,omitempty"`
 }
 
+// A namespace represents one grouped set of rules
+// for instance, all the rules for USGS or RISE
 type Namespace struct {
 	Name    string
 	CSVFile string
@@ -296,12 +298,18 @@ func main() {
 
 	server := NewRedirectServer()
 
-	// Add default namespaces - you can modify this or make it configurable
-	server.AddNamespace("utah", filepath.Join(projectpath.Root, "cmd", "pidServer", "testdata", "utah.csv"))
+	// list all csv files in testdata
+	csvFiles := filepath.Join(projectpath.Root, "cmd", "pidServer", "testdata")
+	files, err := os.ReadDir(csvFiles)
+	if err != nil {
+		log.Fatalf("Failed to list CSV files: %v", err)
+	}
 
-	// Example of adding multiple namespaces:
-	// server.AddNamespace("rise", filepath.Join(projectpath.Root, "cmd", "pidServer", "testdata", "rise.csv"))
-	// server.AddNamespace("other", filepath.Join(projectpath.Root, "cmd", "pidServer", "testdata", "other.csv"))
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".csv") {
+			server.AddNamespace(strings.TrimSuffix(file.Name(), ".csv"), filepath.Join(csvFiles, file.Name()))
+		}
+	}
 
 	// Initial load of all rules
 	if err := server.loadAllRules(); err != nil {
