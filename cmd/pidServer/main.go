@@ -174,7 +174,10 @@ func (rs *RedirectServer) handleRedirect(w http.ResponseWriter, r *http.Request)
 
 func (rs *RedirectServer) handleSitemapIndex(w http.ResponseWriter, r *http.Request) {
 	// Reload rules if CSV files have been modified
-	_ = rs.loadAllRules()
+	if err := rs.loadAllRules(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	// Get the host from the request
 	host := r.Host
