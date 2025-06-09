@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use shacl_ast::compiled::schema::SchemaIR;
-use shacl_validation::shacl_processor::{GraphValidation, ShaclProcessor, ShaclValidationMode};
-use shacl_validation::store::graph::Graph;
 use shacl_validation::validate_error::ValidateError;
 use shacl_validation::validation_report::report::ValidationReport;
 use sparql_service::RdfData;
-use srdf::{RDFFormat, SRDFGraph};
+use srdf::{RDFFormat};
 
 // Dynamically include the proto file using a macro
 pub mod shacl_validator {
@@ -15,10 +13,13 @@ pub mod shacl_validator {
 }
 
 use std::sync::Arc;
-
 use shacl_validation::store::ShaclDataManager;
-
 use std::io::Cursor;
+
+use crate::validation::validate_triples;
+
+pub mod validation;
+
 
 #[derive(Debug)]
 /// An empty struct upon which to implement the necessary traits
@@ -65,38 +66,15 @@ impl Validator {
     }
 }
 
-/// Validate an arbitrary string of rdf triples against a string of shacl shapes.
-pub fn validate_triples(
-    shacl: &SchemaIR<RdfData>,
-    triples: &str,
-) -> Result<ValidationReport, ValidateError> {
 
-    let srdf_graph = SRDFGraph::from_str(
-        triples,
-        &RDFFormat::Turtle,
-        None,
-        &srdf::ReaderMode::default(),
-    )?;
-
-    let data = RdfData::from_graph(srdf_graph)?;
-
-    let graph = Graph::from_data(data);
-
-    let endpoint_validation = GraphValidation::from_graph(graph, ShaclValidationMode::Native);
-
-    let report = endpoint_validation.validate(shacl)?;
-    Ok(report)
-}
 
 #[cfg(test)]
 mod tests {
 
     use std::io::Cursor;
-
     use shacl_validation::store::ShaclDataManager;
     use srdf::RDFFormat;
-
-    use crate::validate_triples;
+    use crate::validation::validate_triples;
 
     #[test]
     fn test_empty() {
