@@ -6,15 +6,20 @@ name = "shacl_validator_grpc"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
+
+[target.'cfg(not(target_arch = "wasm32-unknown-unknown"))'.dependencies]
 tonic = "*"
 prost = "0.13"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "signal"] }
+tokio-stream = "0.1.17"
+
+[dependencies]
 shacl_validation = "0.1.60"
 srdf = "0.1.60"
 sparql_service = "0.1.60"
-tokio-stream = "0.1.17"
 shacl_ast = "0.1.63"
+wasm-bindgen = "0.2.100"
+getrandom = { version = "0.2", features = ["js"] }
 
 [build-dependencies]
 tonic-build = "*"

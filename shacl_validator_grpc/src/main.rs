@@ -104,6 +104,7 @@ impl ShaclValidator for Validator {
     }
 }
 
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 #[tokio::main(flavor = "multi_thread")] // defaults to number of cpus on the system
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = "/tmp/shacl_validator.sock";
