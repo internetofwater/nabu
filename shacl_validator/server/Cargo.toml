@@ -1,0 +1,17 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tonic = "*"
+prost = "0.13"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "signal"] }
+tokio-stream = "0.1.17"
+validator = { path = "../validator" }
+
+[build-dependencies]
+tonic-build = "*"
