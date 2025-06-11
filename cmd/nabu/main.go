@@ -215,7 +215,19 @@ func (n NabuRunner) Run(ctx context.Context) (harvestReport []crawl.SitemapCrawl
 }
 
 func main() {
-	if _, err := NewNabuRunner(os.Args[1:]).Run(context.Background()); err != nil {
+	if crawlStats, err := NewNabuRunner(os.Args[1:]).Run(context.Background()); err != nil {
 		log.Fatal(err)
+	} else {
+		// if there were no explicit errors, check for any crawl failures
+		// if there were, exit with a non-zero exit code
+		for _, sitemap := range crawlStats {
+			if len(sitemap.CrawlFailures) > 0 {
+				log.Warn("At least one sitemap contained errors when harvesting; check the log for details")
+				// we use exit status 3 since it is not a fatal error that would exit 1
+				// nor a user error that would exit 2
+				const nonFatalError = 3
+				log.Exit(nonFatalError)
+			}
+		}
 	}
 }
