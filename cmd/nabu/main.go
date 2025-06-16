@@ -13,9 +13,9 @@ import (
 
 	"github.com/internetofwater/nabu/internal/common/projectpath"
 	"github.com/internetofwater/nabu/internal/config"
-	crawl "github.com/internetofwater/nabu/internal/crawl"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
+	"github.com/internetofwater/nabu/pkg"
 
 	"github.com/alexflint/go-arg"
 	log "github.com/sirupsen/logrus"
@@ -152,7 +152,7 @@ func uploadTracefile(minioConfig config.MinioConfig) error {
 	return mc.UploadFile(traceName, traceFile)
 }
 
-func (n NabuRunner) Run(ctx context.Context) (harvestReport []crawl.SitemapCrawlStats, err error) {
+func (n NabuRunner) Run(ctx context.Context) (harvestReport pkg.SitemapIndexCrawlStats, err error) {
 	defer trace.Stop()
 
 	level, err := log.ParseLevel(n.args.LogLevel)
