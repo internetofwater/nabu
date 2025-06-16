@@ -14,6 +14,7 @@ import (
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
+	"github.com/internetofwater/nabu/pkg"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -37,7 +38,7 @@ func getJSONLD(resp *http.Response, url URL, body []byte) ([]byte, error) {
 		} else {
 			errormsg := fmt.Sprintf("got wrong file type %s for %s", mime, url.Loc)
 			log.Error(errormsg)
-			return nil, UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
+			return nil, pkg.UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
 		}
 	}
 	return body, nil
@@ -69,7 +70,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		log.Error(errormsg)
 		// status makes jaeger mark as failed with red, whereas SetEvent just marks it with a message
 		span.SetStatus(codes.Error, errormsg)
-		config.nonFatalErrorChan <- UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
+		config.nonFatalErrorChan <- pkg.UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
 		return nil
 	}
 
@@ -82,7 +83,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	if err != nil {
 		// If it's a UrlCrawlError, store it for stats
 		// put don't return it, since it is non fatal
-		if urlErr, ok := err.(UrlCrawlError); ok {
+		if urlErr, ok := err.(pkg.UrlCrawlError); ok {
 			span.SetStatus(codes.Error, urlErr.Message)
 			config.nonFatalErrorChan <- urlErr
 			return nil
@@ -114,7 +115,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		}
 		err = validate_shacl(ctx, *config.grpcClient, triples)
 		if err != nil {
-			if urlErr, ok := err.(UrlCrawlError); ok {
+			if urlErr, ok := err.(pkg.UrlCrawlError); ok {
 				log.Errorf("SHACL validation failed for %s: %s", url.Loc, urlErr.Message)
 				config.nonFatalErrorChan <- urlErr
 				return nil

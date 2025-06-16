@@ -9,6 +9,7 @@ import (
 
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/protoBuild"
+	"github.com/internetofwater/nabu/pkg"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/codes"
 )
@@ -17,7 +18,7 @@ import (
 func validate_shacl(ctx context.Context, grpcClient protoBuild.ShaclValidatorClient, triples string) error {
 	// no point in validating if there are no triples; we don't want to be saving empty files
 	if triples == "" {
-		return UrlCrawlError{ShaclValid: false, ShaclErrorMessage: "no triples to validate"}
+		return pkg.UrlCrawlError{ShaclStatus: pkg.ShaclSkipped, ShaclErrorMessage: "no triples to validate"}
 	}
 	ctx, grpcSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, "grpc_shacl_validation")
 	log.Debugf("validating triples of byte size %d", len(triples))
@@ -28,7 +29,13 @@ func validate_shacl(ctx context.Context, grpcClient protoBuild.ShaclValidatorCli
 	} else if !reply.Valid {
 		grpcSubspan.SetStatus(codes.Error, reply.Message)
 		grpcSubspan.End()
-		return UrlCrawlError{ShaclValid: reply.Valid, ShaclErrorMessage: reply.Message}
+		var shaclStatus pkg.ShaclStatus
+		if reply.Valid {
+			shaclStatus = pkg.ShaclValid
+		} else {
+			shaclStatus = pkg.ShaclInvalid
+		}
+		return pkg.UrlCrawlError{ShaclStatus: shaclStatus, ShaclErrorMessage: reply.Message}
 	} else {
 		grpcSubspan.End()
 		return nil
