@@ -1,10 +1,11 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-package triplestore
+package triplestores
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/internetofwater/nabu/internal/common"
@@ -20,7 +21,7 @@ type GraphDbClientSuite struct {
 
 // Setup common dependencies before starting the test suite
 func (suite *GraphDbClientSuite) SetupSuite() {
-	graphdb, err := NewGraphDBContainer("iow", "./testdata/iow-config.ttl")
+	graphdb, err := NewGraphDBContainer("iow", filepath.Join("testdata", "iow-config.ttl"))
 	suite.Require().NoError(err)
 	suite.graphdb = graphdb
 }

@@ -16,7 +16,7 @@ import (
 	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
-	"github.com/internetofwater/nabu/internal/synchronizer/triplestore"
+	"github.com/internetofwater/nabu/internal/synchronizer/triplestores"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/piprate/json-gold/ld"
@@ -27,7 +27,7 @@ import (
 // Client to perform operations that synchronize the graph database with the object store
 type SynchronizerClient struct {
 	// the client used for communicating with the triplestore
-	GraphClient *triplestore.GraphDbClient
+	GraphClient triplestores.GenericTriplestore
 	// the client used for communicating with s3
 	S3Client *s3.MinioClientWrapper
 	// default bucket in the s3 that is used for synchronization
@@ -43,7 +43,7 @@ type SynchronizerClient struct {
 
 // Create a new SynchronizerClient by directly passing in the clients
 // Mainly used for testing
-func NewSynchronizerClientFromClients(graphClient *triplestore.GraphDbClient, s3Client *s3.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
+func NewSynchronizerClientFromClients(graphClient triplestores.GenericTriplestore, s3Client *s3.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
 	processor, options, err := common.NewJsonldProcessor(false, nil)
 	if err != nil {
 		return SynchronizerClient{}, err
@@ -62,7 +62,7 @@ func NewSynchronizerClientFromClients(graphClient *triplestore.GraphDbClient, s3
 
 // Generate a new SynchronizerClient from a top level nabu config
 func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClient, error) {
-	graphClient, err := triplestore.NewGraphDbClient(conf.Sparql)
+	graphClient, err := triplestores.NewGraphDbClient(conf.Sparql)
 	if err != nil {
 		return nil, err
 	}
@@ -145,10 +145,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 s3.
 		byt = []byte(convertedNq)
 	}
 
-	// Correct GraphDB REST API endpoint
-	url := fmt.Sprintf("%s/statements", synchronizer.GraphClient.BaseRepositoryUrl)
-
-	req, err := http.NewRequestWithContext(context.Background(), "POST", synchronizer.GraphClient.BaseSparqlQueryUrl, bytes.NewReader(byt))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", synchronizer.GraphClient.GetSparqlQueryUrl(), bytes.NewReader(byt))
 	if err != nil {
 		return err
 	}
@@ -171,7 +168,7 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 s3.
 		return fmt.Errorf("GraphDB upload failed: %d", resp.StatusCode)
 	}
 
-	log.Infof("Successfully uploaded N-Quads to %s (%d bytes)", url, len(byt))
+	log.Infof("Successfully uploaded N-Quads (%d bytes)", len(byt))
 	return nil
 }
 
