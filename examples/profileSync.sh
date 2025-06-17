@@ -4,12 +4,8 @@
 
 set -e
 
-# Run harvest locally and open the UI for local exploration
-cd "$(dirname "$0")"
-
-source ./containers/startGraphdb.sh
-source ./containers/startMinio.sh
-source ./containers/startJaeger.sh
+# cd relative to this script and start the local test infra
+cd "$(dirname "$0")" && docker compose up -d
 
 cd ../
 

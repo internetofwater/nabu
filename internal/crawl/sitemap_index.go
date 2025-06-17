@@ -42,6 +42,9 @@ type parts struct {
 	LastMod string `xml:"lastmod"`
 }
 
+// the associate id is the simplified version of the
+// sitemap id / url that is used to identify the sitemap
+// and remove the extraneous info like the hostname and final .xml
 func (p parts) associatedID() (string, error) {
 	if p.Loc == "" {
 		return "", fmt.Errorf("empty sitemap location")
