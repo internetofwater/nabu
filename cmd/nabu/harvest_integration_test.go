@@ -11,8 +11,8 @@ import (
 
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/synchronizer"
+	"github.com/internetofwater/nabu/internal/synchronizer/graphdb"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
-	"github.com/internetofwater/nabu/internal/synchronizer/triplestore"
 
 	"github.com/h2non/gock"
 	"github.com/stretchr/testify/require"
@@ -24,7 +24,7 @@ import (
 type GleanerInterationSuite struct {
 	suite.Suite
 	minioContainer   s3.MinioContainer
-	graphdbContainer triplestore.GraphDBContainer
+	graphdbContainer graphdb.GraphDBContainer
 }
 
 func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
@@ -86,7 +86,7 @@ func (suite *GleanerInterationSuite) SetupSuite() {
 	err = suite.minioContainer.ClientWrapper.MakeDefaultBucket()
 	require.NoError(t, err)
 
-	graphdbContainer, err := triplestore.NewGraphDBContainer("iow", "./testdata/iow-config.ttl")
+	graphdbContainer, err := graphdb.NewGraphDBContainer("iow", "./testdata/iow-config.ttl")
 	suite.Require().NoError(err)
 	suite.graphdbContainer = graphdbContainer
 }

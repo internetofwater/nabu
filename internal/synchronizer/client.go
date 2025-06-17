@@ -15,8 +15,8 @@ import (
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
+	"github.com/internetofwater/nabu/internal/synchronizer/graphdb"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
-	"github.com/internetofwater/nabu/internal/synchronizer/triplestore"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/piprate/json-gold/ld"
@@ -27,7 +27,7 @@ import (
 // Client to perform operations that synchronize the graph database with the object store
 type SynchronizerClient struct {
 	// the client used for communicating with the triplestore
-	GraphClient *triplestore.GraphDbClient
+	GraphClient *graphdb.GraphDbClient
 	// the client used for communicating with s3
 	S3Client *s3.MinioClientWrapper
 	// default bucket in the s3 that is used for synchronization
@@ -43,7 +43,7 @@ type SynchronizerClient struct {
 
 // Create a new SynchronizerClient by directly passing in the clients
 // Mainly used for testing
-func NewSynchronizerClientFromClients(graphClient *triplestore.GraphDbClient, s3Client *s3.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
+func NewSynchronizerClientFromClients(graphClient *graphdb.GraphDbClient, s3Client *s3.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
 	processor, options, err := common.NewJsonldProcessor(false, nil)
 	if err != nil {
 		return SynchronizerClient{}, err
@@ -62,7 +62,7 @@ func NewSynchronizerClientFromClients(graphClient *triplestore.GraphDbClient, s3
 
 // Generate a new SynchronizerClient from a top level nabu config
 func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClient, error) {
-	graphClient, err := triplestore.NewGraphDbClient(conf.Sparql)
+	graphClient, err := graphdb.NewGraphDbClient(conf.Sparql)
 	if err != nil {
 		return nil, err
 	}
