@@ -1,7 +1,10 @@
 # Copyright 2025 Lincoln Institute of Land Policy
 # SPDX-License-Identifier: Apache-2.0
 
-version: "3.9"
+# this file represents all services that
+# are used when running nabu examples
+# not all of these are required to run nabu
+# they are grouped together for convenience
 
 services:
   graphdb:
@@ -14,6 +17,7 @@ services:
     ports:
       - "7200:7200"
 
+  # a simple job to initialize the graph configuration
   graphdb-init:
     image: curlimages/curl
     container_name: graphdb-init
