@@ -63,6 +63,8 @@ func (graphClient *GraphDbClient) GetSparqlQueryUrl() string {
 // Create a new client struct to connect to the triplestore
 func NewGraphDbClient(config config.SparqlConfig) (*GraphDbClient, error) {
 
+	log.Fatalf("got batch size of %d", config.UpsertBatchSize)
+
 	return &GraphDbClient{
 		SparqlConf:         config,
 		BaseUrl:            config.Endpoint,
