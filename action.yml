@@ -15,10 +15,10 @@ runs:
 
   steps:
   
-    - name: Checkout Code
+    - name: Checkout branch
       uses: actions/checkout@v4
       with:
-        repository: "internetofwater/nabu"
+        ref: ${{ github.head_ref }}
 
     - name: Setup Go
       uses: actions/setup-go@v5
