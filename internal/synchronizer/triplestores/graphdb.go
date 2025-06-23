@@ -69,6 +69,7 @@ func NewGraphDbClient(config config.SparqlConfig) (*GraphDbClient, error) {
 		BaseRepositoryUrl:  fmt.Sprintf("%s/repositories/%s", config.Endpoint, config.Repository),
 		BaseRESTUrl:        fmt.Sprintf("%s/rest", config.Endpoint),
 		BaseSparqlQueryUrl: fmt.Sprintf("%s/repositories/%s/statements", config.Endpoint, config.Repository),
+		UpsertBatchSize:    config.UpsertBatchSize,
 	}, nil
 }
 
