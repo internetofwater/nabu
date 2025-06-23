@@ -20,7 +20,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// convert all objects in s3 with a specific prefix to nq and stream them to the channel
+// convert all objects in s3 with a specific prefix to nq format and stream them to a shared channel
+// this allows the caller to mimic concatenating many nq files in parallel without needing to have
+// the nq file ever be written to disk
 func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, nqChan chan<- string) error {
 	objects, err := synchronizer.S3Client.ObjectList(context.Background(), prefix)
 	if err != nil {
@@ -37,6 +39,7 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 
 	for _, object := range objects {
 		wg.Add(1)
+
 		go func(obj minio.ObjectInfo) {
 			defer wg.Done()
 
