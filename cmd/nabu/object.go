@@ -17,10 +17,5 @@ func object(objectName string, cfgStruct config.NabuConfig) error {
 	if err != nil {
 		return err
 	}
-	err = client.UploadNqFileToTriplestore(objectName)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return client.UploadNqFileToTriplestore(objectName)
 }

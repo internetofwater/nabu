@@ -7,8 +7,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/internetofwater/nabu/internal/config"
-
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 )
@@ -21,11 +19,8 @@ func TestCreateNewProcessor(t *testing.T) {
 	})
 
 	t.Run("use full config with caching", func(t *testing.T) {
-		ctxMaps := []config.ContextMap{
-			{
-				Prefix: "https://schema.org/",
-				File:   "./assets/schemaorg-current-https.jsonld",
-			},
+		ctxMaps := map[string]string{
+			"https://schema.org/": "./assets/schemaorg-current-https.jsonld",
 		}
 
 		processor, options, err := NewJsonldProcessor(true, ctxMaps)
@@ -85,11 +80,8 @@ func TestSelfieExample(t *testing.T) {
   ]
 }`
 
-	ctxMaps := []config.ContextMap{
-		{
-			Prefix: "https://schema.org/",
-			File:   "./assets/schemaorg-current-https.jsonld",
-		},
+	ctxMaps := map[string]string{
+		"https://schema.org/": "./assets/schemaorg-current-https.jsonld",
 	}
 
 	processor, options, err := NewJsonldProcessor(true, ctxMaps)

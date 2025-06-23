@@ -8,7 +8,6 @@ import (
 	"html/template"
 
 	common "github.com/internetofwater/nabu/internal/common"
-	"github.com/internetofwater/nabu/internal/config"
 )
 
 const orgJSONLDTemplate = `{
@@ -52,7 +51,7 @@ func NewOrgsNq(url, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	processor, options, err := common.NewJsonldProcessor(false, []config.ContextMap{})
+	processor, options, err := common.NewJsonldProcessor(false, make(map[string]string))
 	if err != nil {
 		return "", err
 	}

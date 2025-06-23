@@ -22,6 +22,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 )
 
+
 func countSourcesInSitemap(url string) (int, error) {
 	// Fetch the URL
 	resp, err := http.Get(url)

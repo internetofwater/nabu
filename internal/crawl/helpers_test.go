@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/internetofwater/nabu/internal/common"
-	"github.com/internetofwater/nabu/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -108,7 +107,7 @@ func TestGetJsonLdFromHTML(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, jsonld, "https://opengeospatial.github.io/ELFIE/contexts/elfie-2/hy_features.jsonld")
 
-		processor, options, err := common.NewJsonldProcessor(true, []config.ContextMap{})
+		processor, options, err := common.NewJsonldProcessor(true, make(map[string]string))
 		require.NoError(t, err)
 		_, err = common.JsonldToNQ(jsonld, processor, options)
 		require.NoError(t, err)

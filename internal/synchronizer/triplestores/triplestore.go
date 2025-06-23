@@ -11,7 +11,7 @@ import (
 )
 
 // assert that the graphdb client implements the interface
-var _ GenericTriplestore = &GraphDbClient{}
+var _ GenericTriplestoreClient = &GraphDbClient{}
 
 // The set of methods that must be implemented by a triplestore to be used by nabu
 type RequiredTriplestoreFeatures interface {
@@ -38,9 +38,13 @@ type RequiredTriplestoreFeatures interface {
 
 	// Return the url endpoint for sparql queries
 	GetSparqlQueryUrl() string
+
+	// Return the mount of items that can be posted in a single
+	// sparql http request
+	GetUpsertBatchSize() int
 }
 
-type GenericTriplestore interface {
+type GenericTriplestoreClient interface {
 	// all methods that a triplestore must implement
 	RequiredTriplestoreFeatures
 }
