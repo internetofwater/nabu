@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"github.com/internetofwater/nabu/internal/common/projectpath"
-	"github.com/internetofwater/nabu/internal/config"
 
 	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
@@ -18,7 +17,7 @@ import (
 
 // NewJsonldProcessor builds the JSON-LD processor and sets the options object
 // for use in framing, processing and all JSON-LD actions
-func NewJsonldProcessor(cache bool, contextMaps []config.ContextMap) (*ld.JsonLdProcessor, *ld.JsonLdOptions, error) {
+func NewJsonldProcessor(cache bool, contextMaps map[string]string) (*ld.JsonLdProcessor, *ld.JsonLdOptions, error) {
 	processor := ld.NewJsonLdProcessor()
 	options := ld.NewJsonLdOptions("")
 
@@ -32,13 +31,13 @@ func NewJsonldProcessor(cache bool, contextMaps []config.ContextMap) (*ld.JsonLd
 		clientWithRetries := NewRetryableHTTPClient()
 		fallbackLoader := ld.NewDefaultDocumentLoader(clientWithRetries)
 
-		prefixToFilePath := make(map[string]string)
+		prefixToFullFilePath := make(map[string]string)
 
-		for _, contextMap := range contextMaps {
+		for prefix, file := range contextMaps {
 			// All context maps should be relative to the root of the project
-			absPath := filepath.Join(projectpath.Root, contextMap.File)
+			absPath := filepath.Join(projectpath.Root, file)
 			if fileExists(absPath) {
-				prefixToFilePath[contextMap.Prefix] = absPath
+				prefixToFullFilePath[prefix] = absPath
 			} else {
 				return nil, nil, fmt.Errorf("context file at %s does not exist or could not be accessed", absPath)
 			}
@@ -46,7 +45,7 @@ func NewJsonldProcessor(cache bool, contextMaps []config.ContextMap) (*ld.JsonLd
 
 		// Read mapping from config file
 		cachingLoader := ld.NewCachingDocumentLoader(fallbackLoader)
-		if err := cachingLoader.PreloadWithMapping(prefixToFilePath); err != nil {
+		if err := cachingLoader.PreloadWithMapping(prefixToFullFilePath); err != nil {
 			return nil, nil, err
 		}
 		options.DocumentLoader = cachingLoader

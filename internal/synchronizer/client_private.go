@@ -223,7 +223,9 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 
 // Batch upserts objects from s3 to triplestore using upsertBatchSize as defined in the synchronizer client
 func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3GraphNames []s3.S3Prefix) error {
-	if synchronizer.upsertBatchSize == 0 {
+	batchSize := synchronizer.GraphClient.GetUpsertBatchSize()
+
+	if batchSize == 0 {
 		return fmt.Errorf("got invalid upsert batch size of 0")
 	}
 
@@ -234,9 +236,9 @@ func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3Gra
 	errorGroup.SetLimit(50)
 
 	log.Infof("Upserting %d objects from S3 to triplestore", len(s3GraphNames))
-	batches := createBatches(s3GraphNames, synchronizer.upsertBatchSize)
+	batches := createBatches(s3GraphNames, batchSize)
 
-	log.Debugf("Upserting with batch size %d", synchronizer.upsertBatchSize)
+	log.Debugf("Upserting with batch size %d", batchSize)
 
 	for i, batch := range batches {
 		batch := batch // capture range variable

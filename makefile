@@ -38,6 +38,9 @@ deadcode:
 test:
 	gotestsum --max-fails 1 && cd shacl_validator_grpc && cargo test
 
+lint:
+	golangci-lint run
+
 # run tests and print the slowest tests in the project
 slowest:	
 	gotestsum --jsonfile /tmp/json.log

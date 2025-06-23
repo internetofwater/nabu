@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/internetofwater/nabu/internal/common"
-	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/protoBuild"
@@ -128,7 +127,7 @@ func NewSitemapHarvestConfig(sitemap Sitemap, validateShacl bool) (SitemapHarves
 		grpcClient = nil
 	}
 
-	JsonLdProc, JsonLdOpts, err := common.NewJsonldProcessor(true, []config.ContextMap{})
+	JsonLdProc, JsonLdOpts, err := common.NewJsonldProcessor(true, make(map[string]string))
 	if err != nil {
 		return SitemapHarvestConfig{}, fmt.Errorf("failed to create JSON-LD processor: %w", err)
 	}

@@ -52,17 +52,17 @@ func NewGraphDBContainer(repositoryName string, configPath string) (GraphDBConta
 		return GraphDBContainer{}, err
 	}
 	sparqlConfig := config.SparqlConfig{
-		Endpoint:     "http://" + host + ":" + port.Port(),
-		Authenticate: false,
-		Username:     "",
-		Password:     "",
+		Endpoint: "http://" + host + ":" + port.Port(),
 	}
+	const reasonableDefaultBatchSize = 10
+
 	client := GraphDbClient{
 		SparqlConf:         sparqlConfig,
 		BaseUrl:            fmt.Sprintf("http://%s:%s", host, port.Port()),
 		BaseRepositoryUrl:  fmt.Sprintf("http://%s:%s/repositories/%s", host, port.Port(), repositoryName),
 		BaseRESTUrl:        fmt.Sprintf("http://%s:%s/rest", host, port.Port()),
 		BaseSparqlQueryUrl: fmt.Sprintf("http://%s:%s/repositories/%s/statements", host, port.Port(), repositoryName),
+		UpsertBatchSize:    reasonableDefaultBatchSize,
 	}
 
 	err = client.CreateRepositoryIfNotExists(configPath)

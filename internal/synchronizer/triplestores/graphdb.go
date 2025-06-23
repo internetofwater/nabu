@@ -40,10 +40,16 @@ type GraphDbClient struct {
 	// url to the host for the rest api base endpoint.
 	// REST api metods are used for config and graphdb specific operations
 	BaseRESTUrl string
+	// How many triples to send in a single batch over http with sparql
+	UpsertBatchSize int
 }
 
 func (graphClient *GraphDbClient) GetBaseUrl() string {
 	return graphClient.BaseUrl
+}
+
+func (graphClient *GraphDbClient) GetUpsertBatchSize() int {
+	return graphClient.UpsertBatchSize
 }
 
 func (graphClient *GraphDbClient) GetRestUrl() string {
@@ -145,10 +151,6 @@ func (graphClient *GraphDbClient) UpsertNamedGraphs(ctx context.Context, graphs 
 
 	req.Header.Set("Content-Type", "application/sparql-update") // graphdb  blaze and jena  alt might be application/sparql-results+xml
 	req.Header.Set("Accept", "application/x-trig")              // graphdb
-
-	if graphClient.SparqlConf.Authenticate {
-		req.SetBasicAuth(graphClient.SparqlConf.Username, graphClient.SparqlConf.Password)
-	}
 
 	client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 	resp, err := client.Do(req)

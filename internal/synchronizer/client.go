@@ -27,7 +27,7 @@ import (
 // Client to perform operations that synchronize the graph database with the object store
 type SynchronizerClient struct {
 	// the client used for communicating with the triplestore
-	GraphClient triplestores.GenericTriplestore
+	GraphClient triplestores.GenericTriplestoreClient
 	// the client used for communicating with s3
 	S3Client *s3.MinioClientWrapper
 	// default bucket in the s3 that is used for synchronization
@@ -37,13 +37,11 @@ type SynchronizerClient struct {
 	jsonldProcessor *ld.JsonLdProcessor
 	// options that are applied with the processor when performing jsonld conversions
 	jsonldOptions *ld.JsonLdOptions
-	// number of graphs to send per POST request to the triplestore
-	upsertBatchSize int
 }
 
 // Create a new SynchronizerClient by directly passing in the clients
 // Mainly used for testing
-func NewSynchronizerClientFromClients(graphClient triplestores.GenericTriplestore, s3Client *s3.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
+func NewSynchronizerClientFromClients(graphClient triplestores.GenericTriplestoreClient, s3Client *s3.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
 	processor, options, err := common.NewJsonldProcessor(false, nil)
 	if err != nil {
 		return SynchronizerClient{}, err
@@ -55,7 +53,6 @@ func NewSynchronizerClientFromClients(graphClient triplestores.GenericTriplestor
 		syncBucketName:  bucketName,
 		jsonldProcessor: processor,
 		jsonldOptions:   options,
-		upsertBatchSize: 100,
 	}
 	return client, nil
 }
@@ -71,7 +68,7 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 		return nil, err
 	}
 
-	processor, options, err := common.NewJsonldProcessor(conf.Context.Cache, conf.ContextMaps)
+	processor, options, err := common.NewJsonldProcessor(conf.Context.Cache, conf.PrefixToFileCache)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +79,6 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 		syncBucketName:  conf.Minio.Bucket,
 		jsonldProcessor: processor,
 		jsonldOptions:   options,
-		upsertBatchSize: conf.Sparql.Batch,
 	}
 	return client, nil
 }
@@ -90,7 +86,7 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 // Get rid of graphs with specific prefix in the triplestore that are not in the object store
 // Drops are determined by mapping a prefix to the associated URN
 func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(ctx context.Context, prefix s3.S3Prefix, checkAndRemoveOrphans bool) error {
-	if synchronizer.upsertBatchSize == 0 {
+	if synchronizer.GraphClient.GetUpsertBatchSize() == 0 {
 		return fmt.Errorf("got invalid upsert batch size of 0")
 	}
 

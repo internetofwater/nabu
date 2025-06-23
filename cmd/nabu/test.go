@@ -32,5 +32,5 @@ func Test(cfgStruct config.NabuConfig) error {
 
 	log.Info("s3 test passed")
 
-	return err
+	return nil
 }
