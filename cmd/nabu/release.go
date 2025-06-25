@@ -15,13 +15,5 @@ func release(cfgStruct config.NabuConfig) error {
 	if err != nil {
 		return err
 	}
-
-	for _, prefix := range cfgStruct.Prefixes {
-		err = client.GenerateNqRelease(prefix)
-		if err != nil {
-			return err
-		}
-	}
-
-	return err
+	return client.GenerateNqRelease(cfgStruct.Prefix)
 }
