@@ -22,10 +22,13 @@ type BatchCrawlStorage interface {
 	BatchStore(chan BatchFileObject) error
 }
 
+// a path delimited by /
+type objectPath = string
+
 type CrawlStorage interface {
-	Store(string, io.Reader) error
-	Get(string) (io.ReadCloser, error)
-	Exists(string) (bool, error)
+	Store(objectPath, io.Reader) error
+	Get(objectPath) (io.ReadCloser, error)
+	Exists(objectPath) (bool, error)
 }
 
 // Storage for crawl data where the files

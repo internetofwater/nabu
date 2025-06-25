@@ -4,8 +4,10 @@
 package pkg
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 )
 
 // The status of the shacl validation
@@ -41,11 +43,25 @@ func (e UrlCrawlError) Error() string {
 }
 
 // Crawl stats for a particular sitemap
-// Which can optionally include a list of errors
 type SitemapCrawlStats struct {
-	CrawlFailures     []UrlCrawlError
+	// Metadata about why a sitemap failed to be harvested
+	CrawlFailures []UrlCrawlError
+	// The number of seconds it took to crawl the sitemap
 	SecondsToComplete float64
-	SitemapName       string
+	// The name of the sitemap in the sitemap index
+	SitemapName string
+	// The number of sites that were successfully crawled and stored
+	SitesHarvested int
+	// The number of total sites in the sitemap
+	SitesInSitemap int
+}
+
+// Serialize the sitemap crawl stats to json
+// and return the result as an io.Reader
+func (s SitemapCrawlStats) ToJsonIoReader() (io.Reader, error) {
+	buf := new(bytes.Buffer)
+	err := json.NewEncoder(buf).Encode(s)
+	return buf, err
 }
 
 // A sitemap index is just a list of sitemaps and thus

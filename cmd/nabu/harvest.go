@@ -74,7 +74,7 @@ func Harvest(ctx context.Context, minioConfig config.MinioConfig, args HarvestCm
 	if err != nil {
 		return nil, err
 	}
-	if err := storageDestination.Store(fmt.Sprintf("stats/crawl_stats_%s.json", args.Source), strings.NewReader(asJson)); err != nil {
+	if err := storageDestination.Store(fmt.Sprintf("metadata/crawl_stats_%s.json", args.Source), strings.NewReader(asJson)); err != nil {
 		return nil, err
 	}
 

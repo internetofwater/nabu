@@ -182,7 +182,7 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 	start := time.Now()
 	log.Infof("Harvesting sitemap %s with %d urls", sitemapID, len(s.URL))
 
-	sitesHarvested := atomic.Int64{}
+	sitesHarvested := atomic.Int32{}
 
 	for _, url := range s.URL {
 		// Capture the URL for use in the goroutine.
@@ -198,13 +198,29 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 	}
 	err = group.Wait()
 
-	stats := pkg.SitemapCrawlStats{SecondsToComplete: time.Since(start).Seconds(), SitemapName: sitemapID}
+	stats := pkg.SitemapCrawlStats{
+		SecondsToComplete: time.Since(start).Seconds(),
+		SitemapName:    sitemapID,
+		SitesHarvested: int(sitesHarvested.Load()),
+		SitesInSitemap: len(s.URL),
+	}
 	// we close this here to make sure we can range without blocking
 	// We know we can close this since we have already waited on all go routines
 	close(sitemapHarvestConf.nonFatalErrorChan)
 	for err := range sitemapHarvestConf.nonFatalErrorChan {
 		stats.CrawlFailures = append(stats.CrawlFailures, err)
 	}
+
+	go func() {
+		asJson, err := stats.ToJsonIoReader()
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = s.storageDestination.Store(fmt.Sprintf("metadata/%s.json", sitemapID), asJson)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	log.Debugf("Finished crawling sitemap %s in %f seconds", sitemapID, stats.SecondsToComplete)
 
