@@ -9,7 +9,7 @@ type NabuConfig struct {
 	Sparql            SparqlConfig
 	Context           ContextConfig
 	PrefixToFileCache map[string]string
-	Prefixes          []string
+	Prefix            string
 	Trace             bool
 }
 

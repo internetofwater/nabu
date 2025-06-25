@@ -20,11 +20,5 @@ func Sync(ctx context.Context, cfgStruct config.NabuConfig) error {
 	if err != nil {
 		return err
 	}
-	for _, prefix := range cfgStruct.Prefixes {
-		err = client.SyncTriplestoreGraphs(ctx, prefix, true)
-		if err != nil {
-			return err
-		}
-	}
-	return err
+	return client.SyncTriplestoreGraphs(ctx, cfgStruct.Prefix, true)
 }

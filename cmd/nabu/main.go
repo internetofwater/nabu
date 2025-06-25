@@ -26,8 +26,8 @@ type NabuArgs struct {
 	// Subcommands that can be run
 	Clear   *ClearCmd   `arg:"subcommand:clear" help:"clear all graphs from the triplestore"`
 	Object  *ObjectCmd  `arg:"subcommand:object" help:"upload a single object to the triplestore"`
-	Release *ReleaseCmd `arg:"subcommand:release" help:"upload a release to the triplestore"`
-	Prefix  *PrefixCmd  `arg:"subcommand:prefix" help:"upload a prefix to the triplestore"`
+	Release *ReleaseCmd `arg:"subcommand:release" help:"generate an nq release graph for all objects under a specific prefix"`
+	Upload  *UploadCmd  `arg:"subcommand:upload" help:"upload all objects under a specific prefix to the triplestore"`
 	Sync    *SyncCmd    `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`
 	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`
 	Harvest *HarvestCmd `arg:"subcommand:harvest" help:"harvest sitemaps and store them in the s3 bucket"`
@@ -40,7 +40,7 @@ type NabuArgs struct {
 	// Flags that can be set which affect all operations
 	LogLevel          string            `arg:"--log-level" default:"INFO"`
 	Trace             bool              `arg:"--trace" help:"enable runtime profiling and tracing for performance analysis"`
-	Prefixes          []string          `arg:"--prefix" help:"prefixes in S3 to sync or upload against"`
+	Prefix            string            `arg:"--prefix" help:"prefix in S3 to sync or upload against"`
 	PrefixToFileCache map[string]string `arg:"--prefixes-to-file" help:"prefix name to file mapping; used for caching"`
 	UseOtel           bool              `arg:"--use-otel"`
 	OtelEndpoint      string            `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
@@ -54,7 +54,7 @@ func (n NabuArgs) ToStructuredConfig() config.NabuConfig {
 		Sparql:            n.SparqlConfig,
 		Context:           n.ContextConfig,
 		PrefixToFileCache: n.PrefixToFileCache,
-		Prefixes:          n.Prefixes,
+		Prefix:            n.Prefix,
 	}
 }
 
@@ -142,8 +142,8 @@ func (n NabuRunner) Run(ctx context.Context) (harvestReport pkg.SitemapIndexCraw
 		return nil, object(n.args.Object.Object, cfgStruct)
 	case n.args.Release != nil:
 		return nil, release(cfgStruct)
-	case n.args.Prefix != nil:
-		return nil, prefix(cfgStruct)
+	case n.args.Prefix != "":
+		return nil, upload(cfgStruct)
 	case n.args.Sync != nil:
 		return nil, Sync(ctx, cfgStruct)
 	case n.args.Test != nil:
