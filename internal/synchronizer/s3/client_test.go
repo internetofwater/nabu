@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -55,17 +56,18 @@ func (s *S3ClientSuite) TearDownSuite() {
 func (suite *S3ClientSuite) TestNumberOfMatchedObjects() {
 	t := suite.T()
 
-	// remove all objects from the bucket before testing
-	// that way we know we are starting from 0 items
-	for object := range suite.minioContainer.ClientWrapper.Client.ListObjects(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, minio.ListObjectsOptions{}) {
-		err := suite.minioContainer.ClientWrapper.Client.RemoveObject(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, object.Key, minio.RemoveObjectOptions{})
-		require.NoError(t, err)
-	}
+	const rootObjectsToAdd = 10
 
-	// Insert test data into MinIO
+	const psuedoRoot = "test_num_matching_root/"
+	const testPrefix = psuedoRoot + "test-prefix/"
+	const otherPrefix = psuedoRoot + "other-prefix/"
+
+	const testPrefixedObjectsToAdd = 7
+	const otherPrefixedObjectsToAdd = 19
+
 	insertTestData := func(prefix string, count int) {
 		objectData := []byte("test data")
-		for i := 0; i < count; i++ {
+		for i := range count {
 			objectName := prefix + "test-object-" + fmt.Sprint(i)
 			info, err := suite.minioContainer.ClientWrapper.Client.PutObject(
 				context.Background(),
@@ -80,33 +82,32 @@ func (suite *S3ClientSuite) TestNumberOfMatchedObjects() {
 		}
 	}
 
-	const rootObjects = 10
-	const testPrefixedObjects = 7
-	const otherPrefixedObjects = 19
-	const testPrefix = "test-prefix/"
-	const otherPrefix = "other-prefix/"
-
 	// Insert root objects
-	insertTestData("", rootObjects)
+	insertTestData(psuedoRoot, rootObjectsToAdd)
 	// Insert test-prefixed objects
-	insertTestData(testPrefix, testPrefixedObjects)
+	insertTestData(testPrefix, testPrefixedObjectsToAdd)
 	// Insert other-prefixed objects
-	insertTestData(otherPrefix, otherPrefixedObjects)
+	insertTestData(otherPrefix, otherPrefixedObjectsToAdd)
 
 	// Validate the number of matched objects
-	matchedObjects, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
+	matchedObjects, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{psuedoRoot})
 	require.NoError(t, err)
-	require.Equal(t, rootObjects+testPrefixedObjects+otherPrefixedObjects, matchedObjects)
+	require.Equal(t, rootObjectsToAdd+testPrefixedObjectsToAdd+otherPrefixedObjectsToAdd, matchedObjects)
 
 	// Validate the number of matched objects with a prefix
 	matchedObjects, err = suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{testPrefix})
 	require.NoError(t, err)
-	require.Equal(t, testPrefixedObjects, matchedObjects)
+	require.Equal(t, testPrefixedObjectsToAdd, matchedObjects)
 
 	// Validate the number of matched objects with multiple prefixes
 	matchedObjects, err = suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{testPrefix, otherPrefix})
 	require.NoError(t, err)
-	require.Equal(t, testPrefixedObjects+otherPrefixedObjects, matchedObjects)
+	require.Equal(t, testPrefixedObjectsToAdd+otherPrefixedObjectsToAdd, matchedObjects)
+
+	// make sure that we can get the number of root objects
+	rootObjs, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
+	require.NoError(t, err)
+	require.Greater(t, rootObjs, 0)
 }
 
 // make sure that we can remove objects from the minio bucket
@@ -120,7 +121,7 @@ func (suite *S3ClientSuite) TestRemove() {
 	// Insert test data into MinIO
 	insertTestData := func(count int) {
 		objectData := []byte("test data")
-		for i := 0; i < count; i++ {
+		for i := range count {
 			objectName := "removable-object-" + fmt.Sprint(i)
 			_, err := suite.minioContainer.ClientWrapper.Client.PutObject(
 				context.Background(),
@@ -156,9 +157,11 @@ func (suite *S3ClientSuite) TestRemove() {
 // Make sure that we can retrieve object info from a given bucket
 func (suite *S3ClientSuite) TestGetObjects() {
 
+	const testPrefix = "get_obj_test/"
+
 	// Validate the number of matched objects
 	// before inserting so we dont need to wipe the bucket
-	objsBeforeInsert, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{""})
+	objsBeforeInsert, err := suite.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{testPrefix})
 	suite.Require().NoError(err)
 
 	// Insert test data into MinIO
@@ -166,7 +169,7 @@ func (suite *S3ClientSuite) TestGetObjects() {
 		for i := range count {
 			objectData := []byte(fmt.Sprintf("test data %d", i))
 
-			objectName := "get-object-" + fmt.Sprint(i)
+			objectName := testPrefix + "get-object-" + fmt.Sprint(i)
 			_, err := suite.minioContainer.ClientWrapper.Client.PutObject(
 				context.Background(),
 				suite.minioContainer.ClientWrapper.DefaultBucket,
@@ -184,13 +187,17 @@ func (suite *S3ClientSuite) TestGetObjects() {
 	insertTestData(newObjects)
 
 	// get the objects
-	objects, err := suite.minioContainer.ClientWrapper.ObjectList(context.Background(), "")
+	objects, err := suite.minioContainer.ClientWrapper.ObjectList(context.Background(), testPrefix)
 	suite.Require().NoError(err)
 	require.Len(suite.T(), objects, newObjects+objsBeforeInsert)
 
 	// get the first key and use that to get the data from within that object
 	firstKey := objects[0].Key
-	object, err := suite.minioContainer.ClientWrapper.Client.GetObject(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, firstKey, minio.GetObjectOptions{})
+	object, err := suite.minioContainer.ClientWrapper.Client.GetObject(context.Background(),
+		suite.minioContainer.ClientWrapper.DefaultBucket,
+		firstKey,
+		minio.GetObjectOptions{},
+	)
 	suite.Require().NoError(err)
 	// check the data
 	data, err := io.ReadAll(object)
@@ -279,7 +286,41 @@ func (suite *S3ClientSuite) TestCRUD() {
 	exists, err = suite.minioContainer.ClientWrapper.Exists("test/testCRUD")
 	suite.Require().NoError(err)
 	suite.Require().False(exists)
+}
 
+func (suite *S3ClientSuite) TestConcat() {
+
+	tmpFile, err := os.CreateTemp("", "concat")
+	suite.Require().NoError(err)
+	defer func() {
+		err = os.Remove(tmpFile.Name())
+		suite.Require().NoError(err)
+	}()
+
+	var data []string
+	const prefix = "concat_test"
+
+	for i := range 100 {
+		dataPoint := fmt.Sprintf("test data %d", i)
+		data = append(data, dataPoint)
+		err = suite.minioContainer.ClientWrapper.Store(fmt.Sprintf("%s/%d", prefix, i), bytes.NewReader([]byte(dataPoint)))
+		suite.Require().NoError(err)
+	}
+
+	err = suite.minioContainer.ClientWrapper.ConcatToDisk(context.Background(), prefix, tmpFile.Name())
+	suite.Require().NoError(err)
+
+	concatData, err := os.ReadFile(tmpFile.Name())
+	suite.Require().NoError(err)
+
+	concatAsString := string(concatData)
+
+	for _, dataPoint := range data {
+		suite.Require().Contains(concatAsString, dataPoint)
+	}
+	// clean up
+	err = suite.minioContainer.ClientWrapper.Remove(prefix)
+	suite.Require().NoError(err)
 }
 
 // Run the entire test suite

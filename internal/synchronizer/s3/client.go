@@ -4,16 +4,19 @@
 package s3
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
+	"golang.org/x/sync/errgroup"
 
 	interfaces "github.com/internetofwater/nabu/internal/crawl/storage"
 
@@ -265,6 +268,48 @@ func (m MinioClientWrapper) BatchStore(batch chan interfaces.BatchFileObject) er
 		close(snowBallChan)
 	}()
 	return m.Client.PutObjectsSnowball(context.Background(), m.DefaultBucket, minio.SnowballOptions{}, snowBallChan)
+}
+
+// Output a file to disk that is the concat of all the files in the bucket under a specific prefix
+func (m MinioClientWrapper) ConcatToDisk(ctx context.Context, prefix S3Prefix, localFileName string) error {
+	const READ_WRITE_OWNER_READ_OTHERS = 0664
+
+	// In Unix appends are atomic and thus this it is safe to have multiple goroutines writing to the same file
+	file, err := os.OpenFile(localFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, READ_WRITE_OWNER_READ_OTHERS)
+	if err != nil {
+		return err
+	}
+
+	// By using a buffered writer, we allow for more efficient io on the output file on disk
+	bufferedFileWriter := bufio.NewWriter(file)
+
+	defer func() { _ = file.Close() }()
+	objChan := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
+	var eg errgroup.Group
+	eg.SetLimit(runtime.NumCPU())
+
+	for obj := range objChan {
+		if obj.Err != nil {
+			return obj.Err
+		}
+		_, err := m.Client.GetObject(context.Background(), m.DefaultBucket, obj.Key, minio.GetObjectOptions{})
+		if err != nil {
+			return err
+		}
+		eg.Go(func() error {
+			obj, err := m.Client.GetObject(context.Background(), m.DefaultBucket, obj.Key, minio.GetObjectOptions{})
+			defer func() { _ = obj.Close() }()
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(bufferedFileWriter, obj)
+			return err
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+	return bufferedFileWriter.Flush()
 }
 
 var _ interfaces.BatchCrawlStorage = MinioClientWrapper{}
