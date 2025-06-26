@@ -6,6 +6,7 @@ package s3
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -25,6 +26,8 @@ import (
 	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
 )
+
+var _ interfaces.BatchCrawlStorage = MinioClientWrapper{}
 
 // Wrapper to allow us to extend the minio client struct with new methods
 type MinioClientWrapper struct {
@@ -270,22 +273,56 @@ func (m MinioClientWrapper) BatchStore(batch chan interfaces.BatchFileObject) er
 	return m.Client.PutObjectsSnowball(context.Background(), m.DefaultBucket, minio.SnowballOptions{}, snowBallChan)
 }
 
-// Output a file to disk that is the concat of all the files in the bucket under a specific prefix
+// ConcatToDisk will concatenate all objects with the prefix to a local file
+// 1. Concurrently read from S3
+// 2. Pass the data to a channel
+// 3. Batch write to the file using buffered writer
 func (m MinioClientWrapper) ConcatToDisk(ctx context.Context, prefix S3Prefix, localFileName string) error {
-	const READ_WRITE_OWNER_READ_OTHERS = 0664
+	if prefix == "" {
+		return errors.New("prefix cannot be empty when concatenating; you should not download the entire bucket")
+	}
+	if localFileName == "" {
+		return errors.New("local file name cannot be empty")
+	}
 
-	// In Unix appends are atomic and thus this it is safe to have multiple goroutines writing to the same file
-	file, err := os.OpenFile(localFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, READ_WRITE_OWNER_READ_OTHERS)
+	const READ_WRITE_OWNER_READ_OTHERS = 0664
+	const FourMB = 1024 * 1024 * 4
+
+	file, err := os.OpenFile(localFileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, READ_WRITE_OWNER_READ_OTHERS)
 	if err != nil {
 		return err
 	}
+	defer file.Close()
 
-	// By using a buffered writer, we allow for more efficient io on the output file on disk
-	bufferedFileWriter := bufio.NewWriter(file)
-	// buffered writers are not thread safe
-	var writeBufferMutex sync.Mutex
+	log.Debugf("Concatenating all objects with prefix %s to %s", prefix, localFileName)
 
-	defer func() { _ = file.Close() }()
+	type chunk struct {
+		data []byte
+		err  error
+	}
+
+	ch := make(chan chunk, 100)
+
+	var writeErr error
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		bufferedWriter := bufio.NewWriterSize(file, FourMB)
+		for c := range ch {
+			if c.err != nil {
+				writeErr = c.err
+				break
+			}
+			if _, err := bufferedWriter.Write(c.data); err != nil {
+				writeErr = err
+				break
+			}
+		}
+		writeErr = bufferedWriter.Flush()
+		log.Debug("Concat to disk complete")
+	}()
+
 	objChan := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
 	var eg errgroup.Group
 	ioBoundGoroutineCount := runtime.NumCPU() * 2
@@ -293,25 +330,51 @@ func (m MinioClientWrapper) ConcatToDisk(ctx context.Context, prefix S3Prefix, l
 
 	for obj := range objChan {
 		if obj.Err != nil {
+			close(ch)
 			return obj.Err
 		}
+
+		objKey := obj.Key // capture loop variable
 		eg.Go(func() error {
-			obj, err := m.Client.GetObject(context.Background(), m.DefaultBucket, obj.Key, minio.GetObjectOptions{})
-			defer func() { _ = obj.Close() }()
+			obj, err := m.Client.GetObject(ctx, m.DefaultBucket, objKey, minio.GetObjectOptions{})
 			if err != nil {
 				return err
 			}
+			defer obj.Close()
 
-			writeBufferMutex.Lock()
-			defer writeBufferMutex.Unlock()
-			_, err = io.Copy(bufferedFileWriter, obj)
-			return err
+			buf := make([]byte, FourMB)
+			for {
+				n, err := obj.Read(buf)
+				if n > 0 {
+					// Copy the data to a new slice to avoid data race
+					// this is since bytes are a reference type and
+					// thus to pass this data to another goroutine
+					// could cause a data race
+					dataCopy := make([]byte, n)
+					copy(dataCopy, buf[:n])
+					ch <- chunk{data: dataCopy, err: nil}
+				}
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					ch <- chunk{err: err}
+					break
+				}
+			}
+			return nil
 		})
 	}
-	if err := eg.Wait(); err != nil {
+
+	err = eg.Wait()
+	close(ch)
+	wg.Wait()
+
+	if err != nil {
 		return err
 	}
-	return bufferedFileWriter.Flush()
+	if writeErr != nil {
+		return writeErr
+	}
+	return nil
 }
-
-var _ interfaces.BatchCrawlStorage = MinioClientWrapper{}
