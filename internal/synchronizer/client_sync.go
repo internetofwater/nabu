@@ -201,6 +201,8 @@ func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(ctx context.Contex
 	}
 
 	orphanedGraphs := graphDiff.TriplestoreGraphsNotInS3
+	log.Debugf("Found %d orphaned graphs", len(orphanedGraphs))
+
 	// Don't send a drop request if there are no orphaned graphs in the triplestore to remove
 	if len(orphanedGraphs) > 0 && checkAndRemoveOrphans {
 		log.Infof("Dropping %d graphs from triplestore", len(orphanedGraphs))
