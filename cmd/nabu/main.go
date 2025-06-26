@@ -142,7 +142,7 @@ func (n NabuRunner) Run(ctx context.Context) (harvestReport pkg.SitemapIndexCraw
 		return nil, object(n.args.Object.Object, cfgStruct)
 	case n.args.Release != nil:
 		return nil, release(cfgStruct)
-	case n.args.Prefix != "":
+	case n.args.Upload != nil:
 		return nil, upload(cfgStruct)
 	case n.args.Sync != nil:
 		return nil, Sync(ctx, cfgStruct)
