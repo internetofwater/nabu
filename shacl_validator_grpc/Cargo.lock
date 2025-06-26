@@ -2086,6 +2086,7 @@ dependencies = [
 name = "shacl_validator_grpc"
 version = "0.1.0"
 dependencies = [
+ "getrandom 0.2.16",
  "prost",
  "shacl_ast",
  "shacl_validation",
@@ -2095,6 +2096,7 @@ dependencies = [
  "tokio-stream",
  "tonic",
  "tonic-build",
+ "wasm-bindgen",
 ]
 
 [[package]]
