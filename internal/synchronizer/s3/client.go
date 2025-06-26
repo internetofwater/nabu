@@ -282,19 +282,18 @@ func (m MinioClientWrapper) ConcatToDisk(ctx context.Context, prefix S3Prefix, l
 
 	// By using a buffered writer, we allow for more efficient io on the output file on disk
 	bufferedFileWriter := bufio.NewWriter(file)
+	// buffered writers are not thread safe
+	var writeBufferMutex sync.Mutex
 
 	defer func() { _ = file.Close() }()
 	objChan := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
 	var eg errgroup.Group
-	eg.SetLimit(runtime.NumCPU())
+	ioBoundGoroutineCount := runtime.NumCPU() * 2
+	eg.SetLimit(ioBoundGoroutineCount)
 
 	for obj := range objChan {
 		if obj.Err != nil {
 			return obj.Err
-		}
-		_, err := m.Client.GetObject(context.Background(), m.DefaultBucket, obj.Key, minio.GetObjectOptions{})
-		if err != nil {
-			return err
 		}
 		eg.Go(func() error {
 			obj, err := m.Client.GetObject(context.Background(), m.DefaultBucket, obj.Key, minio.GetObjectOptions{})
@@ -302,6 +301,9 @@ func (m MinioClientWrapper) ConcatToDisk(ctx context.Context, prefix S3Prefix, l
 			if err != nil {
 				return err
 			}
+
+			writeBufferMutex.Lock()
+			defer writeBufferMutex.Unlock()
 			_, err = io.Copy(bufferedFileWriter, obj)
 			return err
 		})
