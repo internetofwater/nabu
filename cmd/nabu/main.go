@@ -31,7 +31,8 @@ type SyncCmd struct{}
 type TestCmd struct{}
 type ReleaseCmd struct{}
 type ClearCmd struct{}
-type MergeCmd struct{}
+
+// type MergeCmd struct{}
 
 type NabuArgs struct {
 	// Subcommands that can be run
@@ -42,7 +43,7 @@ type NabuArgs struct {
 	Sync    *SyncCmd    `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`
 	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`
 	Harvest *HarvestCmd `arg:"subcommand:harvest" help:"harvest sitemaps and store them in the s3 bucket"`
-	Merge   *MergeCmd   `arg:"subcommand:merge" help:"merge all graphs under a prefix into a single graph"`
+	// Merge   *MergeCmd   `arg:"subcommand:merge" help:"merge all graphs under a prefix into a single graph"`
 
 	// Flags that can be set for config particular services / operations
 	config.MinioConfig
