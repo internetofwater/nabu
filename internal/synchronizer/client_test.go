@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -14,12 +15,13 @@ import (
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/crawl"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
-	"github.com/internetofwater/nabu/internal/synchronizer/triplestore"
+	"github.com/internetofwater/nabu/internal/synchronizer/triplestores"
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
 )
+
 
 func countSourcesInSitemap(url string) (int, error) {
 	// Fetch the URL
@@ -62,7 +64,7 @@ type SynchronizerClientSuite struct {
 	// minio container that gleaner will send data to
 	minioContainer s3.MinioContainer
 	// graphdb container that nabu will sync with
-	graphdbContainer triplestore.GraphDBContainer
+	graphdbContainer triplestores.GraphDBContainer
 }
 
 func (suite *SynchronizerClientSuite) SetupSuite() {
@@ -88,7 +90,7 @@ func (suite *SynchronizerClientSuite) SetupSuite() {
 	err = suite.minioContainer.ClientWrapper.MakeDefaultBucket()
 	require.NoError(t, err)
 
-	graphdbContainer, err := triplestore.NewGraphDBContainer("iow", "./triplestore/testdata/iow-config.ttl")
+	graphdbContainer, err := triplestores.NewGraphDBContainer("iow", filepath.Join("triplestores", "testdata", "iow-config.ttl"))
 	suite.Require().NoError(err)
 	suite.graphdbContainer = graphdbContainer
 

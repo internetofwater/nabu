@@ -11,6 +11,7 @@ import (
 	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
+	"github.com/internetofwater/nabu/pkg"
 
 	crawl "github.com/internetofwater/nabu/internal/crawl"
 
@@ -31,7 +32,7 @@ type HarvestCmd struct {
 	ValidateShacl      bool   `arg:"--validate-shacl" default:"false" help:"validate the sitemap against Geoconnex SHACL shapes; requires the gRPC server to be running"`
 }
 
-func Harvest(ctx context.Context, minioConfig config.MinioConfig, args HarvestCmd) ([]crawl.SitemapCrawlStats, error) {
+func Harvest(ctx context.Context, minioConfig config.MinioConfig, args HarvestCmd) ([]pkg.SitemapCrawlStats, error) {
 	if args.SitemapIndex == "" {
 		return nil, fmt.Errorf("sitemap index must be provided")
 	}
@@ -66,9 +67,14 @@ func Harvest(ctx context.Context, minioConfig config.MinioConfig, args HarvestCm
 		WithHeadlessChromeUrl(args.HeadlessChromeUrl).
 		WithShaclValidationConfig(args.ValidateShacl).
 		HarvestSitemaps(ctx)
-
-	asJson := crawl.ToJson(stats)
-	if err := storageDestination.Store(fmt.Sprintf("stats/crawl_stats_%s.json", args.Source), strings.NewReader(asJson)); err != nil {
+	if err != nil {
+		return nil, err
+	}
+	asJson, err := stats.ToJson()
+	if err != nil {
+		return nil, err
+	}
+	if err := storageDestination.Store(fmt.Sprintf("metadata/crawl_stats_%s.json", args.Source), strings.NewReader(asJson)); err != nil {
 		return nil, err
 	}
 

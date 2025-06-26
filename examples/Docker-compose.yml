@@ -1,0 +1,64 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
+
+# this file represents all services that
+# are used when running nabu examples
+# not all of these are required to run nabu
+# they are grouped together for convenience
+
+services:
+  graphdb:
+    image: khaller/graphdb-free
+    container_name: graphdb
+    restart: unless-stopped
+    environment:
+      JAVA_XMS: "2048m"
+      JAVA_XMX: "4g"
+    ports:
+      - "7200:7200"
+
+  # a simple job to initialize the graph configuration
+  graphdb-init:
+    image: curlimages/curl
+    container_name: graphdb-init
+    volumes:
+      - ./testdata/iow-config.ttl:/iow-config.ttl:ro
+    command: >
+      sh -c '
+      until curl -s -o /dev/null http://graphdb:7200; do
+        echo "Waiting for graphdb to become ready...";
+        sleep 5;
+      done;
+      echo "GraphDB is up. Initializing repository...";
+      curl -X POST "http://graphdb:7200/rest/repositories" -H "Content-Type: multipart/form-data" -F "config=@/iow-config.ttl";
+      echo "Repository initialized.";
+      '
+    depends_on:
+      - graphdb
+
+  jaeger:
+    image: jaegertracing/all-in-one
+    container_name: jaeger
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: debug
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail http://localhost:9000/minio/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+volumes:
+  minio_data:

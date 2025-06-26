@@ -6,15 +6,12 @@ package synchronizer
 import (
 	"context"
 	"fmt"
-	"io"
 	"runtime"
-	"strings"
 	"sync"
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
-
 	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/attribute"
@@ -31,11 +28,6 @@ type GraphDiff struct {
 	// This includes all URNs not just the ones in the diff
 	s3UrnToAssociatedObjName map[string]string
 }
-
-/*
-All functions in this file are private to the synchronizer package
-and thus are not directly called by any CLI commands
-*/
 
 // Return the difference in graphs between the triplestore and s3 based on the prefix
 // i.e. summoned/counties0 will check urn:iow:summoned:counties0 when comparing between the two
@@ -129,101 +121,11 @@ func (synchronizer *SynchronizerClient) getGraphDiff(ctx context.Context, prefix
 	}, nil
 }
 
-// convert all objects in s3 with a specific prefix to nq and stream them to the channel
-func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, nqChan chan<- string) error {
-	objects, err := synchronizer.S3Client.ObjectList(context.Background(), prefix)
-	if err != nil {
-		return err
-	}
-	if len(objects) == 0 {
-		return fmt.Errorf("no objects found with prefix %s so no nq file will be created", prefix)
-	}
-
-	log.Infof("Generating nq from %d objects with prefix %s", len(objects), prefix)
-
-	var wg sync.WaitGroup
-	errChan := make(chan error, 1)
-
-	for _, object := range objects {
-		wg.Add(1)
-		go func(obj minio.ObjectInfo) {
-			defer wg.Done()
-
-			retrievedObject, err := synchronizer.S3Client.Client.GetObject(
-				context.Background(),
-				synchronizer.S3Client.DefaultBucket,
-				obj.Key,
-				minio.GetObjectOptions{},
-			)
-			if err != nil {
-				errChan <- err
-				return
-			}
-			defer func() { _ = retrievedObject.Close() }()
-
-			rawBytes, err := io.ReadAll(retrievedObject)
-			if err != nil {
-				errChan <- err
-				return
-			}
-
-			var nq string
-			if strings.HasSuffix(obj.Key, ".nq") {
-				nq = string(rawBytes)
-			} else {
-				nq, err = common.JsonldToNQ(string(rawBytes), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
-				if err != nil {
-					errChan <- err
-					return
-				}
-			}
-
-			var singleFileNquad string
-			if len(objects) == 1 {
-				singleFileNquad = nq
-			} else {
-				singleFileNquad, err = common.Skolemization(nq)
-				if err != nil {
-					log.Errorf("Skolemization error: %s", err)
-					errChan <- err
-					return
-				}
-			}
-
-			graphURN, err := common.MakeURN(obj.Key)
-			if err != nil {
-				errChan <- err
-				return
-			}
-
-			csnq, err := common.NtToNq(singleFileNquad, graphURN)
-			if err != nil {
-				errChan <- err
-				return
-			}
-
-			// Send to channel for concurrent streaming
-			nqChan <- csnq
-		}(object)
-	}
-
-	// Wait for all goroutines to complete
-	go func() {
-		wg.Wait()
-		close(errChan)
-	}()
-
-	// Return the first error encountered
-	if err := <-errChan; err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Batch upserts objects from s3 to triplestore using upsertBatchSize as defined in the synchronizer client
 func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3GraphNames []s3.S3Prefix) error {
-	if synchronizer.upsertBatchSize == 0 {
+	batchSize := synchronizer.GraphClient.GetUpsertBatchSize()
+
+	if batchSize == 0 {
 		return fmt.Errorf("got invalid upsert batch size of 0")
 	}
 
@@ -234,9 +136,9 @@ func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3Gra
 	errorGroup.SetLimit(50)
 
 	log.Infof("Upserting %d objects from S3 to triplestore", len(s3GraphNames))
-	batches := createBatches(s3GraphNames, synchronizer.upsertBatchSize)
+	batches := createBatches(s3GraphNames, batchSize)
 
-	log.Debugf("Upserting with batch size %d", synchronizer.upsertBatchSize)
+	log.Debugf("Upserting with batch size %d", batchSize)
 
 	for i, batch := range batches {
 		batch := batch // capture range variable
@@ -272,4 +174,44 @@ func (synchronizer *SynchronizerClient) batchedUpsert(ctx context.Context, s3Gra
 	}
 
 	return errorGroup.Wait()
+}
+
+// Get rid of graphs with specific prefix in the triplestore that are not in the object store
+// Drops are determined by mapping a prefix to the associated URN
+func (synchronizer *SynchronizerClient) SyncTriplestoreGraphs(ctx context.Context, prefix s3.S3Prefix, checkAndRemoveOrphans bool) error {
+	if synchronizer.GraphClient.GetUpsertBatchSize() == 0 {
+		return fmt.Errorf("got invalid upsert batch size of 0")
+	}
+
+	ctx, span := opentelemetry.SubSpanFromCtx(ctx)
+	defer span.End()
+
+	var s3GraphsNotInTriplestore []string
+	// if we want to check for orphaned graphs
+	// we need to get the diff between the graph and s3
+	// then drop the orphaned graphs
+	graphDiff, err := synchronizer.getGraphDiff(ctx, prefix)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	for _, graphName := range graphDiff.S3GraphsNotInTriplestore {
+		asUrn := graphDiff.s3UrnToAssociatedObjName[graphName]
+		s3GraphsNotInTriplestore = append(s3GraphsNotInTriplestore, asUrn)
+	}
+
+	orphanedGraphs := graphDiff.TriplestoreGraphsNotInS3
+	log.Debugf("Found %d orphaned graphs", len(orphanedGraphs))
+
+	// Don't send a drop request if there are no orphaned graphs in the triplestore to remove
+	if len(orphanedGraphs) > 0 && checkAndRemoveOrphans {
+		log.Infof("Dropping %d graphs from triplestore", len(orphanedGraphs))
+		// All triplestore graphs not in s3 should be removed since s3 is the source of truth
+		span.SetAttributes(attribute.Int("orphaned_graphs_to_drop", len(orphanedGraphs)))
+		if err := synchronizer.GraphClient.DropGraphs(ctx, orphanedGraphs); err != nil {
+			log.Errorf("Drop graph issue when syncing %v\n", err)
+			return err
+		}
+	}
+	return synchronizer.batchedUpsert(ctx, s3GraphsNotInTriplestore)
 }

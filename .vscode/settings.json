@@ -7,7 +7,7 @@
     "gopls": {
         // Make local paths have intellisense relative to the
         // project's internal files, not remote docs 
-        "ui.navigation.importShortcut": "Definition"
+        "ui.navigation.importShortcut": "Definition",
     },
-    "rust-analyzer.cargo.buildScripts.rebuildOnSave": true
+    "rust-analyzer.cargo.buildScripts.rebuildOnSave": true,
 }

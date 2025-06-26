@@ -5,8 +5,8 @@
 
 set -e 
 
-# cd relative to this script
-cd "$(dirname "$0")"
+# cd relative to this script and start the local test infra
+cd "$(dirname "$0")" && docker compose up -d
 
 # if geoconnex.us doesn't exist, then clone so we 
 # can get the docker compose to spin up the local test infra
@@ -35,5 +35,8 @@ cd ../../..
 go run ./cmd/nabu harvest --sitemap-index http://127.0.0.1:8080/sitemap.xml --log-level DEBUG --sitemap-workers 30 --concurrent-sitemaps 10 --use-otel
 
 go run ./cmd/nabu --log-level DEBUG sync --prefix summoned/ --endpoint http://localhost:7200 --use-otel --upsert-batch-size 100 
+
+# stop geoconnex test infra
+docker compose down
 
 open http://localhost:16686

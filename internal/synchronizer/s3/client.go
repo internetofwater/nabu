@@ -47,7 +47,7 @@ func NewMinioClientWrapper(mcfg config.MinioConfig) (*MinioClientWrapper, error)
 	}
 	accessKeyID := mcfg.Accesskey
 	secretAccessKey := mcfg.Secretkey
-	useSSL := mcfg.Ssl
+	useSSL := mcfg.SSL
 
 	var minioClient *minio.Client
 	var err error

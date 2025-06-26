@@ -17,6 +17,7 @@ import (
 	"github.com/h2non/gock"
 	"github.com/internetofwater/nabu/internal/common/projectpath"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
+	"github.com/internetofwater/nabu/pkg"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,7 +28,7 @@ func TestGetJsonLDWithBadMimetype(t *testing.T) {
 		"Content-Type": []string{"text/DUMMY"},
 	}
 	_, err := getJSONLD(resp, URL{}, nil)
-	require.ErrorAs(t, err, &UrlCrawlError{})
+	require.ErrorAs(t, err, &pkg.UrlCrawlError{})
 
 }
 
@@ -140,7 +141,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		close(conf.nonFatalErrorChan)
 		require.Len(t, conf.nonFatalErrorChan, 1)
 		for err := range conf.nonFatalErrorChan {
-			require.False(t, err.ShaclValid)
+			require.Equal(t, pkg.ShaclSkipped, err.ShaclStatus)
 		}
 	})
 	t.Run("nonconforming jsonld", func(t *testing.T) {
@@ -163,7 +164,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		close(conf.nonFatalErrorChan)
 		require.Len(t, conf.nonFatalErrorChan, 1)
 		for err := range conf.nonFatalErrorChan {
-			require.False(t, err.ShaclValid)
+			require.Equal(t, pkg.ShaclInvalid, err.ShaclStatus)
 		}
 	})
 }

@@ -15,10 +15,10 @@ import (
 	"time"
 
 	"github.com/internetofwater/nabu/internal/common"
-	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/protoBuild"
+	"github.com/internetofwater/nabu/pkg"
 	log "github.com/sirupsen/logrus"
 	"github.com/temoto/robotstxt"
 	"go.opentelemetry.io/otel/trace"
@@ -51,7 +51,7 @@ type SitemapHarvestConfig struct {
 	grpcConn           *grpc.ClientConn
 	jsonLdProc         *ld.JsonLdProcessor
 	jsonLdOpt          *ld.JsonLdOptions
-	nonFatalErrorChan  chan UrlCrawlError
+	nonFatalErrorChan  chan pkg.UrlCrawlError
 	storageDestination storage.CrawlStorage
 }
 
@@ -69,7 +69,7 @@ func NewSitemapHarvestConfig(sitemap Sitemap, validateShacl bool) (SitemapHarves
 		return SitemapHarvestConfig{}, fmt.Errorf("robots.txt does not allow us to crawl %s", firstUrl.Loc)
 	}
 
-	crawlErrorChan := make(chan UrlCrawlError, len(sitemap.URL))
+	crawlErrorChan := make(chan pkg.UrlCrawlError, len(sitemap.URL))
 
 	// create a client that is custom tuned for high throughput
 	// crawling; for some reason yourls doesn't respond well to the
@@ -127,7 +127,7 @@ func NewSitemapHarvestConfig(sitemap Sitemap, validateShacl bool) (SitemapHarves
 		grpcClient = nil
 	}
 
-	JsonLdProc, JsonLdOpts, err := common.NewJsonldProcessor(true, []config.ContextMap{})
+	JsonLdProc, JsonLdOpts, err := common.NewJsonldProcessor(true, make(map[string]string))
 	if err != nil {
 		return SitemapHarvestConfig{}, fmt.Errorf("failed to create JSON-LD processor: %w", err)
 	}
@@ -159,7 +159,7 @@ func (s Sitemap) ensureValid(workers int) error {
 }
 
 // Harvest all the URLs in the given sitemap
-func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, validateShacl bool) (SitemapCrawlStats, error) {
+func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, validateShacl bool) (pkg.SitemapCrawlStats, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapID))
 	defer span.End()
 
@@ -167,12 +167,12 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 	group.SetLimit(workers)
 
 	if err := s.ensureValid(workers); err != nil {
-		return SitemapCrawlStats{}, err
+		return pkg.SitemapCrawlStats{}, err
 	}
 
 	sitemapHarvestConf, err := NewSitemapHarvestConfig(s, validateShacl)
 	if err != nil {
-		return SitemapCrawlStats{}, err
+		return pkg.SitemapCrawlStats{}, err
 	}
 
 	if sitemapHarvestConf.grpcConn != nil {
@@ -182,7 +182,7 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 	start := time.Now()
 	log.Infof("Harvesting sitemap %s with %d urls", sitemapID, len(s.URL))
 
-	sitesHarvested := atomic.Int64{}
+	sitesHarvested := atomic.Int32{}
 
 	for _, url := range s.URL {
 		// Capture the URL for use in the goroutine.
@@ -198,13 +198,29 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 	}
 	err = group.Wait()
 
-	stats := SitemapCrawlStats{SecondsToComplete: time.Since(start).Seconds(), SitemapName: sitemapID}
+	stats := pkg.SitemapCrawlStats{
+		SecondsToComplete: time.Since(start).Seconds(),
+		SitemapName:    sitemapID,
+		SitesHarvested: int(sitesHarvested.Load()),
+		SitesInSitemap: len(s.URL),
+	}
 	// we close this here to make sure we can range without blocking
 	// We know we can close this since we have already waited on all go routines
 	close(sitemapHarvestConf.nonFatalErrorChan)
 	for err := range sitemapHarvestConf.nonFatalErrorChan {
 		stats.CrawlFailures = append(stats.CrawlFailures, err)
 	}
+
+	go func() {
+		asJson, err := stats.ToJsonIoReader()
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = s.storageDestination.Store(fmt.Sprintf("metadata/%s.json", sitemapID), asJson)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	log.Debugf("Finished crawling sitemap %s in %f seconds", sitemapID, stats.SecondsToComplete)
 

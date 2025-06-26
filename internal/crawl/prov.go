@@ -9,7 +9,6 @@ import (
 	"io"
 
 	"github.com/internetofwater/nabu/internal/common"
-	"github.com/internetofwater/nabu/internal/config"
 )
 
 // Holds the prov meatdata data for a summoned data graph
@@ -36,7 +35,7 @@ func (p ProvData) toJsonLD() io.Reader {
 
 func (p ProvData) toNq() (string, error) {
 	jsonld := p.toJsonLD().(*bytes.Buffer).String()
-	processor, options, err := common.NewJsonldProcessor(false, []config.ContextMap{})
+	processor, options, err := common.NewJsonldProcessor(false, make(map[string]string))
 	if err != nil {
 		return "", err
 	}

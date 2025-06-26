@@ -1,7 +1,7 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-package triplestore
+package triplestores
 
 import (
 	"bytes"
@@ -28,21 +28,6 @@ import (
 
 type TriplesAsText = string
 
-// The set of methods that must be implemented by a triplestore to be used by nabu
-type TriplestoreMethods interface {
-	// Inserts data into a specified named graph.
-	InsertNamedGraphs(graphs []common.NamedGraph) string
-
-	// ClearAllGraphs clears all graphs in the triplestore.
-	ClearAllGraphs() error
-
-	// Checks if a specified graph exists in the triplestore.
-	GraphExists(graph string) (bool, error)
-
-	// Removes a specified graph from the triplestore.
-	DropGraphs(graphs []string) error
-}
-
 type GraphDbClient struct {
 	// Holds the configuration for how to interact with the sparql endpoint
 	SparqlConf config.SparqlConfig
@@ -55,8 +40,24 @@ type GraphDbClient struct {
 	// url to the host for the rest api base endpoint.
 	// REST api metods are used for config and graphdb specific operations
 	BaseRESTUrl string
-	// methods that a triplestore must implement
-	TriplestoreMethods
+	// How many triples to send in a single batch over http with sparql
+	UpsertBatchSize int
+}
+
+func (graphClient *GraphDbClient) GetBaseUrl() string {
+	return graphClient.BaseUrl
+}
+
+func (graphClient *GraphDbClient) GetUpsertBatchSize() int {
+	return graphClient.UpsertBatchSize
+}
+
+func (graphClient *GraphDbClient) GetRestUrl() string {
+	return graphClient.BaseRESTUrl
+}
+
+func (graphClient *GraphDbClient) GetSparqlQueryUrl() string {
+	return graphClient.BaseSparqlQueryUrl
 }
 
 // Create a new client struct to connect to the triplestore
@@ -68,6 +69,7 @@ func NewGraphDbClient(config config.SparqlConfig) (*GraphDbClient, error) {
 		BaseRepositoryUrl:  fmt.Sprintf("%s/repositories/%s", config.Endpoint, config.Repository),
 		BaseRESTUrl:        fmt.Sprintf("%s/rest", config.Endpoint),
 		BaseSparqlQueryUrl: fmt.Sprintf("%s/repositories/%s/statements", config.Endpoint, config.Repository),
+		UpsertBatchSize:    config.UpsertBatchSize,
 	}, nil
 }
 
@@ -150,10 +152,6 @@ func (graphClient *GraphDbClient) UpsertNamedGraphs(ctx context.Context, graphs 
 
 	req.Header.Set("Content-Type", "application/sparql-update") // graphdb  blaze and jena  alt might be application/sparql-results+xml
 	req.Header.Set("Accept", "application/x-trig")              // graphdb
-
-	if graphClient.SparqlConf.Authenticate {
-		req.SetBasicAuth(graphClient.SparqlConf.Username, graphClient.SparqlConf.Password)
-	}
 
 	client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 	resp, err := client.Do(req)

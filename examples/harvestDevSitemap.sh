@@ -3,10 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 set -e 
 
-# Run harvest locally and open the UI for local exploration
-cd "$(dirname "$0")"
-
-source ./containers/startMinio.sh
+# cd relative to this script and start the local test infra
+cd "$(dirname "$0")" && docker compose up -d
 
 cd ../
 
