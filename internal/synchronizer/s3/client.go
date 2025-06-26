@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/config"
@@ -328,6 +329,8 @@ func (m MinioClientWrapper) ConcatToDisk(ctx context.Context, prefix S3Prefix, l
 	ioBoundGoroutineCount := runtime.NumCPU() * 2
 	eg.SetLimit(ioBoundGoroutineCount)
 
+	size := atomic.Int64{}
+
 	for obj := range objChan {
 		if obj.Err != nil {
 			close(ch)
@@ -336,6 +339,8 @@ func (m MinioClientWrapper) ConcatToDisk(ctx context.Context, prefix S3Prefix, l
 
 		objKey := obj.Key // capture loop variable
 		eg.Go(func() error {
+			log.Debugf("Downloading %s of size %0.2fMB", objKey, float64(obj.Size)/(1024*1024))
+			size.Add(obj.Size)
 			obj, err := m.Client.GetObject(ctx, m.DefaultBucket, objKey, minio.GetObjectOptions{})
 			if err != nil {
 				return err
@@ -376,5 +381,14 @@ func (m MinioClientWrapper) ConcatToDisk(ctx context.Context, prefix S3Prefix, l
 	if writeErr != nil {
 		return writeErr
 	}
+
+	stat, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	if stat.Size() != size.Load() {
+		return fmt.Errorf("file size mismatch: created a file of size %d, but downloaded %d", size.Load(), stat.Size())
+	}
+
 	return nil
 }
