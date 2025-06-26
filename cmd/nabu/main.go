@@ -14,6 +14,7 @@ import (
 	"github.com/internetofwater/nabu/internal/common/projectpath"
 	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
+	"github.com/internetofwater/nabu/internal/synchronizer"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 	"github.com/internetofwater/nabu/pkg"
 
@@ -21,6 +22,16 @@ import (
 	log "github.com/sirupsen/logrus"
 	otelTrace "go.opentelemetry.io/otel/trace"
 )
+
+type ObjectCmd struct {
+	Object string `arg:"positional"`
+}
+type UploadCmd struct{}
+type SyncCmd struct{}
+type TestCmd struct{}
+type ReleaseCmd struct{}
+type ClearCmd struct{}
+type MergeCmd struct{}
 
 type NabuArgs struct {
 	// Subcommands that can be run
@@ -31,6 +42,7 @@ type NabuArgs struct {
 	Sync    *SyncCmd    `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`
 	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`
 	Harvest *HarvestCmd `arg:"subcommand:harvest" help:"harvest sitemaps and store them in the s3 bucket"`
+	Merge   *MergeCmd   `arg:"subcommand:merge" help:"merge all graphs under a prefix into a single graph"`
 
 	// Flags that can be set for config particular services / operations
 	config.MinioConfig
@@ -134,20 +146,24 @@ func (n NabuRunner) Run(ctx context.Context) (harvestReport pkg.SitemapIndexCraw
 	}
 
 	cfgStruct := n.args.ToStructuredConfig()
+	synchronizerClient, err := synchronizer.NewSynchronizerClientFromConfig(cfgStruct)
+	if err != nil {
+		return nil, err
+	}
 
 	switch {
 	case n.args.Clear != nil:
-		return nil, clear(cfgStruct)
+		return nil, synchronizerClient.GraphClient.ClearAllGraphs()
 	case n.args.Object != nil:
-		return nil, object(n.args.Object.Object, cfgStruct)
+		return nil, synchronizerClient.UploadNqFileToTriplestore(n.args.Object.Object)
 	case n.args.Release != nil:
-		return nil, release(cfgStruct)
+		return nil, synchronizerClient.GenerateNqRelease(cfgStruct.Prefix)
 	case n.args.Upload != nil:
-		return nil, upload(cfgStruct)
+		return nil, synchronizerClient.SyncTriplestoreGraphs(ctx, cfgStruct.Prefix, false)
 	case n.args.Sync != nil:
-		return nil, Sync(ctx, cfgStruct)
+		return nil, synchronizerClient.SyncTriplestoreGraphs(ctx, cfgStruct.Prefix, true)
 	case n.args.Test != nil:
-		return nil, Test(cfgStruct)
+		return nil, Test(ctx, synchronizerClient)
 	case n.args.Harvest != nil:
 		return Harvest(ctx, cfgStruct.Minio, *n.args.Harvest)
 	default:
