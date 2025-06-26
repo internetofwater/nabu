@@ -31,8 +31,9 @@ type SyncCmd struct{}
 type TestCmd struct{}
 type ReleaseCmd struct{}
 type ClearCmd struct{}
-
-// type MergeCmd struct{}
+type ConcatCmd struct {
+	OutputFile string `arg:"positional"`
+}
 
 type NabuArgs struct {
 	// Subcommands that can be run
@@ -43,7 +44,7 @@ type NabuArgs struct {
 	Sync    *SyncCmd    `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`
 	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`
 	Harvest *HarvestCmd `arg:"subcommand:harvest" help:"harvest sitemaps and store them in the s3 bucket"`
-	// Merge   *MergeCmd   `arg:"subcommand:merge" help:"merge all graphs under a prefix into a single graph"`
+	Concat  *ConcatCmd  `arg:"subcommand:concat" help:"merge all graphs under a prefix into a single graph"`
 
 	// Flags that can be set for config particular services / operations
 	config.MinioConfig
@@ -167,6 +168,8 @@ func (n NabuRunner) Run(ctx context.Context) (harvestReport pkg.SitemapIndexCraw
 		return nil, Test(ctx, synchronizerClient)
 	case n.args.Harvest != nil:
 		return Harvest(ctx, cfgStruct.Minio, *n.args.Harvest)
+	case n.args.Concat != nil:
+		return nil, synchronizerClient.S3Client.ConcatToDisk(ctx, cfgStruct.Prefix, n.args.Concat.OutputFile)
 	default:
 		return nil, fmt.Errorf("unknown nabu subcommand")
 	}
