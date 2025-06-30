@@ -28,7 +28,7 @@ func NtToNq(nt, ctx string) (string, error) {
 		return "", err
 	}
 
-	var allQuads []string
+	allQuads := make([]string, len(triples))
 	for _, triple := range triples {
 		quad, err := makeQuad(triple, ctx)
 		if err != nil {
@@ -58,8 +58,6 @@ func makeQuad(t rdf.Triple, c string) (string, error) {
 
 // Converts nquads to ntriples plus a context (graph) string
 func QuadsToTripleWithCtx(nquads string) (NamedGraph, error) {
-	// loop on tr and make a set of triples
-	triples := []rdf.Triple{}
 
 	dec := rdf.NewQuadDecoder(strings.NewReader(nquads), rdf.NQuads)
 	decodedQuads, err := dec.DecodeAll()
@@ -73,8 +71,10 @@ func QuadsToTripleWithCtx(nquads string) (NamedGraph, error) {
 		return NamedGraph{}, errors.New("no triples to generate; quads were empty")
 	}
 
-	for _, t := range decodedQuads {
-		triples = append(triples, t.Triple)
+	// loop on tr and make a set of triples
+	triples := make([]rdf.Triple, len(decodedQuads))
+	for i, t := range decodedQuads {
+		triples[i] = t.Triple
 	}
 
 	// Assume context of first triple is context of all triples  (again, a bit of a hack,
