@@ -29,12 +29,12 @@ func NtToNq(nt, ctx string) (string, error) {
 	}
 
 	allQuads := make([]string, len(triples))
-	for _, triple := range triples {
+	for i, triple := range triples {
 		quad, err := makeQuad(triple, ctx)
 		if err != nil {
 			return "", err
 		}
-		allQuads = append(allQuads, quad)
+		allQuads[i] = quad
 	}
 	return strings.Join(allQuads, ""), err
 }
