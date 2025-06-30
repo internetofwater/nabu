@@ -193,8 +193,9 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix) er
 		// once the nqChan is closed we can close the pipe
 		// since there is nothing more to write
 		defer func() {
-			err = pipeWriter.Close()
-			log.Error(err)
+			if err = pipeWriter.Close(); err != nil {
+				log.Error(err)
+			}
 		}()
 
 		for nq := range nqChan {
