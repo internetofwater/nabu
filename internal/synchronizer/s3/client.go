@@ -4,16 +4,21 @@
 package s3
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
+	"golang.org/x/sync/errgroup"
 
 	interfaces "github.com/internetofwater/nabu/internal/crawl/storage"
 
@@ -22,6 +27,8 @@ import (
 	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
 )
+
+var _ interfaces.BatchCrawlStorage = MinioClientWrapper{}
 
 // Wrapper to allow us to extend the minio client struct with new methods
 type MinioClientWrapper struct {
@@ -267,4 +274,121 @@ func (m MinioClientWrapper) BatchStore(batch chan interfaces.BatchFileObject) er
 	return m.Client.PutObjectsSnowball(context.Background(), m.DefaultBucket, minio.SnowballOptions{}, snowBallChan)
 }
 
-var _ interfaces.BatchCrawlStorage = MinioClientWrapper{}
+// ConcatToDisk will concatenate all objects with the prefix to a local file
+// 1. Concurrently read from S3
+// 2. Pass the data to a channel
+// 3. Batch write to the file using buffered writer
+func (m MinioClientWrapper) ConcatToDisk(ctx context.Context, prefix S3Prefix, localFileName string) error {
+	if prefix == "" {
+		return errors.New("prefix cannot be empty when concatenating; you should not download the entire bucket")
+	}
+	if localFileName == "" {
+		return errors.New("local file name cannot be empty")
+	}
+
+	const READ_WRITE_OWNER_READ_OTHERS = 0664
+	const FourMB = 1024 * 1024 * 4
+
+	file, err := os.OpenFile(localFileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, READ_WRITE_OWNER_READ_OTHERS)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	log.Debugf("Concatenating all objects with prefix %s to %s", prefix, localFileName)
+
+	type chunk struct {
+		data []byte
+		err  error
+	}
+
+	ch := make(chan chunk, 100)
+
+	var writeErr error
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		bufferedWriter := bufio.NewWriterSize(file, FourMB)
+		for c := range ch {
+			if c.err != nil {
+				writeErr = c.err
+				break
+			}
+			if _, err := bufferedWriter.Write(c.data); err != nil {
+				writeErr = err
+				break
+			}
+		}
+		writeErr = bufferedWriter.Flush()
+		log.Debug("Concat to disk complete")
+	}()
+
+	objChan := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
+	var eg errgroup.Group
+	ioBoundGoroutineCount := runtime.NumCPU() * 2
+	eg.SetLimit(ioBoundGoroutineCount)
+
+	size := atomic.Int64{}
+
+	for obj := range objChan {
+		if obj.Err != nil {
+			close(ch)
+			return obj.Err
+		}
+
+		objKey := obj.Key // capture loop variable
+		eg.Go(func() error {
+			log.Debugf("Downloading %s of size %0.2fMB", objKey, float64(obj.Size)/(1024*1024))
+			size.Add(obj.Size)
+			obj, err := m.Client.GetObject(ctx, m.DefaultBucket, objKey, minio.GetObjectOptions{})
+			if err != nil {
+				return err
+			}
+			defer obj.Close()
+
+			buf := make([]byte, FourMB)
+			for {
+				n, err := obj.Read(buf)
+				if n > 0 {
+					// Copy the data to a new slice to avoid data race
+					// this is since bytes are a reference type and
+					// thus to pass this data to another goroutine
+					// could cause a data race
+					dataCopy := make([]byte, n)
+					copy(dataCopy, buf[:n])
+					ch <- chunk{data: dataCopy, err: nil}
+				}
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					ch <- chunk{err: err}
+					break
+				}
+			}
+			return nil
+		})
+	}
+
+	err = eg.Wait()
+	close(ch)
+	wg.Wait()
+
+	if err != nil {
+		return err
+	}
+	if writeErr != nil {
+		return writeErr
+	}
+
+	stat, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	if stat.Size() != size.Load() {
+		return fmt.Errorf("file size mismatch: created a file of size %d, but downloaded %d", size.Load(), stat.Size())
+	}
+
+	return nil
+}
