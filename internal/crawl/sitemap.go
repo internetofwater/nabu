@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -184,6 +185,9 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 
 	sitesHarvested := atomic.Int32{}
 
+	successfulUrls := make([]string, 0, len(s.URL)) // preallocate for performance
+	var urlMutex sync.Mutex
+
 	for _, url := range s.URL {
 		// Capture the URL for use in the goroutine.
 		url := url
@@ -193,16 +197,22 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 			if math.Mod(float64(sitesHarvested.Load()), 1000) == 0 {
 				log.Debugf("Harvested %d/%d sites for %s", sitesHarvested.Load(), len(s.URL), sitemapID)
 			}
+			if err == nil {
+				urlMutex.Lock()
+				successfulUrls = append(successfulUrls, url.Loc)
+				urlMutex.Unlock()
+			}
 			return err
 		})
 	}
 	err = group.Wait()
 
 	stats := pkg.SitemapCrawlStats{
+		SuccessfulUrls:    successfulUrls,
 		SecondsToComplete: time.Since(start).Seconds(),
-		SitemapName:    sitemapID,
-		SitesHarvested: int(sitesHarvested.Load()),
-		SitesInSitemap: len(s.URL),
+		SitemapName:       sitemapID,
+		SitesHarvested:    int(sitesHarvested.Load()),
+		SitesInSitemap:    len(s.URL),
 	}
 	// we close this here to make sure we can range without blocking
 	// We know we can close this since we have already waited on all go routines

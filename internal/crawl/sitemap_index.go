@@ -162,7 +162,8 @@ func (i Index) HarvestSitemaps(ctx context.Context) (pkg.SitemapIndexCrawlStats,
 				close(errChan)
 			}()
 
-			stats, harvestErr := sitemap.SetStorageDestination(i.storageDestination).
+			stats, harvestErr := sitemap.
+				SetStorageDestination(i.storageDestination).
 				Harvest(ctx, i.sitemapWorkers, id, i.shaclValidationEnabled)
 
 			for err := range errChan {

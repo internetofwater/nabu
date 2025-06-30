@@ -44,6 +44,8 @@ func (e UrlCrawlError) Error() string {
 
 // Crawl stats for a particular sitemap
 type SitemapCrawlStats struct {
+	// All the urls that were successfully crawled
+	SuccessfulUrls []string
 	// Metadata about why a sitemap failed to be harvested
 	CrawlFailures []UrlCrawlError
 	// The number of seconds it took to crawl the sitemap
