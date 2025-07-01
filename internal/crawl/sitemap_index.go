@@ -18,6 +18,7 @@ import (
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/pkg"
+	log "github.com/sirupsen/logrus"
 
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	"golang.org/x/sync/errgroup"
@@ -134,6 +135,7 @@ func (i Index) HarvestSitemaps(ctx context.Context) (pkg.SitemapIndexCrawlStats,
 			}
 
 			if i.specificSourceToHarvest != "" && id != i.specificSourceToHarvest {
+				log.Debugf("Skipped sitemap with id %s", id)
 				return nil
 			} else {
 				wasFound.Store(true)
