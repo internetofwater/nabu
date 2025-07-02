@@ -337,6 +337,11 @@ func (m MinioClientWrapper) ConcatToDisk(ctx context.Context, prefix S3Prefix, l
 			return obj.Err
 		}
 
+		if strings.HasSuffix(obj.Key, "prov.nq") {
+			// skip adding prov graphs into the concatenated file
+			continue
+		}
+
 		objKey := obj.Key // capture loop variable
 		eg.Go(func() error {
 			log.Debugf("Downloading %s of size %0.2fMB", objKey, float64(obj.Size)/(1024*1024))

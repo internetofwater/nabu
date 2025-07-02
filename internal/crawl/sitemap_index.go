@@ -149,7 +149,7 @@ func (i Index) HarvestSitemaps(ctx context.Context) (pkg.SitemapIndexCrawlStats,
 				return err
 			}
 
-			prov, err := ProvData{SOURCE: part.Loc}.toNq()
+			prov, err := ProvData{SOURCE: part.Loc, DATE: time.Now().Format(time.RFC3339)}.toNq()
 			if err != nil {
 				return err
 			}
