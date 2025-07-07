@@ -282,6 +282,8 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 		return err
 	}
 
+	log.Debugf("Downloading all objects in parallel with prefix %s to %s", prefix, outputDir)
+
 	objChan := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
 	var eg errgroup.Group
 	ioBoundGoroutineCount := runtime.NumCPU() * 2
@@ -428,7 +430,7 @@ func (m MinioClientWrapper) PullAndConcat(ctx context.Context, prefix S3Prefix, 
 // 1. Concurrently read from S3
 // 2. Pass the data to a channel
 // 3. write to the file using buffered writer
-func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFileOrDir string, concatToSingleFile bool) error {
+func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFileOrDir string) error {
 	if prefix == "" {
 		return errors.New("prefix cannot be empty when concatenating; you should not download the entire bucket")
 	}
@@ -438,16 +440,9 @@ func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFil
 
 	isDir := strings.HasSuffix(outputFileOrDir, "/")
 
-	if isDir && concatToSingleFile {
-		return errors.New("cannot concat to a single file when the output is a directory")
-	}
-	if !isDir && !concatToSingleFile {
-		return errors.New("cannot concat to a single directory when the output is a file")
-	}
-
-	if concatToSingleFile {
-		return m.PullAndConcat(ctx, prefix, outputFileOrDir)
-	} else {
+	if isDir {
 		return m.PullSeparateFilesToDir(ctx, prefix, outputFileOrDir)
+	} else {
+		return m.PullAndConcat(ctx, prefix, outputFileOrDir)
 	}
 }

@@ -170,7 +170,7 @@ func (n NabuRunner) Run(ctx context.Context) (harvestReport pkg.SitemapIndexCraw
 	case n.args.Harvest != nil:
 		return Harvest(ctx, cfgStruct.Minio, *n.args.Harvest)
 	case n.args.Pull != nil:
-		return nil, synchronizerClient.S3Client.Pull(ctx, cfgStruct.Prefix, n.args.Pull.OutputFile, n.args.Pull.Concat)
+		return nil, synchronizerClient.S3Client.Pull(ctx, cfgStruct.Prefix, n.args.Pull.OutputFile)
 	default:
 		return nil, fmt.Errorf("unknown nabu subcommand")
 	}
