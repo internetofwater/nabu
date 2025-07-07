@@ -288,38 +288,56 @@ func (suite *S3ClientSuite) TestCRUD() {
 	suite.Require().False(exists)
 }
 
-func (suite *S3ClientSuite) TestConcat() {
-
-	tmpFile, err := os.CreateTemp("", "concat")
-	suite.Require().NoError(err)
-	defer func() {
-		err = os.Remove(tmpFile.Name())
-		suite.Require().NoError(err)
-	}()
+func (suite *S3ClientSuite) TestPull() {
 
 	var data []string
 	const prefix = "concat_test"
 
+	// insert 100 data points
 	for i := range 100 {
 		dataPoint := fmt.Sprintf("test data %d", i)
 		data = append(data, dataPoint)
-		err = suite.minioContainer.ClientWrapper.Store(fmt.Sprintf("%s/%d", prefix, i), bytes.NewReader([]byte(dataPoint)))
+		err := suite.minioContainer.ClientWrapper.Store(fmt.Sprintf("%s/%d", prefix, i), bytes.NewReader([]byte(dataPoint)))
 		suite.Require().NoError(err)
 	}
 
-	err = suite.minioContainer.ClientWrapper.ConcatToDisk(context.Background(), prefix, tmpFile.Name())
-	suite.Require().NoError(err)
+	suite.T().Run("concat to a single file", func(t *testing.T) {
+		tmpFile, err := os.CreateTemp("", "concat")
+		suite.Require().NoError(err)
+		defer func() {
+			err = os.Remove(tmpFile.Name())
+			suite.Require().NoError(err)
+		}()
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpFile.Name())
+		suite.Require().NoError(err)
 
-	concatData, err := os.ReadFile(tmpFile.Name())
-	suite.Require().NoError(err)
+		concatData, err := os.ReadFile(tmpFile.Name())
+		suite.Require().NoError(err)
 
-	concatAsString := string(concatData)
+		concatAsString := string(concatData)
 
-	for _, dataPoint := range data {
-		suite.Require().Contains(concatAsString, dataPoint)
-	}
-	// clean up
-	err = suite.minioContainer.ClientWrapper.Remove(prefix)
+		for _, dataPoint := range data {
+			suite.Require().Contains(concatAsString, dataPoint)
+		}
+	})
+
+	suite.T().Run("pull to a dir", func(t *testing.T) {
+		tmpDir, err := os.MkdirTemp("", "concat-*")
+		tmpDir = tmpDir + "/"
+		suite.Require().NoError(err)
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir)
+		suite.Require().NoError(err)
+
+		files, err := os.ReadDir(tmpDir)
+		suite.Require().NoError(err)
+		for _, file := range files {
+			fileData, err := os.ReadFile(filepath.Join(tmpDir, file.Name()))
+			suite.Require().NoError(err)
+			suite.Require().Contains(string(fileData), file.Name())
+		}
+
+	})
+	err := suite.minioContainer.ClientWrapper.Remove(prefix)
 	suite.Require().NoError(err)
 }
 
