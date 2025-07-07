@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -274,66 +275,115 @@ func (m MinioClientWrapper) BatchStore(batch chan interfaces.BatchFileObject) er
 	return m.Client.PutObjectsSnowball(context.Background(), m.DefaultBucket, minio.SnowballOptions{}, snowBallChan)
 }
 
-// ConcatToDisk will concatenate all objects with the prefix to a local file
-// 1. Concurrently read from S3
-// 2. Pass the data to a channel
-// 3. Batch write to the file using buffered writer
-func (m MinioClientWrapper) ConcatToDisk(ctx context.Context, prefix S3Prefix, localFileName string) error {
-	if prefix == "" {
-		return errors.New("prefix cannot be empty when concatenating; you should not download the entire bucket")
-	}
-	if localFileName == "" {
-		return errors.New("local file name cannot be empty")
-	}
-
-	const READ_WRITE_OWNER_READ_OTHERS = 0664
-	const FourMB = 1024 * 1024 * 4
-
-	file, err := os.OpenFile(localFileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, READ_WRITE_OWNER_READ_OTHERS)
-	if err != nil {
+// PullSeparateFilesToDir downloads all the objects with the given prefix
+// and stores them in the specified directory without combining them
+func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S3Prefix, outputDir string) error {
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return err
 	}
-	defer file.Close()
-
-	log.Debugf("Concatenating all objects with prefix %s to %s", prefix, localFileName)
-
-	type chunk struct {
-		data []byte
-		err  error
-	}
-
-	ch := make(chan chunk, 100)
-
-	var writeErr error
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		bufferedWriter := bufio.NewWriterSize(file, FourMB)
-		for c := range ch {
-			if c.err != nil {
-				writeErr = c.err
-				break
-			}
-			if _, err := bufferedWriter.Write(c.data); err != nil {
-				writeErr = err
-				break
-			}
-		}
-		writeErr = bufferedWriter.Flush()
-		log.Debug("Concat to disk complete")
-	}()
 
 	objChan := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
 	var eg errgroup.Group
 	ioBoundGoroutineCount := runtime.NumCPU() * 2
 	eg.SetLimit(ioBoundGoroutineCount)
 
-	size := atomic.Int64{}
+	cumulativeDownloadedFiles := atomic.Int32{}
+	var mu sync.Mutex
+	cumulativeDownloadedMegabytes := float64(0)
+
+	for obj := range objChan {
+
+		if strings.HasSuffix(obj.Key, "prov.nq") {
+			// skip adding prov graphs into the concatenated file
+			continue
+		}
+
+		eg.Go(func() error {
+			megabytes := float64(obj.Size) / (1024 * 1024)
+			log.Debugf("Downloading %s of size %0.2fMB", obj.Key, megabytes)
+
+			// get the last item in the s3 object prefix
+			// this is since the s3 prefix may be nested and we don't
+			// want to have to make nested dirs to store the files
+			lastIdentifier := strings.Split(obj.Key, "/")
+			var storeName string
+			if len(lastIdentifier) > 0 {
+				storeName = lastIdentifier[len(lastIdentifier)-1]
+			} else {
+				storeName = obj.Key
+			}
+
+			file, err := os.OpenFile(filepath.Join(outputDir, storeName), os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return err
+			}
+
+			ob, err := m.Client.GetObject(ctx, m.DefaultBucket, obj.Key, minio.GetObjectOptions{})
+			if err != nil {
+				return err
+			}
+			defer ob.Close()
+
+			_, err = io.Copy(file, ob)
+			if err != nil {
+				return err
+			}
+			cumulativeDownloadedFiles.Add(1)
+			mu.Lock()
+			cumulativeDownloadedMegabytes += megabytes
+			mu.Unlock()
+			return nil
+		})
+	}
+	err := eg.Wait()
+	if err != nil {
+		return err
+	}
+	log.Infof("Downloaded %d files to %s with total size: %0.2fMB", cumulativeDownloadedFiles.Load(), outputDir, cumulativeDownloadedMegabytes)
+	return nil
+}
+
+func (m MinioClientWrapper) PullAndConcat(ctx context.Context, prefix S3Prefix, outputFile string) error {
+	const READ_WRITE_OWNER_READ_OTHERS = 0664
+	file, err := os.OpenFile(outputFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, READ_WRITE_OWNER_READ_OTHERS)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	log.Debugf("Concatenating all objects with prefix %s to %s", prefix, outputFile)
+
+	bufferedChannel := make(chan chunk, 100)
+
+	writerProcess := errgroup.Group{}
+	writerProcess.SetLimit(1)
+
+	// consume the buffer and write to disk
+	writerProcess.Go(func() error {
+		bufferedWriter := bufio.NewWriterSize(file, FourMB)
+		for chunk := range bufferedChannel {
+			if chunk.err != nil {
+				return chunk.err
+			}
+			if _, err := bufferedWriter.Write(chunk.data); err != nil {
+				return err
+			}
+		}
+		flushErr := bufferedWriter.Flush()
+		log.Debug("Concat to disk complete")
+		return flushErr
+	})
+
+	objChan := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
+	var downloadProcess errgroup.Group
+	ioBoundGoroutineCount := runtime.NumCPU() * 2
+	downloadProcess.SetLimit(ioBoundGoroutineCount)
+
+	cumulativeObjSize := atomic.Int64{}
 
 	for obj := range objChan {
 		if obj.Err != nil {
-			close(ch)
+			close(bufferedChannel)
 			return obj.Err
 		}
 
@@ -342,58 +392,62 @@ func (m MinioClientWrapper) ConcatToDisk(ctx context.Context, prefix S3Prefix, l
 			continue
 		}
 
-		objKey := obj.Key // capture loop variable
-		eg.Go(func() error {
-			log.Debugf("Downloading %s of size %0.2fMB", objKey, float64(obj.Size)/(1024*1024))
-			size.Add(obj.Size)
-			obj, err := m.Client.GetObject(ctx, m.DefaultBucket, objKey, minio.GetObjectOptions{})
+		downloadProcess.Go(func() error {
+			size, err := getObjAndWriteToChannel(ctx, &m, &obj, bufferedChannel)
 			if err != nil {
 				return err
 			}
-			defer obj.Close()
-
-			buf := make([]byte, FourMB)
-			for {
-				n, err := obj.Read(buf)
-				if n > 0 {
-					// Copy the data to a new slice to avoid data race
-					// this is since bytes are a reference type and
-					// thus to pass this data to another goroutine
-					// could cause a data race
-					dataCopy := make([]byte, n)
-					copy(dataCopy, buf[:n])
-					ch <- chunk{data: dataCopy, err: nil}
-				}
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					ch <- chunk{err: err}
-					break
-				}
-			}
+			cumulativeObjSize.Add(size)
 			return nil
 		})
 	}
 
-	err = eg.Wait()
-	close(ch)
-	wg.Wait()
-
-	if err != nil {
-		return err
+	// Wait until all downloads are complete
+	if downloadErr := downloadProcess.Wait(); downloadErr != nil {
+		return downloadErr
 	}
-	if writeErr != nil {
-		return writeErr
+	// Close the channel for downloads once all are done
+	close(bufferedChannel)
+	// Wait for all writes to finish
+	if writerErr := writerProcess.Wait(); writerErr != nil {
+		return writerErr
 	}
 
 	stat, err := file.Stat()
 	if err != nil {
 		return err
 	}
-	if stat.Size() != size.Load() {
-		return fmt.Errorf("file size mismatch: created a file of size %d, but downloaded %d", size.Load(), stat.Size())
+	if stat.Size() != cumulativeObjSize.Load() {
+		return fmt.Errorf("file size mismatch: created a file of size %d, but downloaded %d", cumulativeObjSize.Load(), stat.Size())
 	}
 
 	return nil
+}
+
+// Pull will either pull files to a single file or a directory
+// 1. Concurrently read from S3
+// 2. Pass the data to a channel
+// 3. write to the file using buffered writer
+func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFileOrDir string, concatToSingleFile bool) error {
+	if prefix == "" {
+		return errors.New("prefix cannot be empty when concatenating; you should not download the entire bucket")
+	}
+	if outputFileOrDir == "" {
+		return errors.New("local file name cannot be empty")
+	}
+
+	isDir := strings.HasSuffix(outputFileOrDir, "/")
+
+	if isDir && concatToSingleFile {
+		return errors.New("cannot concat to a single file when the output is a directory")
+	}
+	if !isDir && !concatToSingleFile {
+		return errors.New("cannot concat to a single directory when the output is a file")
+	}
+
+	if concatToSingleFile {
+		return m.PullAndConcat(ctx, prefix, outputFileOrDir)
+	} else {
+		return m.PullSeparateFilesToDir(ctx, prefix, outputFileOrDir)
+	}
 }
