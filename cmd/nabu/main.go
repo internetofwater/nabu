@@ -33,7 +33,6 @@ type ReleaseCmd struct{}
 type ClearCmd struct{}
 type PullCmd struct {
 	OutputFile string `arg:"positional"`
-	Concat     bool   `arg:"--concat" help:"concatenate all objects under a prefix into a single file"`
 }
 
 type NabuArgs struct {
