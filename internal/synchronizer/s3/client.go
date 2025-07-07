@@ -324,7 +324,12 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 			if err != nil {
 				return err
 			}
-			defer ob.Close()
+			defer func() {
+				err = ob.Close()
+				if err != nil {
+					log.Error(err)
+				}
+			}()
 
 			_, err = io.Copy(file, ob)
 			if err != nil {
@@ -351,7 +356,11 @@ func (m MinioClientWrapper) PullAndConcat(ctx context.Context, prefix S3Prefix, 
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Error(err)
+		}
+	}()
 
 	log.Debugf("Concatenating all objects with prefix %s to %s", prefix, outputFile)
 

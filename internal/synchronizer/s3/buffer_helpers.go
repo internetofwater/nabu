@@ -26,7 +26,11 @@ func getObjAndWriteToChannel(ctx context.Context, m *MinioClientWrapper, obj *mi
 	if err != nil {
 		return 0, err
 	}
-	defer ob.Close()
+	defer func() {
+		if err := ob.Close(); err != nil {
+			log.Error(err)
+		}
+	}()
 	buf := make([]byte, FourMB)
 	for {
 		// read up to the size of the buffer

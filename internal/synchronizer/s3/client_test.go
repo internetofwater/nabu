@@ -308,7 +308,7 @@ func (suite *S3ClientSuite) TestPull() {
 			err = os.Remove(tmpFile.Name())
 			suite.Require().NoError(err)
 		}()
-		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpFile.Name(), true)
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpFile.Name())
 		suite.Require().NoError(err)
 
 		concatData, err := os.ReadFile(tmpFile.Name())
@@ -325,7 +325,7 @@ func (suite *S3ClientSuite) TestPull() {
 		tmpDir, err := os.MkdirTemp("", "concat-*")
 		tmpDir = tmpDir + "/"
 		suite.Require().NoError(err)
-		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, false)
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir)
 		suite.Require().NoError(err)
 
 		files, err := os.ReadDir(tmpDir)
