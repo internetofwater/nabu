@@ -58,6 +58,7 @@ type NabuArgs struct {
 	PrefixToFileCache map[string]string `arg:"--prefixes-to-file" help:"prefix name to file mapping; used for caching"`
 	UseOtel           bool              `arg:"--use-otel"`
 	OtelEndpoint      string            `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
+	LogAsJson         bool              `arg:"--log-as-json" help:"Log in json format"`
 }
 
 // ToStructuredConfig converts the args to a structured config
@@ -111,6 +112,9 @@ func (n NabuRunner) Run(ctx context.Context) (harvestReport pkg.SitemapIndexCraw
 	defer trace.Stop()
 
 	level, err := log.ParseLevel(n.args.LogLevel)
+	if n.args.LogAsJson {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
 	if err != nil {
 		return nil, fmt.Errorf("invalid log level %s: %w", n.args.LogLevel, err)
 	}
