@@ -5,6 +5,8 @@ package synchronizer
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -244,6 +246,15 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 	require.NoError(t, err)
 	const graphAndItsAssociatedHash = 2
 	require.Equal(t, graphAndItsAssociatedHash, objs)
+
+	t.Run("hash is correct", func(t *testing.T) {
+		bytes, err := suite.client.S3Client.GetObjectAsBytes(orgsPath)
+		manuallyCalculatedHash := sha256.Sum256(bytes)
+		require.NoError(t, err)
+		hashInMinio, err := suite.client.S3Client.GetObjectAsBytes(orgsPath + ".sha256")
+		require.NoError(t, err)
+		require.Equal(t, string(hashInMinio), hex.EncodeToString(manuallyCalculatedHash[:]))
+	})
 
 	err = suite.client.GenerateNqRelease("summoned/" + source)
 	require.NoError(t, err)
