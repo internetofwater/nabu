@@ -6,6 +6,9 @@ package s3
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -277,7 +280,7 @@ func (m MinioClientWrapper) BatchStore(batch chan interfaces.BatchFileObject) er
 
 // PullSeparateFilesToDir downloads all the objects with the given prefix
 // and stores them in the specified directory without combining them
-func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S3Prefix, outputDir string) error {
+func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S3Prefix, outputDir string, useHashForFilename bool) error {
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return err
 	}
@@ -293,29 +296,31 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 	var mu sync.Mutex
 	cumulativeDownloadedMegabytes := float64(0)
 
+	hashToFilename := make(map[string]string)
+	var hashMu sync.Mutex
+
 	for obj := range objChan {
 
 		if strings.HasSuffix(obj.Key, "prov.nq") {
 			// skip adding prov graphs into the concatenated file
 			continue
 		}
-
 		eg.Go(func() error {
 			megabytes := float64(obj.Size) / (1024 * 1024)
 			log.Debugf("Downloading %s of size %0.2fMB", obj.Key, megabytes)
 
+			var fileName string
 			// get the last item in the s3 object prefix
 			// this is since the s3 prefix may be nested and we don't
 			// want to have to make nested dirs to store the files
 			lastIdentifier := strings.Split(obj.Key, "/")
-			var storeName string
 			if len(lastIdentifier) > 0 {
-				storeName = lastIdentifier[len(lastIdentifier)-1]
+				fileName = lastIdentifier[len(lastIdentifier)-1]
 			} else {
-				storeName = obj.Key
+				fileName = obj.Key
 			}
 
-			file, err := os.OpenFile(filepath.Join(outputDir, storeName), os.O_CREATE|os.O_WRONLY, 0644)
+			file, err := os.OpenFile(filepath.Join(outputDir, fileName), os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				return err
 			}
@@ -331,10 +336,29 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 				}
 			}()
 
-			_, err = io.Copy(file, ob)
-			if err != nil {
-				return err
+			if useHashForFilename {
+				w := sha256.New()
+				tee := io.TeeReader(ob, w)
+				_, err = io.Copy(file, tee)
+				if err != nil {
+					return err
+				}
+				sha := hex.EncodeToString(w.Sum(nil))
+				hashMu.Lock()
+				hashToFilename[sha] = fileName
+				hashMu.Unlock()
+				oldPath := filepath.Join(outputDir, fileName)
+				newPathWithSha := filepath.Join(outputDir, sha)
+				if err := os.Rename(oldPath, newPathWithSha); err != nil {
+					return err
+				}
+			} else {
+				_, err = io.Copy(file, ob)
+				if err != nil {
+					return err
+				}
 			}
+
 			cumulativeDownloadedFiles.Add(1)
 			mu.Lock()
 			cumulativeDownloadedMegabytes += megabytes
@@ -347,6 +371,18 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 		return err
 	}
 	log.Infof("Downloaded %d files to %s with total size: %0.2fMB", cumulativeDownloadedFiles.Load(), outputDir, cumulativeDownloadedMegabytes)
+
+	if useHashForFilename {
+		hashToFilenameJSON, err := json.Marshal(hashToFilename)
+		if err != nil {
+			return err
+		}
+		err = os.WriteFile(filepath.Join(outputDir, "hash_to_filename.json"), hashToFilenameJSON, 0644)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -439,7 +475,7 @@ func (m MinioClientWrapper) PullAndConcat(ctx context.Context, prefix S3Prefix, 
 // 1. Concurrently read from S3
 // 2. Pass the data to a channel
 // 3. write to the file using buffered writer
-func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFileOrDir string) error {
+func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFileOrDir string, useHashForFilename bool) error {
 	if prefix == "" {
 		return errors.New("prefix cannot be empty when concatenating; you should not download the entire bucket")
 	}
@@ -450,8 +486,11 @@ func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFil
 	isDir := strings.HasSuffix(outputFileOrDir, "/")
 
 	if isDir {
-		return m.PullSeparateFilesToDir(ctx, prefix, outputFileOrDir)
+		return m.PullSeparateFilesToDir(ctx, prefix, outputFileOrDir, useHashForFilename)
 	} else {
+		if useHashForFilename {
+			return fmt.Errorf("hash for filename when downloading to a single file is currently not supported")
+		}
 		return m.PullAndConcat(ctx, prefix, outputFileOrDir)
 	}
 }

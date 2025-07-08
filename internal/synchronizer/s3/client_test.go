@@ -6,6 +6,8 @@ package s3
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -293,7 +295,7 @@ func (suite *S3ClientSuite) TestPull() {
 	var data []string
 	const prefix = "concat_test"
 
-	// insert 100 data points
+	// insert 100 data points into minio
 	for i := range 100 {
 		dataPoint := fmt.Sprintf("test data %d", i)
 		data = append(data, dataPoint)
@@ -308,7 +310,7 @@ func (suite *S3ClientSuite) TestPull() {
 			err = os.Remove(tmpFile.Name())
 			suite.Require().NoError(err)
 		}()
-		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpFile.Name())
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpFile.Name(), false)
 		suite.Require().NoError(err)
 
 		concatData, err := os.ReadFile(tmpFile.Name())
@@ -325,7 +327,7 @@ func (suite *S3ClientSuite) TestPull() {
 		tmpDir, err := os.MkdirTemp("", "concat-*")
 		tmpDir = tmpDir + "/"
 		suite.Require().NoError(err)
-		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir)
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, false)
 		suite.Require().NoError(err)
 
 		files, err := os.ReadDir(tmpDir)
@@ -335,8 +337,29 @@ func (suite *S3ClientSuite) TestPull() {
 			suite.Require().NoError(err)
 			suite.Require().Contains(string(fileData), file.Name())
 		}
-
 	})
+
+	suite.T().Run("pull to a dir with files named according to their hash", func(t *testing.T) {
+		tmpDir, err := os.MkdirTemp("", "pull-hash-*")
+		tmpDir = tmpDir + "/"
+		suite.Require().NoError(err)
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, true)
+		suite.Require().NoError(err)
+
+		files, err := os.ReadDir(tmpDir)
+		suite.Require().NoError(err)
+		for _, file := range files {
+			if file.Name() == "hash_to_filename.json" {
+				continue
+			}
+			fileData, err := os.ReadFile(filepath.Join(tmpDir, file.Name()))
+			suite.Require().NoError(err)
+			sha256OfFile := sha256.Sum256(fileData)
+			hashHex := hex.EncodeToString(sha256OfFile[:])
+			suite.Require().Equal(hashHex, file.Name())
+		}
+	})
+
 	err := suite.minioContainer.ClientWrapper.Remove(prefix)
 	suite.Require().NoError(err)
 }
