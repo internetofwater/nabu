@@ -33,7 +33,7 @@ type ReleaseCmd struct{}
 type ClearCmd struct{}
 type PullCmd struct {
 	Output             string `arg:"positional"`
-	UseHashForFilename bool   `arg:"--hash-filenames" help:"use the hash of the object as the filename on disk" default:"false"`
+	UseHashForFilename bool   `arg:"--filename-as-hash" help:"use the hash of the object as the filename on disk" default:"false"`
 }
 
 type NabuArgs struct {
