@@ -5,6 +5,8 @@ package s3
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 
 	"github.com/minio/minio-go/v7"
@@ -54,4 +56,16 @@ func getObjAndWriteToChannel(ctx context.Context, m *MinioClientWrapper, obj *mi
 		}
 	}
 	return obj.Size, nil
+}
+
+// write the data to the destination and return the sha256
+// by using a tee; this makes it so we only read from the object once
+func writeAndReturnSHA256(destination io.Writer, object io.Reader) (string, error) {
+	w := sha256.New()
+	tee := io.TeeReader(object, w)
+	_, err := io.Copy(destination, tee)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(w.Sum(nil)), nil
 }

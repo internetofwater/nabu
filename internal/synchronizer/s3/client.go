@@ -6,13 +6,12 @@ package s3
 import (
 	"bufio"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -309,41 +308,36 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 			megabytes := float64(obj.Size) / (1024 * 1024)
 			log.Debugf("Downloading %s of size %0.2fMB", obj.Key, megabytes)
 
-			var fileName string
 			// get the last item in the s3 object prefix
 			// this is since the s3 prefix may be nested and we don't
 			// want to have to make nested dirs to store the files
-			lastIdentifier := strings.Split(obj.Key, "/")
-			if len(lastIdentifier) > 0 {
-				fileName = lastIdentifier[len(lastIdentifier)-1]
-			} else {
-				fileName = obj.Key
-			}
+			fileName := path.Base(obj.Key)
 
 			file, err := os.OpenFile(filepath.Join(outputDir, fileName), os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				return err
 			}
+			defer func() {
+				if err := file.Close(); err != nil {
+					log.Error(err)
+				}
+			}()
 
 			ob, err := m.Client.GetObject(ctx, m.DefaultBucket, obj.Key, minio.GetObjectOptions{})
 			if err != nil {
 				return err
 			}
 			defer func() {
-				err = ob.Close()
-				if err != nil {
+				if err := ob.Close(); err != nil {
 					log.Error(err)
 				}
 			}()
 
 			if useHashForFilename {
-				w := sha256.New()
-				tee := io.TeeReader(ob, w)
-				_, err = io.Copy(file, tee)
+				sha, err := writeAndReturnSHA256(file, ob)
 				if err != nil {
 					return err
 				}
-				sha := hex.EncodeToString(w.Sum(nil))
 				hashMu.Lock()
 				hashToFilename[sha] = fileName
 				hashMu.Unlock()
@@ -366,8 +360,7 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 			return nil
 		})
 	}
-	err := eg.Wait()
-	if err != nil {
+	if err := eg.Wait(); err != nil {
 		return err
 	}
 	log.Infof("Downloaded %d files to %s with total size: %0.2fMB", cumulativeDownloadedFiles.Load(), outputDir, cumulativeDownloadedMegabytes)
@@ -377,10 +370,7 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 		if err != nil {
 			return err
 		}
-		err = os.WriteFile(filepath.Join(outputDir, "hash_to_filename.json"), hashToFilenameJSON, 0644)
-		if err != nil {
-			return err
-		}
+		return os.WriteFile(filepath.Join(outputDir, "hash_to_filename.json"), hashToFilenameJSON, 0644)
 	}
 
 	return nil
