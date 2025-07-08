@@ -476,8 +476,10 @@ func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFil
 	isDir := strings.HasSuffix(outputFileOrDir, "/")
 
 	if isDir {
+		log.Debugf("%s was specified as a directory due to the ending /", outputFileOrDir)
 		return m.PullSeparateFilesToDir(ctx, prefix, outputFileOrDir, useHashForFilename)
 	} else {
+		log.Debugf("%s was specified as a file", outputFileOrDir)
 		if useHashForFilename {
 			return fmt.Errorf("hash for filename when downloading to a single file is currently not supported")
 		}
