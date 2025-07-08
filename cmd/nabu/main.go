@@ -32,7 +32,8 @@ type TestCmd struct{}
 type ReleaseCmd struct{}
 type ClearCmd struct{}
 type PullCmd struct {
-	OutputFile string `arg:"positional"`
+	Output             string `arg:"positional"`
+	UseHashForFilename bool   `arg:"--hash-filenames" help:"use the hash of the object as the filename on disk" default:"false"`
 }
 
 type NabuArgs struct {
@@ -173,7 +174,7 @@ func (n NabuRunner) Run(ctx context.Context) (harvestReport pkg.SitemapIndexCraw
 	case n.args.Harvest != nil:
 		return Harvest(ctx, cfgStruct.Minio, *n.args.Harvest)
 	case n.args.Pull != nil:
-		return nil, synchronizerClient.S3Client.Pull(ctx, cfgStruct.Prefix, n.args.Pull.OutputFile)
+		return nil, synchronizerClient.S3Client.Pull(ctx, cfgStruct.Prefix, n.args.Pull.Output, n.args.Pull.UseHashForFilename)
 	default:
 		return nil, fmt.Errorf("unknown nabu subcommand")
 	}
