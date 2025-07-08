@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -243,6 +244,55 @@ func (suite *S3ClientSuite) TestUploadFile() {
 	suite.Require().NoError(err)
 	suite.Require().Contains(string(data), "Copyright")
 
+}
+
+func (suite *S3ClientSuite) TestHashMatch() {
+
+	tmpFile, err := os.CreateTemp("", "test")
+	suite.Require().NoError(err)
+	dir := path.Dir(tmpFile.Name())
+	base := path.Base(tmpFile.Name())
+	const hash_test_prefix = "hash_test_prefix"
+	exists, err := suite.minioContainer.ClientWrapper.MatchesWithLocalHash(hash_test_prefix, dir, base)
+	suite.Require().NoError(err)
+	suite.Require().False(exists)
+
+	hash := sha256.New()
+	_, err = io.Copy(hash, tmpFile)
+	suite.Require().NoError(err)
+
+	file, err := os.Create(tmpFile.Name() + ".sha256")
+	suite.Require().NoError(err)
+	defer func() {
+		_ = os.Remove(file.Name())
+	}()
+	// populate the file hash locally
+	_, err = io.Copy(file, bytes.NewReader(hash.Sum(nil)))
+	suite.Require().NoError(err)
+
+	// upload dummy file
+	_, err = suite.minioContainer.ClientWrapper.Client.PutObject(context.Background(),
+		suite.minioContainer.ClientWrapper.DefaultBucket,
+		hash_test_prefix+"/"+base,
+		bytes.NewReader([]byte("dummy data")),
+		-1,
+		minio.PutObjectOptions{},
+	)
+	suite.Require().NoError(err)
+
+	// upload hash
+	_, err = suite.minioContainer.ClientWrapper.Client.PutObject(context.Background(),
+		suite.minioContainer.ClientWrapper.DefaultBucket,
+		hash_test_prefix+"/"+base+".sha256",
+		bytes.NewReader(hash.Sum(nil)),
+		-1,
+		minio.PutObjectOptions{},
+	)
+
+	suite.Require().NoError(err)
+	exists, err = suite.minioContainer.ClientWrapper.MatchesWithLocalHash(hash_test_prefix, dir, base)
+	suite.Require().NoError(err)
+	suite.Require().True(exists)
 }
 
 func (suite *S3ClientSuite) TestGetObjectAsNamedGraph() {
