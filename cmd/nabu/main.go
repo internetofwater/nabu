@@ -109,17 +109,24 @@ func uploadTracefile(minioConfig config.MinioConfig) error {
 	return mc.UploadFile(traceName, traceFile)
 }
 
+// Setup all global logging settings
+func setupLogging(logLevel string, logAsJson bool) error {
+	level, err := log.ParseLevel(logLevel)
+	if err != nil {
+		return fmt.Errorf("invalid log level %s: %w", level, err)
+	}
+	log.SetLevel(level)
+	if logAsJson {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
+}
+
 func (n NabuRunner) Run(ctx context.Context) (harvestReport pkg.SitemapIndexCrawlStats, err error) {
 	defer trace.Stop()
 
-	level, err := log.ParseLevel(n.args.LogLevel)
-	if n.args.LogAsJson {
-		log.SetFormatter(&log.JSONFormatter{})
+	if err := setupLogging(n.args.LogLevel, n.args.LogAsJson); err != nil {
+		log.Fatal(err)
 	}
-	if err != nil {
-		return nil, fmt.Errorf("invalid log level %s: %w", n.args.LogLevel, err)
-	}
-	log.SetLevel(level)
 
 	if n.args.UseOtel || n.args.OtelEndpoint != "" {
 		if n.args.OtelEndpoint == "" {
