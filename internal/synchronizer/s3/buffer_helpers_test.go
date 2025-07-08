@@ -21,7 +21,7 @@ func TestWriteAndReturnSHA256(t *testing.T) {
 	var output bytes.Buffer
 
 	// Call the function
-	hash, err := writeAndReturnSHA256(input, &output)
+	hash, err := writeAndReturnSHA256(&output, input)
 	require.NoError(t, err, "expected no error from writeAndReturnSHA256")
 
 	// Validate the written data

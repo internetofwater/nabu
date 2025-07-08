@@ -119,6 +119,7 @@ func setupLogging(logLevel string, logAsJson bool) error {
 	if logAsJson {
 		log.SetFormatter(&log.JSONFormatter{})
 	}
+	return nil
 }
 
 func (n NabuRunner) Run(ctx context.Context) (harvestReport pkg.SitemapIndexCrawlStats, err error) {
