@@ -60,12 +60,12 @@ func getObjAndWriteToChannel(ctx context.Context, m *MinioClientWrapper, obj *mi
 
 // write the data to the destination and return the sha256
 // by using a tee; this makes it so we only read from the object once
-func writeAndReturnSHA256(destination io.Writer, object io.Reader) (string, error) {
-	w := sha256.New()
-	tee := io.TeeReader(object, w)
+func writeAndReturnSHA256(destination io.Writer, source io.Reader) (string, error) {
+	hashDestination := sha256.New()
+	tee := io.TeeReader(source, hashDestination)
 	_, err := io.Copy(destination, tee)
 	if err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(w.Sum(nil)), nil
+	return hex.EncodeToString(hashDestination.Sum(nil)), nil
 }
