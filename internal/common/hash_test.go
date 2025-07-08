@@ -1,7 +1,7 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-package s3
+package common
 
 import (
 	"bytes"
@@ -21,7 +21,7 @@ func TestWriteAndReturnSHA256(t *testing.T) {
 	var output bytes.Buffer
 
 	// Call the function
-	hash, err := writeAndReturnSHA256(&output, input)
+	hash, err := WriteAndReturnSHA256(&output, input)
 	require.NoError(t, err, "expected no error from writeAndReturnSHA256")
 
 	// Validate the written data

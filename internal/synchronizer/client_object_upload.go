@@ -222,7 +222,7 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix) er
 		return err
 	}
 	if objInfo.Size == 0 {
-		return errors.New("empty nq file when uploading to s3")
+		return fmt.Errorf("empty nq file for %s when uploading to s3", releaseNqName)
 	}
 
 	// Check for errors from the processing goroutine

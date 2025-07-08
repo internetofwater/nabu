@@ -334,7 +334,7 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 			}()
 
 			if useHashForFilename {
-				sha, err := writeAndReturnSHA256(file, ob)
+				sha, err := common.WriteAndReturnSHA256(file, ob)
 				if err != nil {
 					return err
 				}
