@@ -6,6 +6,8 @@ package synchronizer
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -184,7 +186,7 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix) er
 		errChan <- synchronizer.streamNqFromPrefix(prefix, nqChan)
 	}()
 
-	piperReader, pipeWriter := io.Pipe()
+	pipeReader, pipeWriter := io.Pipe()
 
 	// Concurrently upload data to S3 while receiving from the channel
 	// if there is an error in the processing goroutine
@@ -198,12 +200,33 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix) er
 			}
 		}()
 
+		// write the nq data to the pipe
+		// and calculate the sha256 along the way
+		hashDestination := sha256.New()
 		for nq := range nqChan {
-			_, err := pipeWriter.Write([]byte(nq))
+			asBytes := []byte(nq)
+			hashDestination.Write(asBytes)
+			_, err := pipeWriter.Write(asBytes)
 			if err != nil {
 				pipeWriter.CloseWithError(err)
 				return
 			}
+		}
+
+		// put the hash into s3
+		hash := hex.EncodeToString(hashDestination.Sum(nil))
+		log.Debugf("Got hash %s for release %s", hash, releaseNqName)
+
+		if _, err := synchronizer.S3Client.Client.PutObject(
+			context.Background(),
+			synchronizer.syncBucketName,
+			fmt.Sprintf("graphs/latest/%s.sha256", releaseNqName),
+			strings.NewReader(hash),
+			int64(len(hash)),
+			minio.PutObjectOptions{},
+		); err != nil {
+			pipeWriter.CloseWithError(err)
+			return
 		}
 	}()
 
@@ -214,7 +237,7 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix) er
 		context.Background(),
 		synchronizer.syncBucketName,
 		fmt.Sprintf("graphs/latest/%s", releaseNqName),
-		piperReader,
+		pipeReader,
 		streamObjectOfUndefinedSize,
 		minio.PutObjectOptions{},
 	)
@@ -222,7 +245,7 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix) er
 		return err
 	}
 	if objInfo.Size == 0 {
-		return errors.New("empty nq file when uploading to s3")
+		return fmt.Errorf("empty nq file for %s when uploading to s3", releaseNqName)
 	}
 
 	// Check for errors from the processing goroutine

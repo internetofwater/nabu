@@ -5,6 +5,8 @@ package synchronizer
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -21,7 +23,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
 )
-
 
 func countSourcesInSitemap(url string) (int, error) {
 	// Fetch the URL
@@ -233,11 +234,9 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 
 func (suite *SynchronizerClientSuite) TestNqRelease() {
 	t := suite.T()
-	err := suite.graphdbContainer.Client.ClearAllGraphs()
-	suite.Require().NoError(err)
 
 	const source = "cdss_co_gages__0"
-	err = NewGleanerRun(suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", source)
+	err := NewGleanerRun(suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", source)
 	require.NoError(t, err)
 
 	err = suite.client.GenerateNqRelease("orgs/" + source)
@@ -245,14 +244,24 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 	const orgsPath = "graphs/latest/" + source + "_organizations.nq"
 	objs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{orgsPath})
 	require.NoError(t, err)
-	require.Equal(t, 1, objs)
+	const graphAndItsAssociatedHash = 2
+	require.Equal(t, graphAndItsAssociatedHash, objs)
+
+	t.Run("hash is correct", func(t *testing.T) {
+		bytes, err := suite.client.S3Client.GetObjectAsBytes(orgsPath)
+		manuallyCalculatedHash := sha256.Sum256(bytes)
+		require.NoError(t, err)
+		hashInMinio, err := suite.client.S3Client.GetObjectAsBytes(orgsPath + ".sha256")
+		require.NoError(t, err)
+		require.Equal(t, string(hashInMinio), hex.EncodeToString(manuallyCalculatedHash[:]))
+	})
 
 	err = suite.client.GenerateNqRelease("summoned/" + source)
 	require.NoError(t, err)
 	const summonedPath = "graphs/latest/" + source + "_release.nq"
 	objs, err = suite.client.S3Client.NumberOfMatchingObjects([]string{summonedPath})
 	require.NoError(t, err)
-	require.Equal(t, 1, objs)
+	require.Equal(t, graphAndItsAssociatedHash, objs)
 
 	summonedContent, err := suite.client.S3Client.GetObjectAsBytes(summonedPath)
 	require.NoError(t, err)
