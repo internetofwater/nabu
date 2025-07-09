@@ -374,7 +374,7 @@ func (suite *S3ClientSuite) TestPull() {
 	})
 
 	suite.T().Run("pull to a dir", func(t *testing.T) {
-		tmpDir, err := os.MkdirTemp("", "concat-*")
+		tmpDir, err := os.MkdirTemp("", "pull-dir-*")
 		tmpDir = tmpDir + "/"
 		suite.Require().NoError(err)
 		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, false)
