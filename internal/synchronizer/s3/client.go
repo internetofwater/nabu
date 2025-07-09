@@ -252,7 +252,9 @@ func (m MinioClientWrapper) Get(path S3Prefix) (io.ReadCloser, error) {
 
 // Return true if the file with the specified name in the bucket has the same hash as the local file of the same name
 func (m MinioClientWrapper) MatchesWithLocalHash(remotePrefix S3Prefix, localDir string, name string) (bool, error) {
-	remoteHashFile, err := m.Client.GetObject(context.Background(), m.DefaultBucket, remotePrefix+"/"+name+".sha256", minio.StatObjectOptions{})
+	prefixForHash := remotePrefix + name + ".sha256"
+	log.Debugf("Checking remote file hash at %s", prefixForHash)
+	remoteHashFile, err := m.Client.GetObject(context.Background(), m.DefaultBucket, prefixForHash, minio.StatObjectOptions{})
 	if err != nil {
 		return false, nil
 	}
@@ -264,14 +266,16 @@ func (m MinioClientWrapper) MatchesWithLocalHash(remotePrefix S3Prefix, localDir
 		return false, err
 	}
 
-	localHashFile, err := os.ReadFile(localDir + "/" + name + ".sha256")
+	localHashFile := localDir + "/" + name + ".sha256"
+	log.Debugf("Checking local file hash at %s", localHashFile)
+	localHashValue, err := os.ReadFile(localHashFile)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
 	}
-	return string(remoteHash) == string(localHashFile), nil
+	return string(remoteHash) == string(localHashValue), nil
 
 }
 
@@ -350,6 +354,7 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 
 			isPresent, err := m.MatchesWithLocalHash(prefix, outputDir, fileName)
 			if err != nil {
+				log.Errorf("Error checking if file %s exists locally: %v", fileName, err)
 				return err
 			}
 			if isPresent {
