@@ -252,7 +252,7 @@ func (suite *S3ClientSuite) TestHashMatch() {
 	suite.Require().NoError(err)
 	dir := path.Dir(tmpFile.Name())
 	base := path.Base(tmpFile.Name())
-	const hash_test_prefix = "hash_test_prefix"
+	const hash_test_prefix = "hash_test_prefix/"
 	exists, err := suite.minioContainer.ClientWrapper.MatchesWithLocalHash(hash_test_prefix, dir, base)
 	suite.Require().NoError(err)
 	suite.Require().False(exists)
@@ -273,7 +273,7 @@ func (suite *S3ClientSuite) TestHashMatch() {
 	// upload dummy file
 	_, err = suite.minioContainer.ClientWrapper.Client.PutObject(context.Background(),
 		suite.minioContainer.ClientWrapper.DefaultBucket,
-		hash_test_prefix+"/"+base,
+		hash_test_prefix+base,
 		bytes.NewReader([]byte("dummy data")),
 		-1,
 		minio.PutObjectOptions{},
@@ -283,7 +283,7 @@ func (suite *S3ClientSuite) TestHashMatch() {
 	// upload hash
 	_, err = suite.minioContainer.ClientWrapper.Client.PutObject(context.Background(),
 		suite.minioContainer.ClientWrapper.DefaultBucket,
-		hash_test_prefix+"/"+base+".sha256",
+		hash_test_prefix+base+".sha256",
 		bytes.NewReader(hash.Sum(nil)),
 		-1,
 		minio.PutObjectOptions{},
