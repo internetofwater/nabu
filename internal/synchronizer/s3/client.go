@@ -329,6 +329,10 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 
 	for obj := range objChan {
 
+		if obj.Err != nil {
+			return fmt.Errorf("error when pulling files, %s", obj.Err)
+		}
+
 		if strings.HasSuffix(obj.Key, "prov.nq") || strings.HasSuffix(obj.Key, ".sha256") {
 			// skip adding metadata like prov graphs or sha hashes into the concatenated file
 			continue
