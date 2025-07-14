@@ -10,71 +10,76 @@ import (
 	"io"
 )
 
-// The status of the shacl validation
+// The status of the SHACL validation
 type ShaclStatus string
 
 const (
-	// Shacl validation was skipped and was not run
 	ShaclSkipped ShaclStatus = "skipped"
-	// The triples passed into shacl validation were invalid
 	ShaclInvalid ShaclStatus = "invalid"
-	// The triples passed into shacl validation were valid
-	ShaclValid ShaclStatus = "valid"
+	ShaclValid   ShaclStatus = "valid"
 )
 
 // An error for a particular URL in a sitemap
 type UrlCrawlError struct {
-	// The URL that failed
-	Url string
-	// The http status code of the fetched Url
-	Status int
-	// a natural language error message describing the error
-	Message string
-	// the status of the shacl validation operation itself
-	ShaclStatus ShaclStatus
-	// the shacl validation message
-	ShaclErrorMessage string
+	Url               string      `json:"url"`          // schema.org/url
+	Status            int         `json:"statusCode"`   // loosely schema.org/statusCode
+	Message           string      `json:"description"`  // schema.org/description
+	ShaclStatus       ShaclStatus `json:"shaclStatus"`  // unmapped
+	ShaclErrorMessage string      `json:"shaclMessage"` // unmapped
 }
 
-// Return a string representation of the error
 func (e UrlCrawlError) Error() string {
-	return fmt.Errorf("failed to crawl %s; status %d, message: %s, shacl status: %s, shacl message: %s",
-		e.Url, e.Status, e.Message, e.ShaclStatus, e.ShaclErrorMessage).Error()
+	return fmt.Sprintf("failed to crawl %s; status %d, message: %s, shacl status: %s, shacl message: %s",
+		e.Url, e.Status, e.Message, e.ShaclStatus, e.ShaclErrorMessage)
 }
 
 // Crawl stats for a particular sitemap
 type SitemapCrawlStats struct {
-	// All the urls that were successfully crawled
-	SuccessfulUrls []string
-	// Metadata about why a sitemap failed to be harvested
-	CrawlFailures []UrlCrawlError
-	// The number of seconds it took to crawl the sitemap
-	SecondsToComplete float64
-	// The name of the sitemap in the sitemap index
-	SitemapName string
-	// The number of sites that were successfully crawled and stored
-	SitesHarvested int
-	// The number of total sites in the sitemap
-	SitesInSitemap int
+	Type              string          `json:"@type"`                  // schema.org type
+	SitemapName       string          `json:"name"`                   // schema.org/name
+	SuccessfulUrls    []string        `json:"successfulUrls"`         // schema.org/url (plural)
+	CrawlFailures     []UrlCrawlError `json:"crawlFailures"`          // unmapped
+	SecondsToComplete float64         `json:"duration"`               // schema.org/duration (in seconds)
+	SitesHarvested    int             `json:"numberOfSitesHarvested"` // unmapped
+	SitesInSitemap    int             `json:"numberOfSitesInSitemap"` // unmapped
 }
 
-// Serialize the sitemap crawl stats to json
-// and return the result as an io.Reader
+// Create a basic JSON-LD context map
+func GetJsonLDContext() map[string]any {
+	return map[string]any{
+		"@vocab":         "https://schema.org/",
+		"successfulUrls": "url",
+	}
+}
+
+// Return a JSON-LD-compatible io.Reader for a single sitemap (still with context for backwards compat)
 func (s SitemapCrawlStats) ToJsonIoReader() (io.Reader, error) {
+	s.Type = "DataFeed"
+	// Wrap single item in a document with top-level @context
+	wrapped := map[string]any{
+		"@context": GetJsonLDContext(),
+		"@graph":   []SitemapCrawlStats{s},
+	}
 	buf := new(bytes.Buffer)
-	err := json.NewEncoder(buf).Encode(s)
+	err := json.NewEncoder(buf).Encode(wrapped)
 	return buf, err
 }
 
-// A sitemap index is just a list of sitemaps and thus
-// its status is just the status of each sitemap
+// A sitemap index is just a list of sitemaps
 type SitemapIndexCrawlStats []SitemapCrawlStats
 
-// Serialize the sitemap index crawl stats to json
+// Serialize the sitemap index crawl stats to proper JSON-LD
 func (s SitemapIndexCrawlStats) ToJson() (string, error) {
-	if data, err := json.Marshal(s); err != nil {
-		return "", err
-	} else {
-		return string(data), nil
+	for i := range s {
+		s[i].Type = "DataFeed"
 	}
+	output := map[string]any{
+		"@context": GetJsonLDContext(),
+		"@graph":   s,
+	}
+	data, err := json.Marshal(output)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
