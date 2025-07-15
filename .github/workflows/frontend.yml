@@ -1,0 +1,20 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
+
+name: Frontend Checks 
+
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Change directory to frontend app
+        run: cd frontend
+      - name: Install modules
+        run: npm install
+      - name: Run ESLint
+        run: npm run lint
+      - name: Run build
+        run: npm run build  
