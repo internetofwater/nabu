@@ -1,0 +1,133 @@
+/**
+ * Copyright 2025 Lincoln Institute of Land Policy
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+:root {
+    --primary: #3578e5;
+    --primary-dark: #1d68e1;
+    --primary-darker: #1b62d4;
+    --primary-light: #4e89e8;
+    --primary-lightest: #80aaef;
+    --success: #a3be8c;
+    --error-bg: #cb2c49;
+}
+
+body {
+    background-color: #121212;
+    color: #e0e0e0;
+    font-family: sans-serif;
+    margin: 2rem;
+}
+
+.headerRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+}
+
+h1 {
+    color: var(--primary-lightest);
+}
+
+h2 {
+    font-size: 1.1rem;
+}
+
+.sitemap {
+    border: 1px solid var(--primary-darker);
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background-color: #1e1e1e;
+}
+
+summary {
+    cursor: pointer;
+    font-weight: bold;
+    color: var(--primary-light);
+}
+
+.successColor {
+    color: var(--success);
+}
+
+.errorText {
+    color: var(--error-bg);
+}
+
+.meta {
+    color: var(--primary-light);
+    font-size: 0.9rem;
+}
+
+.urlList {
+    padding-left: 1rem;
+}
+
+.failureTable {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.failureTable th,
+.failureTable td {
+    border: 1px solid var(--primary-dark);
+    padding: 0.5rem;
+    text-align: left;
+}
+
+.failureTable th {
+    background-color: #d3d3d32c;
+    color: white;
+}
+
+.failureTable td {
+    background-color: #2a2a2a;
+}
+
+.failureLink {
+    background-color: var(--error-bg);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    display: inline-block;
+    text-decoration: none;
+    color: white;
+}
+
+.failureLink:hover {
+    text-decoration: underline;
+    background-color: #e03b59;
+}
+
+a {
+    color: inherit;
+    text-decoration: underline;
+}
+
+a:hover {
+    color: var(--primary-light);
+}
+
+.downloadButton {
+    background-color: var(--primary);
+    color: white;
+    padding: 0.5rem 1rem;
+    text-decoration: none;
+    border-radius: 4px;
+    float: right;
+}
+
+.downloadButton:hover {
+    background-color: var(--primary-dark);
+}
+
+.sitemapHeaderRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 0.5rem;
+}
