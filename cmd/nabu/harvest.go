@@ -70,7 +70,7 @@ func Harvest(ctx context.Context, minioConfig config.MinioConfig, args HarvestCm
 	if err != nil {
 		return nil, err
 	}
-	asJson, err := stats.ToJson()
+	asJson, err := stats.ToJsonLdReader()
 	if err != nil {
 		return nil, err
 	}

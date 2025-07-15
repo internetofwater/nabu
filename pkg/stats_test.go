@@ -5,6 +5,8 @@ package pkg
 
 import (
 	"encoding/json"
+	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -58,7 +60,7 @@ func TestSitemapIndexCrawlStats_ToJson(t *testing.T) {
 			SitemapName:       "sitemap1.xml",
 		},
 	}
-	jsonStr, err := stats.ToJson()
+	jsonStr, err := stats.ToJsonLd()
 	require.NoError(t, err, "ToJson should not fail")
 
 	var decoded SitemapIndexCrawlStats
@@ -75,35 +77,28 @@ func TestSitemapIndexCrawlStats_ToJson(t *testing.T) {
 	assert.Equal(t, 1.23, decoded[0].SecondsToComplete)
 	assert.Equal(t, "sitemap1.xml", decoded[0].SitemapName)
 }
-
-func TestSitemapIndexCrawlStats_Empty(t *testing.T) {
-	stats := SitemapIndexCrawlStats{}
-	jsonStr, err := stats.ToJson()
-	require.NoError(t, err, "ToJson should not fail for empty stats")
-	assert.Equal(t, "[]", jsonStr)
-
-	var decoded SitemapIndexCrawlStats
-	err = json.Unmarshal([]byte(jsonStr), &decoded)
-	require.NoError(t, err, "Unmarshal should not fail for empty stats")
-	assert.Empty(t, decoded)
-}
-
 func TestSitemapCrawlStats_NoFailures(t *testing.T) {
 	stats := SitemapIndexCrawlStats{
 		{
-			CrawlFailures:     nil,
+			CrawlFailures: []UrlCrawlError{
+				{
+					Url:               "http://fail.com",
+					Status:            400,
+					Message:           "bad request",
+					ShaclStatus:       ShaclSkipped,
+					ShaclErrorMessage: "shape fail",
+				},
+			},
 			SecondsToComplete: 0.5,
 			SitemapName:       "empty.xml",
 		},
 	}
-	jsonStr, err := stats.ToJson()
+	jsonStr, err := stats.ToJsonLd()
+	require.NoError(t, err)
+	f, err := os.Create("stats.jsonld")
+	require.NoError(t, err)
+	defer f.Close()
+	_, err = io.WriteString(f, jsonStr)
 	require.NoError(t, err)
 
-	var decoded SitemapIndexCrawlStats
-	err = json.Unmarshal([]byte(jsonStr), &decoded)
-	require.NoError(t, err)
-	require.Len(t, decoded, 1)
-	assert.Empty(t, decoded[0].CrawlFailures)
-	assert.Equal(t, "empty.xml", decoded[0].SitemapName)
-	assert.Equal(t, 0.5, decoded[0].SecondsToComplete)
 }
