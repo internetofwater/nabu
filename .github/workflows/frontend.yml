@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Change directory to frontend app
-        run: cd frontend
+        run: cd crawl-status-page
       - name: Install modules
         run: npm install
       - name: Run ESLint
