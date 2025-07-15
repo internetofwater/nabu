@@ -6,7 +6,7 @@
 // The status of the shacl validation
 type ShaclStatus = "skipped" | "invalid" | "valid";
 
-interface UrlCrawlError {
+export interface UrlCrawlError {
   // The URL that failed
   Url: string;
   // The http status code of the fetched Url
@@ -19,7 +19,7 @@ interface UrlCrawlError {
   ShaclErrorMessage: string;
 }
 
-interface SitemapCrawlStats {
+export interface SitemapCrawlStats {
   // All the urls that were successfully crawled
   SuccessfulUrls: string[];
   // Metadata about why a sitemap failed to be harvested

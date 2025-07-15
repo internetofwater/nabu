@@ -5,28 +5,55 @@
 
 import { useEffect, useState } from "react";
 import styles from "./CrawlStatusDashboard.module.css";
-import { stats_endpoint } from "./env";
-import type { SitemapIndexCrawlStats } from "./types";
+import type { SitemapCrawlStats, SitemapIndexCrawlStats } from "./types";
+import { get_s3_bucket, get_s3_client } from "./env";
 
 const CrawlStatusDashboard = () => {
-  const [data, setData] = useState<SitemapIndexCrawlStats | null>(null);
+  const [data, setData] = useState<SitemapIndexCrawlStats>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const client = get_s3_client();
 
   useEffect(() => {
-    fetch(stats_endpoint())
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP error ${String(res.status)}`);
-        return res.json();
-      })
-      .then((json) => {
-        setData(json as SitemapIndexCrawlStats);
+    const fetchData = async () => {
+      try {
+        const response = await client.listObjects({
+          Bucket: get_s3_bucket(),
+          Prefix: "metadata/sitemaps",
+        });
+
+        const sitemapcrawlstats: SitemapCrawlStats[] = [];
+
+        for (const obj of response.Contents ?? []) {
+          if (obj.Key?.endsWith(".json")) {
+            try {
+              const objectData = await client.getObject({
+                Bucket:  get_s3_bucket(),
+                Key: obj.Key,
+              });
+              console.log("Fetched object:", obj.Key);
+
+              const body = await objectData.Body?.transformToString();
+              if (!body) {
+                setError(`No body for object ${obj.Key}`);
+                return
+              }
+              const json = (JSON.parse(body)) as SitemapCrawlStats;
+              sitemapcrawlstats.push(json);
+            } catch (e) {
+              console.warn(`Error loading ${obj.Key}:`, e);
+            }
+          }
+        }
+        setData(sitemapcrawlstats);
         setLoading(false);
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         setError(err instanceof Error ? err.message : String(err));
         setLoading(false);
-      });
+      }
+    };
+
+    void fetchData();
   }, []);
 
   if (loading) return <div>Loading crawl status...</div>;
@@ -41,7 +68,7 @@ const CrawlStatusDashboard = () => {
         </a>
       </div>
 
-      {data?.map((sitemap) => (
+      {data.map((sitemap) => (
         <div key={sitemap.SitemapName} className={styles.sitemap}>
           <h2>Sitemap: {sitemap.SitemapName}</h2>
           <span className={styles.meta}>
@@ -65,7 +92,7 @@ const CrawlStatusDashboard = () => {
             </ul>
           </details>
 
-          {(sitemap.CrawlFailures && (sitemap.CrawlFailures.length > 0)) && (
+          {sitemap.CrawlFailures && sitemap.CrawlFailures.length > 0 && (
             <details>
               <summary className={styles.errorText}>
                 Failures ({sitemap.CrawlFailures.length})
