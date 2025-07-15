@@ -8,10 +8,12 @@ on: push
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: crawl-status-page
     steps:
       - uses: actions/checkout@v4
-      - name: Change directory to frontend app
-        run: cd crawl-status-page
       - name: Install modules
         run: npm install
       - name: Run ESLint
