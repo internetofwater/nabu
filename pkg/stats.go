@@ -78,3 +78,15 @@ func (s SitemapIndexCrawlStats) ToJson() (string, error) {
 		return string(data), nil
 	}
 }
+
+func NewSitemapIndexCrawlStatsFromJson(r io.Reader) (SitemapIndexCrawlStats, error) {
+	result, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	s := SitemapIndexCrawlStats{}
+	if err := json.Unmarshal(result, &s); err != nil {
+		return nil, err
+	}
+	return s, nil
+}

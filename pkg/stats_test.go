@@ -5,6 +5,7 @@ package pkg
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -74,6 +75,7 @@ func TestSitemapIndexCrawlStats_ToJson(t *testing.T) {
 	assert.Equal(t, "shape fail", decoded[0].CrawlFailures[0].ShaclErrorMessage)
 	assert.Equal(t, 1.23, decoded[0].SecondsToComplete)
 	assert.Equal(t, "sitemap1.xml", decoded[0].SitemapName)
+
 }
 
 func TestSitemapIndexCrawlStats_Empty(t *testing.T) {
@@ -106,4 +108,7 @@ func TestSitemapCrawlStats_NoFailures(t *testing.T) {
 	assert.Empty(t, decoded[0].CrawlFailures)
 	assert.Equal(t, "empty.xml", decoded[0].SitemapName)
 	assert.Equal(t, 0.5, decoded[0].SecondsToComplete)
+
+	_, err = NewSitemapIndexCrawlStatsFromJson(strings.NewReader(jsonStr))
+	require.NoError(t, err)
 }
