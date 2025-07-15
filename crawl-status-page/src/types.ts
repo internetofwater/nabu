@@ -32,6 +32,9 @@ export interface SitemapCrawlStats {
   SitesHarvested: number;
   // The number of total sites in the sitemap
   SitesInSitemap: number;
+
+
+  LastModified?: string;
 }
 
 // A sitemap index is just a list of sitemaps

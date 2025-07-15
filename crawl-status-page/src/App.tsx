@@ -31,7 +31,8 @@ const CrawlStatusDashboard = () => {
                 Bucket:  get_s3_bucket(),
                 Key: obj.Key,
               });
-              console.log("Fetched object:", obj.Key);
+
+              const lastModified = objectData.LastModified;
 
               const body = await objectData.Body?.transformToString();
               if (!body) {
@@ -39,6 +40,7 @@ const CrawlStatusDashboard = () => {
                 return
               }
               const json = (JSON.parse(body)) as SitemapCrawlStats;
+              json.LastModified = lastModified ? lastModified.toDateString() : "Unknown";
               sitemapcrawlstats.push(json);
             } catch (e) {
               console.warn(`Error loading ${obj.Key}:`, e);
@@ -63,14 +65,34 @@ const CrawlStatusDashboard = () => {
     <>
       <div className={styles.headerRow}>
         <h1 className={styles.h1}>Geoconnex Crawl Status Dashboard</h1>
-        <a href="/report.json" download className={styles.downloadButton}>
-          Download JSON
+        <a
+          href={URL.createObjectURL(
+            new Blob([JSON.stringify(data, null, 2)], {
+              type: "application/json",
+            })
+          )}
+          className={styles.downloadButton}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            // Optional: revoke the object URL after opening
+            setTimeout(() => {
+              URL.revokeObjectURL((e.currentTarget as HTMLAnchorElement).href);
+            }, 1000);
+          }}
+        >
+          View as JSON
         </a>
       </div>
 
       {data.map((sitemap) => (
         <div key={sitemap.SitemapName} className={styles.sitemap}>
-          <h2>Sitemap: {sitemap.SitemapName}</h2>
+          <div className={styles.sitemapHeaderRow}>
+            <h2>Sitemap: {sitemap.SitemapName}</h2>
+            <span style={{ color: "gray" }}>
+              Last Modified: {sitemap.LastModified}
+            </span>
+          </div>
           <span className={styles.meta}>
             Sites Harvested: {sitemap.SitesHarvested} / {sitemap.SitesInSitemap}
             <br />

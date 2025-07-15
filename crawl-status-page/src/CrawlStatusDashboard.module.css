@@ -123,3 +123,11 @@ a:hover {
 .downloadButton:hover {
     background-color: var(--primary-dark);
 }
+
+.sitemapHeaderRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 0.5rem;
+}
