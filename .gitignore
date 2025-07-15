@@ -9,8 +9,6 @@ google.yml
 
 *.csv
 
-*.png
-
 trace.out
 
 /nabu

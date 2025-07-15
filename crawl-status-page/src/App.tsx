@@ -39,6 +39,9 @@ const CrawlStatusDashboard = () => {
 
               const body = await objectData.Body?.transformToString();
               if (!body) {
+                if (!isMounted) {
+                  return
+                }
                 setError(`No body for object ${obj.Key}`);
                 return
               }
@@ -76,6 +79,15 @@ const CrawlStatusDashboard = () => {
   return (
     <>
       <div className={styles.headerRow}>
+        <a href="https://docs.geoconnex.us">
+        <img
+          src="/src/assets/geoconnex-logo.png"
+          style={{
+            scale: "0.6",
+            filter: "drop-shadow(0 0 3px white)", // white glow
+          }}
+        />
+        </a>
         <h1 className={styles.h1}>Geoconnex Crawl Status Dashboard</h1>
         <a
           href={URL.createObjectURL(
