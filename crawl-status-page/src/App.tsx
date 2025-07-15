@@ -15,6 +15,7 @@ const CrawlStatusDashboard = () => {
   const client = get_s3_client();
 
   useEffect(() => {
+    let isMounted = true;
     const fetchData = async () => {
       try {
         const response = await client.listObjects({
@@ -25,6 +26,8 @@ const CrawlStatusDashboard = () => {
         const sitemapcrawlstats: SitemapCrawlStats[] = [];
 
         for (const obj of response.Contents ?? []) {
+          // return early if component is unmounted
+          if (!isMounted) return; 
           if (obj.Key?.endsWith(".json")) {
             try {
               const objectData = await client.getObject({
@@ -39,23 +42,32 @@ const CrawlStatusDashboard = () => {
                 setError(`No body for object ${obj.Key}`);
                 return
               }
-              const json = (JSON.parse(body)) as SitemapCrawlStats;
-              json.LastModified = lastModified ? lastModified.toDateString() : "Unknown";
+              const json = JSON.parse(body) as SitemapCrawlStats;
+              json.LastModified = lastModified
+                ? lastModified.toDateString()
+                : "Unknown";
               sitemapcrawlstats.push(json);
             } catch (e) {
               console.warn(`Error loading ${obj.Key}:`, e);
             }
           }
         }
-        setData(sitemapcrawlstats);
-        setLoading(false);
+        if (isMounted) {
+          setData(sitemapcrawlstats);
+          setLoading(false);
+        }
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : String(err));
-        setLoading(false);
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : String(err));
+          setLoading(false);
+        }
       }
     };
 
     void fetchData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   if (loading) return <div>Loading crawl status...</div>;
