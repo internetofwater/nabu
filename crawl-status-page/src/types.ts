@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import vocab from "./vocab.json";
+
 // The status of the shacl validation
 type ShaclStatus = "skipped" | "invalid" | "valid";
 
@@ -33,9 +35,19 @@ export interface SitemapCrawlStats {
   // The number of total sites in the sitemap
   SitesInSitemap: number;
 
+  // The id is a unique identifier for the sitemap
+  // that is optional and only set in jsonld
+  "@id"?: string;
 
+  // The last modified date of the sitemap
   LastModified?: string;
 }
 
 // A sitemap index is just a list of sitemaps
 export type SitemapIndexCrawlStats = SitemapCrawlStats[];
+
+type VocabType = typeof vocab
+
+export interface JsonLdReport extends VocabType {
+  "@graph": SitemapIndexCrawlStats,
+};
