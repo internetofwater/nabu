@@ -135,8 +135,6 @@ const CrawlStatusDashboard = () => {
         </div>
       </div>
 
-      <ServiceStatusList  />
-
       {data.map((sitemap) => (
         <div key={sitemap.SitemapName} className={styles.sitemap}>
           <div className={styles.sitemapHeaderRow}>
