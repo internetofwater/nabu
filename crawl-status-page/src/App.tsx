@@ -7,9 +7,11 @@ import { useEffect, useState } from "react";
 import styles from "./CrawlStatusDashboard.module.css";
 import type { SitemapCrawlStats, SitemapIndexCrawlStats } from "./types";
 import { get_s3_bucket, get_s3_client } from "./env";
+import { make_jsonld } from "./lib";
 
 const CrawlStatusDashboard = () => {
   const [data, setData] = useState<SitemapIndexCrawlStats>([]);
+  const [jsonldData, setJsonldData] = useState<object | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const client = get_s3_client();
@@ -26,28 +28,25 @@ const CrawlStatusDashboard = () => {
         const sitemapcrawlstats: SitemapCrawlStats[] = [];
 
         for (const obj of response.Contents ?? []) {
-          // return early if component is unmounted
-          if (!isMounted) return; 
+          if (!isMounted) return;
           if (obj.Key?.endsWith(".json")) {
             try {
               const objectData = await client.getObject({
-                Bucket:  get_s3_bucket(),
+                Bucket: get_s3_bucket(),
                 Key: obj.Key,
               });
 
               const lastModified = objectData.LastModified;
-
               const body = await objectData.Body?.transformToString();
               if (!body) {
-                if (!isMounted) {
-                  return
-                }
+                if (!isMounted) return;
                 setError(`No body for object ${obj.Key}`);
-                return
+                return;
               }
+
               const json = JSON.parse(body) as SitemapCrawlStats;
               json.LastModified = lastModified
-                ? lastModified.toDateString()
+                ? lastModified.toISOString()
                 : "Unknown";
               sitemapcrawlstats.push(json);
             } catch (e) {
@@ -55,8 +54,11 @@ const CrawlStatusDashboard = () => {
             }
           }
         }
+
         if (isMounted) {
           setData(sitemapcrawlstats);
+          const jsonld = make_jsonld(sitemapcrawlstats);
+          if (isMounted) setJsonldData(jsonld);
           setLoading(false);
         }
       } catch (err: unknown) {
@@ -76,37 +78,61 @@ const CrawlStatusDashboard = () => {
   if (loading) return <div>Loading crawl status...</div>;
   if (error) return <div>Error loading data: {error}</div>;
 
+  const downloadBlob = (data: object) =>
+    URL.createObjectURL(
+      new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      })
+    );
+
   return (
     <>
       <div className={styles.headerRow}>
         <a href="https://docs.geoconnex.us">
-        <img
-          src="/src/assets/geoconnex-logo.png"
-          style={{
-            scale: "0.6",
-            filter: "drop-shadow(0 0 3px white)", // white glow
-          }}
-        />
+          <img
+            src="/src/assets/geoconnex-logo.png"
+            style={{
+              scale: "0.6",
+              filter: "drop-shadow(0 0 3px white)",
+            }}
+          />
         </a>
         <h1 className={styles.h1}>Geoconnex Crawl Status Dashboard</h1>
-        <a
-          href={URL.createObjectURL(
-            new Blob([JSON.stringify(data, null, 2)], {
-              type: "application/json",
-            })
+        <div className={styles.downloadButtonsRow}>
+          <a
+            href={downloadBlob(data)}
+            className={styles.downloadButton}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) =>
+              setTimeout(() => {
+                URL.revokeObjectURL(
+                  (e.currentTarget as HTMLAnchorElement).href
+                );
+              }, 1000)
+            }
+          >
+            View as JSON
+          </a>
+
+          {jsonldData && (
+            <a
+              href={downloadBlob(jsonldData)}
+              className={styles.downloadButton}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) =>
+                setTimeout(() => {
+                  URL.revokeObjectURL(
+                    (e.currentTarget as HTMLAnchorElement).href
+                  );
+                }, 1000)
+              }
+            >
+              View as JSON-LD
+            </a>
           )}
-          className={styles.downloadButton}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => {
-            // Optional: revoke the object URL after opening
-            setTimeout(() => {
-              URL.revokeObjectURL((e.currentTarget as HTMLAnchorElement).href);
-            }, 1000);
-          }}
-        >
-          View as JSON
-        </a>
+        </div>
       </div>
 
       {data.map((sitemap) => (
@@ -114,7 +140,7 @@ const CrawlStatusDashboard = () => {
           <div className={styles.sitemapHeaderRow}>
             <h2>Sitemap: {sitemap.SitemapName}</h2>
             <span style={{ color: "gray" }}>
-              Last Modified: {sitemap.LastModified}
+              Last Modified: {sitemap.LastModified?.split("T")[0]}
             </span>
           </div>
           <span className={styles.meta}>

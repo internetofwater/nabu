@@ -1,0 +1,25 @@
+{
+    "@context": {
+        "schema": "http://schema.org/",
+        "sh": "http://www.w3.org/ns/shacl#",
+        "http": "http://www.w3.org/2011/http#",
+        "SuccessfulUrls": {
+            "@container": "@set",
+            "@id": "schema:url"
+        } ,
+        "SecondsToComplete": "schema:Duration",
+        "SitemapName": "schema:name",
+        "SitesHarvested": "schema:count",
+        "SitesInSitemap": "schema:count",
+        "CrawlFailures": {
+            "@container": "@set",
+            "@id": "schema:error" 
+        },
+        "Url": "schema:url",
+        "Status": "http:StatusCode",
+        "Message": "schema:error",
+        "ShaclStatus": "sh:Severity",
+        "ShaclErrorMessage": "sh:message",
+        "LastModified": "schema:dateModified"
+    }
+}
