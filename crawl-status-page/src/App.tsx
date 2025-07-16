@@ -90,7 +90,7 @@ const CrawlStatusDashboard = () => {
       <div className={styles.headerRow}>
         <a href="https://docs.geoconnex.us">
           <img
-            src="/src/assets/geoconnex-logo.png"
+            src={`${import.meta.env.BASE_URL}geoconnex-logo.png`}           
             style={{
               scale: "0.6",
               filter: "drop-shadow(0 0 3px white)",
