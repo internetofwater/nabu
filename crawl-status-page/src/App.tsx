@@ -140,7 +140,7 @@ const CrawlStatusDashboard = () => {
           <div className={styles.sitemapHeaderRow}>
             <h2>Sitemap: {sitemap.SitemapName}</h2>
             <span style={{ color: "gray" }}>
-              Last Modified: {sitemap.LastModified}
+              Last Modified: {sitemap.LastModified?.split("T")[0]}
             </span>
           </div>
           <span className={styles.meta}>
