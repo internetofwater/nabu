@@ -6,8 +6,6 @@ package synchronizer
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +16,7 @@ import (
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 	"github.com/minio/minio-go/v7"
+	"golang.org/x/sync/errgroup"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -168,11 +167,14 @@ func (synchronizer *SynchronizerClient) UploadNqFileToTriplestore(nqPathInS3 s3.
 // this is accomplished by streaming the conversion of nq and uploading
 // to minio concurrently. We used a buffered channel to limit the
 // concurrency of the conversion process
-func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix) error {
+func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix, compressGraphWithGzip bool) error {
 
 	releaseNqName, err := makeReleaseNqName(prefix)
 	if err != nil {
 		return err
+	}
+	if compressGraphWithGzip {
+		releaseNqName += ".gz"
 	}
 
 	const maximumNqFilesToProcessAtOnce = 30
@@ -188,34 +190,14 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix) er
 
 	pipeReader, pipeWriter := io.Pipe()
 
-	// Concurrently upload data to S3 while receiving from the channel
-	// if there is an error in the processing goroutine
-	// we will close the pipe with an error and exit
-	go func() {
-		// once the nqChan is closed we can close the pipe
-		// since there is nothing more to write
-		defer func() {
-			if err = pipeWriter.Close(); err != nil {
-				log.Error(err)
-			}
-		}()
-
-		// write the nq data to the pipe
-		// and calculate the sha256 along the way
-		hashDestination := sha256.New()
-		for nq := range nqChan {
-			asBytes := []byte(nq)
-			hashDestination.Write(asBytes)
-			_, err := pipeWriter.Write(asBytes)
-			if err != nil {
-				pipeWriter.CloseWithError(err)
-				return
-			}
+	var writerProcess errgroup.Group
+	writerProcess.SetLimit(1)
+	writerProcess.Go(func() error {
+		hash, err := writeToPipeAndGetHash(compressGraphWithGzip, nqChan, pipeWriter)
+		if err != nil {
+			pipeWriter.CloseWithError(err)
+			return err
 		}
-
-		// put the hash into s3
-		hash := hex.EncodeToString(hashDestination.Sum(nil))
-		log.Debugf("Got hash %s for release %s", hash, releaseNqName)
 
 		if _, err := synchronizer.S3Client.Client.PutObject(
 			context.Background(),
@@ -226,10 +208,10 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix) er
 			minio.PutObjectOptions{},
 		); err != nil {
 			pipeWriter.CloseWithError(err)
-			return
+			return err
 		}
-	}()
-
+		return nil
+	})
 	const streamObjectOfUndefinedSize = -1
 
 	// stream the nq data to s3
@@ -250,6 +232,10 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix) er
 
 	// Check for errors from the processing goroutine
 	if err := <-errChan; err != nil {
+		return err
+	}
+
+	if err := writerProcess.Wait(); err != nil {
 		return err
 	}
 

@@ -70,7 +70,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		log.Error(errormsg)
 		// status makes jaeger mark as failed with red, whereas SetEvent just marks it with a message
 		span.SetStatus(codes.Error, errormsg)
-		config.nonFatalErrorChan <- pkg.UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
+		config.nonFatalErrorChan <- pkg.UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg, ShaclStatus: pkg.ShaclSkipped}
 		return nil
 	}
 

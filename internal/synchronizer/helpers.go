@@ -4,10 +4,15 @@
 package synchronizer
 
 import (
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"path"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 
@@ -77,4 +82,62 @@ func createBatches(graphNames []s3.S3Prefix, batchSize int) [][]string {
 		batches = append(batches, graphNames[i:end])
 	}
 	return batches
+}
+
+// gzip is non deterministic; this is since it will add a
+// header with a timestamp; we want to explicitly control this
+// and make sure it is deterministic so our hashes are the same
+func deterministicGzipWriter(w io.Writer) (*gzip.Writer, error) {
+	gzipWriter, err := gzip.NewWriterLevel(w, gzip.BestCompression)
+	if err != nil {
+		return nil, err
+	}
+	gzipWriter.Header.ModTime = time.Unix(0, 0) // deterministic timestamp
+	gzipWriter.Header.Comment = ""
+	gzipWriter.Header.Extra = nil
+	gzipWriter.Header.Name = ""
+	gzipWriter.Header.OS = 255 // optional: avoid platform-specific bytes
+	return gzipWriter, nil
+}
+
+// Consume the nqChan and write to the pipeWriter; return the hash of all the data that
+// was written to that pipe
+func writeToPipeAndGetHash(compress bool, nqChan <-chan string, pipeWriter *io.PipeWriter) (string, error) {
+	hashDestination := sha256.New()
+	var writer io.Writer
+	var zipper *gzip.Writer
+
+	if compress {
+		// Create multiwriter to write compressed bytes to pipeWriter and also hash them
+		mw := io.MultiWriter(pipeWriter, hashDestination)
+
+		gzipWriter, err := deterministicGzipWriter(mw)
+		if err != nil {
+			return "", err
+		}
+		zipper = gzipWriter
+		writer = gzipWriter
+	} else {
+		writer = io.MultiWriter(pipeWriter, hashDestination)
+	}
+
+	for nq := range nqChan {
+		asBytes := []byte(nq)
+		_, err := writer.Write(asBytes)
+		if err != nil {
+			pipeWriter.CloseWithError(err)
+			return "", err
+		}
+	}
+	if zipper != nil {
+		if err := zipper.Close(); err != nil {
+			return "", err
+		}
+	}
+	if err := pipeWriter.Close(); err != nil {
+		return "", err
+	}
+
+	hash := hex.EncodeToString(hashDestination.Sum(nil))
+	return hash, nil
 }
