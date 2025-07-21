@@ -5,8 +5,6 @@ package synchronizer
 
 import (
 	"compress/gzip"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"path"
@@ -96,29 +94,27 @@ func deterministicGzipWriter(w io.Writer) (*gzip.Writer, error) {
 	gzipWriter.Header.Comment = ""
 	gzipWriter.Header.Extra = nil
 	gzipWriter.Header.Name = ""
-	gzipWriter.Header.OS = 255 // optional: avoid platform-specific bytes
+	gzipWriter.Header.OS = 255 // avoid platform-specific bytes
 	return gzipWriter, nil
 }
 
 // Consume the nqChan and write to the pipeWriter; return the hash of all the data that
 // was written to that pipe
 func writeToPipeAndGetHash(compress bool, nqChan <-chan string, pipeWriter *io.PipeWriter) (string, error) {
-	hashDestination := sha256.New()
-	var writer io.Writer
+	hashDestination := &SumWriter{}
 	var zipper *gzip.Writer
 
-	if compress {
-		// Create multiwriter to write compressed bytes to pipeWriter and also hash them
-		mw := io.MultiWriter(pipeWriter, hashDestination)
+	writer := io.MultiWriter(pipeWriter, hashDestination)
 
-		gzipWriter, err := deterministicGzipWriter(mw)
+	if compress {
+		// Wrap the multiwriter with a gzip writer so that
+		// both the hash and the data itself represent the same compressed data
+		gzipWriter, err := deterministicGzipWriter(writer)
 		if err != nil {
 			return "", err
 		}
 		zipper = gzipWriter
 		writer = gzipWriter
-	} else {
-		writer = io.MultiWriter(pipeWriter, hashDestination)
 	}
 
 	for nq := range nqChan {
@@ -129,6 +125,9 @@ func writeToPipeAndGetHash(compress bool, nqChan <-chan string, pipeWriter *io.P
 			return "", err
 		}
 	}
+	// Make sure the gzip writer is closed before
+	// getting the hash; this is since the gzip writer
+	// closes by writing a final footer
 	if zipper != nil {
 		if err := zipper.Close(); err != nil {
 			return "", err
@@ -138,6 +137,25 @@ func writeToPipeAndGetHash(compress bool, nqChan <-chan string, pipeWriter *io.P
 		return "", err
 	}
 
-	hash := hex.EncodeToString(hashDestination.Sum(nil))
-	return hash, nil
+	return hashDestination.ToString(), nil
+}
+
+// A writer that keeps track of the sum of all bytes
+// It is essentially a hash that doesn't depend on order;
+// it is a good fit for n-quads where we care about the data
+// but not the order of the quads inside
+type SumWriter struct {
+	Sum uint32
+}
+
+// Write implements the io.Writer interface
+func (sw *SumWriter) Write(p []byte) (n int, err error) {
+	for _, b := range p {
+		sw.Sum += uint32(b)
+	}
+	return len(p), nil
+}
+
+func (sw *SumWriter) ToString() string {
+	return fmt.Sprintf("%d", sw.Sum)
 }

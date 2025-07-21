@@ -6,10 +6,10 @@ package common
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"strings"
 
-	"github.com/rs/xid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -52,40 +52,50 @@ func MakeURN(s3Prefix string) (URN, error) {
 // function can be used on a whole data graph, not just a single triple
 // reference: https://www.w3.org/TR/rdf11-concepts/#dfn-skolem-iri
 func Skolemization(nq string) (string, error) {
+
 	scanner := bufio.NewScanner(strings.NewReader(nq))
 
-	// need for long lines like in Internet of Water
-	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 1024*1024)
-
-	// since a data graph may have several references to any given blank node, we need to keep a
-	// map of our update.  It is also why the ID needs a non content approach since the blank node will
-	// be in a different triple set from time to time and we can not ensure what order we might encounter them at.
-	m := make(map[string]string) // make a map here to hold our updated strings
+	blankNodesToReplacement := make(map[string]string) // make a map here to hold our updated strings
 
 	for scanner.Scan() {
 		split := strings.Split(scanner.Text(), " ")
-		sold := split[0]
-		oold := split[2]
+		const subjectPredicateObject = 3
+		if len(split) < subjectPredicateObject {
+			return "", fmt.Errorf("unexpected nq triple: %s", scanner.Text())
+		}
 
-		if strings.HasPrefix(sold, "_:") { // we are a blank node
-			if _, ok := m[sold]; ok { // fmt.Printf("We had %s, already\n", sold)
+		// use the hash of each subject, predicate, and object as
+		// the iri unique identifier
+		hash := sha256.New()
+		// hash.Write([]byte(text))
+		// hashString := fmt.Sprintf("%x", hash.Sum(nil))
+
+		subject := split[0]
+		predicate := split[1]
+		object := split[2]
+
+		blankSubjectNode := strings.HasPrefix(subject, "_:")
+
+		if blankSubjectNode {
+			if _, ok := blankNodesToReplacement[subject]; ok {
 			} else {
-				guid := xid.New()
-				snew := fmt.Sprintf("<https://iow.io/xid/genid/%s>", guid.String())
-				m[sold] = snew
+				hash.Write([]byte(predicate))
+				hash.Write([]byte(object))
+				hashString := fmt.Sprintf("%x", hash.Sum(nil))
+				newSubject := fmt.Sprintf("<https://iow.io/nqhash/%s>", hashString)
+				blankNodesToReplacement[subject] = newSubject
 			}
 		}
 
-		// scan the object nodes too.. though we should find nothing here.. the above wouldn't find
-		if strings.HasPrefix(oold, "_:") { // we are a blank node
-			// check map to see if we have this in our value already
-			if _, ok := m[oold]; ok {
-				// fmt.Printf("We had %s, already\n", oold)
+		blankObjectNode := strings.HasPrefix(object, "_:")
+		if blankObjectNode {
+			if _, ok := blankNodesToReplacement[object]; ok {
 			} else {
-				guid := xid.New()
-				onew := fmt.Sprintf("<https://iow.io/xid/genid/%s>", guid.String())
-				m[oold] = onew
+				hash.Write([]byte(subject))
+				hash.Write([]byte(predicate))
+				hashString := fmt.Sprintf("%x", hash.Sum(nil))
+				newObject := fmt.Sprintf("<https://iow.io/nqhash/%s>", hashString)
+				blankNodesToReplacement[object] = newObject
 			}
 		}
 	}
@@ -98,11 +108,11 @@ func Skolemization(nq string) (string, error) {
 
 	filebytes := []byte(nq)
 
-	for k, v := range m {
-		//fmt.Printf("Replace %s with %v \n", k, v)
-		// The +" " is need since we have to avoid
-		// _:b1 replacing _:b13 with ...3
-		filebytes = bytes.ReplaceAll(filebytes, []byte(k+" "), []byte(v+" "))
+	for k, v := range blankNodesToReplacement {
+		// have to add padding so we don't replace parts of other nodes
+		oldNodeWithPadding := k + " "
+		newNodeWithPadding := v + " "
+		filebytes = bytes.ReplaceAll(filebytes, []byte(oldNodeWithPadding), []byte(newNodeWithPadding))
 	}
 
 	return string(filebytes), err

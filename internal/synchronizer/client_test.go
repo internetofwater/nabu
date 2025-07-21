@@ -7,8 +7,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -234,6 +233,14 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 
 }
 
+func byteSum(b []byte) uint32 {
+	var sum uint32
+	for _, v := range b {
+		sum += uint32(v)
+	}
+	return sum
+}
+
 func (suite *SynchronizerClientSuite) TestNqRelease() {
 	t := suite.T()
 	const source = "cdss_co_gages__0"
@@ -252,11 +259,11 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 
 		t.Run("hash is correct", func(t *testing.T) {
 			bytes, err := suite.client.S3Client.GetObjectAsBytes(orgsPath)
-			manuallyCalculatedHash := sha256.Sum256(bytes)
+			manuallyCalculatedHash := byteSum(bytes)
 			require.NoError(t, err)
-			hashInMinio, err := suite.client.S3Client.GetObjectAsBytes(orgsPath + ".sha256")
+			hashInMinio, err := suite.client.S3Client.GetObjectAsBytes(orgsPath + ".bytesum")
 			require.NoError(t, err)
-			require.Equal(t, string(hashInMinio), hex.EncodeToString(manuallyCalculatedHash[:]))
+			require.Equal(t, string(hashInMinio), fmt.Sprintf("%d", manuallyCalculatedHash))
 		})
 	})
 
@@ -272,8 +279,8 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 		require.NoError(t, err)
 		require.Contains(t, string(summonedContent), "<https://schema.org/subjectOf>")
 
-		hashOfUncompressedData, err := suite.client.S3Client.GetObjectAsBytes(summonedPath + ".sha256")
-		require.NoError(t, err)
+		hashOfUncompressedData, err := suite.client.S3Client.GetObjectAsBytes(summonedPath + ".bytesum")
+		require.NoError(t, err, "associated hash should exist")
 
 		t.Run("release graph can be loaded into triplestore", func(t *testing.T) {
 			err = suite.client.UploadNqFileToTriplestore(summonedPath)
@@ -290,21 +297,25 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 
 			unzipper, err := gzip.NewReader(bytes.NewReader(zippedContent))
 			require.NoError(t, err)
-			defer unzipper.Close()
 			unzippedContent, err := io.ReadAll(unzipper)
+			require.NoError(t, err)
+			err = unzipper.Close()
 			require.NoError(t, err)
 			require.Contains(t, string(unzippedContent), "<https://schema.org/subjectOf>", "when unzipped, the graph should have the same content")
 
+			quads := strings.Split(string(unzippedContent), "\n")
+			for _, quad := range quads {
+				require.Contains(t, string(summonedContent), quad, fmt.Sprintf("quad %s should be in the original graph", quad))
+			}
+
 			t.Run("hash is correct", func(t *testing.T) {
-				hashOfCompressedData, err := suite.client.S3Client.GetObjectAsBytes(compressedReleaseGraph + ".sha256")
+				hashOfCompressedData, err := suite.client.S3Client.GetObjectAsBytes(compressedReleaseGraph + ".bytesum")
 				require.NoError(t, err)
 				require.NotEqual(t, string(hashOfUncompressedData), string(hashOfCompressedData), "the hash of the compressed graph should be different from the uncompressed one")
 
-				manuallyCalculatedZipHash := sha256.Sum256(zippedContent)
-				zipHashAsString := hex.EncodeToString(manuallyCalculatedZipHash[:])
-				require.Equal(t, string(hashOfCompressedData), zipHashAsString)
-				manuallyCalculatedUnzipHash := sha256.Sum256(unzippedContent)
-				require.Equal(t, string(hashOfUncompressedData), hex.EncodeToString(manuallyCalculatedUnzipHash[:]))
+				unzippedHash := fmt.Sprintf("%d", byteSum(unzippedContent))
+				require.Equal(t, string(hashOfUncompressedData), unzippedHash)
+
 			})
 		})
 

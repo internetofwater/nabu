@@ -7,8 +7,10 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"io"
+	"math"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -125,6 +127,8 @@ func compressWithDeterministicWriter(data []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// Make sure that the gzip writer is deterministic and that the hash is the same
+// for the same input
 func TestDeterministicGzipWriter(t *testing.T) {
 	input := []byte("The quick brown fox jumps over the lazy dog.")
 
@@ -151,7 +155,8 @@ func runHashTest(t *testing.T, compress bool, inputData []string) string {
 
 	// Drain the pipe in a goroutine to prevent blocking
 	go func() {
-		_, _ = io.Copy(io.Discard, pipeReader)
+		_, err := io.Copy(io.Discard, pipeReader)
+		require.NoError(t, err)
 	}()
 
 	go func() {
@@ -184,4 +189,41 @@ func TestWriteToPipeAndGetHash_Deterministic(t *testing.T) {
 
 	// Sanity check: different compression settings should produce different hashes
 	require.NotEqual(t, hash1, hash3, "Compressed and uncompressed hashes should differ")
+}
+
+func TestSumWriter_Write(t *testing.T) {
+	sw := SumWriter{}
+
+	data := []byte{1, 2, 3, 4, 5} // 1+2+3+4+5 = 15
+	n, err := sw.Write(data)
+
+	assert.NoError(t, err)
+	assert.Equal(t, len(data), n)
+	assert.Equal(t, uint32(15), sw.Sum)
+	assert.Equal(t, "15", sw.ToString())
+}
+
+func TestSumWriter_EmptyWrite(t *testing.T) {
+	sw := SumWriter{}
+
+	data := []byte{} // Empty slice
+	n, err := sw.Write(data)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 0, n)
+	assert.Equal(t, uint32(0), sw.Sum)
+	assert.Equal(t, "0", sw.ToString())
+}
+
+func TestSumWriterWrapAround(t *testing.T) {
+	sw := &SumWriter{}
+	sw.Sum = math.MaxUint32
+
+	data := []byte{1} // This pushes the sum past the max value, causing wraparound
+	n, err := sw.Write(data)
+
+	assert.NoError(t, err)
+	assert.Equal(t, len(data), n)
+	assert.Equal(t, uint32(0), sw.Sum) // 4294967295 + 1 = 0 (wraps)
+	assert.Equal(t, "0", sw.ToString())
 }
