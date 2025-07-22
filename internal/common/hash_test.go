@@ -42,7 +42,7 @@ func TestSumWriter_Write(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, len(data), n)
-	require.Equal(t, uint32(15), sw.Sum)
+	require.Equal(t, uint64(15), sw.Sum)
 	require.Equal(t, "15", sw.ToString())
 }
 
@@ -54,19 +54,19 @@ func TestSumWriter_EmptyWrite(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, 0, n)
-	require.Equal(t, uint32(0), sw.Sum)
+	require.Equal(t, uint64(0), sw.Sum)
 	require.Equal(t, "0", sw.ToString())
 }
 
 func TestSumWriterWrapAround(t *testing.T) {
 	sw := &SumWriter{}
-	sw.Sum = math.MaxUint32
+	sw.Sum = math.MaxUint64
 
 	data := []byte{1} // This pushes the sum past the max value, causing wraparound
 	n, err := sw.Write(data)
 
 	require.NoError(t, err)
 	require.Equal(t, len(data), n)
-	require.Equal(t, uint32(0), sw.Sum) // 4294967295 + 1 = 0 (wraps)
+	require.Equal(t, uint64(0), sw.Sum) // 4294967295 + 1 = 0 (wraps)
 	require.Equal(t, "0", sw.ToString())
 }

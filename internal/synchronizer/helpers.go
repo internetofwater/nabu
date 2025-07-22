@@ -91,11 +91,11 @@ func deterministicGzipWriter(w io.Writer) (*gzip.Writer, error) {
 	if err != nil {
 		return nil, err
 	}
-	gzipWriter.Header.ModTime = time.Unix(0, 0) // deterministic timestamp
-	gzipWriter.Header.Comment = ""
-	gzipWriter.Header.Extra = nil
-	gzipWriter.Header.Name = ""
-	gzipWriter.Header.OS = 255 // avoid platform-specific bytes
+	gzipWriter.ModTime = time.Unix(0, 0) // deterministic timestamp
+	gzipWriter.Comment = ""
+	gzipWriter.Extra = nil
+	gzipWriter.Name = ""
+	gzipWriter.OS = 255 // avoid platform-specific bytes
 	return gzipWriter, nil
 }
 

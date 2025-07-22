@@ -266,7 +266,7 @@ func (suite *S3ClientSuite) TestHashMatch() {
 	suite.Require().NoError(err)
 	sum := common.ByteSum(dummyData)
 
-	_, err = byteSumFile.WriteString(fmt.Sprintf("%d", sum))
+	_, err = fmt.Fprintf(byteSumFile, "%d", sum)
 	suite.Require().NoError(err)
 
 	// upload dummy file
