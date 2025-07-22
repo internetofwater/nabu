@@ -279,6 +279,49 @@ func (m MinioClientWrapper) MatchesWithLocalBytesum(remotePrefix S3Prefix, local
 
 }
 
+// pull all bytesums from the bucket to disk
+func (m MinioClientWrapper) pullAllByteSums(ctx context.Context, prefix S3Prefix, outputDir string) error {
+	byteSumChan := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
+
+	for byteSum := range byteSumChan {
+		if byteSum.Err != nil {
+			return byteSum.Err
+		}
+
+		if !strings.HasSuffix(byteSum.Key, ".bytesum") {
+			continue
+		}
+
+		fileName := path.Base(byteSum.Key)
+
+		file, err := os.OpenFile(filepath.Join(outputDir, fileName), os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := file.Close(); err != nil {
+				log.Error(err)
+			}
+		}()
+
+		ob, err := m.Client.GetObject(ctx, m.DefaultBucket, byteSum.Key, minio.GetObjectOptions{})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := ob.Close(); err != nil {
+				log.Error(err)
+			}
+		}()
+
+		_, err = io.Copy(file, ob)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (m MinioClientWrapper) Exists(path S3Prefix) (bool, error) {
 	_, err := m.Client.StatObject(context.Background(), m.DefaultBucket, path, minio.StatObjectOptions{})
 	if err == nil {
@@ -343,16 +386,6 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 			// want to have to make nested dirs to store the files
 			fileName := path.Base(obj.Key)
 
-			file, err := os.OpenFile(filepath.Join(outputDir, fileName), os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := file.Close(); err != nil {
-					log.Error(err)
-				}
-			}()
-
 			isPresent, err := m.MatchesWithLocalBytesum(prefix, outputDir, fileName)
 			if err != nil {
 				log.Errorf("Error checking if file %s exists locally: %v", fileName, err)
@@ -373,10 +406,26 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 				}
 			}()
 
+			fullLocalPath := path.Join(outputDir, fileName)
+
+			file, err := os.OpenFile(fullLocalPath, os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := file.Close(); err != nil {
+					log.Error(err)
+				}
+			}()
+
 			_, err = io.Copy(file, ob)
 			if err != nil {
 				return err
 			}
+
+			// print the pulled files to stdout; this way external programs like oras can consume the output
+			// and know which files were downloaded
+			fmt.Println(fullLocalPath)
 
 			cumulativeDownloadedFiles.Add(1)
 			mu.Lock()
@@ -389,43 +438,10 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 		return err
 	}
 
-	byteSumChan := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
-
-	for byteSum := range byteSumChan {
-		if byteSum.Err != nil {
-			return byteSum.Err
-		}
-
-		if !strings.HasSuffix(byteSum.Key, ".bytesum") {
-			continue
-		}
-
-		fileName := path.Base(byteSum.Key)
-
-		file, err := os.OpenFile(filepath.Join(outputDir, fileName), os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := file.Close(); err != nil {
-				log.Error(err)
-			}
-		}()
-
-		ob, err := m.Client.GetObject(ctx, m.DefaultBucket, byteSum.Key, minio.GetObjectOptions{})
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := ob.Close(); err != nil {
-				log.Error(err)
-			}
-		}()
-
-		_, err = io.Copy(file, ob)
-		if err != nil {
-			return err
-		}
+	// pull all bytesums after all files have been downloaded; otherwise if we were
+	// to do it in parallel with the file download it would have a race condition
+	if err := m.pullAllByteSums(ctx, prefix, outputDir); err != nil {
+		return err
 	}
 
 	log.Infof("Downloaded %d files to %s with total size: %0.2fMB", cumulativeDownloadedFiles.Load(), outputDir, cumulativeDownloadedMegabytes)
