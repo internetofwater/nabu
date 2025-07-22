@@ -341,7 +341,7 @@ func (suite *S3ClientSuite) TestCRUD() {
 func (suite *S3ClientSuite) TestPull() {
 
 	var data []string
-	const prefix = "concat_test"
+	const prefix = "pull_test"
 
 	// insert 100 data points into minio
 	for i := range 100 {
@@ -352,7 +352,7 @@ func (suite *S3ClientSuite) TestPull() {
 	}
 
 	suite.T().Run("concat to a single file", func(t *testing.T) {
-		tmpFile, err := os.CreateTemp("", "concat")
+		tmpFile, err := os.CreateTemp("", "pull")
 		suite.Require().NoError(err)
 		defer func() {
 			err = os.Remove(tmpFile.Name())
@@ -371,7 +371,7 @@ func (suite *S3ClientSuite) TestPull() {
 		}
 	})
 
-	suite.T().Run("pull to a dir", func(t *testing.T) {
+	suite.T().Run("pull separate files to a dir", func(t *testing.T) {
 		tmpDir, err := os.MkdirTemp("", "pull-dir-*")
 		tmpDir = tmpDir + "/"
 		suite.Require().NoError(err)
