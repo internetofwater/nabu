@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/common/projectpath"
@@ -341,13 +342,13 @@ func (suite *S3ClientSuite) TestCRUD() {
 func (suite *S3ClientSuite) TestPull() {
 
 	var data []string
-	const prefix = "pull_test"
+	const prefix = "pull_test/"
 
 	// insert 100 data points into minio
 	for i := range 100 {
 		dataPoint := fmt.Sprintf("test data %d", i)
 		data = append(data, dataPoint)
-		err := suite.minioContainer.ClientWrapper.Store(fmt.Sprintf("%s/%d", prefix, i), bytes.NewReader([]byte(dataPoint)))
+		err := suite.minioContainer.ClientWrapper.Store(fmt.Sprintf("%s%d", prefix, i), bytes.NewReader([]byte(dataPoint)))
 		suite.Require().NoError(err)
 	}
 
@@ -386,8 +387,75 @@ func (suite *S3ClientSuite) TestPull() {
 			suite.Require().Contains(string(fileData), file.Name())
 		}
 	})
-
 	err := suite.minioContainer.ClientWrapper.Remove(prefix)
+	suite.Require().NoError(err)
+}
+
+func (suite *S3ClientSuite) TestPullWithBytesums() {
+
+	// populate the minio bucket with 10 data points and their byte sums
+	const prefix = "pull_bytesum_test/"
+	for i := range 10 {
+		dataPoint := fmt.Sprintf("test bytesum data %d", i)
+		err := suite.minioContainer.ClientWrapper.Store(fmt.Sprintf("%s%d", prefix, i), bytes.NewReader([]byte(dataPoint)))
+		suite.Require().NoError(err)
+
+		byteSum := common.ByteSum([]byte(dataPoint))
+		err = suite.minioContainer.ClientWrapper.Store(fmt.Sprintf("%s%d.bytesum", prefix, i), bytes.NewReader([]byte(fmt.Sprintf("%d", byteSum))))
+		suite.Require().NoError(err)
+	}
+
+	tmpDir, err := os.MkdirTemp("", "pull-bytesum-dir-*")
+	tmpDir = tmpDir + "/"
+	suite.Require().NoError(err)
+	err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir)
+	suite.Require().NoError(err)
+
+	files, err := os.ReadDir(tmpDir)
+	suite.Require().NoError(err)
+
+	suite.T().Run("pull bytesum file", func(t *testing.T) {
+		pulledAByteSum := false
+		for _, file := range files {
+			if strings.HasSuffix(file.Name(), ".bytesum") {
+				pulledAByteSum = true
+				break
+			}
+		}
+		suite.Require().True(pulledAByteSum)
+	})
+
+	suite.T().Run("modification time doesn't change when pulling the same data", func(t *testing.T) {
+		fileNameToStat := make(map[string]time.Time)
+		for _, file := range files {
+			// we always pull bytesums since they are used as a cache
+			// and are very small
+			if strings.HasSuffix(file.Name(), ".bytesum") {
+				continue
+			}
+			fileStat, err := file.Info()
+			suite.Require().NoError(err)
+			fileNameToStat[file.Name()] = fileStat.ModTime()
+		}
+
+		time.Sleep(time.Second)
+
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir)
+		suite.Require().NoError(err)
+
+		for _, file := range files {
+			if strings.HasSuffix(file.Name(), ".bytesum") {
+				continue
+			}
+			fileStat, err := file.Info()
+			suite.Require().NoError(err)
+			oldTime := fileNameToStat[file.Name()]
+			newTime := fileStat.ModTime()
+			suite.Require().Equal(oldTime, newTime, "file %s modification time changed", file.Name())
+		}
+	})
+
+	err = suite.minioContainer.ClientWrapper.Remove(prefix)
 	suite.Require().NoError(err)
 }
 

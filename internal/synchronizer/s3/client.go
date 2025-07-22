@@ -251,6 +251,11 @@ func (m MinioClientWrapper) Get(path S3Prefix) (io.ReadCloser, error) {
 
 // Return true if the file with the specified name in the bucket has the same bytesum as the local file of the same name
 func (m MinioClientWrapper) MatchesWithLocalBytesum(remotePrefix S3Prefix, localDir string, name string) (bool, error) {
+
+	if !strings.HasSuffix(remotePrefix, "/") {
+		return false, fmt.Errorf("prefix %s is arbitrary and must end with /", remotePrefix)
+	}
+
 	prefixForHash := remotePrefix + name + ".bytesum"
 	log.Debugf("Checking remote file hash at %s", prefixForHash)
 	remoteHashFile, err := m.Client.GetObject(context.Background(), m.DefaultBucket, prefixForHash, minio.StatObjectOptions{})
@@ -360,8 +365,7 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 
 	objChan := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
 	var eg errgroup.Group
-	ioBoundGoroutineCount := runtime.NumCPU() * 2
-	eg.SetLimit(ioBoundGoroutineCount)
+	eg.SetLimit(1)
 
 	cumulativeDownloadedFiles := atomic.Int32{}
 	var mu sync.Mutex
@@ -379,7 +383,7 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 		}
 		eg.Go(func() error {
 			megabytes := float64(obj.Size) / (1024 * 1024)
-			log.Debugf("Downloading %s of size %0.2fMB", obj.Key, megabytes)
+			log.Debugf("Downloading %s of size %0.5fMB", obj.Key, megabytes)
 
 			// get the last item in the s3 object prefix
 			// this is since the s3 prefix may be nested and we don't
@@ -444,7 +448,7 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 		return err
 	}
 
-	log.Infof("Downloaded %d files to %s with total size: %0.2fMB", cumulativeDownloadedFiles.Load(), outputDir, cumulativeDownloadedMegabytes)
+	log.Infof("Downloaded %d files to %s with total size: %0.5fMB", cumulativeDownloadedFiles.Load(), outputDir, cumulativeDownloadedMegabytes)
 
 	return nil
 }
