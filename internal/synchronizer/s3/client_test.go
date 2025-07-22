@@ -6,8 +6,6 @@ package s3
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -253,28 +251,28 @@ func (suite *S3ClientSuite) TestHashMatch() {
 	dir := path.Dir(tmpFile.Name())
 	base := path.Base(tmpFile.Name())
 	const hash_test_prefix = "hash_test_prefix/"
-	exists, err := suite.minioContainer.ClientWrapper.MatchesWithLocalBytesum(hash_test_prefix, dir, base)
+	matchesWithLocal, err := suite.minioContainer.ClientWrapper.MatchesWithLocalBytesum(hash_test_prefix, dir, base)
 	suite.Require().NoError(err)
-	suite.Require().False(exists)
+	suite.Require().False(matchesWithLocal)
 
-	hash := sha256.New()
-	_, err = io.Copy(hash, tmpFile)
-	suite.Require().NoError(err)
-
-	file, err := os.Create(tmpFile.Name() + ".bytesum")
+	byteSumFile, err := os.Create(tmpFile.Name() + ".bytesum")
 	suite.Require().NoError(err)
 	defer func() {
-		_ = os.Remove(file.Name())
+		_ = os.Remove(byteSumFile.Name())
 	}()
-	// populate the file hash locally
-	_, err = io.Copy(file, bytes.NewReader(hash.Sum(nil)))
+
+	dummyData := []byte("test data")
+	suite.Require().NoError(err)
+	sum := common.ByteSum(dummyData)
+
+	_, err = byteSumFile.WriteString(fmt.Sprintf("%d", sum))
 	suite.Require().NoError(err)
 
 	// upload dummy file
 	_, err = suite.minioContainer.ClientWrapper.Client.PutObject(context.Background(),
 		suite.minioContainer.ClientWrapper.DefaultBucket,
 		hash_test_prefix+base,
-		bytes.NewReader([]byte("dummy data")),
+		bytes.NewReader(dummyData),
 		-1,
 		minio.PutObjectOptions{},
 	)
@@ -284,15 +282,15 @@ func (suite *S3ClientSuite) TestHashMatch() {
 	_, err = suite.minioContainer.ClientWrapper.Client.PutObject(context.Background(),
 		suite.minioContainer.ClientWrapper.DefaultBucket,
 		hash_test_prefix+base+".bytesum",
-		bytes.NewReader(hash.Sum(nil)),
+		strings.NewReader(fmt.Sprintf("%d", sum)),
 		-1,
 		minio.PutObjectOptions{},
 	)
 
 	suite.Require().NoError(err)
-	exists, err = suite.minioContainer.ClientWrapper.MatchesWithLocalBytesum(hash_test_prefix, dir, base)
+	matchesWithLocal, err = suite.minioContainer.ClientWrapper.MatchesWithLocalBytesum(hash_test_prefix, dir, base)
 	suite.Require().NoError(err)
-	suite.Require().True(exists)
+	suite.Require().True(matchesWithLocal)
 }
 
 func (suite *S3ClientSuite) TestGetObjectAsNamedGraph() {
@@ -360,7 +358,7 @@ func (suite *S3ClientSuite) TestPull() {
 			err = os.Remove(tmpFile.Name())
 			suite.Require().NoError(err)
 		}()
-		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpFile.Name(), false)
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpFile.Name())
 		suite.Require().NoError(err)
 
 		concatData, err := os.ReadFile(tmpFile.Name())
@@ -377,7 +375,7 @@ func (suite *S3ClientSuite) TestPull() {
 		tmpDir, err := os.MkdirTemp("", "pull-dir-*")
 		tmpDir = tmpDir + "/"
 		suite.Require().NoError(err)
-		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, false)
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir)
 		suite.Require().NoError(err)
 
 		files, err := os.ReadDir(tmpDir)
@@ -386,27 +384,6 @@ func (suite *S3ClientSuite) TestPull() {
 			fileData, err := os.ReadFile(filepath.Join(tmpDir, file.Name()))
 			suite.Require().NoError(err)
 			suite.Require().Contains(string(fileData), file.Name())
-		}
-	})
-
-	suite.T().Run("pull to a dir with files named according to their hash", func(t *testing.T) {
-		tmpDir, err := os.MkdirTemp("", "pull-hash-*")
-		tmpDir = tmpDir + "/"
-		suite.Require().NoError(err)
-		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, true)
-		suite.Require().NoError(err)
-
-		files, err := os.ReadDir(tmpDir)
-		suite.Require().NoError(err)
-		for _, file := range files {
-			if file.Name() == "hash_to_filename.json" {
-				continue
-			}
-			fileData, err := os.ReadFile(filepath.Join(tmpDir, file.Name()))
-			suite.Require().NoError(err)
-			sha256OfFile := sha256.Sum256(fileData)
-			hashHex := hex.EncodeToString(sha256OfFile[:])
-			suite.Require().Equal(hashHex, file.Name())
 		}
 	})
 
