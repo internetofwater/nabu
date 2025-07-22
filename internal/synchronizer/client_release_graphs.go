@@ -143,7 +143,7 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix, co
 	var writerProcess errgroup.Group
 	writerProcess.SetLimit(1)
 	writerProcess.Go(func() error {
-		hash, err := writeToPipeAndGetHash(compressGraphWithGzip, nqChan, pipeWriter)
+		hash, err := writeToPipeAndGetByteSum(compressGraphWithGzip, nqChan, pipeWriter)
 		if err != nil {
 			pipeWriter.CloseWithError(err)
 			return err

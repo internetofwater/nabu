@@ -234,14 +234,6 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 
 }
 
-func byteSum(b []byte) uint32 {
-	var sum uint32
-	for _, v := range b {
-		sum += uint32(v)
-	}
-	return sum
-}
-
 func (suite *SynchronizerClientSuite) TestNqRelease() {
 	t := suite.T()
 	const source = "cdss_co_gages__0"
@@ -260,7 +252,7 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 
 		t.Run("hash is correct", func(t *testing.T) {
 			bytes, err := suite.client.S3Client.GetObjectAsBytes(orgsPath)
-			manuallyCalculatedHash := byteSum(bytes)
+			manuallyCalculatedHash := common.ByteSum(bytes)
 			require.NoError(t, err)
 			hashInMinio, err := suite.client.S3Client.GetObjectAsBytes(orgsPath + ".bytesum")
 			require.NoError(t, err)
@@ -320,7 +312,7 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 				require.NoError(t, err)
 				require.NotEqual(t, string(hashOfUncompressedData), string(hashOfCompressedData), "the hash of the compressed graph should be different from the uncompressed one")
 
-				unzippedHash := fmt.Sprintf("%d", byteSum(unzippedContent))
+				unzippedHash := fmt.Sprintf("%d", common.ByteSum(unzippedContent))
 				require.Equal(t, string(hashOfUncompressedData), unzippedHash)
 
 			})

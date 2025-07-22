@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 )
@@ -51,13 +52,27 @@ func MakeURN(s3Prefix string) (URN, error) {
 // function can be used on a whole data graph, not just a single triple
 // reference: https://www.w3.org/TR/rdf11-concepts/#dfn-skolem-iri
 func Skolemization(nq string) (string, error) {
-	scanner := bufio.NewScanner(strings.NewReader(nq))
+
+	// we have to use a reader and not a scanner since our triples
+	// could be extremely large and we don't want to allocate a buffer
+	reader := bufio.NewReader(strings.NewReader(nq))
 
 	// Maps blank nodes to all lines they appear in
 	blankNodeToTriples := make(map[string][]string)
 
-	for scanner.Scan() {
-		line := scanner.Text()
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil && err != io.EOF {
+			return "", err
+		}
+
+		line = strings.TrimSpace(line)
+		if line == "" {
+			if err == io.EOF {
+				break
+			}
+			continue
+		}
 
 		split := strings.Split(line, " ")
 		const minTripleParts = 3
@@ -69,28 +84,23 @@ func Skolemization(nq string) (string, error) {
 		predicate := split[1]
 		object := split[2]
 
-		// add only the parts of the triple that don't contain the blank node
-		// this is since the blank node is non deterministic and could be named
-		// something like _:b0 or _:b1 or _:b2 etc depending on the jsonld processor
 		if strings.HasPrefix(subject, "_:") {
 			blankNodeToTriples[subject] = append(blankNodeToTriples[subject], predicate+object)
 		}
 		if strings.HasPrefix(object, "_:") {
 			blankNodeToTriples[object] = append(blankNodeToTriples[object], subject+predicate)
 		}
-	}
 
-	if err := scanner.Err(); err != nil {
-		return "", err
+		if err == io.EOF {
+			break
+		}
 	}
 
 	// Build deterministic hash replacements
-	// This will give us the same IRI for each blank node
-	// regardless of where it was in order in the file
 	blankNodeToIRI := make(map[string]string)
 
 	for blankNode, associatedTriples := range blankNodeToTriples {
-		sort.Strings(associatedTriples) // ensure deterministic order
+		sort.Strings(associatedTriples)
 		joined := strings.Join(associatedTriples, "\n")
 
 		hash := sha256.New()
@@ -104,9 +114,7 @@ func Skolemization(nq string) (string, error) {
 	// Replace all blank nodes in the file with their deterministic IRI
 	fileBytes := []byte(nq)
 	for blank, iri := range blankNodeToIRI {
-		// Replace blank node followed by space
 		fileBytes = bytes.ReplaceAll(fileBytes, []byte(blank+" "), []byte(iri+" "))
-		// Replace blank node followed by period
 		fileBytes = bytes.ReplaceAll(fileBytes, []byte(blank+" ."), []byte(iri+" ."))
 	}
 

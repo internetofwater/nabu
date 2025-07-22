@@ -253,7 +253,7 @@ func (suite *S3ClientSuite) TestHashMatch() {
 	dir := path.Dir(tmpFile.Name())
 	base := path.Base(tmpFile.Name())
 	const hash_test_prefix = "hash_test_prefix/"
-	exists, err := suite.minioContainer.ClientWrapper.MatchesWithLocalHash(hash_test_prefix, dir, base)
+	exists, err := suite.minioContainer.ClientWrapper.MatchesWithLocalBytesum(hash_test_prefix, dir, base)
 	suite.Require().NoError(err)
 	suite.Require().False(exists)
 
@@ -261,7 +261,7 @@ func (suite *S3ClientSuite) TestHashMatch() {
 	_, err = io.Copy(hash, tmpFile)
 	suite.Require().NoError(err)
 
-	file, err := os.Create(tmpFile.Name() + ".sha256")
+	file, err := os.Create(tmpFile.Name() + ".bytesum")
 	suite.Require().NoError(err)
 	defer func() {
 		_ = os.Remove(file.Name())
@@ -283,14 +283,14 @@ func (suite *S3ClientSuite) TestHashMatch() {
 	// upload hash
 	_, err = suite.minioContainer.ClientWrapper.Client.PutObject(context.Background(),
 		suite.minioContainer.ClientWrapper.DefaultBucket,
-		hash_test_prefix+base+".sha256",
+		hash_test_prefix+base+".bytesum",
 		bytes.NewReader(hash.Sum(nil)),
 		-1,
 		minio.PutObjectOptions{},
 	)
 
 	suite.Require().NoError(err)
-	exists, err = suite.minioContainer.ClientWrapper.MatchesWithLocalHash(hash_test_prefix, dir, base)
+	exists, err = suite.minioContainer.ClientWrapper.MatchesWithLocalBytesum(hash_test_prefix, dir, base)
 	suite.Require().NoError(err)
 	suite.Require().True(exists)
 }

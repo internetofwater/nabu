@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 
 	log "github.com/sirupsen/logrus"
@@ -62,7 +63,7 @@ func makeReleaseNqName(prefix s3.S3Prefix) (string, error) {
 			release_nq_name = fmt.Sprintf("%s_organizations.nq", prefix_path_as_filename)
 		}
 	} else {
-		return "", fmt.Errorf("unable to form a release graph name from prefix %s", prefix)
+		return "", fmt.Errorf("unable to form a release graph name from ambiguous prefix %s", prefix)
 	}
 	return release_nq_name, nil
 }
@@ -100,8 +101,8 @@ func deterministicGzipWriter(w io.Writer) (*gzip.Writer, error) {
 
 // Consume the nqChan and write to the pipeWriter; return the hash of all the data that
 // was written to that pipe
-func writeToPipeAndGetHash(compress bool, nqChan <-chan string, pipeWriter *io.PipeWriter) (string, error) {
-	hashDestination := &SumWriter{}
+func writeToPipeAndGetByteSum(compress bool, nqChan <-chan string, pipeWriter *io.PipeWriter) (string, error) {
+	hashDestination := &common.SumWriter{}
 	var zipper *gzip.Writer
 
 	writer := io.MultiWriter(pipeWriter, hashDestination)
@@ -138,24 +139,4 @@ func writeToPipeAndGetHash(compress bool, nqChan <-chan string, pipeWriter *io.P
 	}
 
 	return hashDestination.ToString(), nil
-}
-
-// A writer that keeps track of the sum of all bytes
-// It is essentially a hash that doesn't depend on order;
-// it is a good fit for n-quads where we care about the data
-// but not the order of the quads inside
-type SumWriter struct {
-	Sum uint32
-}
-
-// Write implements the io.Writer interface
-func (sw *SumWriter) Write(p []byte) (n int, err error) {
-	for _, b := range p {
-		sw.Sum += uint32(b)
-	}
-	return len(p), nil
-}
-
-func (sw *SumWriter) ToString() string {
-	return fmt.Sprintf("%d", sw.Sum)
 }

@@ -250,9 +250,9 @@ func (m MinioClientWrapper) Get(path S3Prefix) (io.ReadCloser, error) {
 	return m.Client.GetObject(context.Background(), m.DefaultBucket, path, minio.GetObjectOptions{})
 }
 
-// Return true if the file with the specified name in the bucket has the same hash as the local file of the same name
-func (m MinioClientWrapper) MatchesWithLocalHash(remotePrefix S3Prefix, localDir string, name string) (bool, error) {
-	prefixForHash := remotePrefix + name + ".sha256"
+// Return true if the file with the specified name in the bucket has the same bytesum as the local file of the same name
+func (m MinioClientWrapper) MatchesWithLocalBytesum(remotePrefix S3Prefix, localDir string, name string) (bool, error) {
+	prefixForHash := remotePrefix + name + ".bytesum"
 	log.Debugf("Checking remote file hash at %s", prefixForHash)
 	remoteHashFile, err := m.Client.GetObject(context.Background(), m.DefaultBucket, prefixForHash, minio.StatObjectOptions{})
 	if err != nil {
@@ -261,13 +261,14 @@ func (m MinioClientWrapper) MatchesWithLocalHash(remotePrefix S3Prefix, localDir
 	remoteHash, err := io.ReadAll(remoteHashFile)
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			log.Debugf("Remote file bytesum %s does not exist", prefixForHash)
 			return false, nil
 		}
 		return false, err
 	}
 
-	localHashFile := localDir + "/" + name + ".sha256"
-	log.Debugf("Checking local file hash at %s", localHashFile)
+	localHashFile := localDir + "/" + name + ".bytesum"
+	log.Debugf("Checking local file bytesum at %s", localHashFile)
 	localHashValue, err := os.ReadFile(localHashFile)
 	if os.IsNotExist(err) {
 		return false, nil
@@ -333,7 +334,7 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 			return fmt.Errorf("error when pulling files, %s", obj.Err)
 		}
 
-		if strings.HasSuffix(obj.Key, "prov.nq") || strings.HasSuffix(obj.Key, ".sha256") {
+		if strings.HasSuffix(obj.Key, "prov.nq") || strings.HasSuffix(obj.Key, ".sha256") || strings.HasSuffix(obj.Key, ".bytesum") {
 			// skip adding metadata like prov graphs or sha hashes into the concatenated file
 			continue
 		}
@@ -356,7 +357,7 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 				}
 			}()
 
-			isPresent, err := m.MatchesWithLocalHash(prefix, outputDir, fileName)
+			isPresent, err := m.MatchesWithLocalBytesum(prefix, outputDir, fileName)
 			if err != nil {
 				log.Errorf("Error checking if file %s exists locally: %v", fileName, err)
 				return err
@@ -377,6 +378,9 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 			}()
 
 			if useHashForFilename {
+
+				io.MultiWriter(file)
+
 				sha, err := common.WriteAndReturnSHA256(file, ob)
 				if err != nil {
 					return err
@@ -510,7 +514,7 @@ func (m MinioClientWrapper) PullAndConcat(ctx context.Context, prefix S3Prefix, 
 // 3. write to the file using buffered writer
 func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFileOrDir string, useHashForFilename bool) error {
 	if prefix == "" {
-		return errors.New("prefix cannot be empty when concatenating; you should not download the entire bucket")
+		return errors.New("prefix cannot be empty when concatenating; you should not implicitly download the entire bucket")
 	}
 	if outputFileOrDir == "" {
 		return errors.New("local file name cannot be empty")
@@ -519,10 +523,10 @@ func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFil
 	isDir := strings.HasSuffix(outputFileOrDir, "/")
 
 	if isDir {
-		log.Debugf("%s was specified as a directory due to the ending /", outputFileOrDir)
+		log.Debugf("%s was specified as the local download directory due to the ending /", outputFileOrDir)
 		return m.PullSeparateFilesToDir(ctx, prefix, outputFileOrDir, useHashForFilename)
 	} else {
-		log.Debugf("%s was specified as a file", outputFileOrDir)
+		log.Debugf("%s was specified as the local file destination", outputFileOrDir)
 		if useHashForFilename {
 			return fmt.Errorf("hash for filename when downloading to a single file is currently not supported")
 		}

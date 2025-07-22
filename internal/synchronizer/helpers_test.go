@@ -7,10 +7,8 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"io"
-	"math"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -166,7 +164,7 @@ func runHashTest(t *testing.T, compress bool, inputData []string) string {
 		}
 	}()
 
-	hash, err := writeToPipeAndGetHash(compress, nqChan, pipeWriter)
+	hash, err := writeToPipeAndGetByteSum(compress, nqChan, pipeWriter)
 	require.NoError(t, err)
 	require.NotEmpty(t, hash)
 	return hash
@@ -178,52 +176,15 @@ func TestWriteToPipeAndGetHash_Deterministic(t *testing.T) {
 	// Run twice with compression enabled
 	hash1 := runHashTest(t, true, input)
 	hash2 := runHashTest(t, true, input)
-	require.Equal(t, hash1, "415ba8f2b3fd2f349a934136625c2f65ad89958540291a9c36fab8975ee3b98b")
+	require.Equal(t, hash1, "3778")
 	require.Equal(t, hash1, hash2, "Hashes should match with compression")
 
 	// Run twice without compression
 	hash3 := runHashTest(t, false, input)
 	hash4 := runHashTest(t, false, input)
-	require.Equal(t, hash3, "7f80c7249ffbf860aa08202d3a9d62625c726d9a9706471fa54755d283d969ee")
+	require.Equal(t, hash3, "1717")
 	require.Equal(t, hash3, hash4, "Hashes should match without compression")
 
 	// Sanity check: different compression settings should produce different hashes
 	require.NotEqual(t, hash1, hash3, "Compressed and uncompressed hashes should differ")
-}
-
-func TestSumWriter_Write(t *testing.T) {
-	sw := SumWriter{}
-
-	data := []byte{1, 2, 3, 4, 5} // 1+2+3+4+5 = 15
-	n, err := sw.Write(data)
-
-	assert.NoError(t, err)
-	assert.Equal(t, len(data), n)
-	assert.Equal(t, uint32(15), sw.Sum)
-	assert.Equal(t, "15", sw.ToString())
-}
-
-func TestSumWriter_EmptyWrite(t *testing.T) {
-	sw := SumWriter{}
-
-	data := []byte{} // Empty slice
-	n, err := sw.Write(data)
-
-	assert.NoError(t, err)
-	assert.Equal(t, 0, n)
-	assert.Equal(t, uint32(0), sw.Sum)
-	assert.Equal(t, "0", sw.ToString())
-}
-
-func TestSumWriterWrapAround(t *testing.T) {
-	sw := &SumWriter{}
-	sw.Sum = math.MaxUint32
-
-	data := []byte{1} // This pushes the sum past the max value, causing wraparound
-	n, err := sw.Write(data)
-
-	assert.NoError(t, err)
-	assert.Equal(t, len(data), n)
-	assert.Equal(t, uint32(0), sw.Sum) // 4294967295 + 1 = 0 (wraps)
-	assert.Equal(t, "0", sw.ToString())
 }
