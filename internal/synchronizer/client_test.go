@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -302,6 +303,12 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 			err = unzipper.Close()
 			require.NoError(t, err)
 			require.Contains(t, string(unzippedContent), "<https://schema.org/subjectOf>", "when unzipped, the graph should have the same content")
+
+			// write the unzipped content to disk
+			err = os.WriteFile("unzipped.nq", unzippedContent, 0644)
+			require.NoError(t, err)
+			err = os.WriteFile("summoned.nq", summonedContent, 0644)
+			require.NoError(t, err)
 
 			quads := strings.Split(string(unzippedContent), "\n")
 			for _, quad := range quads {

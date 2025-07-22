@@ -8,9 +8,8 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"sort"
 	"strings"
-
-	log "github.com/sirupsen/logrus"
 )
 
 /*
@@ -52,68 +51,64 @@ func MakeURN(s3Prefix string) (URN, error) {
 // function can be used on a whole data graph, not just a single triple
 // reference: https://www.w3.org/TR/rdf11-concepts/#dfn-skolem-iri
 func Skolemization(nq string) (string, error) {
-
 	scanner := bufio.NewScanner(strings.NewReader(nq))
 
-	blankNodesToReplacement := make(map[string]string) // make a map here to hold our updated strings
+	// Maps blank nodes to all lines they appear in
+	blankNodeToTriples := make(map[string][]string)
 
 	for scanner.Scan() {
-		split := strings.Split(scanner.Text(), " ")
-		const subjectPredicateObject = 3
-		if len(split) < subjectPredicateObject {
-			return "", fmt.Errorf("unexpected nq triple: %s", scanner.Text())
-		}
+		line := scanner.Text()
 
-		// use the hash of each subject, predicate, and object as
-		// the iri unique identifier
-		hash := sha256.New()
-		// hash.Write([]byte(text))
-		// hashString := fmt.Sprintf("%x", hash.Sum(nil))
+		split := strings.Split(line, " ")
+		const minTripleParts = 3
+		if len(split) < minTripleParts {
+			return "", fmt.Errorf("triple must have at least 3 parts, unexpectedly got: '%s'", line)
+		}
 
 		subject := split[0]
 		predicate := split[1]
 		object := split[2]
 
-		blankSubjectNode := strings.HasPrefix(subject, "_:")
-
-		if blankSubjectNode {
-			if _, ok := blankNodesToReplacement[subject]; ok {
-			} else {
-				hash.Write([]byte(predicate))
-				hash.Write([]byte(object))
-				hashString := fmt.Sprintf("%x", hash.Sum(nil))
-				newSubject := fmt.Sprintf("<https://iow.io/nqhash/%s>", hashString)
-				blankNodesToReplacement[subject] = newSubject
-			}
+		// add only the parts of the triple that don't contain the blank node
+		// this is since the blank node is non deterministic and could be named
+		// something like _:b0 or _:b1 or _:b2 etc depending on the jsonld processor
+		if strings.HasPrefix(subject, "_:") {
+			blankNodeToTriples[subject] = append(blankNodeToTriples[subject], predicate+object)
 		}
-
-		blankObjectNode := strings.HasPrefix(object, "_:")
-		if blankObjectNode {
-			if _, ok := blankNodesToReplacement[object]; ok {
-			} else {
-				hash.Write([]byte(subject))
-				hash.Write([]byte(predicate))
-				hashString := fmt.Sprintf("%x", hash.Sum(nil))
-				newObject := fmt.Sprintf("<https://iow.io/nqhash/%s>", hashString)
-				blankNodesToReplacement[object] = newObject
-			}
+		if strings.HasPrefix(object, "_:") {
+			blankNodeToTriples[object] = append(blankNodeToTriples[object], subject+predicate)
 		}
 	}
 
-	err := scanner.Err()
-	if err != nil {
-		log.Error(err)
+	if err := scanner.Err(); err != nil {
 		return "", err
 	}
 
-	filebytes := []byte(nq)
+	// Build deterministic hash replacements
+	// This will give us the same IRI for each blank node
+	// regardless of where it was in order in the file
+	blankNodeToIRI := make(map[string]string)
 
-	for k, v := range blankNodesToReplacement {
-		// have to add padding so we don't replace parts of other nodes
-		oldNodeWithPadding := k + " "
-		newNodeWithPadding := v + " "
-		filebytes = bytes.ReplaceAll(filebytes, []byte(oldNodeWithPadding), []byte(newNodeWithPadding))
+	for blankNode, associatedTriples := range blankNodeToTriples {
+		sort.Strings(associatedTriples) // ensure deterministic order
+		joined := strings.Join(associatedTriples, "\n")
+
+		hash := sha256.New()
+		hash.Write([]byte(joined))
+		hashOfAllTriplesWithTheSameBlankNode := fmt.Sprintf("%x", hash.Sum(nil))
+		iri := fmt.Sprintf("<https://iow.io/nqhash/%s>", hashOfAllTriplesWithTheSameBlankNode)
+
+		blankNodeToIRI[blankNode] = iri
 	}
 
-	return string(filebytes), err
+	// Replace all blank nodes in the file with their deterministic IRI
+	fileBytes := []byte(nq)
+	for blank, iri := range blankNodeToIRI {
+		// Replace blank node followed by space
+		fileBytes = bytes.ReplaceAll(fileBytes, []byte(blank+" "), []byte(iri+" "))
+		// Replace blank node followed by period
+		fileBytes = bytes.ReplaceAll(fileBytes, []byte(blank+" ."), []byte(iri+" ."))
+	}
+
+	return string(fileBytes), nil
 }
