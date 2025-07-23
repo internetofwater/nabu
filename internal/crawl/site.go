@@ -91,7 +91,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 			return whereItWouldBeInBucket, nil
 		}
 	} else {
-		log.Debugf("%s has no associated hash", url.Loc)
+		log.Tracef("%s has no associated hash", url.Loc)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.Loc, nil)
