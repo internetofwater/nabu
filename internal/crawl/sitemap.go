@@ -211,18 +211,23 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 
 	if cleanupOldJsonld {
 		go func() {
-			files, err := s.storageDestination.ListDir("summoned/" + sitemapID)
+			dir := "summoned/" + sitemapID
+			log.Infof("Cleaning up old JSON-LD files in %s", dir)
+			files, err := s.storageDestination.ListDir(dir)
 			if err != nil {
 				log.Error(err)
 				return
 			}
+			var deleteTotal int
 			for k, v := range files {
 				if !files.Contains(k) {
 					if err := s.storageDestination.Remove(fmt.Sprintf("summoned/%s/%s", sitemapID, v)); err != nil {
 						log.Error(err)
 					}
+					deleteTotal++
 				}
 			}
+			log.Infof("Json-LD cleanup complete, deleted %d files", deleteTotal)
 		}()
 	}
 
