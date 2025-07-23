@@ -33,3 +33,10 @@ func TestGleanerTempFSCrawlStorage(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, exists)
 }
+
+func TestSet(t *testing.T) {
+	set := make(Set)
+	set.Add("testfile.txt")
+	require.True(t, set.Contains("testfile.txt"))
+	require.False(t, set.Contains("testfile2.txt"))
+}

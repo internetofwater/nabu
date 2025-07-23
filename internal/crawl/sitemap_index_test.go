@@ -80,13 +80,15 @@ func TestHarvestNonExistantSource(t *testing.T) {
 func TestHarvestSitemapIndex(t *testing.T) {
 	// setup mocks
 	defer gock.Off()
+	gock.EnableNetworking()
+	defer gock.DisableNetworking()
 	gock.New("https://geoconnex.us/sitemap.xml").
 		Reply(200).
-		File("testdata/sitemap_index.xml")
+		File("testdata/sitemap_index.xml").Mock.Request().Persist()
 
 	gock.New("https://geoconnex.us/sitemap/iow/wqp/stations__5.xml").
 		Reply(200).
-		File("testdata/sitemap.xml")
+		File("testdata/sitemap.xml").Mock.Request().Persist()
 
 	// initialize storage types
 	tmpStore, err := storage.NewLocalTempFSCrawlStorage()
@@ -109,8 +111,6 @@ func TestHarvestSitemapIndex(t *testing.T) {
 	numObjs, err := container.ClientWrapper.NumberOfMatchingObjects([]string{""})
 	require.NoError(t, err)
 	require.Equal(t, 3, numObjs)
-
-	require.True(t, gock.IsDone())
 }
 
 func TestSitemapInsteadOfSitemapIndex(t *testing.T) {

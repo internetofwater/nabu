@@ -46,7 +46,7 @@ func getJSONLD(resp *http.Response, url URL, body []byte) ([]byte, error) {
 
 // Get the hash of the remote jsonld by using the Content-Digest header
 // This gets us metadata about the file without needing to download it fully
-func getRemoteJsonldHash(url string, client *http.Client) (string, error) {
+func getRemoteJsonldHash(url string, client HttpDoer) (string, error) {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return "", err

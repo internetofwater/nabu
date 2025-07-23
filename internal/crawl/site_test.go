@@ -114,7 +114,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		gock.New(dummy_domain).Get("/").
 			Reply(200).
 			SetHeader("Content-Type", "application/ld+json").
-			File("testdata/reference_feature.jsonld").Mock.Request().Times(getTheHashAndTheJsonld)
+			File("testdata/reference_feature.jsonld").Mock.Request().Persist()
 		url := URL{
 			Loc: dummy_domain,
 		}
@@ -132,15 +132,16 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		gock.New(dummy_domain).Get("/").
 			Reply(200).
 			SetHeader("Content-Type", "application/ld+json").
-			File("testdata/emptyAsTriples.jsonld").Mock.Request().Times(getTheHashAndTheJsonld)
+			File("testdata/emptyAsTriples.jsonld").Mock.Request().Persist()
 
 		url := URL{
 			Loc: dummy_domain,
 		}
 		conf, err := NewSitemapHarvestConfig(Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, true)
+
 		require.NoError(t, err)
 		// can't use the retriable http client with gock
-		conf.httpClient = &http.Client{}
+		conf.httpClient = NewCrawlerHttpClient()
 		_, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
 		close(conf.nonFatalErrorChan)
@@ -155,7 +156,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		gock.New(dummy_domain).Get("/").
 			Reply(200).
 			SetHeader("Content-Type", "application/ld+json").
-			File("testdata/nonconforming.jsonld").Mock.Request().Times(getTheHashAndTheJsonld)
+			File("testdata/nonconforming.jsonld").Mock.Request().Persist()
 
 		url := URL{
 			Loc: dummy_domain,

@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"maps"
 	"math"
-	"net"
-	"net/http"
 	"slices"
 	"strings"
 	"sync"
@@ -24,7 +22,6 @@ import (
 	"github.com/internetofwater/nabu/pkg"
 	log "github.com/sirupsen/logrus"
 	"github.com/temoto/robotstxt"
-	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -49,7 +46,7 @@ type Sitemap struct {
 // in a sitemap; these are reused across every site in a sitemap
 type SitemapHarvestConfig struct {
 	robots             *robotstxt.Group
-	httpClient         *http.Client
+	httpClient         HttpDoer
 	grpcClient         *protoBuild.ShaclValidatorClient
 	grpcConn           *grpc.ClientConn
 	jsonLdProc         *ld.JsonLdProcessor
@@ -74,45 +71,7 @@ func NewSitemapHarvestConfig(sitemap Sitemap, validateShacl bool) (SitemapHarves
 
 	crawlErrorChan := make(chan pkg.UrlCrawlError, len(sitemap.URL))
 
-	// create a client that is custom tuned for high throughput
-	// crawling; for some reason yourls doesn't respond well to the
-	// opentelemetry headers; so we do any otel events manually via
-	// transport hooks
-	client := &http.Client{
-		// a feature should not take more than 30 seconds to resolve
-		// otherwise it will be skipped
-		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
-			// allow for up to 5000 idle connections
-			// to the same host so that we can hit yourls
-			// by default the go http client limits these to 100
-			MaxIdleConns:          0,
-			MaxIdleConnsPerHost:   0,
-			MaxConnsPerHost:       0,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-			DisableKeepAlives:     false, // keep-alives are good for performance
-			ForceAttemptHTTP2:     true,
-			// set event when connection is established
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				// You can implement custom logic here or use the default dialer
-				span := trace.SpanFromContext(ctx)
-				if span != nil {
-					span.AddEvent("HTTP connection")
-				}
-				return net.DialTimeout(network, addr, 30*time.Second)
-			},
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// Add an OpenTelemetry event when a redirect occurs
-			span := trace.SpanFromContext(req.Context())
-			if span != nil {
-				span.AddEvent("HTTP redirect")
-			}
-			return nil
-		},
-	}
+	client := NewCrawlerHttpClient()
 
 	var conn *grpc.ClientConn
 	var grpcClient protoBuild.ShaclValidatorClient

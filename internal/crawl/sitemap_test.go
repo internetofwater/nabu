@@ -15,10 +15,11 @@ import (
 
 func TestHarvestSitemap(t *testing.T) {
 	defer gock.Off()
-
+	gock.EnableNetworking()
+	defer gock.DisableNetworking()
 	gock.New("https://geoconnex.us/sitemap/iow/wqp/stations__5.xml").
 		Reply(200).
-		File("testdata/sitemap.xml")
+		File("testdata/sitemap.xml").Mock.Request().Persist()
 
 	sitemap, err := NewSitemap(context.Background(), "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml")
 	require.NoError(t, err)

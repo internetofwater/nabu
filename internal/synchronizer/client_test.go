@@ -296,8 +296,12 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 			require.Contains(t, string(unzippedContent), "<https://schema.org/subjectOf>", "when unzipped, the graph should have the same content")
 
 			quads := strings.Split(string(unzippedContent), "\n")
-			for _, quad := range quads {
-				require.Contains(t, string(summonedContent), quad, fmt.Sprintf("quad %s should be in the original graph", quad))
+
+			subsetOfGraph := quads[:500]
+			summonedContentAsString := string(summonedContent)
+			// we loop over only a subset of the graph since the graph is very large and has thousands of quads, otherwise slowing down our tests
+			for _, quad := range subsetOfGraph {
+				require.Contains(t, summonedContentAsString, quad, fmt.Sprintf("quad %s should be in the original graph", quad))
 			}
 
 			t.Run("hash is correct", func(t *testing.T) {

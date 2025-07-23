@@ -37,6 +37,7 @@ func (s Set) Add(key objectPath) {
 	s[key] = struct{}{}
 }
 
+// A storage interface that stores crawl data
 type CrawlStorage interface {
 	// Store saves the contents from the reader into a named destination
 	Store(objectPath, io.Reader) error
@@ -46,7 +47,7 @@ type CrawlStorage interface {
 	Exists(objectPath) (bool, error)
 	// ListDir returns a list of objects in the directory
 	ListDir(objectPath) (Set, error)
-	// Delete deletes the file
+	// Remove removes the file
 	Remove(objectPath) error
 }
 

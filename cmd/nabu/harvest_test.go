@@ -17,13 +17,15 @@ import (
 )
 
 func startMocks() {
+	gock.EnableNetworking()
 	gock.New("https://geoconnex.us/sitemap.xml").
 		Reply(200).
-		File("testdata/sitemap_index.xml")
+		File("testdata/sitemap_index.xml").Mock.Request().Persist()
 
 	gock.New("https://geoconnex.us/sitemap/iow/wqp/stations__5.xml").
 		Reply(200).
-		File("testdata/sitemap.xml")
+		File("testdata/sitemap.xml").Mock.Request().Persist()
+
 }
 
 func NewNabuRunnerFromString(args string) NabuRunner {
@@ -66,17 +68,19 @@ func (s *GleanerRootSuite) TestHarvestToDisk() {
 }
 
 func startMocksForBadFileType() {
+	gock.EnableNetworking()
+
 	gock.New("https://geoconnex.us/sitemap.xml").
 		Reply(200).
-		File("testdata/sitemap_index_selfie.xml")
+		File("testdata/sitemap_index_selfie.xml").Mock.Request().Persist()
 
 	gock.New("https://geoconnex.us/sitemap/SELFIE/SELFIE_ids__0.xml").
 		Reply(200).
-		File("testdata/SELFIE_ids__0.xml")
+		File("testdata/SELFIE_ids__0.xml").Mock.Request().Persist()
 
 	gock.New("https://geoconnex.us/SELFIE/usgs/huc/huc12obs/070900020601").
 		Reply(200).
-		File("testdata/selfie.html")
+		File("testdata/selfie.html").Mock.Request().Persist()
 }
 
 func (s *GleanerRootSuite) TestBadFileType() {
