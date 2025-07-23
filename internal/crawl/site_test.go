@@ -21,8 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const getTheHashAndTheJsonld = 2
-
 func TestGetJsonLDWithBadMimetype(t *testing.T) {
 
 	resp := &http.Response{}
