@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/log"
 	"github.com/h2non/gock"
+	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
 )
 
