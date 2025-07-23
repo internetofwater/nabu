@@ -30,6 +30,7 @@ func (r *RetriableCrawlerHttpClient) Do(req *http.Request) (*http.Response, erro
 		resp, err := r.client.Do(req)
 
 		if err, ok := err.(net.Error); ok && err.Timeout() {
+			time.Sleep(r.backoff)
 			continue
 		} else if err != nil {
 			// if there is an error sending the request
@@ -40,6 +41,7 @@ func (r *RetriableCrawlerHttpClient) Do(req *http.Request) (*http.Response, erro
 		if resp.StatusCode == 404 {
 			return nil, fmt.Errorf("got a 404 from %s", req.URL.String())
 		} else if resp.StatusCode > 400 {
+			time.Sleep(r.backoff)
 			continue
 		}
 		return resp, nil
