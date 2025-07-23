@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/log"
 	"github.com/h2non/gock"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -30,6 +31,7 @@ func (r *RetriableCrawlerHttpClient) Do(req *http.Request) (*http.Response, erro
 		resp, err := r.client.Do(req)
 
 		if err, ok := err.(net.Error); ok && err.Timeout() {
+			log.Warnf("retrying after status %s from %s", resp.Status, req.URL.String())
 			time.Sleep(r.backoff)
 			continue
 		} else if err != nil {
@@ -41,6 +43,7 @@ func (r *RetriableCrawlerHttpClient) Do(req *http.Request) (*http.Response, erro
 		if resp.StatusCode == 404 {
 			return nil, fmt.Errorf("got a 404 from %s", req.URL.String())
 		} else if resp.StatusCode > 400 {
+			log.Warnf("retrying after status %s from %s", resp.Status, req.URL.String())
 			time.Sleep(r.backoff)
 			continue
 		}
