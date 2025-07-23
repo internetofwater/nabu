@@ -44,13 +44,57 @@ func getJSONLD(resp *http.Response, url URL, body []byte) ([]byte, error) {
 	return body, nil
 }
 
+// Get the hash of the remote jsonld by using the Content-Digest header
+// This gets us metadata about the file without needing to download it fully
+func getRemoteJsonldHash(url string, client *http.Client) (string, error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("User-Agent", gleanerAgent)
+	req.Header.Set("Want-Content-Digest", "sha256")
+	req.Header.Set("Accept", "application/ld+json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode >= 400 {
+		return "", nil
+	}
+	hash := resp.Header.Get("content-digest")
+	return hash, nil
+}
+
 // Crawl and download a single URL
 func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *SitemapHarvestConfig) error {
 	// Create a new span for each URL and propagate the updated context
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
 	defer span.End()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url.Loc, nil)
+	hash, err := getRemoteJsonldHash(url.Loc, config.httpClient)
+	if err != nil {
+		return fmt.Errorf("failed to get hash for %s: %w", url.Loc, err)
+	}
+	if hash != "" {
+		whereItWouldBeInBucket := "summoned/" + sitemapId + "/" + hash + ".jsonld"
+		exists, err := config.storageDestination.Exists(whereItWouldBeInBucket)
+		if err != nil {
+			return err
+		}
+		if exists {
+			log.Infof("skipping %s because it already exists in %s", url.Loc, whereItWouldBeInBucket)
+			return nil
+		}
+	} else {
+		log.Debugf("%s has no associated hash", url.Loc)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.Loc, nil)
 	if err != nil {
 		return err
 	}
@@ -98,14 +142,6 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	}
 
 	summonedPath := fmt.Sprintf("summoned/%s/%s", sitemapId, itemHash)
-
-	exists, err := config.storageDestination.Exists(summonedPath)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return nil
-	}
 
 	// make sure the pointer itself is not nil and not empty
 	if config.grpcClient != nil && *config.grpcClient != nil {
