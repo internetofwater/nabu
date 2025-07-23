@@ -27,12 +27,14 @@ type HttpDoer interface {
 }
 
 func (r *RetriableCrawlerHttpClient) Do(req *http.Request) (*http.Response, error) {
-	for range r.retries {
+	for retryNumber := range r.retries {
 		resp, err := r.client.Do(req)
+
+		totalTime := time.Duration(retryNumber+1) * r.backoff
 
 		if err, ok := err.(net.Error); ok && err.Timeout() {
 			log.Warnf("retrying after status %s from %s", resp.Status, req.URL.String())
-			time.Sleep(r.backoff)
+			time.Sleep(totalTime)
 			continue
 		} else if err != nil {
 			// if there is an error sending the request
@@ -44,7 +46,7 @@ func (r *RetriableCrawlerHttpClient) Do(req *http.Request) (*http.Response, erro
 			return nil, fmt.Errorf("got a 404 from %s", req.URL.String())
 		} else if resp.StatusCode > 400 {
 			log.Warnf("retrying after status %s from %s", resp.Status, req.URL.String())
-			time.Sleep(r.backoff)
+			time.Sleep(totalTime)
 			continue
 		}
 		return resp, nil
