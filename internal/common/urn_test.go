@@ -4,6 +4,9 @@
 package common
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -59,7 +62,14 @@ func TestSkolemize(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, output, nonEmptyNodes)
 		require.NotContains(t, output, emptyNode)
-		require.Contains(t, output, "<https://iow.io/xid/genid/")
+
+		hash := sha256.New()
+		split := strings.Split(output, " ")
+		hash.Write([]byte(split[1]))
+		hash.Write([]byte(split[2]))
+		hashResult := hex.EncodeToString(hash.Sum(nil))
+		require.Equal(t, hashResult, "0adc62bdb95a47b9d52d8dff5e78957b1da6448e7d43fad18a4d8f9b1ccc032c")
+		require.Contains(t, output, hashResult)
 	})
 
 }

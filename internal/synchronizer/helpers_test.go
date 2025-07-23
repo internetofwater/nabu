@@ -4,6 +4,9 @@
 package synchronizer
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -104,4 +107,84 @@ func TestAllocateBatches(t *testing.T) {
 			require.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func compressWithDeterministicWriter(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	writer, err := deterministicGzipWriter(&buf)
+	if err != nil {
+		return nil, err
+	}
+	_, err = writer.Write(data)
+	if err != nil {
+		return nil, err
+	}
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// Make sure that the gzip writer is deterministic and that the hash is the same
+// for the same input
+func TestDeterministicGzipWriter(t *testing.T) {
+	input := []byte("The quick brown fox jumps over the lazy dog.")
+
+	output1, err := compressWithDeterministicWriter(input)
+	require.NoError(t, err, "first compression failed")
+
+	require.NotEqual(t, input, output1, "gzip output should be different from input")
+
+	output2, err := compressWithDeterministicWriter(input)
+	require.NoError(t, err, "second compression failed")
+
+	require.Equal(t, output1, output2, "gzip output should be deterministic")
+
+	// Compare SHA-256 hashes
+	hash1 := sha256.Sum256(output1)
+	hash2 := sha256.Sum256(output2)
+
+	require.Equal(t, hash1, hash2, "SHA-256 hashes of gzip output should match")
+}
+
+func runHashTest(t *testing.T, compress bool, inputData []string) string {
+	nqChan := make(chan string)
+	pipeReader, pipeWriter := io.Pipe()
+
+	// Drain the pipe in a goroutine to prevent blocking
+	go func() {
+		_, err := io.Copy(io.Discard, pipeReader)
+		require.NoError(t, err)
+	}()
+
+	go func() {
+		defer close(nqChan)
+		for _, s := range inputData {
+			nqChan <- s
+		}
+	}()
+
+	hash, err := writeToPipeAndGetByteSum(compress, nqChan, pipeWriter)
+	require.NoError(t, err)
+	require.NotEmpty(t, hash)
+	return hash
+}
+
+func TestWriteToPipeAndGetHash_Deterministic(t *testing.T) {
+	input := []string{"hello", "world", "foo", "bar"}
+
+	// Run twice with compression enabled
+	hash1 := runHashTest(t, true, input)
+	hash2 := runHashTest(t, true, input)
+	require.Equal(t, hash1, "3778")
+	require.Equal(t, hash1, hash2, "Hashes should match with compression")
+
+	// Run twice without compression
+	hash3 := runHashTest(t, false, input)
+	hash4 := runHashTest(t, false, input)
+	require.Equal(t, hash3, "1717")
+	require.Equal(t, hash3, hash4, "Hashes should match without compression")
+
+	// Sanity check: different compression settings should produce different hashes
+	require.NotEqual(t, hash1, hash3, "Compressed and uncompressed hashes should differ")
 }

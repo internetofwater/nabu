@@ -4,11 +4,15 @@
 package synchronizer
 
 import (
+	"compress/gzip"
 	"fmt"
+	"io"
 	"path"
 	"slices"
 	"strings"
+	"time"
 
+	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 
 	log "github.com/sirupsen/logrus"
@@ -59,7 +63,7 @@ func makeReleaseNqName(prefix s3.S3Prefix) (string, error) {
 			release_nq_name = fmt.Sprintf("%s_organizations.nq", prefix_path_as_filename)
 		}
 	} else {
-		return "", fmt.Errorf("unable to form a release graph name from prefix %s", prefix)
+		return "", fmt.Errorf("unable to form a release graph name from ambiguous prefix %s", prefix)
 	}
 	return release_nq_name, nil
 }
@@ -77,4 +81,62 @@ func createBatches(graphNames []s3.S3Prefix, batchSize int) [][]string {
 		batches = append(batches, graphNames[i:end])
 	}
 	return batches
+}
+
+// gzip is non deterministic; this is since it will add a
+// header with a timestamp; we want to explicitly control this
+// and make sure it is deterministic so our hashes are the same
+func deterministicGzipWriter(w io.Writer) (*gzip.Writer, error) {
+	gzipWriter, err := gzip.NewWriterLevel(w, gzip.BestCompression)
+	if err != nil {
+		return nil, err
+	}
+	gzipWriter.ModTime = time.Unix(0, 0) // deterministic timestamp
+	gzipWriter.Comment = ""
+	gzipWriter.Extra = nil
+	gzipWriter.Name = ""
+	gzipWriter.OS = 255 // avoid platform-specific bytes
+	return gzipWriter, nil
+}
+
+// Consume the nqChan and write to the pipeWriter; return the hash of all the data that
+// was written to that pipe
+func writeToPipeAndGetByteSum(compress bool, nqChan <-chan string, pipeWriter *io.PipeWriter) (string, error) {
+	hashDestination := &common.SumWriter{}
+	var zipper *gzip.Writer
+
+	writer := io.MultiWriter(pipeWriter, hashDestination)
+
+	if compress {
+		// Wrap the multiwriter with a gzip writer so that
+		// both the hash and the data itself represent the same compressed data
+		gzipWriter, err := deterministicGzipWriter(writer)
+		if err != nil {
+			return "", err
+		}
+		zipper = gzipWriter
+		writer = gzipWriter
+	}
+
+	for nq := range nqChan {
+		asBytes := []byte(nq)
+		_, err := writer.Write(asBytes)
+		if err != nil {
+			pipeWriter.CloseWithError(err)
+			return "", err
+		}
+	}
+	// Make sure the gzip writer is closed before
+	// getting the hash; this is since the gzip writer
+	// closes by writing a final footer
+	if zipper != nil {
+		if err := zipper.Close(); err != nil {
+			return "", err
+		}
+	}
+	if err := pipeWriter.Close(); err != nil {
+		return "", err
+	}
+
+	return hashDestination.ToString(), nil
 }

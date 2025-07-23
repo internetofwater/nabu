@@ -6,8 +6,6 @@ package s3
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/common/projectpath"
@@ -253,28 +252,28 @@ func (suite *S3ClientSuite) TestHashMatch() {
 	dir := path.Dir(tmpFile.Name())
 	base := path.Base(tmpFile.Name())
 	const hash_test_prefix = "hash_test_prefix/"
-	exists, err := suite.minioContainer.ClientWrapper.MatchesWithLocalHash(hash_test_prefix, dir, base)
+	matchesWithLocal, err := suite.minioContainer.ClientWrapper.MatchesWithLocalBytesum(hash_test_prefix, dir, base)
 	suite.Require().NoError(err)
-	suite.Require().False(exists)
+	suite.Require().False(matchesWithLocal)
 
-	hash := sha256.New()
-	_, err = io.Copy(hash, tmpFile)
-	suite.Require().NoError(err)
-
-	file, err := os.Create(tmpFile.Name() + ".sha256")
+	byteSumFile, err := os.Create(tmpFile.Name() + ".bytesum")
 	suite.Require().NoError(err)
 	defer func() {
-		_ = os.Remove(file.Name())
+		_ = os.Remove(byteSumFile.Name())
 	}()
-	// populate the file hash locally
-	_, err = io.Copy(file, bytes.NewReader(hash.Sum(nil)))
+
+	dummyData := []byte("test data")
+	suite.Require().NoError(err)
+	sum := common.ByteSum(dummyData)
+
+	_, err = fmt.Fprintf(byteSumFile, "%d", sum)
 	suite.Require().NoError(err)
 
 	// upload dummy file
 	_, err = suite.minioContainer.ClientWrapper.Client.PutObject(context.Background(),
 		suite.minioContainer.ClientWrapper.DefaultBucket,
 		hash_test_prefix+base,
-		bytes.NewReader([]byte("dummy data")),
+		bytes.NewReader(dummyData),
 		-1,
 		minio.PutObjectOptions{},
 	)
@@ -283,16 +282,16 @@ func (suite *S3ClientSuite) TestHashMatch() {
 	// upload hash
 	_, err = suite.minioContainer.ClientWrapper.Client.PutObject(context.Background(),
 		suite.minioContainer.ClientWrapper.DefaultBucket,
-		hash_test_prefix+base+".sha256",
-		bytes.NewReader(hash.Sum(nil)),
+		hash_test_prefix+base+".bytesum",
+		strings.NewReader(fmt.Sprintf("%d", sum)),
 		-1,
 		minio.PutObjectOptions{},
 	)
 
 	suite.Require().NoError(err)
-	exists, err = suite.minioContainer.ClientWrapper.MatchesWithLocalHash(hash_test_prefix, dir, base)
+	matchesWithLocal, err = suite.minioContainer.ClientWrapper.MatchesWithLocalBytesum(hash_test_prefix, dir, base)
 	suite.Require().NoError(err)
-	suite.Require().True(exists)
+	suite.Require().True(matchesWithLocal)
 }
 
 func (suite *S3ClientSuite) TestGetObjectAsNamedGraph() {
@@ -343,24 +342,24 @@ func (suite *S3ClientSuite) TestCRUD() {
 func (suite *S3ClientSuite) TestPull() {
 
 	var data []string
-	const prefix = "concat_test"
+	const prefix = "pull_test/"
 
 	// insert 100 data points into minio
 	for i := range 100 {
 		dataPoint := fmt.Sprintf("test data %d", i)
 		data = append(data, dataPoint)
-		err := suite.minioContainer.ClientWrapper.Store(fmt.Sprintf("%s/%d", prefix, i), bytes.NewReader([]byte(dataPoint)))
+		err := suite.minioContainer.ClientWrapper.Store(fmt.Sprintf("%s%d", prefix, i), bytes.NewReader([]byte(dataPoint)))
 		suite.Require().NoError(err)
 	}
 
 	suite.T().Run("concat to a single file", func(t *testing.T) {
-		tmpFile, err := os.CreateTemp("", "concat")
+		tmpFile, err := os.CreateTemp("", "pull")
 		suite.Require().NoError(err)
 		defer func() {
 			err = os.Remove(tmpFile.Name())
 			suite.Require().NoError(err)
 		}()
-		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpFile.Name(), false)
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpFile.Name())
 		suite.Require().NoError(err)
 
 		concatData, err := os.ReadFile(tmpFile.Name())
@@ -373,11 +372,11 @@ func (suite *S3ClientSuite) TestPull() {
 		}
 	})
 
-	suite.T().Run("pull to a dir", func(t *testing.T) {
+	suite.T().Run("pull separate files to a dir", func(t *testing.T) {
 		tmpDir, err := os.MkdirTemp("", "pull-dir-*")
 		tmpDir = tmpDir + "/"
 		suite.Require().NoError(err)
-		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, false)
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir)
 		suite.Require().NoError(err)
 
 		files, err := os.ReadDir(tmpDir)
@@ -388,29 +387,75 @@ func (suite *S3ClientSuite) TestPull() {
 			suite.Require().Contains(string(fileData), file.Name())
 		}
 	})
+	err := suite.minioContainer.ClientWrapper.Remove(prefix)
+	suite.Require().NoError(err)
+}
 
-	suite.T().Run("pull to a dir with files named according to their hash", func(t *testing.T) {
-		tmpDir, err := os.MkdirTemp("", "pull-hash-*")
-		tmpDir = tmpDir + "/"
-		suite.Require().NoError(err)
-		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, true)
+func (suite *S3ClientSuite) TestPullWithBytesums() {
+
+	// populate the minio bucket with 10 data points and their byte sums
+	const prefix = "pull_bytesum_test/"
+	for i := range 10 {
+		dataPoint := fmt.Sprintf("test bytesum data %d", i)
+		err := suite.minioContainer.ClientWrapper.Store(fmt.Sprintf("%s%d", prefix, i), bytes.NewReader([]byte(dataPoint)))
 		suite.Require().NoError(err)
 
-		files, err := os.ReadDir(tmpDir)
+		byteSum := common.ByteSum([]byte(dataPoint))
+		err = suite.minioContainer.ClientWrapper.Store(fmt.Sprintf("%s%d.bytesum", prefix, i), bytes.NewReader([]byte(fmt.Sprintf("%d", byteSum))))
 		suite.Require().NoError(err)
+	}
+
+	tmpDir, err := os.MkdirTemp("", "pull-bytesum-dir-*")
+	tmpDir = tmpDir + "/"
+	suite.Require().NoError(err)
+	err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir)
+	suite.Require().NoError(err)
+
+	files, err := os.ReadDir(tmpDir)
+	suite.Require().NoError(err)
+
+	suite.T().Run("pull bytesum file", func(t *testing.T) {
+		pulledAByteSum := false
 		for _, file := range files {
-			if file.Name() == "hash_to_filename.json" {
+			if strings.HasSuffix(file.Name(), ".bytesum") {
+				pulledAByteSum = true
+				break
+			}
+		}
+		suite.Require().True(pulledAByteSum)
+	})
+
+	suite.T().Run("modification time doesn't change when pulling the same data", func(t *testing.T) {
+		fileNameToStat := make(map[string]time.Time)
+		for _, file := range files {
+			// we always pull bytesums since they are used as a cache
+			// and are very small
+			if strings.HasSuffix(file.Name(), ".bytesum") {
 				continue
 			}
-			fileData, err := os.ReadFile(filepath.Join(tmpDir, file.Name()))
+			fileStat, err := file.Info()
 			suite.Require().NoError(err)
-			sha256OfFile := sha256.Sum256(fileData)
-			hashHex := hex.EncodeToString(sha256OfFile[:])
-			suite.Require().Equal(hashHex, file.Name())
+			fileNameToStat[file.Name()] = fileStat.ModTime()
+		}
+
+		time.Sleep(time.Second)
+
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir)
+		suite.Require().NoError(err)
+
+		for _, file := range files {
+			if strings.HasSuffix(file.Name(), ".bytesum") {
+				continue
+			}
+			fileStat, err := file.Info()
+			suite.Require().NoError(err)
+			oldTime := fileNameToStat[file.Name()]
+			newTime := fileStat.ModTime()
+			suite.Require().Equal(oldTime, newTime, "file %s modification time changed", file.Name())
 		}
 	})
 
-	err := suite.minioContainer.ClientWrapper.Remove(prefix)
+	err = suite.minioContainer.ClientWrapper.Remove(prefix)
 	suite.Require().NoError(err)
 }
 

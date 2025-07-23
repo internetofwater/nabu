@@ -6,7 +6,6 @@ package s3
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -250,9 +249,14 @@ func (m MinioClientWrapper) Get(path S3Prefix) (io.ReadCloser, error) {
 	return m.Client.GetObject(context.Background(), m.DefaultBucket, path, minio.GetObjectOptions{})
 }
 
-// Return true if the file with the specified name in the bucket has the same hash as the local file of the same name
-func (m MinioClientWrapper) MatchesWithLocalHash(remotePrefix S3Prefix, localDir string, name string) (bool, error) {
-	prefixForHash := remotePrefix + name + ".sha256"
+// Return true if the file with the specified name in the bucket has the same bytesum as the local file of the same name
+func (m MinioClientWrapper) MatchesWithLocalBytesum(remotePrefix S3Prefix, localDir string, name string) (bool, error) {
+
+	if !strings.HasSuffix(remotePrefix, "/") {
+		return false, fmt.Errorf("prefix %s is arbitrary and must end with /", remotePrefix)
+	}
+
+	prefixForHash := remotePrefix + name + ".bytesum"
 	log.Debugf("Checking remote file hash at %s", prefixForHash)
 	remoteHashFile, err := m.Client.GetObject(context.Background(), m.DefaultBucket, prefixForHash, minio.StatObjectOptions{})
 	if err != nil {
@@ -261,13 +265,14 @@ func (m MinioClientWrapper) MatchesWithLocalHash(remotePrefix S3Prefix, localDir
 	remoteHash, err := io.ReadAll(remoteHashFile)
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			log.Debugf("Remote file bytesum %s does not exist", prefixForHash)
 			return false, nil
 		}
 		return false, err
 	}
 
-	localHashFile := localDir + "/" + name + ".sha256"
-	log.Debugf("Checking local file hash at %s", localHashFile)
+	localHashFile := localDir + "/" + name + ".bytesum"
+	log.Debugf("Checking local file bytesum at %s", localHashFile)
 	localHashValue, err := os.ReadFile(localHashFile)
 	if os.IsNotExist(err) {
 		return false, nil
@@ -277,6 +282,49 @@ func (m MinioClientWrapper) MatchesWithLocalHash(remotePrefix S3Prefix, localDir
 	}
 	return string(remoteHash) == string(localHashValue), nil
 
+}
+
+// pull all bytesums from the bucket to disk
+func (m MinioClientWrapper) pullAllByteSums(ctx context.Context, prefix S3Prefix, outputDir string) error {
+	byteSumChan := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
+
+	for byteSum := range byteSumChan {
+		if byteSum.Err != nil {
+			return byteSum.Err
+		}
+
+		if !strings.HasSuffix(byteSum.Key, ".bytesum") {
+			continue
+		}
+
+		fileName := path.Base(byteSum.Key)
+
+		file, err := os.OpenFile(filepath.Join(outputDir, fileName), os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := file.Close(); err != nil {
+				log.Error(err)
+			}
+		}()
+
+		ob, err := m.Client.GetObject(ctx, m.DefaultBucket, byteSum.Key, minio.GetObjectOptions{})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := ob.Close(); err != nil {
+				log.Error(err)
+			}
+		}()
+
+		_, err = io.Copy(file, ob)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (m MinioClientWrapper) Exists(path S3Prefix) (bool, error) {
@@ -308,7 +356,7 @@ func (m MinioClientWrapper) BatchStore(batch chan interfaces.BatchFileObject) er
 
 // PullSeparateFilesToDir downloads all the objects with the given prefix
 // and stores them in the specified directory without combining them
-func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S3Prefix, outputDir string, useHashForFilename bool) error {
+func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S3Prefix, outputDir string) error {
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return err
 	}
@@ -317,15 +365,11 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 
 	objChan := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
 	var eg errgroup.Group
-	ioBoundGoroutineCount := runtime.NumCPU() * 2
-	eg.SetLimit(ioBoundGoroutineCount)
+	eg.SetLimit(1)
 
 	cumulativeDownloadedFiles := atomic.Int32{}
 	var mu sync.Mutex
 	cumulativeDownloadedMegabytes := float64(0)
-
-	hashToFilename := make(map[string]string)
-	var hashMu sync.Mutex
 
 	for obj := range objChan {
 
@@ -333,30 +377,20 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 			return fmt.Errorf("error when pulling files, %s", obj.Err)
 		}
 
-		if strings.HasSuffix(obj.Key, "prov.nq") || strings.HasSuffix(obj.Key, ".sha256") {
+		if strings.HasSuffix(obj.Key, "prov.nq") || strings.HasSuffix(obj.Key, ".sha256") || strings.HasSuffix(obj.Key, ".bytesum") {
 			// skip adding metadata like prov graphs or sha hashes into the concatenated file
 			continue
 		}
 		eg.Go(func() error {
 			megabytes := float64(obj.Size) / (1024 * 1024)
-			log.Debugf("Downloading %s of size %0.2fMB", obj.Key, megabytes)
+			log.Debugf("Downloading %s of size %0.5fMB", obj.Key, megabytes)
 
 			// get the last item in the s3 object prefix
 			// this is since the s3 prefix may be nested and we don't
 			// want to have to make nested dirs to store the files
 			fileName := path.Base(obj.Key)
 
-			file, err := os.OpenFile(filepath.Join(outputDir, fileName), os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := file.Close(); err != nil {
-					log.Error(err)
-				}
-			}()
-
-			isPresent, err := m.MatchesWithLocalHash(prefix, outputDir, fileName)
+			isPresent, err := m.MatchesWithLocalBytesum(prefix, outputDir, fileName)
 			if err != nil {
 				log.Errorf("Error checking if file %s exists locally: %v", fileName, err)
 				return err
@@ -376,25 +410,26 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 				}
 			}()
 
-			if useHashForFilename {
-				sha, err := common.WriteAndReturnSHA256(file, ob)
-				if err != nil {
-					return err
-				}
-				hashMu.Lock()
-				hashToFilename[sha] = fileName
-				hashMu.Unlock()
-				oldPath := filepath.Join(outputDir, fileName)
-				newPathWithSha := filepath.Join(outputDir, sha)
-				if err := os.Rename(oldPath, newPathWithSha); err != nil {
-					return err
-				}
-			} else {
-				_, err = io.Copy(file, ob)
-				if err != nil {
-					return err
-				}
+			fullLocalPath := path.Join(outputDir, fileName)
+
+			file, err := os.OpenFile(fullLocalPath, os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return err
 			}
+			defer func() {
+				if err := file.Close(); err != nil {
+					log.Error(err)
+				}
+			}()
+
+			_, err = io.Copy(file, ob)
+			if err != nil {
+				return err
+			}
+
+			// print the pulled files to stdout; this way external programs like oras can consume the output
+			// and know which files were downloaded
+			fmt.Println(fullLocalPath)
 
 			cumulativeDownloadedFiles.Add(1)
 			mu.Lock()
@@ -406,15 +441,14 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 	if err := eg.Wait(); err != nil {
 		return err
 	}
-	log.Infof("Downloaded %d files to %s with total size: %0.2fMB", cumulativeDownloadedFiles.Load(), outputDir, cumulativeDownloadedMegabytes)
 
-	if useHashForFilename {
-		hashToFilenameJSON, err := json.Marshal(hashToFilename)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(filepath.Join(outputDir, "hash_to_filename.json"), hashToFilenameJSON, 0644)
+	// pull all bytesums after all files have been downloaded; otherwise if we were
+	// to do it in parallel with the file download it would have a race condition
+	if err := m.pullAllByteSums(ctx, prefix, outputDir); err != nil {
+		return err
 	}
+
+	log.Infof("Downloaded %d files to %s with total size: %0.5fMB", cumulativeDownloadedFiles.Load(), outputDir, cumulativeDownloadedMegabytes)
 
 	return nil
 }
@@ -508,9 +542,9 @@ func (m MinioClientWrapper) PullAndConcat(ctx context.Context, prefix S3Prefix, 
 // 1. Concurrently read from S3
 // 2. Pass the data to a channel
 // 3. write to the file using buffered writer
-func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFileOrDir string, useHashForFilename bool) error {
+func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFileOrDir string) error {
 	if prefix == "" {
-		return errors.New("prefix cannot be empty when concatenating; you should not download the entire bucket")
+		return errors.New("prefix cannot be empty when concatenating; you should not implicitly download the entire bucket")
 	}
 	if outputFileOrDir == "" {
 		return errors.New("local file name cannot be empty")
@@ -519,13 +553,10 @@ func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFil
 	isDir := strings.HasSuffix(outputFileOrDir, "/")
 
 	if isDir {
-		log.Debugf("%s was specified as a directory due to the ending /", outputFileOrDir)
-		return m.PullSeparateFilesToDir(ctx, prefix, outputFileOrDir, useHashForFilename)
+		log.Debugf("%s was specified as the local download directory due to the ending /", outputFileOrDir)
+		return m.PullSeparateFilesToDir(ctx, prefix, outputFileOrDir)
 	} else {
-		log.Debugf("%s was specified as a file", outputFileOrDir)
-		if useHashForFilename {
-			return fmt.Errorf("hash for filename when downloading to a single file is currently not supported")
-		}
+		log.Debugf("%s was specified as the local file destination", outputFileOrDir)
 		return m.PullAndConcat(ctx, prefix, outputFileOrDir)
 	}
 }
