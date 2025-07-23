@@ -71,24 +71,24 @@ func getRemoteJsonldHash(url string, client *http.Client) (string, error) {
 }
 
 // Crawl and download a single URL
-func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *SitemapHarvestConfig) error {
+func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *SitemapHarvestConfig) (resultingPathInStorage string, err error) {
 	// Create a new span for each URL and propagate the updated context
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
 	defer span.End()
 
 	hash, err := getRemoteJsonldHash(url.Loc, config.httpClient)
 	if err != nil {
-		return fmt.Errorf("failed to get hash for %s: %w", url.Loc, err)
+		return "", fmt.Errorf("failed to get hash for %s: %w", url.Loc, err)
 	}
 	if hash != "" {
 		whereItWouldBeInBucket := "summoned/" + sitemapId + "/" + hash + ".jsonld"
 		exists, err := config.storageDestination.Exists(whereItWouldBeInBucket)
 		if err != nil {
-			return err
+			return "", err
 		}
 		if exists {
 			log.Infof("skipping %s because it already exists in %s", url.Loc, whereItWouldBeInBucket)
-			return nil
+			return whereItWouldBeInBucket, nil
 		}
 	} else {
 		log.Debugf("%s has no associated hash", url.Loc)
@@ -96,14 +96,14 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.Loc, nil)
 	if err != nil {
-		return err
+		return "", err
 	}
 	req.Header.Set("User-Agent", gleanerAgent)
 	req.Header.Set("Accept", "application/ld+json")
 
 	resp, err := config.httpClient.Do(req)
 	if err != nil {
-		return err
+		return "", err
 	}
 	span.AddEvent("http_response", trace.WithAttributes(attribute.KeyValue{Key: "status", Value: attribute.StringValue(resp.Status)}))
 
@@ -115,12 +115,12 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		// status makes jaeger mark as failed with red, whereas SetEvent just marks it with a message
 		span.SetStatus(codes.Error, errormsg)
 		config.nonFatalErrorChan <- pkg.UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg, ShaclStatus: pkg.ShaclSkipped}
-		return nil
+		return "", nil
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
+		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	jsonld, err := getJSONLD(resp, url, bodyBytes)
@@ -130,15 +130,15 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		if urlErr, ok := err.(pkg.UrlCrawlError); ok {
 			span.SetStatus(codes.Error, urlErr.Message)
 			config.nonFatalErrorChan <- urlErr
-			return nil
+			return "", nil
 		}
-		return fmt.Errorf("failed to get JSON-LD from response: %w", err)
+		return "", fmt.Errorf("failed to get JSON-LD from response: %w", err)
 	}
 
 	// To generate a hash we need to copy the response body
 	itemHash, err := generateHashFilename(jsonld)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	summonedPath := fmt.Sprintf("summoned/%s/%s", sitemapId, itemHash)
@@ -147,22 +147,22 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	if config.grpcClient != nil && *config.grpcClient != nil {
 		triples, err := common.JsonldToNQ(string(jsonld), config.jsonLdProc, config.jsonLdOpt)
 		if err != nil {
-			return fmt.Errorf("failed to convert JSON-LD to N-Quads: %w", err)
+			return "", fmt.Errorf("failed to convert JSON-LD to N-Quads: %w", err)
 		}
 		err = validate_shacl(ctx, *config.grpcClient, triples)
 		if err != nil {
 			if urlErr, ok := err.(pkg.UrlCrawlError); ok {
 				log.Errorf("SHACL validation failed for %s: %s", url.Loc, urlErr.Message)
 				config.nonFatalErrorChan <- urlErr
-				return nil
+				return "", nil
 			}
-			return fmt.Errorf("failed to validate shacl: %w", err)
+			return "", fmt.Errorf("failed to validate shacl: %w", err)
 		}
 	}
 
 	// Store from the buffered copy
 	if err = config.storageDestination.Store(summonedPath, bytes.NewReader(jsonld)); err != nil {
-		return err
+		return "", err
 	}
 
 	if config.robots != nil && config.robots.CrawlDelay > 0 {
@@ -170,5 +170,5 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		time.Sleep(config.robots.CrawlDelay)
 	}
 
-	return nil
+	return summonedPath, nil
 }

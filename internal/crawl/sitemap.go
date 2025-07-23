@@ -7,9 +7,11 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"maps"
 	"math"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -160,7 +162,7 @@ func (s Sitemap) ensureValid(workers int) error {
 }
 
 // Harvest all the URLs in the given sitemap
-func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, validateShacl bool) (pkg.SitemapCrawlStats, error) {
+func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, validateShacl bool, cleanupOldJsonld bool) (pkg.SitemapCrawlStats, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapID))
 	defer span.End()
 
@@ -185,21 +187,21 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 
 	sitesHarvested := atomic.Int32{}
 
-	successfulUrls := make([]string, 0, len(s.URL)) // preallocate for performance
+	successfulUrls := make(map[string]string) // preallocate for performance
 	var urlMutex sync.Mutex
 
 	for _, url := range s.URL {
 		// Capture the URL for use in the goroutine.
 		url := url
 		group.Go(func() error {
-			err := harvestOneSite(ctx, sitemapID, url, &sitemapHarvestConf)
+			locationInStorage, err := harvestOneSite(ctx, sitemapID, url, &sitemapHarvestConf)
 			sitesHarvested.Add(1)
 			if math.Mod(float64(sitesHarvested.Load()), 1000) == 0 {
 				log.Debugf("Harvested %d/%d sites for %s", sitesHarvested.Load(), len(s.URL), sitemapID)
 			}
 			if err == nil {
 				urlMutex.Lock()
-				successfulUrls = append(successfulUrls, url.Loc)
+				successfulUrls[url.Loc] = locationInStorage
 				urlMutex.Unlock()
 			}
 			return err
@@ -207,8 +209,25 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 	}
 	err = group.Wait()
 
+	if cleanupOldJsonld {
+		go func() {
+			files, err := s.storageDestination.ListDir("summoned/" + sitemapID)
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			for k, v := range files {
+				if !files.Contains(k) {
+					if err := s.storageDestination.Remove(fmt.Sprintf("summoned/%s/%s", sitemapID, v)); err != nil {
+						log.Error(err)
+					}
+				}
+			}
+		}()
+	}
+
 	stats := pkg.SitemapCrawlStats{
-		SuccessfulUrls:    successfulUrls,
+		SuccessfulUrls:    slices.Collect(maps.Keys(successfulUrls)),
 		SecondsToComplete: time.Since(start).Seconds(),
 		SitemapName:       sitemapID,
 		SitesHarvested:    int(sitesHarvested.Load()),

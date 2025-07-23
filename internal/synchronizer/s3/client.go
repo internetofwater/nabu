@@ -22,7 +22,7 @@ import (
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"golang.org/x/sync/errgroup"
 
-	interfaces "github.com/internetofwater/nabu/internal/crawl/storage"
+	"github.com/internetofwater/nabu/internal/crawl/storage"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -30,7 +30,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var _ interfaces.BatchCrawlStorage = MinioClientWrapper{}
+var _ storage.BatchCrawlStorage = MinioClientWrapper{}
 
 // Wrapper to allow us to extend the minio client struct with new methods
 type MinioClientWrapper struct {
@@ -93,7 +93,7 @@ func (m *MinioClientWrapper) MakeDefaultBucket() error {
 }
 
 // Remove an object from the store
-func (m *MinioClientWrapper) Remove(object S3Prefix) error {
+func (m MinioClientWrapper) Remove(object S3Prefix) error {
 	opts := minio.RemoveObjectOptions{
 		GovernanceBypass: true,
 	}
@@ -114,30 +114,30 @@ func (m *MinioClientWrapper) ObjectList(ctx context.Context, prefix S3Prefix) ([
 	ctx, span := opentelemetry.SubSpanFromCtx(ctx)
 	defer span.End()
 
+	var eg errgroup.Group
 	var mu sync.Mutex
-	wg := sync.WaitGroup{}
+	eg.SetLimit(40)
 	objectInfo := []minio.ObjectInfo{}
-	semaphoreChan := make(chan struct{}, 40) // Limit to concurrent goroutines so we don't overload
 
 	objectCh := m.Client.ListObjects(ctx, m.DefaultBucket,
 		minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
 
 	for object := range objectCh {
-		// Acquire a spot in the semaphore before starting a goroutine
-		semaphoreChan <- struct{}{}
-		wg.Add(1)
-		go func(object minio.ObjectInfo) {
-			defer func() {
-				<-semaphoreChan // Release the spot in the semaphore when the goroutine is done
-				wg.Done()
-			}()
+		if object.Err != nil {
+			log.Error(object.Err)
+			return nil, object.Err
+		}
+		eg.Go(func() error {
 			mu.Lock()
 			objectInfo = append(objectInfo, object)
 			mu.Unlock()
-		}(object)
+			return nil
+		})
 	}
 
-	wg.Wait()
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
 	return objectInfo, nil
 }
 
@@ -244,6 +244,18 @@ func (m MinioClientWrapper) Store(path S3Prefix, data io.Reader) error {
 	return err
 }
 
+func (m MinioClientWrapper) ListDir(path S3Prefix) (storage.Set, error) {
+	objs, err := m.ObjectList(context.Background(), path)
+	if err != nil {
+		return nil, err
+	}
+	set := make(storage.Set)
+	for _, obj := range objs {
+		set.Add(obj.Key)
+	}
+	return set, nil
+}
+
 // Get bytes from the minio store
 func (m MinioClientWrapper) Get(path S3Prefix) (io.ReadCloser, error) {
 	return m.Client.GetObject(context.Background(), m.DefaultBucket, path, minio.GetObjectOptions{})
@@ -339,7 +351,7 @@ func (m MinioClientWrapper) Exists(path S3Prefix) (bool, error) {
 	return false, err
 }
 
-func (m MinioClientWrapper) BatchStore(batch chan interfaces.BatchFileObject) error {
+func (m MinioClientWrapper) BatchStore(batch chan storage.BatchFileObject) error {
 	snowBallChan := make(chan minio.SnowballObject)
 
 	go func() {

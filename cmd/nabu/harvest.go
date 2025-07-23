@@ -21,15 +21,16 @@ import (
 // Command to harvest sitemaps and store them in a specified storage destination (S3 or local disk).
 // This was previously known as "gleaner" and is now integrated into the nabu command line tool.
 type HarvestCmd struct {
-	SitemapIndex       string `arg:"--sitemap-index" help:"sitemap index to crawl"`                  // sitemap index to crawl
-	Source             string `arg:"--source" help:"source to crawl from the sitemap"`               // source to crawl from the config
-	IgnoreRobots       bool   `arg:"--ignore-robots" help:"ignore robots.txt"`                       // ignore robots.txt
-	ToDisk             bool   `arg:"--to-disk" default:"false" help:"save to disk instead of minio"` // save to disk instead of minio
-	UseOtel            bool   `arg:"--use-otel"`
-	ConcurrentSitemaps int    `arg:"--concurrent-sitemaps" default:"10"`
-	SitemapWorkers     int    `arg:"--sitemap-workers" default:"10"`
-	HeadlessChromeUrl  string `arg:"--headless-chrome-url" default:"0.0.0.0:9222" help:"port for interacting with the headless chrome devtools"`
-	ValidateShacl      bool   `arg:"--validate-shacl" default:"false" help:"validate the sitemap against Geoconnex SHACL shapes; requires the gRPC server to be running"`
+	SitemapIndex          string `arg:"--sitemap-index" help:"sitemap index to crawl"`                  // sitemap index to crawl
+	Source                string `arg:"--source" help:"source to crawl from the sitemap"`               // source to crawl from the config
+	IgnoreRobots          bool   `arg:"--ignore-robots" help:"ignore robots.txt"`                       // ignore robots.txt
+	ToDisk                bool   `arg:"--to-disk" default:"false" help:"save to disk instead of minio"` // save to disk instead of minio
+	UseOtel               bool   `arg:"--use-otel"`
+	ConcurrentSitemaps    int    `arg:"--concurrent-sitemaps" default:"10"`
+	SitemapWorkers        int    `arg:"--sitemap-workers" default:"10"`
+	HeadlessChromeUrl     string `arg:"--headless-chrome-url" default:"0.0.0.0:9222" help:"port for interacting with the headless chrome devtools"`
+	ValidateShacl         bool   `arg:"--validate-shacl" default:"false" help:"validate the sitemap against Geoconnex SHACL shapes; requires the gRPC server to be running"`
+	CleanupOutdatedJsonld bool   `arg:"--cleanup-outdated-jsonld" default:"false" help:"cleanup outdated jsonld files from the bucket"`
 }
 
 func Harvest(ctx context.Context, minioConfig config.MinioConfig, args HarvestCmd) ([]pkg.SitemapCrawlStats, error) {
@@ -66,6 +67,7 @@ func Harvest(ctx context.Context, minioConfig config.MinioConfig, args HarvestCm
 		WithSpecifiedSourceFilter(args.Source).
 		WithHeadlessChromeUrl(args.HeadlessChromeUrl).
 		WithShaclValidationConfig(args.ValidateShacl).
+		WithOldJsonldCleanup(args.CleanupOutdatedJsonld).
 		HarvestSitemaps(ctx)
 	if err != nil {
 		return nil, err

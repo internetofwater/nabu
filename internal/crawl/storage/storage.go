@@ -25,10 +25,29 @@ type BatchCrawlStorage interface {
 // a path delimited by /
 type objectPath = string
 
+// a unique set of object paths with quick lookup
+type Set map[objectPath]struct{}
+
+func (s Set) Contains(key objectPath) bool {
+	_, ok := s[key]
+	return ok
+}
+
+func (s Set) Add(key objectPath) {
+	s[key] = struct{}{}
+}
+
 type CrawlStorage interface {
+	// Store saves the contents from the reader into a named destination
 	Store(objectPath, io.Reader) error
+	// Get returns a reader to the stored file
 	Get(objectPath) (io.ReadCloser, error)
+	// Exists returns true if the file exists
 	Exists(objectPath) (bool, error)
+	// ListDir returns a list of objects in the directory
+	ListDir(objectPath) (Set, error)
+	// Delete deletes the file
+	Remove(objectPath) error
 }
 
 // Storage for crawl data where the files
@@ -91,6 +110,27 @@ func (l *LocalTempFSCrawlStorage) Exists(object string) (bool, error) {
 	return false, err
 }
 
+func (l *LocalTempFSCrawlStorage) ListDir(prefix string) (Set, error) {
+	filepath := filepath.Join(l.baseDir, prefix)
+
+	files, err := os.ReadDir(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	set := make(Set)
+	for _, file := range files {
+		set[objectPath(file.Name())] = struct{}{}
+	}
+
+	return set, nil
+}
+
+func (l *LocalTempFSCrawlStorage) Remove(object string) error {
+	return os.Remove(filepath.Join(l.baseDir, object))
+}
+
+// DiscardCrawlStorage is a CrawlStorage that stores nothing and is useful for testing
 type DiscardCrawlStorage struct {
 }
 
@@ -103,3 +143,14 @@ func (DiscardCrawlStorage) Get(string) (io.ReadCloser, error) {
 func (DiscardCrawlStorage) Exists(string) (bool, error) {
 	return false, nil
 }
+
+func (DiscardCrawlStorage) Remove(string) error {
+	return nil
+}
+
+func (DiscardCrawlStorage) ListDir(string) (Set, error) {
+	return make(Set), nil
+}
+
+var _ CrawlStorage = DiscardCrawlStorage{}
+var _ CrawlStorage = &LocalTempFSCrawlStorage{}
