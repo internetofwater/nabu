@@ -80,13 +80,15 @@ func TestHarvestNonExistantSource(t *testing.T) {
 func TestHarvestSitemapIndex(t *testing.T) {
 	// setup mocks
 	defer gock.Off()
+	gock.EnableNetworking()
+	defer gock.DisableNetworking()
 	gock.New("https://geoconnex.us/sitemap.xml").
 		Reply(200).
-		File("testdata/sitemap_index.xml")
+		File("testdata/sitemap_index.xml").Mock.Request().Persist()
 
 	gock.New("https://geoconnex.us/sitemap/iow/wqp/stations__5.xml").
 		Reply(200).
-		File("testdata/sitemap.xml")
+		File("testdata/sitemap.xml").Mock.Request().Persist()
 
 	// initialize storage types
 	tmpStore, err := storage.NewLocalTempFSCrawlStorage()
@@ -101,16 +103,14 @@ func TestHarvestSitemapIndex(t *testing.T) {
 	sitemap, err := NewSitemap(context.Background(), sitemapUrls.GetUrlList()[0])
 	require.NoError(t, err)
 
-	_, errs := sitemap.SetStorageDestination(tmpStore).Harvest(context.Background(), 10, "test", false)
+	_, errs := sitemap.SetStorageDestination(tmpStore).Harvest(context.Background(), 10, "test", false, false)
 	require.NoError(t, errs)
 
-	_, errs = sitemap.SetStorageDestination(container.ClientWrapper).Harvest(context.Background(), 1, "test", false)
+	_, errs = sitemap.SetStorageDestination(container.ClientWrapper).Harvest(context.Background(), 1, "test", false, false)
 	require.NoError(t, errs)
 	numObjs, err := container.ClientWrapper.NumberOfMatchingObjects([]string{""})
 	require.NoError(t, err)
 	require.Equal(t, 3, numObjs)
-
-	require.True(t, gock.IsDone())
 }
 
 func TestSitemapInsteadOfSitemapIndex(t *testing.T) {

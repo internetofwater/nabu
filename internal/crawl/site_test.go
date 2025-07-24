@@ -34,18 +34,21 @@ func TestGetJsonLDWithBadMimetype(t *testing.T) {
 
 func TestHarvestOneSite(t *testing.T) {
 
-	const dummy_domain = "http://dummy123.com"
+	const dummy_domain = "http://google.com"
+
+	const pingTheHashAndTheJsonLd = 2
 
 	gock.New(dummy_domain).Reply(200).
 		SetHeader("Content-Type", "application/ld+json").
-		File("testdata/reference_feature.jsonld")
+		File("testdata/reference_feature.jsonld").
+		Mock.Request().Times(pingTheHashAndTheJsonLd)
 
 	defer gock.Off()
 
 	url := URL{
 		Loc: dummy_domain,
 	}
-	err := harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &SitemapHarvestConfig{
+	_, err := harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &SitemapHarvestConfig{
 		httpClient:         &http.Client{},
 		storageDestination: &storage.DiscardCrawlStorage{},
 	})
@@ -109,7 +112,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		gock.New(dummy_domain).Get("/").
 			Reply(200).
 			SetHeader("Content-Type", "application/ld+json").
-			File("testdata/reference_feature.jsonld")
+			File("testdata/reference_feature.jsonld").Mock.Request().Persist()
 		url := URL{
 			Loc: dummy_domain,
 		}
@@ -117,7 +120,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		require.NoError(t, err)
 		// can't use the retriable http client with gock
 		conf.httpClient = &http.Client{}
-		err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
+		_, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
 		require.Empty(t, conf.nonFatalErrorChan)
 	})
@@ -127,16 +130,17 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		gock.New(dummy_domain).Get("/").
 			Reply(200).
 			SetHeader("Content-Type", "application/ld+json").
-			File("testdata/emptyAsTriples.jsonld")
+			File("testdata/emptyAsTriples.jsonld").Mock.Request().Persist()
 
 		url := URL{
 			Loc: dummy_domain,
 		}
 		conf, err := NewSitemapHarvestConfig(Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, true)
+
 		require.NoError(t, err)
 		// can't use the retriable http client with gock
-		conf.httpClient = &http.Client{}
-		err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
+		conf.httpClient = NewCrawlerHttpClient()
+		_, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
 		close(conf.nonFatalErrorChan)
 		require.Len(t, conf.nonFatalErrorChan, 1)
@@ -150,7 +154,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		gock.New(dummy_domain).Get("/").
 			Reply(200).
 			SetHeader("Content-Type", "application/ld+json").
-			File("testdata/nonconforming.jsonld")
+			File("testdata/nonconforming.jsonld").Mock.Request().Persist()
 
 		url := URL{
 			Loc: dummy_domain,
@@ -159,7 +163,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		require.NoError(t, err)
 		// can't use the retriable http client with gock
 		conf.httpClient = &http.Client{}
-		err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
+		_, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
 		close(conf.nonFatalErrorChan)
 		require.Len(t, conf.nonFatalErrorChan, 1)

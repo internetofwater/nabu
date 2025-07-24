@@ -7,9 +7,9 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	"maps"
 	"math"
-	"net"
-	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -22,7 +22,6 @@ import (
 	"github.com/internetofwater/nabu/pkg"
 	log "github.com/sirupsen/logrus"
 	"github.com/temoto/robotstxt"
-	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -47,7 +46,7 @@ type Sitemap struct {
 // in a sitemap; these are reused across every site in a sitemap
 type SitemapHarvestConfig struct {
 	robots             *robotstxt.Group
-	httpClient         *http.Client
+	httpClient         HttpDoer
 	grpcClient         *protoBuild.ShaclValidatorClient
 	grpcConn           *grpc.ClientConn
 	jsonLdProc         *ld.JsonLdProcessor
@@ -72,45 +71,7 @@ func NewSitemapHarvestConfig(sitemap Sitemap, validateShacl bool) (SitemapHarves
 
 	crawlErrorChan := make(chan pkg.UrlCrawlError, len(sitemap.URL))
 
-	// create a client that is custom tuned for high throughput
-	// crawling; for some reason yourls doesn't respond well to the
-	// opentelemetry headers; so we do any otel events manually via
-	// transport hooks
-	client := &http.Client{
-		// a feature should not take more than 30 seconds to resolve
-		// otherwise it will be skipped
-		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
-			// allow for up to 5000 idle connections
-			// to the same host so that we can hit yourls
-			// by default the go http client limits these to 100
-			MaxIdleConns:          0,
-			MaxIdleConnsPerHost:   0,
-			MaxConnsPerHost:       0,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-			DisableKeepAlives:     false, // keep-alives are good for performance
-			ForceAttemptHTTP2:     true,
-			// set event when connection is established
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				// You can implement custom logic here or use the default dialer
-				span := trace.SpanFromContext(ctx)
-				if span != nil {
-					span.AddEvent("HTTP connection")
-				}
-				return net.DialTimeout(network, addr, 30*time.Second)
-			},
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// Add an OpenTelemetry event when a redirect occurs
-			span := trace.SpanFromContext(req.Context())
-			if span != nil {
-				span.AddEvent("HTTP redirect")
-			}
-			return nil
-		},
-	}
+	client := NewCrawlerHttpClient()
 
 	var conn *grpc.ClientConn
 	var grpcClient protoBuild.ShaclValidatorClient
@@ -160,7 +121,7 @@ func (s Sitemap) ensureValid(workers int) error {
 }
 
 // Harvest all the URLs in the given sitemap
-func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, validateShacl bool) (pkg.SitemapCrawlStats, error) {
+func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, validateShacl bool, cleanupOldJsonld bool) (pkg.SitemapCrawlStats, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapID))
 	defer span.End()
 
@@ -185,21 +146,21 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 
 	sitesHarvested := atomic.Int32{}
 
-	successfulUrls := make([]string, 0, len(s.URL)) // preallocate for performance
+	successfulUrls := make(map[string]string) // preallocate for performance
 	var urlMutex sync.Mutex
 
 	for _, url := range s.URL {
 		// Capture the URL for use in the goroutine.
 		url := url
 		group.Go(func() error {
-			err := harvestOneSite(ctx, sitemapID, url, &sitemapHarvestConf)
+			locationInStorage, err := harvestOneSite(ctx, sitemapID, url, &sitemapHarvestConf)
 			sitesHarvested.Add(1)
 			if math.Mod(float64(sitesHarvested.Load()), 1000) == 0 {
 				log.Debugf("Harvested %d/%d sites for %s", sitesHarvested.Load(), len(s.URL), sitemapID)
 			}
 			if err == nil {
 				urlMutex.Lock()
-				successfulUrls = append(successfulUrls, url.Loc)
+				successfulUrls[url.Loc] = locationInStorage
 				urlMutex.Unlock()
 			}
 			return err
@@ -207,8 +168,30 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 	}
 	err = group.Wait()
 
+	if cleanupOldJsonld {
+		go func() {
+			dir := "summoned/" + sitemapID
+			log.Infof("Cleaning up old JSON-LD files in %s", dir)
+			files, err := s.storageDestination.ListDir(dir)
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			var deleteTotal int
+			for k, v := range files {
+				if !files.Contains(k) {
+					if err := s.storageDestination.Remove(fmt.Sprintf("summoned/%s/%s", sitemapID, v)); err != nil {
+						log.Error(err)
+					}
+					deleteTotal++
+				}
+			}
+			log.Infof("Json-LD cleanup complete, deleted %d files", deleteTotal)
+		}()
+	}
+
 	stats := pkg.SitemapCrawlStats{
-		SuccessfulUrls:    successfulUrls,
+		SuccessfulUrls:    slices.Collect(maps.Keys(successfulUrls)),
 		SecondsToComplete: time.Since(start).Seconds(),
 		SitemapName:       sitemapID,
 		SitesHarvested:    int(sitesHarvested.Load()),
