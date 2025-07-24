@@ -62,7 +62,7 @@ func NewMinioClientWrapper(mcfg config.MinioConfig) (*MinioClientWrapper, error)
 	var err error
 
 	if mcfg.Region == "" {
-		log.Info("Minio client created with no region set")
+		log.Debug("Minio client created with no region set")
 		minioClient, err = minio.New(endpoint,
 			&minio.Options{Creds: credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 				Secure: useSSL,
