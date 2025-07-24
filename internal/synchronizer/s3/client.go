@@ -351,6 +351,21 @@ func (m MinioClientWrapper) Exists(path S3Prefix) (bool, error) {
 	return false, err
 }
 
+// Return true if the bucket is empty
+// This is essentially a more optimized version of listing the directory
+func (m MinioClientWrapper) IsEmptyDir(path S3Prefix) (bool, error) {
+	objs := m.Client.ListObjects(context.Background(), m.DefaultBucket, minio.ListObjectsOptions{Prefix: path, Recursive: true})
+	for obj := range objs {
+		if obj.Err != nil {
+			return false, obj.Err
+		}
+		if obj.Key != path {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 func (m MinioClientWrapper) BatchStore(batch chan storage.BatchFileObject) error {
 	snowBallChan := make(chan minio.SnowballObject)
 

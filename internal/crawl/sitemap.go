@@ -45,14 +45,15 @@ type Sitemap struct {
 // all the of the clients and config needed to harvest a particular site
 // in a sitemap; these are reused across every site in a sitemap
 type SitemapHarvestConfig struct {
-	robots             *robotstxt.Group
-	httpClient         HttpDoer
-	grpcClient         *protoBuild.ShaclValidatorClient
-	grpcConn           *grpc.ClientConn
-	jsonLdProc         *ld.JsonLdProcessor
-	jsonLdOpt          *ld.JsonLdOptions
-	nonFatalErrorChan  chan pkg.UrlCrawlError
-	storageDestination storage.CrawlStorage
+	robots                    *robotstxt.Group
+	httpClient                HttpDoer
+	grpcClient                *protoBuild.ShaclValidatorClient
+	grpcConn                  *grpc.ClientConn
+	jsonLdProc                *ld.JsonLdProcessor
+	jsonLdOpt                 *ld.JsonLdOptions
+	nonFatalErrorChan         chan pkg.UrlCrawlError
+	storageDestination        storage.CrawlStorage
+	checkExistenceBeforeCrawl bool
 }
 
 // Make a new SiteHarvestConfig with all the clients and config
@@ -149,8 +150,19 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 	successfulUrls := make(map[string]string) // preallocate for performance
 	var urlMutex sync.Mutex
 
+	noPreviousData, err := s.storageDestination.IsEmptyDir("summoned/" + sitemapID)
+	if err != nil {
+		return pkg.SitemapCrawlStats{}, err
+	}
+
+	if noPreviousData {
+		log.Infof("No pre-existing JSON-LD files found in %s so skipping hash checks for already harvested sites", "summoned/"+sitemapID)
+		sitemapHarvestConf.checkExistenceBeforeCrawl = false
+	} else {
+		sitemapHarvestConf.checkExistenceBeforeCrawl = true
+	}
+
 	for _, url := range s.URL {
-		// Capture the URL for use in the goroutine.
 		url := url
 		group.Go(func() error {
 			locationInStorage, err := harvestOneSite(ctx, sitemapID, url, &sitemapHarvestConf)
@@ -166,7 +178,9 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 			return err
 		})
 	}
-	err = group.Wait()
+	if err = group.Wait(); err != nil {
+		return pkg.SitemapCrawlStats{}, err
+	}
 
 	if cleanupOldJsonld {
 		go func() {
@@ -200,8 +214,8 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 	// we close this here to make sure we can range without blocking
 	// We know we can close this since we have already waited on all go routines
 	close(sitemapHarvestConf.nonFatalErrorChan)
-	for err := range sitemapHarvestConf.nonFatalErrorChan {
-		stats.CrawlFailures = append(stats.CrawlFailures, err)
+	for nonFatalErr := range sitemapHarvestConf.nonFatalErrorChan {
+		stats.CrawlFailures = append(stats.CrawlFailures, nonFatalErr)
 	}
 
 	go func() {

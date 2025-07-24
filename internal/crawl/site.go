@@ -83,26 +83,31 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
 	defer span.End()
 
-	hash, err := getRemoteJsonldHash(url.Loc, config.httpClient)
-	if err != nil {
-		return "", fmt.Errorf("failed to get hash for %s: %w", url.Loc, err)
-	}
+	var hash string
 	var expectedLocationInStorage string
-	if hash != "" {
-		expectedLocationInStorage = "summoned/" + sitemapId + "/" + hash + ".jsonld"
-		exists, err := config.storageDestination.Exists(expectedLocationInStorage)
+	if config.checkExistenceBeforeCrawl {
+		hash, err = getRemoteJsonldHash(url.Loc, config.httpClient)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to get hash for %s: %w", url.Loc, err)
 		}
-		if exists {
-			log.Infof("skipping %s because it already exists in %s", url.Loc, expectedLocationInStorage)
-			return expectedLocationInStorage, nil
-		}
-		log.Tracef("%s does not exist in the bucket", expectedLocationInStorage)
+		var expectedLocationInStorage string
+		if hash != "" {
+			expectedLocationInStorage = "summoned/" + sitemapId + "/" + hash + ".jsonld"
+			exists, err := config.storageDestination.Exists(expectedLocationInStorage)
+			if err != nil {
+				return "", err
+			}
+			if exists {
+				log.Infof("skipping %s because it already exists in %s", url.Loc, expectedLocationInStorage)
+				return expectedLocationInStorage, nil
+			}
+			log.Tracef("%s does not exist in the bucket", expectedLocationInStorage)
 
-	} else {
-		log.Tracef("%s has no associated hash", url.Loc)
+		} else {
+			log.Tracef("%s has no associated hash", url.Loc)
+		}
 	}
+
 	log.Tracef("fetching %s", url.Loc)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.Loc, nil)
 	if err != nil {
