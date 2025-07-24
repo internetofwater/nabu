@@ -53,7 +53,7 @@ type SitemapHarvestConfig struct {
 	jsonLdOpt                 *ld.JsonLdOptions
 	nonFatalErrorChan         chan pkg.UrlCrawlError
 	storageDestination        storage.CrawlStorage
-	checkExistenceBeforeCrawl bool
+	checkExistenceBeforeCrawl atomic.Bool
 }
 
 // Make a new SiteHarvestConfig with all the clients and config
@@ -157,16 +157,22 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 
 	if noPreviousData {
 		log.Infof("No pre-existing JSON-LD files found in %s so skipping hash checks for already harvested sites", "summoned/"+sitemapID)
-		sitemapHarvestConf.checkExistenceBeforeCrawl = false
+		sitemapHarvestConf.checkExistenceBeforeCrawl.Store(false)
 	} else {
-		sitemapHarvestConf.checkExistenceBeforeCrawl = true
+		sitemapHarvestConf.checkExistenceBeforeCrawl.Store(true)
 	}
 
 	for _, url := range s.URL {
-		url := url
 		group.Go(func() error {
-			locationInStorage, err := harvestOneSite(ctx, sitemapID, url, &sitemapHarvestConf)
+			locationInStorage, serverProvidedHashForChecking, err := harvestOneSite(ctx, sitemapID, url, &sitemapHarvestConf)
 			sitesHarvested.Add(1)
+			if !serverProvidedHashForChecking && sitemapHarvestConf.checkExistenceBeforeCrawl.Load() {
+				// if the server didn't provide a hash then we can skip the hash check
+				// since presumably the server doesn't support this header in the HEAD request
+				sitemapHarvestConf.checkExistenceBeforeCrawl.Store(false)
+				log.Warn("Server didn't provide a hash for checking so skipping hash checks for harvested sites")
+			}
+
 			if math.Mod(float64(sitesHarvested.Load()), 1000) == 0 {
 				log.Debugf("Harvested %d/%d sites for %s", sitesHarvested.Load(), len(s.URL), sitemapID)
 			}
