@@ -112,7 +112,12 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		gock.New(dummy_domain).Get("/").
 			Reply(200).
 			SetHeader("Content-Type", "application/ld+json").
-			File("testdata/reference_feature.jsonld").Mock.Request().Persist()
+			File("testdata/reference_feature.jsonld")
+
+		gock.New(dummy_domain).Head("/").
+			Reply(200).
+			SetHeader("Content-Type", "application/ld+json")
+
 		url := URL{
 			Loc: dummy_domain,
 		}
@@ -130,7 +135,11 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		gock.New(dummy_domain).Get("/").
 			Reply(200).
 			SetHeader("Content-Type", "application/ld+json").
-			File("testdata/emptyAsTriples.jsonld").Mock.Request().Persist()
+			File("testdata/emptyAsTriples.jsonld")
+
+		gock.New(dummy_domain).Head("/").
+			Reply(200).
+			SetHeader("Content-Type", "application/ld+json")
 
 		url := URL{
 			Loc: dummy_domain,
@@ -154,8 +163,10 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		gock.New(dummy_domain).Get("/").
 			Reply(200).
 			SetHeader("Content-Type", "application/ld+json").
-			File("testdata/nonconforming.jsonld").Mock.Request().Persist()
+			File("testdata/nonconforming.jsonld")
 
+		gock.New(dummy_domain).Head("/").
+			Reply(200)
 		url := URL{
 			Loc: dummy_domain,
 		}

@@ -20,11 +20,11 @@ func startMocks() {
 	gock.EnableNetworking()
 	gock.New("https://geoconnex.us/sitemap.xml").
 		Reply(200).
-		File("testdata/sitemap_index.xml").Mock.Request().Persist()
+		File("testdata/sitemap_index.xml")
 
 	gock.New("https://geoconnex.us/sitemap/iow/wqp/stations__5.xml").
 		Reply(200).
-		File("testdata/sitemap.xml").Mock.Request().Persist()
+		File("testdata/sitemap.xml")
 
 }
 

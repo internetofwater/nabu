@@ -49,3 +49,7 @@ slowest:
 # Check for max tcp connections to ensure no throttling
 checkMaxTcpConnectionsPerProcess:
 	ulimit -n 
+
+tools:
+	go install gotest.tools/gotestsum@latest
+	sudo apt install -y protobuf-compiler
