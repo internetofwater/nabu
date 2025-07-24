@@ -90,8 +90,7 @@ func FuzzGetHash(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, input []byte) {
 		// Run function with fuzz input
-		hash, err := generateHashFilename(input)
-		require.NoError(t, err)
+		hash := generateHashFilename(input)
 
 		// rehash to verify correctness
 		expectedHash := fmt.Sprintf("%x.jsonld", sha256.Sum256(input))

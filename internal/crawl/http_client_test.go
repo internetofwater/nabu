@@ -37,7 +37,6 @@ func TestHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
 
 	// Read all body bytes
 	bodyBytes, err := io.ReadAll(resp.Body)
@@ -125,7 +124,7 @@ func TestNoRetryOn404(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := client.Do(req)
-
+	require.NoError(t, err)
 	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 	require.Equal(t, int32(1), callCount, "404 should not be retried")
 }

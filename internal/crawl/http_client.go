@@ -86,7 +86,6 @@ func NewCrawlerHttpClient() *RetriableCrawlerHttpClient {
 				}
 				return net.DialTimeout(network, addr, 30*time.Second)
 			},
-			DisableCompression: true,
 		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			// Add an OpenTelemetry event when a redirect occurs
