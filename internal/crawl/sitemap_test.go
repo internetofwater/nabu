@@ -15,11 +15,24 @@ import (
 
 func TestHarvestSitemap(t *testing.T) {
 	defer gock.Off()
-	gock.EnableNetworking()
-	defer gock.DisableNetworking()
 	gock.New("https://geoconnex.us/sitemap/iow/wqp/stations__5.xml").
 		Reply(200).
-		File("testdata/sitemap.xml").Mock.Request().Persist()
+		File("testdata/sitemap.xml")
+
+	urls := []string{
+		"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C",
+		"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2",
+		"https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A",
+	}
+
+	for _, url := range urls {
+		gock.New(url).Get("/").
+			Reply(200).
+			File("testdata/reference_feature.jsonld")
+
+		gock.New(url).Head("/").
+			Reply(200)
+	}
 
 	sitemap, err := NewSitemap(context.Background(), "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml")
 	require.NoError(t, err)
