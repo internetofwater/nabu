@@ -19,6 +19,11 @@ func (i Index) WithShaclValidationConfig(enabled bool) Index {
 	return i
 }
 
+func (i Index) WithOldJsonldCleanup(enabled bool) Index {
+	i.oldJsonldCleanupEnabled = enabled
+	return i
+}
+
 // Set the storage strategy for the struct
 func (s Sitemap) SetStorageDestination(storageDestination storage.CrawlStorage) Sitemap {
 	s.storageDestination = storageDestination
