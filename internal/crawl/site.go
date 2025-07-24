@@ -5,6 +5,7 @@ package crawl
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -67,7 +68,47 @@ func getRemoteJsonldHash(url string, client HttpDoer) (string, error) {
 		return "", nil
 	}
 	hash := resp.Header.Get("content-digest")
-	return hash, nil
+
+	// make sure we get just the hash value
+	// not the metadata about the hash itself
+	trimmed := strings.TrimPrefix(hash, "sha256=")
+	trimmed = strings.TrimPrefix(trimmed, "sha256-")
+	trimmed = strings.TrimSpace(trimmed)
+
+	return trimmed, nil
+}
+
+func readAndUnzipBody(body io.ReadCloser, contentEncoding string) (raw []byte, unzipped []byte, err error) {
+	defer body.Close()
+
+	// Read the raw body
+	raw, err = io.ReadAll(body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Handle gzip encoding
+	if contentEncoding == "gzip" {
+		zipReader, err := gzip.NewReader(bytes.NewReader(raw))
+		if err != nil {
+			return raw, nil, fmt.Errorf("failed to create gzip reader: %w", err)
+		}
+		defer zipReader.Close()
+
+		unzipped, err = io.ReadAll(zipReader)
+		if err != nil {
+			return raw, nil, fmt.Errorf("failed to read gzipped content: %w", err)
+		}
+		if bytes.Equal(raw, unzipped) {
+			return raw, nil, fmt.Errorf("failed to unzip gzipped content: %w", err)
+		}
+		return raw, unzipped, nil
+	} else {
+		log.Fatal("unknown content encoding: " + contentEncoding)
+	}
+
+	// Not gzipped; raw is also unzipped
+	return raw, raw, nil
 }
 
 // Crawl and download a single URL
@@ -80,26 +121,29 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	if err != nil {
 		return "", fmt.Errorf("failed to get hash for %s: %w", url.Loc, err)
 	}
+	var expectedLocationInStorage string = ""
 	if hash != "" {
-		whereItWouldBeInBucket := "summoned/" + sitemapId + "/" + hash + ".jsonld"
-		exists, err := config.storageDestination.Exists(whereItWouldBeInBucket)
+		expectedLocationInStorage = "summoned/" + sitemapId + "/" + hash + ".jsonld"
+		exists, err := config.storageDestination.Exists(expectedLocationInStorage)
 		if err != nil {
 			return "", err
 		}
+		log.Tracef("%s does not exist in the bucket", expectedLocationInStorage)
 		if exists {
-			log.Infof("skipping %s because it already exists in %s", url.Loc, whereItWouldBeInBucket)
-			return whereItWouldBeInBucket, nil
+			log.Infof("skipping %s because it already exists in %s", url.Loc, expectedLocationInStorage)
+			return expectedLocationInStorage, nil
 		}
 	} else {
 		log.Tracef("%s has no associated hash", url.Loc)
 	}
-
+	log.Tracef("fetching %s", url.Loc)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.Loc, nil)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("User-Agent", gleanerAgent)
 	req.Header.Set("Accept", "application/ld+json")
+	req.Header.Set("Accept-Encoding", "gzip")
 
 	resp, err := config.httpClient.Do(req)
 	if err != nil {
@@ -118,12 +162,12 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		return "", nil
 	}
 
-	bodyBytes, err := io.ReadAll(resp.Body)
+	rawbytes, unzippedBytes, err := readAndUnzipBody(resp.Body, resp.Header.Get("Content-Encoding"))
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
+		return "", err
 	}
 
-	jsonld, err := getJSONLD(resp, url, bodyBytes)
+	jsonld, err := getJSONLD(resp, url, unzippedBytes)
 	if err != nil {
 		// If it's a UrlCrawlError, store it for stats
 		// put don't return it, since it is non fatal
@@ -136,12 +180,19 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	}
 
 	// To generate a hash we need to copy the response body
-	itemHash, err := generateHashFilename(jsonld)
+	itemHash, err := generateHashFilename(rawbytes)
 	if err != nil {
 		return "", err
 	}
 
 	summonedPath := fmt.Sprintf("summoned/%s/%s", sitemapId, itemHash)
+
+	if hash != "" && expectedLocationInStorage != "" {
+		if summonedPath != expectedLocationInStorage {
+			log.Fatalf("hashes appear to be different for %s \n %s", summonedPath, expectedLocationInStorage)
+			return "", fmt.Errorf("summonedPath %s and whereItWouldBeInBucket %s are different", summonedPath, expectedLocationInStorage)
+		}
+	}
 
 	// make sure the pointer itself is not nil and not empty
 	if config.grpcClient != nil && *config.grpcClient != nil {

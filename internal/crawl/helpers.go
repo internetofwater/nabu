@@ -5,7 +5,7 @@ package crawl
 
 import (
 	"bytes"
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/url"
@@ -54,7 +54,7 @@ func newRobots(urlToCheck string) (*robotstxt.Group, error) {
 
 func generateHashFilename(data []byte) (string, error) {
 
-	hasher := md5.New()
+	hasher := sha256.New()
 	if _, err := io.Copy(hasher, bytes.NewReader(data)); err != nil {
 		return "", err
 	}
