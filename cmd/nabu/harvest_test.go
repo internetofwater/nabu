@@ -72,15 +72,15 @@ func startMocksForBadFileType() {
 
 	gock.New("https://geoconnex.us/sitemap.xml").
 		Reply(200).
-		File("testdata/sitemap_index_selfie.xml").Mock.Request().Persist()
+		File("testdata/sitemap_index_selfie.xml")
 
 	gock.New("https://geoconnex.us/sitemap/SELFIE/SELFIE_ids__0.xml").
 		Reply(200).
-		File("testdata/SELFIE_ids__0.xml").Mock.Request().Persist()
+		File("testdata/SELFIE_ids__0.xml")
 
 	gock.New("https://geoconnex.us/SELFIE/usgs/huc/huc12obs/070900020601").
 		Reply(200).
-		File("testdata/selfie.html").Mock.Request().Persist()
+		File("testdata/selfie.html")
 }
 
 func (s *GleanerRootSuite) TestBadFileType() {
