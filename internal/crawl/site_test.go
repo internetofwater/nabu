@@ -48,7 +48,7 @@ func TestHarvestOneSite(t *testing.T) {
 	url := URL{
 		Loc: dummy_domain,
 	}
-	_, err := harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &SitemapHarvestConfig{
+	_, _, err := harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &SitemapHarvestConfig{
 		httpClient:         &http.Client{},
 		storageDestination: &storage.DiscardCrawlStorage{},
 	})
@@ -125,7 +125,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		require.NoError(t, err)
 		// can't use the retriable http client with gock
 		conf.httpClient = &http.Client{}
-		_, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
+		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
 		require.Empty(t, conf.nonFatalErrorChan)
 	})
@@ -149,7 +149,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		require.NoError(t, err)
 		// can't use the retriable http client with gock
 		conf.httpClient = NewCrawlerHttpClient()
-		_, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
+		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
 		close(conf.nonFatalErrorChan)
 		require.Len(t, conf.nonFatalErrorChan, 1)
@@ -174,7 +174,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		require.NoError(t, err)
 		// can't use the retriable http client with gock
 		conf.httpClient = &http.Client{}
-		_, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
+		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
 		close(conf.nonFatalErrorChan)
 		require.Len(t, conf.nonFatalErrorChan, 1)

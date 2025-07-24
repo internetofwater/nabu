@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -49,6 +50,8 @@ type CrawlStorage interface {
 	ListDir(objectPath) (Set, error)
 	// Remove removes the file
 	Remove(objectPath) error
+	// IsEmptyDir returns true if the directory is empty
+	IsEmptyDir(objectPath) (bool, error)
 }
 
 // Storage for crawl data where the files
@@ -77,7 +80,7 @@ func (l *LocalTempFSCrawlStorage) Store(name string, reader io.Reader) error {
 
 	destPath := filepath.Join(l.baseDir, name)
 
-	log.Debugf("saving data to %s", destPath)
+	log.Tracef("saving data to %s", destPath)
 
 	// Make sure directory exists
 	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
@@ -131,6 +134,17 @@ func (l *LocalTempFSCrawlStorage) Remove(object string) error {
 	return os.Remove(filepath.Join(l.baseDir, object))
 }
 
+func (l *LocalTempFSCrawlStorage) IsEmptyDir(dir objectPath) (bool, error) {
+	files, err := os.ReadDir(filepath.Join(l.baseDir, dir))
+	if errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	return len(files) == 0, nil
+}
+
 // DiscardCrawlStorage is a CrawlStorage that stores nothing and is useful for testing
 type DiscardCrawlStorage struct {
 }
@@ -151,6 +165,10 @@ func (DiscardCrawlStorage) Remove(string) error {
 
 func (DiscardCrawlStorage) ListDir(string) (Set, error) {
 	return make(Set), nil
+}
+
+func (DiscardCrawlStorage) IsEmptyDir(objectPath) (bool, error) {
+	return true, nil
 }
 
 var _ CrawlStorage = DiscardCrawlStorage{}

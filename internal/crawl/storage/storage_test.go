@@ -32,6 +32,14 @@ func TestGleanerTempFSCrawlStorage(t *testing.T) {
 	exists, err := storage.Exists("testfile.txt")
 	require.NoError(t, err)
 	require.True(t, exists)
+
+	isEmpty, err := storage.IsEmptyDir("dummy_nonexistent_directory/")
+	require.NoError(t, err)
+	require.True(t, isEmpty)
+
+	isEmpty, err = storage.IsEmptyDir("")
+	require.NoError(t, err)
+	require.False(t, isEmpty)
 }
 
 func TestSet(t *testing.T) {

@@ -142,6 +142,7 @@ func (i Index) HarvestSitemaps(ctx context.Context) (pkg.SitemapIndexCrawlStats,
 				wasFound.Store(true)
 			}
 
+			log.Infof("Parsing sitemap %s", part.Loc)
 			sitemap, err := NewSitemap(ctx, part.Loc)
 			if err != nil {
 				return err

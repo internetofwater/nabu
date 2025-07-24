@@ -4,7 +4,7 @@
 package crawl
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"testing"
@@ -90,12 +90,11 @@ func FuzzGetHash(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, input []byte) {
 		// Run function with fuzz input
-		hash, err := generateHashFilename(input)
-		require.NoError(t, err)
+		hash := generateHashFilename(input)
 
 		// rehash to verify correctness
-		expectedHash := fmt.Sprintf("%x.jsonld", md5.Sum(input))
-		require.Equal(t, expectedHash, hash, "hash should match expected MD5")
+		expectedHash := fmt.Sprintf("%x.jsonld", sha256.Sum256(input))
+		require.Equal(t, expectedHash, hash, "hash should match expected sha256")
 	})
 }
 

@@ -459,6 +459,16 @@ func (suite *S3ClientSuite) TestPullWithBytesums() {
 	suite.Require().NoError(err)
 }
 
+func (suite *S3ClientSuite) TestIsEmpty() {
+	// populate the minio bucket with 10 data points and their byte sums
+	const prefix = "is_empty_test/"
+	err := suite.minioContainer.ClientWrapper.Store(prefix+"test", bytes.NewReader([]byte("test data")))
+	suite.Require().NoError(err)
+	empty, err := suite.minioContainer.ClientWrapper.IsEmptyDir(prefix)
+	suite.Require().NoError(err)
+	suite.Require().False(empty)
+}
+
 // Run the entire test suite
 func TestS3ClientSuite(t *testing.T) {
 	suite.Run(t, new(S3ClientSuite))

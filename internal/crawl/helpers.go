@@ -5,9 +5,8 @@ package crawl
 
 import (
 	"bytes"
-	"crypto/md5"
+	"crypto/sha256"
 	"fmt"
-	"io"
 	"net/url"
 	"strings"
 
@@ -52,14 +51,9 @@ func newRobots(urlToCheck string) (*robotstxt.Group, error) {
 	return robots.FindGroup(gleanerAgent), nil
 }
 
-func generateHashFilename(data []byte) (string, error) {
-
-	hasher := md5.New()
-	if _, err := io.Copy(hasher, bytes.NewReader(data)); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%x.jsonld", hasher.Sum(nil)), nil
+func generateHashFilename(data []byte) string {
+	hash := sha256.Sum256(data)
+	return fmt.Sprintf("%x.jsonld", hash)
 }
 
 func GetJsonLDFromHTML(data []byte) (string, error) {
