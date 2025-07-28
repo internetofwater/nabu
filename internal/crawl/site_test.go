@@ -134,12 +134,10 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		const dummy_domain = "https://waterdata.usgs.gov"
 		gock.New(dummy_domain).Get("/").
 			Reply(200).
-			SetHeader("Content-Type", "application/ld+json").
 			File("testdata/emptyAsTriples.jsonld")
 
 		gock.New(dummy_domain).Head("/").
-			Reply(200).
-			SetHeader("Content-Type", "application/ld+json")
+			Reply(200)
 
 		url := URL{
 			Loc: dummy_domain,

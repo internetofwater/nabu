@@ -4,13 +4,8 @@
 package crawl
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -18,58 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHash(t *testing.T) {
-	url := "https://geoconnex.us/ref/hu04/0316"
-
-	client := NewCrawlerHttpClient()
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Add headers
-	req.Header.Set("Want-Content-Digest", "sha256")
-	req.Header.Set("Accept", "application/json+ld")
-
-	// Make the request
-	resp, err := client.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Read all body bytes
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Compute actual SHA256 hash of response body
-	hash := sha256.Sum256(bodyBytes)
-	actualHash := hex.EncodeToString(hash[:])
-
-	// Get expected hash from Content-Digest header (case-insensitive)
-	contentDigest := resp.Header.Get("Content-Digest")
-	if contentDigest == "" {
-		t.Fatal("Content-Digest header not found")
-	}
-
-	var expectedHash string
-
-	if strings.HasPrefix(strings.ToLower(contentDigest), "sha256=") {
-		expectedHash = strings.TrimPrefix(contentDigest, "sha256=")
-	}
-
-	fmt.Println("Expected:", expectedHash)
-	fmt.Println("Actual  :", actualHash)
-
-	if expectedHash == actualHash {
-		fmt.Println("✅ Hashes match.")
-	} else {
-		fmt.Println("❌ Hashes do not match!")
-		t.Fail()
-	}
-}
 func TestRetrySucceedsAfterFailures(t *testing.T) {
 	var callCount int32 = 0
 

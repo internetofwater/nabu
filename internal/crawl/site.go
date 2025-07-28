@@ -144,6 +144,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		// put don't return it, since it is non fatal
 		if urlErr, ok := err.(pkg.UrlCrawlError); ok {
 			span.SetStatus(codes.Error, urlErr.Message)
+			urlErr.ShaclStatus = pkg.ShaclSkipped
 			config.nonFatalErrorChan <- urlErr
 			return "", hash != "", nil
 		}

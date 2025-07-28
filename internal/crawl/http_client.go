@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"testing"
 	"time"
 
+	"github.com/h2non/gock"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -95,6 +97,9 @@ func NewCrawlerHttpClient() *RetriableCrawlerHttpClient {
 			}
 			return nil
 		},
+	}
+	if testing.Testing() {
+		client.Transport = gock.DefaultTransport
 	}
 	return &RetriableCrawlerHttpClient{
 		client:  client,
