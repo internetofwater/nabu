@@ -18,14 +18,17 @@ import (
 )
 
 type MockResponse struct {
-	File       string
-	Body       string
-	StatusCode int
+	File        string
+	Body        string
+	StatusCode  int
+	ContentType string
 }
 
 type MockTransport struct {
-	transport http.RoundTripper
-	urlToFile map[string]MockResponse
+	// Deny requests that are not mocked
+	denyReqNotMocked bool
+	transport        http.RoundTripper
+	urlToFile        map[string]MockResponse
 }
 
 // If the req url is in the map, return a mock response from the associated file
@@ -40,7 +43,9 @@ func (m *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: associatedMock.StatusCode,
 				Body:       io.NopCloser(strings.NewReader(associatedMock.Body)),
-				Header:     http.Header{},
+				Header: http.Header{
+					"Content-Type": []string{associatedMock.ContentType},
+				},
 			}, nil
 		} else {
 			mockedContent, err := os.Open(associatedMock.File)
@@ -50,21 +55,28 @@ func (m *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: associatedMock.StatusCode,
 				Body:       mockedContent,
-				Header:     http.Header{},
+				Header: http.Header{
+					"Content-Type": []string{associatedMock.ContentType},
+				},
 			}, nil
 		}
 
 	}
+	if m.denyReqNotMocked {
+		return nil, fmt.Errorf("request not mocked: %s", full_url)
+	}
+
 	return m.transport.RoundTrip(req)
 }
 
-func NewMockedClient(urlToMock map[string]MockResponse) *http.Client {
+func NewMockedClient(strictMode bool, urlToMock map[string]MockResponse) *http.Client {
 
 	newLongLivedHttpTransport := newLongLivedHttpTransport()
 
 	transport := &MockTransport{
-		transport: newLongLivedHttpTransport,
-		urlToFile: urlToMock,
+		transport:        newLongLivedHttpTransport,
+		urlToFile:        urlToMock,
+		denyReqNotMocked: strictMode,
 	}
 
 	return newClientFromRoundTrip(transport)
@@ -95,7 +107,8 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		if resp.StatusCode == 404 {
 			_ = resp.Body.Close()
-			return nil, fmt.Errorf("got a 404 from %s", req.URL.String())
+			log.Errorf("got a 404 from %s", req.URL.String())
+			return resp, nil
 		} else if resp.StatusCode >= 500 {
 			log.Warnf("retrying after server error %d from %s (attempt %d)", resp.StatusCode, req.URL.String(), i+1)
 			_ = resp.Body.Close()

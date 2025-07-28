@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/internetofwater/nabu/internal/config"
@@ -33,11 +34,11 @@ type HarvestCmd struct {
 	CleanupOutdatedJsonld bool   `arg:"--cleanup-outdated-jsonld" default:"false" help:"cleanup outdated jsonld files from the bucket"`
 }
 
-func Harvest(ctx context.Context, minioConfig config.MinioConfig, args HarvestCmd) ([]pkg.SitemapCrawlStats, error) {
+func Harvest(ctx context.Context, client *http.Client, minioConfig config.MinioConfig, args HarvestCmd) ([]pkg.SitemapCrawlStats, error) {
 	if args.SitemapIndex == "" {
 		return nil, fmt.Errorf("sitemap index must be provided")
 	}
-	index, err := crawl.NewSitemapIndexHarvester(args.SitemapIndex)
+	index, err := crawl.NewSitemapIndexHarvester(args.SitemapIndex, client)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +69,7 @@ func Harvest(ctx context.Context, minioConfig config.MinioConfig, args HarvestCm
 		WithHeadlessChromeUrl(args.HeadlessChromeUrl).
 		WithShaclValidationConfig(args.ValidateShacl).
 		WithOldJsonldCleanup(args.CleanupOutdatedJsonld).
-		HarvestSitemaps(ctx)
+		HarvestSitemaps(ctx, client)
 	if err != nil {
 		return nil, err
 	}

@@ -67,12 +67,14 @@ func TestNoRetryOn404(t *testing.T) {
 
 func TestMockWithString(t *testing.T) {
 
-	mock := NewMockedClient(map[string]MockResponse{
-		"http://example.com": {
-			StatusCode: 200,
-			Body:       "success",
-		},
-	})
+	mock := NewMockedClient(
+		true,
+		map[string]MockResponse{
+			"http://example.com": {
+				StatusCode: 200,
+				Body:       "success",
+			},
+		})
 
 	resp, err := mock.Get("http://example.com")
 	require.NoError(t, err)
@@ -85,12 +87,14 @@ func TestMockWithString(t *testing.T) {
 
 func TestMockWithFile(t *testing.T) {
 
-	mock := NewMockedClient(map[string]MockResponse{
-		"http://example.com": {
-			StatusCode: 404,
-			File:       "testdata/mock_file",
-		},
-	})
+	mock := NewMockedClient(
+		true,
+		map[string]MockResponse{
+			"http://example.com": {
+				StatusCode: 404,
+				File:       "testdata/mock_file",
+			},
+		})
 
 	resp, err := mock.Get("http://example.com")
 	require.NoError(t, err)
@@ -99,4 +103,16 @@ func TestMockWithFile(t *testing.T) {
 	readBody, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, string(readBody), "This is a mock file")
+}
+
+func TestStrictMock(t *testing.T) {
+	mock := NewMockedClient(true,
+		map[string]MockResponse{
+			"http://example.com": {
+				StatusCode: 200,
+				Body:       "success",
+			},
+		})
+	_, err := mock.Get("http://example123.com")
+	require.Error(t, err)
 }
