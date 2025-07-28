@@ -60,9 +60,8 @@ func TestNoRetryOn404(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := client.Do(req)
-
-	require.Error(t, err)
-	require.Nil(t, resp)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
 	require.Equal(t, int32(1), callCount, "404 should not be retried")
 }
 
