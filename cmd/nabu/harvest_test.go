@@ -12,7 +12,6 @@ import (
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 
-	"github.com/h2non/gock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -97,7 +96,6 @@ func (suite *GleanerRootSuite) SetupSuite() {
 }
 
 func (s *GleanerRootSuite) TearDownSuite() {
-	defer gock.Off()
 	c := *s.minioContainer.Container
 	err := c.Terminate(context.Background())
 	s.Require().NoError(err)

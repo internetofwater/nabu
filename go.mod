@@ -4,7 +4,6 @@ go 1.24
 
 require (
 	github.com/alexflint/go-arg v1.5.1
-	github.com/h2non/gock v1.2.0
 	github.com/knakk/rdf v0.0.0-20190304171630-8521bf4c5042
 	github.com/minio/minio-go/v7 v7.0.94
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4
@@ -32,7 +31,6 @@ require (
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
-	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
 	github.com/minio/crc64nvme v1.0.2 // indirect
 	github.com/moby/go-archive v0.1.0 // indirect
 	github.com/moby/sys/atomicwriter v0.1.0 // indirect
