@@ -43,7 +43,10 @@ func (r *RetriableCrawlerHttpClient) Do(req *http.Request) (*http.Response, erro
 			return nil, err
 		}
 		if resp.StatusCode == 404 {
-			return nil, fmt.Errorf("got a 404 from %s", req.URL.String())
+			// if the url is not found, we return early
+			// since there is no point in retrying; let the caller
+			// handle handle this and whether or not it should be fatal
+			return resp, nil
 		} else if resp.StatusCode > 400 {
 			log.Warnf("retrying after status %s from %s", resp.Status, req.URL.String())
 			time.Sleep(totalTime)
