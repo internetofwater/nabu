@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/h2non/gock"
+	common "github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/common/projectpath"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/pkg"
@@ -148,7 +149,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 
 		require.NoError(t, err)
 		// can't use the retriable http client with gock
-		conf.httpClient = NewCrawlerHttpClient()
+		conf.httpClient = common.NewCrawlerClient()
 		_, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
 		close(conf.nonFatalErrorChan)

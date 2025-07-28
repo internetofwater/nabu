@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"net/http"
 	"slices"
 	"strings"
 	"sync"
@@ -46,7 +47,7 @@ type Sitemap struct {
 // in a sitemap; these are reused across every site in a sitemap
 type SitemapHarvestConfig struct {
 	robots             *robotstxt.Group
-	httpClient         HttpDoer
+	httpClient         *http.Client
 	grpcClient         *protoBuild.ShaclValidatorClient
 	grpcConn           *grpc.ClientConn
 	jsonLdProc         *ld.JsonLdProcessor
@@ -71,7 +72,7 @@ func NewSitemapHarvestConfig(sitemap Sitemap, validateShacl bool) (SitemapHarves
 
 	crawlErrorChan := make(chan pkg.UrlCrawlError, len(sitemap.URL))
 
-	client := NewCrawlerHttpClient()
+	client := common.NewCrawlerClient()
 
 	var conn *grpc.ClientConn
 	var grpcClient protoBuild.ShaclValidatorClient

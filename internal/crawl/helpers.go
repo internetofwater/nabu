@@ -11,9 +11,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/internetofwater/nabu/internal/common"
 	"golang.org/x/net/html"
 
+	common "github.com/internetofwater/nabu/internal/common"
 	"github.com/temoto/robotstxt"
 )
 
@@ -40,7 +40,7 @@ func newRobots(urlToCheck string) (*robotstxt.Group, error) {
 
 	robotsUrl := basename + "/robots.txt"
 
-	resp, err := common.NewRetryableHTTPClient().Get(robotsUrl)
+	resp, err := common.NewCrawlerClient().Get(robotsUrl)
 	if err != nil {
 		return nil, err
 	}

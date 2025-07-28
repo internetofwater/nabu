@@ -1,9 +1,10 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-package crawl
+package common
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -28,11 +29,7 @@ func TestRetrySucceedsAfterFailures(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &RetriableCrawlerHttpClient{
-		client:  &http.Client{},
-		retries: 3,
-		backoff: 50 * time.Millisecond,
-	}
+	client := NewCrawlerClient()
 
 	req, err := http.NewRequest("GET", server.URL, nil)
 	require.NoError(t, err)
@@ -57,11 +54,7 @@ func TestNoRetryOn404(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := &RetriableCrawlerHttpClient{
-		client:  &http.Client{},
-		retries: 3,
-		backoff: 50 * time.Millisecond,
-	}
+	client := NewCrawlerClient()
 
 	req, err := http.NewRequest("GET", server.URL, nil)
 	require.NoError(t, err)
@@ -71,4 +64,40 @@ func TestNoRetryOn404(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, resp)
 	require.Equal(t, int32(1), callCount, "404 should not be retried")
+}
+
+func TestMockWithString(t *testing.T) {
+
+	mock := NewMockedClient(map[string]MockResponse{
+		"http://example.com": {
+			statusCode: 200,
+			body:       "success",
+		},
+	})
+
+	resp, err := mock.Get("http://example.com")
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Equal(t, 200, resp.StatusCode)
+	readBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, "success", string(readBody))
+}
+
+func TestMockWithFile(t *testing.T) {
+
+	mock := NewMockedClient(map[string]MockResponse{
+		"http://example.com": {
+			statusCode: 404,
+			file:       "testdata/mock_file",
+		},
+	})
+
+	resp, err := mock.Get("http://example.com")
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Equal(t, 404, resp.StatusCode)
+	readBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, string(readBody), "This is a mock file")
 }
