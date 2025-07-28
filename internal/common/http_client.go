@@ -18,9 +18,9 @@ import (
 )
 
 type MockResponse struct {
-	file       string
-	body       string
-	statusCode int
+	File       string
+	Body       string
+	StatusCode int
 }
 
 type MockTransport struct {
@@ -36,19 +36,19 @@ func (m *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if (m.urlToFile[full_url] != MockResponse{}) {
 		associatedMock, ok := m.urlToFile[full_url]
 
-		if ok && associatedMock.body != "" {
+		if ok && associatedMock.Body != "" {
 			return &http.Response{
-				StatusCode: associatedMock.statusCode,
-				Body:       io.NopCloser(strings.NewReader(associatedMock.body)),
+				StatusCode: associatedMock.StatusCode,
+				Body:       io.NopCloser(strings.NewReader(associatedMock.Body)),
 				Header:     http.Header{},
 			}, nil
 		} else {
-			mockedContent, err := os.Open(associatedMock.file)
+			mockedContent, err := os.Open(associatedMock.File)
 			if mockedContent == nil {
 				return nil, err
 			}
 			return &http.Response{
-				StatusCode: associatedMock.statusCode,
+				StatusCode: associatedMock.StatusCode,
 				Body:       mockedContent,
 				Header:     http.Header{},
 			}, nil

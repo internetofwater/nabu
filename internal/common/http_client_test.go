@@ -70,8 +70,8 @@ func TestMockWithString(t *testing.T) {
 
 	mock := NewMockedClient(map[string]MockResponse{
 		"http://example.com": {
-			statusCode: 200,
-			body:       "success",
+			StatusCode: 200,
+			Body:       "success",
 		},
 	})
 
@@ -88,8 +88,8 @@ func TestMockWithFile(t *testing.T) {
 
 	mock := NewMockedClient(map[string]MockResponse{
 		"http://example.com": {
-			statusCode: 404,
-			file:       "testdata/mock_file",
+			StatusCode: 404,
+			File:       "testdata/mock_file",
 		},
 	})
 

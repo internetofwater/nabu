@@ -131,16 +131,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		require.Empty(t, conf.nonFatalErrorChan)
 	})
 	t.Run("empty jsonld", func(t *testing.T) {
-		defer gock.Off()
 		const dummy_domain = "https://waterdata.usgs.gov"
-		gock.New(dummy_domain).Get("/").
-			Reply(200).
-			SetHeader("Content-Type", "application/ld+json").
-			File("testdata/emptyAsTriples.jsonld")
-
-		gock.New(dummy_domain).Head("/").
-			Reply(200).
-			SetHeader("Content-Type", "application/ld+json")
 
 		url := URL{
 			Loc: dummy_domain,
@@ -149,7 +140,12 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 
 		require.NoError(t, err)
 		// can't use the retriable http client with gock
-		conf.httpClient = common.NewCrawlerClient()
+		conf.httpClient = common.NewMockedClient(map[string]common.MockResponse{
+			dummy_domain: {
+				StatusCode: 200,
+				File:       "testdata/emptyAsTriples.jsonld",
+			},
+		})
 		_, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
 		close(conf.nonFatalErrorChan)
