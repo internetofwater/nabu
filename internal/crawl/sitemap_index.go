@@ -67,18 +67,13 @@ func isUrl(str string) bool {
 	return err == nil && u.Scheme != "" && u.Host != ""
 }
 
-func NewSitemapIndexHarvester(sitemapRef string) (Index, error) {
+func NewSitemapIndexHarvester(sitemapRef string, client *http.Client) (Index, error) {
 
 	serializedSitemapIndex := Index{}
 
 	var sitemapData io.Reader
 
 	if isUrl(sitemapRef) {
-		// For some reason without this the server sometimes
-		// returns EOF
-		client := http.Client{
-			Timeout: 10 * time.Second,
-		}
 
 		res, err := client.Get(sitemapRef)
 		if err != nil {
@@ -118,7 +113,7 @@ func (i Index) GetUrlList() []string {
 	return result
 }
 
-func (i Index) HarvestSitemaps(ctx context.Context) (pkg.SitemapIndexCrawlStats, error) {
+func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.SitemapIndexCrawlStats, error) {
 	var group errgroup.Group
 	group.SetLimit(i.concurrentSitemaps)
 
@@ -143,7 +138,7 @@ func (i Index) HarvestSitemaps(ctx context.Context) (pkg.SitemapIndexCrawlStats,
 			}
 
 			log.Infof("Parsing sitemap %s", part.Loc)
-			sitemap, err := NewSitemap(ctx, part.Loc)
+			sitemap, err := NewSitemap(ctx, client, part.Loc)
 			if err != nil {
 				return err
 			}
@@ -168,7 +163,7 @@ func (i Index) HarvestSitemaps(ctx context.Context) (pkg.SitemapIndexCrawlStats,
 
 			stats, harvestErr := sitemap.
 				SetStorageDestination(i.storageDestination).
-				Harvest(ctx, i.sitemapWorkers, id, i.shaclValidationEnabled, i.oldJsonldCleanupEnabled)
+				Harvest(ctx, client, i.sitemapWorkers, id, i.shaclValidationEnabled, i.oldJsonldCleanupEnabled)
 
 			for err := range errChan {
 				if err != nil {
@@ -202,7 +197,7 @@ func (i Index) HarvestSitemaps(ctx context.Context) (pkg.SitemapIndexCrawlStats,
 }
 
 // Harvest one particular sitemap
-func (i Index) HarvestSitemap(ctx context.Context, sitemapIdentifier string) (pkg.SitemapCrawlStats, error) {
+func (i Index) HarvestSitemap(ctx context.Context, client *http.Client, sitemapIdentifier string) (pkg.SitemapCrawlStats, error) {
 
 	for _, part := range i.Sitemaps {
 
@@ -217,12 +212,12 @@ func (i Index) HarvestSitemap(ctx context.Context, sitemapIdentifier string) (pk
 		ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapIdentifier))
 		defer span.End()
 
-		sitemap, err := NewSitemap(ctx, part.Loc)
+		sitemap, err := NewSitemap(ctx, client, part.Loc)
 		if err != nil {
 			return pkg.SitemapCrawlStats{}, err
 		}
 		return sitemap.SetStorageDestination(i.storageDestination).
-			Harvest(ctx, i.sitemapWorkers, id, i.shaclValidationEnabled, i.oldJsonldCleanupEnabled)
+			Harvest(ctx, client, i.sitemapWorkers, id, i.shaclValidationEnabled, i.oldJsonldCleanupEnabled)
 	}
 	return pkg.SitemapCrawlStats{}, fmt.Errorf("sitemap %s not found in sitemap", sitemapIdentifier)
 }

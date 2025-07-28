@@ -28,7 +28,7 @@ func NewJsonldProcessor(cache bool, contextMaps map[string]string) (*ld.JsonLdPr
 		// TODO: check if we want a different client transport here
 		// since the go default client limits maxconns to 100
 		// assume it is fine though since the context is cached
-		clientWithRetries := NewRetryableHTTPClient()
+		clientWithRetries := NewCrawlerClient()
 		fallbackLoader := ld.NewDefaultDocumentLoader(clientWithRetries)
 
 		prefixToFullFilePath := make(map[string]string)

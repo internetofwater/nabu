@@ -1,0 +1,542 @@
+{
+    "@context": [
+        {
+            "schema": "https://schema.org/",
+            "gsp": "http://www.opengis.net/ont/geosparql#",
+            "type": "@type"
+        }
+    ],
+    "type": "schema:Place",
+    "id": "'BPMWQX-1086-WR-CC02A'",
+    "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Things('BPMWQX-1086-WR-CC02A')",
+    "name": "WR CC02A",
+    "description": "WR CC02A",
+    "Locations": [
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Locations(438657)",
+            "@iot.id": 438657,
+            "name": "WR CC02A",
+            "description": "WR CC02A",
+            "encodingType": "application/geo+json",
+            "location": {
+                "type": "Point",
+                "coordinates": [
+                    -107.633928743,
+                    37.9106777228
+                ]
+            }
+        }
+    ],
+    "Datastreams": [
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('129271426005031778501063565034')",
+            "@iot.id": "129271426005031778501063565034",
+            "name": "Nickel at BPMWQX-1086-WR-CC02A",
+            "description": "Nickel at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "parts per million",
+                "symbol": "ppm",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('87290662028991351242530970444631')",
+                "@iot.id": "87290662028991351242530970444631",
+                "name": "Nickel",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149674",
+                "description": "Nickel"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('18002269862000955661547892973350')",
+            "@iot.id": "18002269862000955661547892973350",
+            "name": "Copper at BPMWQX-1086-WR-CC02A",
+            "description": "Copper at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "Unknown",
+                "symbol": "Unknown",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('46082434587507252905675932028449')",
+                "@iot.id": "46082434587507252905675932028449",
+                "name": "Copper",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150086",
+                "description": "Copper"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('18469911371939486672837117468066')",
+            "@iot.id": "18469911371939486672837117468066",
+            "name": "Barium at BPMWQX-1086-WR-CC02A",
+            "description": "Barium at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "micrograms per liter",
+                "symbol": "ug/L",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('27863763816423605155538049277095')",
+                "@iot.id": "27863763816423605155538049277095",
+                "name": "Barium",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149997",
+                "description": "Barium"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('22752155030618617323614642473257')",
+            "@iot.id": "22752155030618617323614642473257",
+            "name": "Zinc at BPMWQX-1086-WR-CC02A",
+            "description": "Zinc at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "Unknown",
+                "symbol": "Unknown",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('45530128700974394866577613722526')",
+                "@iot.id": "45530128700974394866577613722526",
+                "name": "Zinc",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150235",
+                "description": "Zinc"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('26710582722636240442697579765275')",
+            "@iot.id": "26710582722636240442697579765275",
+            "name": "Manganese at BPMWQX-1086-WR-CC02A",
+            "description": "Manganese at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "micrograms per liter",
+                "symbol": "ug/l",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('40499060786665984854085175624918')",
+                "@iot.id": "40499060786665984854085175624918",
+                "name": "Manganese",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149625",
+                "description": "Manganese"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('37079606133800996716529846172443')",
+            "@iot.id": "37079606133800996716529846172443",
+            "name": "Vanadium at BPMWQX-1086-WR-CC02A",
+            "description": "Vanadium at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "milligrams per kilogram",
+                "symbol": "mg/kg",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('30047697103713972129460714410961')",
+                "@iot.id": "30047697103713972129460714410961",
+                "name": "Vanadium",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150193",
+                "description": "Vanadium"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('41403555760630120400074562562091')",
+            "@iot.id": "41403555760630120400074562562091",
+            "name": "Iron at BPMWQX-1086-WR-CC02A",
+            "description": "Iron at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "percent",
+                "symbol": "%",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('52205089669330468989565214918791')",
+                "@iot.id": "52205089669330468989565214918791",
+                "name": "Iron",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149559",
+                "description": "Iron"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('4373767515285605496317826305227')",
+            "@iot.id": "4373767515285605496317826305227",
+            "name": "Silver at BPMWQX-1086-WR-CC02A",
+            "description": "Silver at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "Unknown",
+                "symbol": "Unknown",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('85884975600006374350349756152224')",
+                "@iot.id": "85884975600006374350349756152224",
+                "name": "Silver",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149849",
+                "description": "Silver"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('44667516960855644903420964359592')",
+            "@iot.id": "44667516960855644903420964359592",
+            "name": "Calcium at BPMWQX-1086-WR-CC02A",
+            "description": "Calcium at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "milligrams per liter",
+                "symbol": "mg/L",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('23201293605148882787246037787746')",
+                "@iot.id": "23201293605148882787246037787746",
+                "name": "Calcium",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150268",
+                "description": "Calcium"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('46136801918298787006554383687463')",
+            "@iot.id": "46136801918298787006554383687463",
+            "name": "Antimony at BPMWQX-1086-WR-CC02A",
+            "description": "Antimony at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "parts per million",
+                "symbol": "ppm",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('34876543797757034488595612902837')",
+                "@iot.id": "34876543797757034488595612902837",
+                "name": "Antimony",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149963",
+                "description": "Antimony"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('46389138670185331398684567203593')",
+            "@iot.id": "46389138670185331398684567203593",
+            "name": "Cobalt at BPMWQX-1086-WR-CC02A",
+            "description": "Cobalt at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "milligrams per liter",
+                "symbol": "mg/L",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('23634971583617843966153831729873')",
+                "@iot.id": "23634971583617843966153831729873",
+                "name": "Cobalt",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150078",
+                "description": "Cobalt"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('46720099251185359074876426378440')",
+            "@iot.id": "46720099251185359074876426378440",
+            "name": "Lead at BPMWQX-1086-WR-CC02A",
+            "description": "Lead at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "micrograms per liter",
+                "symbol": "ug/l",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('52370036934752207473767603704818')",
+                "@iot.id": "52370036934752207473767603704818",
+                "name": "Lead",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149583",
+                "description": "Lead"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('495286256732295851387245017565')",
+            "@iot.id": "495286256732295851387245017565",
+            "name": "Arsenic at BPMWQX-1086-WR-CC02A",
+            "description": "Arsenic at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "parts per million",
+                "symbol": "ppm",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('37151030753184299540327073486736')",
+                "@iot.id": "37151030753184299540327073486736",
+                "name": "Arsenic",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149989",
+                "description": "Arsenic"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('62965053393068523368692190352456')",
+            "@iot.id": "62965053393068523368692190352456",
+            "name": "Mercury at BPMWQX-1086-WR-CC02A",
+            "description": "Mercury at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "Unknown",
+                "symbol": "Unknown",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('11651458626624902887189836680527')",
+                "@iot.id": "11651458626624902887189836680527",
+                "name": "Mercury",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149633",
+                "description": "Mercury"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('6359538601380471210596711643377')",
+            "@iot.id": "6359538601380471210596711643377",
+            "name": "Thallium at BPMWQX-1086-WR-CC02A",
+            "description": "Thallium at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "parts per million",
+                "symbol": "ppm",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('42291151662323270272962164444051')",
+                "@iot.id": "42291151662323270272962164444051",
+                "name": "Thallium",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149898",
+                "description": "Thallium"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('66482267939265191100702835295408')",
+            "@iot.id": "66482267939265191100702835295408",
+            "name": "Molybdenum at BPMWQX-1086-WR-CC02A",
+            "description": "Molybdenum at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "parts per billion",
+                "symbol": "ppb",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('99178320278833292148767236729862')",
+                "@iot.id": "99178320278833292148767236729862",
+                "name": "Molybdenum",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149641",
+                "description": "Molybdenum"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('6801476665909071940861325412911')",
+            "@iot.id": "6801476665909071940861325412911",
+            "name": "Chromium at BPMWQX-1086-WR-CC02A",
+            "description": "Chromium at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "parts per billion",
+                "symbol": "ppb",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('21008113118039653260804124203733')",
+                "@iot.id": "21008113118039653260804124203733",
+                "name": "Chromium",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150060",
+                "description": "Chromium"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('70279612495202391257374241708139')",
+            "@iot.id": "70279612495202391257374241708139",
+            "name": "Selenium at BPMWQX-1086-WR-CC02A",
+            "description": "Selenium at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "micrograms per liter",
+                "symbol": "ug/l",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('75474244416881380230185576922424')",
+                "@iot.id": "75474244416881380230185576922424",
+                "name": "Selenium",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/154310",
+                "description": "Selenium"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('71313210926420882977051189626369')",
+            "@iot.id": "71313210926420882977051189626369",
+            "name": "Aluminum at BPMWQX-1086-WR-CC02A",
+            "description": "Aluminum at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "Unknown",
+                "symbol": "Unknown",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('54928021139442618748651863358044')",
+                "@iot.id": "54928021139442618748651863358044",
+                "name": "Aluminum",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149476",
+                "description": "Aluminum"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('72744839634388310122356964533620')",
+            "@iot.id": "72744839634388310122356964533620",
+            "name": "Cadmium at BPMWQX-1086-WR-CC02A",
+            "description": "Cadmium at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "micrograms per liter",
+                "symbol": "ug/L",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('64259774043315913468516393720022')",
+                "@iot.id": "64259774043315913468516393720022",
+                "name": "Cadmium",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150029",
+                "description": "Cadmium"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('77438038408200234049523326428078')",
+            "@iot.id": "77438038408200234049523326428078",
+            "name": "Beryllium at BPMWQX-1086-WR-CC02A",
+            "description": "Beryllium at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "parts per million",
+                "symbol": "ppm",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('30975610946359777803414834142903')",
+                "@iot.id": "30975610946359777803414834142903",
+                "name": "Beryllium",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150003",
+                "description": "Beryllium"
+            }
+        },
+        {
+            "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Datastreams('95765429582336760937204477731625')",
+            "@iot.id": "95765429582336760937204477731625",
+            "name": "Magnesium at BPMWQX-1086-WR-CC02A",
+            "description": "Magnesium at BPMWQX-1086-WR-CC02A",
+            "observationType": "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement",
+            "unitOfMeasurement": {
+                "name": "percent",
+                "symbol": "%",
+                "definition": "Unknown"
+            },
+            "phenomenonTime": "2016-01-01T00:00:00Z/2016-12-31T00:00:00Z",
+            "ObservedProperty": {
+                "@iot.selfLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/ObservedProperties('24114827492771769934151508586206')",
+                "@iot.id": "24114827492771769934151508586206",
+                "name": "Magnesium",
+                "definition": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149617",
+                "description": "Magnesium"
+            }
+        }
+    ],
+    "HistoricalLocations@iot.navigationLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Things('BPMWQX-1086-WR-CC02A')/HistoricalLocations",
+    "Locations@iot.navigationLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Things('BPMWQX-1086-WR-CC02A')/Locations",
+    "Datastreams@iot.navigationLink": "https://wqp.internetofwater.app/FROST-Server/v1.1/Things('BPMWQX-1086-WR-CC02A')/Datastreams",
+    "OrganizationFormalName": "Bonita Peak Mining",
+    "county": "https://geoconnex.us/ref/counties/08111",
+    "hu08": "https://geoconnex.us/ref/hu08/14080104",
+    "mainstem": "https://geoconnex.us/ref/mainstems/99071",
+    "monitoringLocationType": "CERCLA Superfund Site",
+    "provider": "STORET",
+    "state": "https://geoconnex.us/ref/states/08",
+    "station_url": "https://www.waterqualitydata.us/provider/STORET/BPMWQX/BPMWQX-1086-WR-CC02A/",
+    "uri": "https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A",
+    "geometry": {
+        "type": "Point",
+        "coordinates": [
+            -107.633928743,
+            37.9106777228
+        ]
+    },
+    "gsp:hasGeometry": {
+        "@type": "http://www.opengis.net/ont/sf#Point",
+        "gsp:asWKT": {
+            "@type": "http://www.opengis.net/ont/geosparql#wktLiteral",
+            "@value": "POINT (-107.633928743 37.9106777228)"
+        }
+    },
+    "schema:geo": {
+        "@type": "schema:GeoCoordinates",
+        "schema:longitude": -107.633928743,
+        "schema:latitude": 37.9106777228
+    },
+    "@id": "https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A",
+    "links": [
+        {
+            "type": "application/json",
+            "rel": "root",
+            "title": "The landing page of this server as JSON",
+            "href": "https://sta.geoconnex.dev?f=json"
+        },
+        {
+            "type": "text/html",
+            "rel": "root",
+            "title": "The landing page of this server as HTML",
+            "href": "https://sta.geoconnex.dev?f=html"
+        },
+        {
+            "rel": "alternate",
+            "type": "application/geo+json",
+            "title": "This document as JSON",
+            "href": "https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A?f=json"
+        },
+        {
+            "rel": "self",
+            "type": "application/ld+json",
+            "title": "This document as RDF (JSON-LD)",
+            "href": "https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A?f=jsonld"
+        },
+        {
+            "rel": "alternate",
+            "type": "text/html",
+            "title": "This document as HTML",
+            "href": "https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A?f=html"
+        },
+        {
+            "rel": "collection",
+            "type": "application/json",
+            "title": "WQP Things",
+            "href": "https://sta.geoconnex.dev/collections/WQP/Things"
+        }
+    ]
+}

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"net/http"
 	"slices"
 	"strings"
 	"sync"
@@ -46,7 +47,7 @@ type Sitemap struct {
 // in a sitemap; these are reused across every site in a sitemap
 type SitemapHarvestConfig struct {
 	robots                    *robotstxt.Group
-	httpClient                HttpDoer
+	httpClient                *http.Client
 	grpcClient                *protoBuild.ShaclValidatorClient
 	grpcConn                  *grpc.ClientConn
 	jsonLdProc                *ld.JsonLdProcessor
@@ -59,7 +60,7 @@ type SitemapHarvestConfig struct {
 // Make a new SiteHarvestConfig with all the clients and config
 // initialized and ready to crawl a sitemap
 // this config is shared across all goroutines and thus must be thread safe
-func NewSitemapHarvestConfig(sitemap Sitemap, validateShacl bool) (SitemapHarvestConfig, error) {
+func NewSitemapHarvestConfig(httpClient *http.Client, sitemap Sitemap, validateShacl bool) (SitemapHarvestConfig, error) {
 
 	firstUrl := sitemap.URL[0]
 	robotstxt, err := newRobots(firstUrl.Loc)
@@ -71,8 +72,6 @@ func NewSitemapHarvestConfig(sitemap Sitemap, validateShacl bool) (SitemapHarves
 	}
 
 	crawlErrorChan := make(chan pkg.UrlCrawlError, len(sitemap.URL))
-
-	client := NewCrawlerHttpClient()
 
 	var conn *grpc.ClientConn
 	var grpcClient protoBuild.ShaclValidatorClient
@@ -97,7 +96,7 @@ func NewSitemapHarvestConfig(sitemap Sitemap, validateShacl bool) (SitemapHarves
 
 	return SitemapHarvestConfig{
 		robots:             robotstxt,
-		httpClient:         client,
+		httpClient:         httpClient,
 		grpcClient:         &grpcClient,
 		grpcConn:           conn,
 		jsonLdProc:         JsonLdProc,
@@ -122,7 +121,7 @@ func (s Sitemap) ensureValid(workers int) error {
 }
 
 // Harvest all the URLs in the given sitemap
-func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, validateShacl bool, cleanupOldJsonld bool) (pkg.SitemapCrawlStats, error) {
+func (s Sitemap) Harvest(ctx context.Context, client *http.Client, workers int, sitemapID string, validateShacl bool, cleanupOldJsonld bool) (pkg.SitemapCrawlStats, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapID))
 	defer span.End()
 
@@ -133,7 +132,7 @@ func (s Sitemap) Harvest(ctx context.Context, workers int, sitemapID string, val
 		return pkg.SitemapCrawlStats{}, err
 	}
 
-	sitemapHarvestConf, err := NewSitemapHarvestConfig(s, validateShacl)
+	sitemapHarvestConf, err := NewSitemapHarvestConfig(client, s, validateShacl)
 	if err != nil {
 		return pkg.SitemapCrawlStats{}, err
 	}
@@ -249,11 +248,18 @@ type URL struct {
 }
 
 // Given a sitemap url, return a Sitemap object
-func NewSitemap(ctx context.Context, sitemapURL string) (Sitemap, error) {
+func NewSitemap(ctx context.Context, client *http.Client, sitemapURL string) (Sitemap, error) {
 	serializedSitemap := Sitemap{}
 
 	urls := make([]URL, 0)
-	err := sitemap.ParseFromSite(sitemapURL, func(entry sitemap.Entry) error {
+
+	resp, err := client.Get(sitemapURL)
+	if err != nil {
+		return serializedSitemap, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	err = sitemap.Parse(resp.Body, func(entry sitemap.Entry) error {
 		url := URL{}
 		url.Loc = strings.TrimSpace(entry.GetLocation())
 		urls = append(urls, url)

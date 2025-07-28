@@ -45,8 +45,8 @@ func countSourcesInSitemap(url string) (int, error) {
 }
 
 // Run gleaner and output the data to minio so it can be synchronized
-func NewGleanerRun(minioClient *s3.MinioClientWrapper, sitemap, source string) error {
-	index, err := crawl.NewSitemapIndexHarvester(sitemap)
+func NewGleanerRun(client *http.Client, minioClient *s3.MinioClientWrapper, sitemap, source string) error {
+	index, err := crawl.NewSitemapIndexHarvester(sitemap, client)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func NewGleanerRun(minioClient *s3.MinioClientWrapper, sitemap, source string) e
 		WithStorageDestination(minioClient).
 		WithConcurrencyConfig(10, 10).
 		WithSpecifiedSourceFilter(source).
-		HarvestSitemaps(context.Background())
+		HarvestSitemaps(context.Background(), client)
 	return err
 }
 
@@ -112,7 +112,7 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 	t := suite.T()
 
 	const source = "cdss_co_gages__0"
-	err := NewGleanerRun(suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", source)
+	err := NewGleanerRun(common.NewCrawlerClient(), suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", source)
 	require.NoError(t, err)
 
 	orgsObjs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{"orgs/"})
@@ -139,7 +139,7 @@ func (suite *SynchronizerClientSuite) TestMoveObjToTriplestore() {
 func (suite *SynchronizerClientSuite) TestMoveNqToTriplestore() {
 	t := suite.T()
 	const source = "cdss_co_gages__0"
-	err := NewGleanerRun(suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", source)
+	err := NewGleanerRun(common.NewCrawlerClient(), suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", source)
 	require.NoError(t, err)
 	err = suite.client.UploadNqFileToTriplestore("orgs/" + source + ".nq")
 	require.NoError(t, err)
@@ -167,7 +167,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	require.True(t, exists)
 
 	const source = "cdss_co_gages__0"
-	err = NewGleanerRun(suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", source)
+	err = NewGleanerRun(common.NewCrawlerClient(), suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", source)
 	require.NoError(t, err)
 	sourcesInCdss0Sitemap, err := countSourcesInSitemap("https://pids.geoconnex.dev/sitemap/cdss/co_gages__0.xml")
 	require.NoError(t, err)
@@ -206,7 +206,7 @@ func (suite *SynchronizerClientSuite) TestSyncTriplestore() {
 	// Harvest another source to make sure that the sync works with a new source
 	// syncing from the same prefix with more data this time
 	const gages = "ref_gages_gages__0"
-	err = NewGleanerRun(suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", gages)
+	err = NewGleanerRun(common.NewCrawlerClient(), suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", gages)
 	require.NoError(t, err)
 	sourcesInRefGagesSitemap, err := countSourcesInSitemap("https://pids.geoconnex.dev/sitemap/ref/gages/gages__0.xml")
 	require.NoError(t, err)
@@ -237,7 +237,7 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 	t := suite.T()
 	const source = "cdss_co_gages__0"
 	const graphAndItsAssociatedHash = 2
-	err := NewGleanerRun(suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", source)
+	err := NewGleanerRun(common.NewCrawlerClient(), suite.minioContainer.ClientWrapper, "https://pids.geoconnex.dev/sitemap.xml", source)
 	require.NoError(t, err)
 
 	t.Run("generate nq release for orgs", func(t *testing.T) {
