@@ -31,7 +31,7 @@ repos:
       - id: fix-byte-order-marker
       - id: mixed-line-ending
   - repo: https://github.com/google/addlicense
-    rev: "55a521bf81c24480094950caa3566548fa63875e"
+    rev: "v1.2.0-rc0"
     hooks:
       - id: addlicense
         args:
