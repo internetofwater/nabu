@@ -6,11 +6,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime/trace"
 	"strings"
 
+	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/common/projectpath"
 	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
@@ -123,7 +125,7 @@ func setupLogging(logLevel string, logAsJson bool) error {
 	return nil
 }
 
-func (n NabuRunner) Run(ctx context.Context) (harvestReport pkg.SitemapIndexCrawlStats, err error) {
+func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport pkg.SitemapIndexCrawlStats, err error) {
 	defer trace.Stop()
 
 	if err := setupLogging(n.args.LogLevel, n.args.LogAsJson); err != nil {
@@ -181,7 +183,7 @@ func (n NabuRunner) Run(ctx context.Context) (harvestReport pkg.SitemapIndexCraw
 	case n.args.Test != nil:
 		return nil, Test(ctx, synchronizerClient)
 	case n.args.Harvest != nil:
-		return Harvest(ctx, cfgStruct.Minio, *n.args.Harvest)
+		return Harvest(ctx, client, cfgStruct.Minio, *n.args.Harvest)
 	case n.args.Pull != nil:
 		return nil, synchronizerClient.S3Client.Pull(ctx, cfgStruct.Prefix, n.args.Pull.Output)
 	default:
@@ -190,7 +192,8 @@ func (n NabuRunner) Run(ctx context.Context) (harvestReport pkg.SitemapIndexCraw
 }
 
 func main() {
-	if crawlStats, err := NewNabuRunner(os.Args[1:]).Run(context.Background()); err != nil {
+	client := common.NewCrawlerClient()
+	if crawlStats, err := NewNabuRunner(os.Args[1:]).Run(context.Background(), client); err != nil {
 		log.Fatal(err)
 	} else {
 		// if there were no explicit errors, check for any crawl failures
