@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/synchronizer"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 	"github.com/internetofwater/nabu/internal/synchronizer/triplestores"
 
-	"github.com/h2non/gock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go/network"
@@ -28,10 +28,6 @@ type GleanerInterationSuite struct {
 }
 
 func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
-	startMocks()
-	// need to enable networking to make graph http requests
-	gock.EnableNetworking()
-	defer gock.DisableNetworking()
 
 	opentelemetry.InitTracer("gleaner_integration_test", opentelemetry.DefaultTracingEndpoint)
 	defer opentelemetry.Shutdown()
@@ -41,7 +37,13 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 	ctx, span := opentelemetry.NewSpanAndContextWithName("gleaner_nabu_integration_test_sync_graphs")
 	defer span.End()
 
-	_, err := NewNabuRunnerFromString(args).Run(ctx)
+	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
+		"https://geoconnex.us/sitemap.xml":                     {File: "testdata/sitemap_index.xml", StatusCode: 200},
+		"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {File: "testdata/stations__5.xml", StatusCode: 200},
+		"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2":   {File: "testdata/1085.jsonld", StatusCode: 200, ContentType: "application/ld+json"},
+		"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C":    {File: "testdata/1084.jsonld", StatusCode: 200, ContentType: "application/ld+json"},
+	})
+	_, err := NewNabuRunnerFromString(args).Run(ctx, mockedClient)
 	s.Require().NoError(err)
 
 	client, err := synchronizer.NewSynchronizerClientFromClients(
@@ -55,7 +57,7 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 	err = client.SyncTriplestoreGraphs(ctx, "summoned/", true)
 	s.Require().NoError(err)
 
-	exists, err := client.GraphClient.GraphExists(context.Background(), "urn:iow:summoned:iow_wqp_stations__5:24c53a6edc5d45d39662bf2fa8b6051042d79f82b4f23fdb3848e2f65cc141b7.jsonld")
+	exists, err := client.GraphClient.GraphExists(context.Background(), "urn:iow:summoned:iow_wqp_stations__5:1c9ccd5f69ee83108a2f849c8c3afcc0f255e2d1a7c56dfe55b3728ef357c5fe.jsonld")
 	s.Require().NoError(err)
 	s.Require().True(exists)
 }
@@ -92,7 +94,6 @@ func (suite *GleanerInterationSuite) SetupSuite() {
 }
 
 func (s *GleanerInterationSuite) TearDownSuite() {
-	defer gock.Off()
 	c := *s.minioContainer.Container
 	err := c.Terminate(context.Background())
 	s.Require().NoError(err)
