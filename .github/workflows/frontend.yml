@@ -3,7 +3,11 @@
 
 name: Frontend Checks 
 
-on: push
+on: 
+  push:
+    paths:
+      # only run on changes to the frontend not the rest of nabu
+      - "crawl-status-page/**"
 
 jobs:
   build:
