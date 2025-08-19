@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class ShaclValidator(shacl_validator_pb2_grpc.ShaclValidatorServicer):
-    def validate(
+    def Validate(
         self, request: TurtleValidationRequest, context: ServicerContext
     ) -> ValidationReply:
         

@@ -4,8 +4,10 @@
 
 # grpcurl workaround with https://github.com/fullstorydev/grpcui/issues/375
 
+cd "$(dirname "$0")"
+
 time grpcurl -plaintext \
-  -proto proto/shacl_validator.proto \
+  -proto ../../shacl_validator.proto \
   -d '{"triples":"@prefix ex: <http://example.org/> .\nex:foo a ex:Bar ."}' \
   -authority dummy unix:///tmp/shacl_validator.sock \
   shacl_validator.ShaclValidator/Validate
