@@ -5,16 +5,13 @@ use std::{fs, path::Path};
 
 use shacl_validator::shacl_validator_server::{ShaclValidator, ShaclValidatorServer};
 use shacl_validator::ValidationReply;
-use shacl_validator::{
-    MatchingShaclType, TurtleValidationRequest,
-};
+use shacl_validator::{MatchingShaclType, TurtleValidationRequest};
 use shacl_validator_grpc::Validator;
 use tokio::net::UnixListener;
 use tokio::signal;
 use tokio_stream::wrappers::UnixListenerStream;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
-
 
 // Dynamically include the proto file using a macro
 pub mod shacl_validator {

@@ -1,0 +1,223 @@
+@prefix gsp: <http://www.opengis.net/ont/geosparql#> .
+@prefix hyf: <https://www.opengis.net/def/schema/hy_features/hyf/> .
+@prefix schema: <https://schema.org/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc: <http://purl.org/dc/terms/> .
+@prefix ex: <http://geoconnex.us/shapes#> .
+
+@base <http://geoconnex.us/> .
+
+ex:DatasetShape a sh:NodeShape ;
+    sh:targetClass schema:Dataset ;
+
+    sh:property [
+        sh:path schema:identifier ;
+        sh:datatype xsd:string ;
+        # sh:minCount 1 ;
+    ] ;
+
+    sh:property [
+        sh:path schema:name ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] ;
+
+    sh:property [
+        sh:path schema:description ;
+        sh:datatype xsd:string ;
+    ] ;
+
+    sh:property [
+        sh:path schema:url ;
+        sh:datatype sh:IRI ;
+    ] ;
+
+    sh:property [
+        sh:path schema:provider ;
+        sh:node ex:ProviderShape ;
+    ] ;
+
+    sh:property [
+        sh:path schema:creator ;
+        sh:node ex:CreatorShape ;
+    ] ;
+
+    sh:property [
+        sh:path schema:keywords ;
+        sh:datatype xsd:string ;
+    ] ;
+
+    sh:property [
+        sh:path schema:license ;
+        sh:datatype sh:IRI ;
+        sh:minCount 1 ;
+    ] ;
+
+    sh:property [
+        sh:path schema:isAccessibleForFree ;
+        sh:datatype xsd:boolean ;
+    ] ;
+
+    sh:property [
+        sh:path schema:distribution ;
+        sh:node ex:DistributionShape ;
+    ] ;
+
+    sh:property [
+        sh:path schema:variableMeasured ;
+        sh:node ex:VariableShape ;
+    ] ;
+
+    sh:property [
+        sh:path schema:temporalCoverage ;
+        sh:datatype xsd:string ;
+    ] ;
+
+    # sh:property [
+    #     sh:path dc:accrualPeriodicity ;
+    #     sh:nodeKind sh:IRI ;
+    # ] ;
+
+    # sh:property [
+    #     sh:path dcat:temporalResolution ;
+    #     sh:datatype xsd:duration ;
+    # ] ;
+
+    sh:property [
+        sh:path schema:about ;
+        sh:nodeKind sh:IRI ;
+    ] .
+
+ex:VariableShape a sh:NodeShape ;
+    sh:property [
+        sh:path schema:name ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path schema:description ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path schema:propertyID ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+    sh:property [
+        sh:path schema:url ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+    sh:property [
+        sh:path schema:unitText ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path <http://qudt.org/schema/qudt/hasQuantityKind> ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+    sh:property [
+        sh:path schema:unitCode ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+    sh:property [
+        sh:path schema:measurementTechnique ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path schema:measurementMethod ;
+        sh:node ex:MeasurementMethodShape ;
+    ] ;
+    .
+
+ex:MeasurementMethodShape a sh:NodeShape ;
+    sh:property [
+        sh:path schema:name ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path schema:description ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path schema:url ;
+        sh:datatype xsd:anyURI ;
+    ] .
+
+ex:DistributionShape a sh:NodeShape ;
+    sh:property [
+        sh:path schema:name ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path schema:contentUrl ;
+        sh:datatype xsd:anyURI ;
+    ] ;
+    sh:property [
+        sh:path schema:encodingFormat ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path dc:conformsTo ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+.
+
+
+
+<#LocationOrientedShape> a sh:NodeShape ;
+    sh:targetClass schema:Place ;
+
+    # Name is a required property
+    sh:property [
+        sh:path schema:name ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] ;
+
+    sh:property [
+        sh:path schema:description ;
+        sh:datatype xsd:string ;
+    ] ;
+
+    sh:property [
+        sh:path hyf:HydroLocationType ;
+        sh:datatype xsd:string ;
+    ] ;
+
+    sh:property [
+        sh:path schema:subjectOf ;
+        sh:or (
+            [ sh:nodeKind sh:IRI ]       # Option 1: just an IRI
+            [ sh:node ex:DatasetShape ]  # Option 2: a full dataset node
+        ) ;
+    ]  ;
+
+
+    # schema for the wkt geometry and crs
+    # i.e. POINT(-100, 100)
+    sh:property [
+        sh:path gsp:hasGeometry ;
+        sh:node [
+            sh:property [
+                sh:path gsp:asWKT ;
+                sh:datatype gsp:wktLiteral ;
+            ] ;
+        ] ;
+    ] ;
+
+    # schema for the geo coordinates (i.e. lat / long key val mapping)
+    sh:property [
+        sh:path schema:geo ;
+    ] ;
+
+    sh:property [
+        sh:path hyf:containingCatchment ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+
+
+    sh:property [
+        sh:path schema:sameAs ;
+        sh:nodeKind sh:IRI ;
+    ]
+
+.
