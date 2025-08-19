@@ -5,7 +5,7 @@
 // versions:
 // 	protoc-gen-go v1.36.6
 // 	protoc        v5.29.3
-// source: shacl_validator_grpc/proto/shacl_validator.proto
+// source: shacl_validator.proto
 
 package protoBuild
 
@@ -55,11 +55,11 @@ func (x MatchingShaclType) String() string {
 }
 
 func (MatchingShaclType) Descriptor() protoreflect.EnumDescriptor {
-	return file_shacl_validator_grpc_proto_shacl_validator_proto_enumTypes[0].Descriptor()
+	return file_shacl_validator_proto_enumTypes[0].Descriptor()
 }
 
 func (MatchingShaclType) Type() protoreflect.EnumType {
-	return &file_shacl_validator_grpc_proto_shacl_validator_proto_enumTypes[0]
+	return &file_shacl_validator_proto_enumTypes[0]
 }
 
 func (x MatchingShaclType) Number() protoreflect.EnumNumber {
@@ -68,7 +68,7 @@ func (x MatchingShaclType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use MatchingShaclType.Descriptor instead.
 func (MatchingShaclType) EnumDescriptor() ([]byte, []int) {
-	return file_shacl_validator_grpc_proto_shacl_validator_proto_rawDescGZIP(), []int{0}
+	return file_shacl_validator_proto_rawDescGZIP(), []int{0}
 }
 
 type TurtleValidationRequest struct {
@@ -80,7 +80,7 @@ type TurtleValidationRequest struct {
 
 func (x *TurtleValidationRequest) Reset() {
 	*x = TurtleValidationRequest{}
-	mi := &file_shacl_validator_grpc_proto_shacl_validator_proto_msgTypes[0]
+	mi := &file_shacl_validator_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -92,7 +92,7 @@ func (x *TurtleValidationRequest) String() string {
 func (*TurtleValidationRequest) ProtoMessage() {}
 
 func (x *TurtleValidationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shacl_validator_grpc_proto_shacl_validator_proto_msgTypes[0]
+	mi := &file_shacl_validator_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -105,7 +105,7 @@ func (x *TurtleValidationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TurtleValidationRequest.ProtoReflect.Descriptor instead.
 func (*TurtleValidationRequest) Descriptor() ([]byte, []int) {
-	return file_shacl_validator_grpc_proto_shacl_validator_proto_rawDescGZIP(), []int{0}
+	return file_shacl_validator_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *TurtleValidationRequest) GetTriples() string {
@@ -126,7 +126,7 @@ type ValidationReply struct {
 
 func (x *ValidationReply) Reset() {
 	*x = ValidationReply{}
-	mi := &file_shacl_validator_grpc_proto_shacl_validator_proto_msgTypes[1]
+	mi := &file_shacl_validator_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -138,7 +138,7 @@ func (x *ValidationReply) String() string {
 func (*ValidationReply) ProtoMessage() {}
 
 func (x *ValidationReply) ProtoReflect() protoreflect.Message {
-	mi := &file_shacl_validator_grpc_proto_shacl_validator_proto_msgTypes[1]
+	mi := &file_shacl_validator_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -151,7 +151,7 @@ func (x *ValidationReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidationReply.ProtoReflect.Descriptor instead.
 func (*ValidationReply) Descriptor() ([]byte, []int) {
-	return file_shacl_validator_grpc_proto_shacl_validator_proto_rawDescGZIP(), []int{1}
+	return file_shacl_validator_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ValidationReply) GetValid() bool {
@@ -175,11 +175,11 @@ func (x *ValidationReply) GetShaclType() MatchingShaclType {
 	return MatchingShaclType_LocationOriented
 }
 
-var File_shacl_validator_grpc_proto_shacl_validator_proto protoreflect.FileDescriptor
+var File_shacl_validator_proto protoreflect.FileDescriptor
 
-const file_shacl_validator_grpc_proto_shacl_validator_proto_rawDesc = "" +
+const file_shacl_validator_proto_rawDesc = "" +
 	"\n" +
-	"0shacl_validator_grpc/proto/shacl_validator.proto\x12\x0fshacl_validator\"3\n" +
+	"\x15shacl_validator.proto\x12\x0fshacl_validator\"3\n" +
 	"\x17TurtleValidationRequest\x12\x18\n" +
 	"\atriples\x18\x01 \x01(\tR\atriples\"\x96\x01\n" +
 	"\x0fValidationReply\x12\x14\n" +
@@ -195,25 +195,25 @@ const file_shacl_validator_grpc_proto_shacl_validator_proto_rawDesc = "" +
 	"\bValidate\x12(.shacl_validator.TurtleValidationRequest\x1a .shacl_validator.ValidationReplyB\x15Z\x13internal/protoBuildb\x06proto3"
 
 var (
-	file_shacl_validator_grpc_proto_shacl_validator_proto_rawDescOnce sync.Once
-	file_shacl_validator_grpc_proto_shacl_validator_proto_rawDescData []byte
+	file_shacl_validator_proto_rawDescOnce sync.Once
+	file_shacl_validator_proto_rawDescData []byte
 )
 
-func file_shacl_validator_grpc_proto_shacl_validator_proto_rawDescGZIP() []byte {
-	file_shacl_validator_grpc_proto_shacl_validator_proto_rawDescOnce.Do(func() {
-		file_shacl_validator_grpc_proto_shacl_validator_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_shacl_validator_grpc_proto_shacl_validator_proto_rawDesc), len(file_shacl_validator_grpc_proto_shacl_validator_proto_rawDesc)))
+func file_shacl_validator_proto_rawDescGZIP() []byte {
+	file_shacl_validator_proto_rawDescOnce.Do(func() {
+		file_shacl_validator_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_shacl_validator_proto_rawDesc), len(file_shacl_validator_proto_rawDesc)))
 	})
-	return file_shacl_validator_grpc_proto_shacl_validator_proto_rawDescData
+	return file_shacl_validator_proto_rawDescData
 }
 
-var file_shacl_validator_grpc_proto_shacl_validator_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_shacl_validator_grpc_proto_shacl_validator_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_shacl_validator_grpc_proto_shacl_validator_proto_goTypes = []any{
+var file_shacl_validator_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_shacl_validator_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_shacl_validator_proto_goTypes = []any{
 	(MatchingShaclType)(0),          // 0: shacl_validator.MatchingShaclType
 	(*TurtleValidationRequest)(nil), // 1: shacl_validator.TurtleValidationRequest
 	(*ValidationReply)(nil),         // 2: shacl_validator.ValidationReply
 }
-var file_shacl_validator_grpc_proto_shacl_validator_proto_depIdxs = []int32{
+var file_shacl_validator_proto_depIdxs = []int32{
 	0, // 0: shacl_validator.ValidationReply.ShaclType:type_name -> shacl_validator.MatchingShaclType
 	1, // 1: shacl_validator.ShaclValidator.Validate:input_type -> shacl_validator.TurtleValidationRequest
 	2, // 2: shacl_validator.ShaclValidator.Validate:output_type -> shacl_validator.ValidationReply
@@ -224,28 +224,28 @@ var file_shacl_validator_grpc_proto_shacl_validator_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_shacl_validator_grpc_proto_shacl_validator_proto_init() }
-func file_shacl_validator_grpc_proto_shacl_validator_proto_init() {
-	if File_shacl_validator_grpc_proto_shacl_validator_proto != nil {
+func init() { file_shacl_validator_proto_init() }
+func file_shacl_validator_proto_init() {
+	if File_shacl_validator_proto != nil {
 		return
 	}
-	file_shacl_validator_grpc_proto_shacl_validator_proto_msgTypes[1].OneofWrappers = []any{}
+	file_shacl_validator_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shacl_validator_grpc_proto_shacl_validator_proto_rawDesc), len(file_shacl_validator_grpc_proto_shacl_validator_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shacl_validator_proto_rawDesc), len(file_shacl_validator_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_shacl_validator_grpc_proto_shacl_validator_proto_goTypes,
-		DependencyIndexes: file_shacl_validator_grpc_proto_shacl_validator_proto_depIdxs,
-		EnumInfos:         file_shacl_validator_grpc_proto_shacl_validator_proto_enumTypes,
-		MessageInfos:      file_shacl_validator_grpc_proto_shacl_validator_proto_msgTypes,
+		GoTypes:           file_shacl_validator_proto_goTypes,
+		DependencyIndexes: file_shacl_validator_proto_depIdxs,
+		EnumInfos:         file_shacl_validator_proto_enumTypes,
+		MessageInfos:      file_shacl_validator_proto_msgTypes,
 	}.Build()
-	File_shacl_validator_grpc_proto_shacl_validator_proto = out.File
-	file_shacl_validator_grpc_proto_shacl_validator_proto_goTypes = nil
-	file_shacl_validator_grpc_proto_shacl_validator_proto_depIdxs = nil
+	File_shacl_validator_proto = out.File
+	file_shacl_validator_proto_goTypes = nil
+	file_shacl_validator_proto_depIdxs = nil
 }

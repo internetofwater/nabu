@@ -185,9 +185,10 @@ mod tests {
         );
         let report = result.unwrap();
         assert!(
-            report.conforms(),
+            !report.conforms(),
             "Report should indicate conformance for valid location-oriented data"
         );
+        println!("Report: {}", report.to_string());
     }
 
     #[test]

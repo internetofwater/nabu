@@ -5,7 +5,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v5.29.3
-// source: shacl_validator_grpc/proto/shacl_validator.proto
+// source: shacl_validator.proto
 
 package protoBuild
 
@@ -120,5 +120,5 @@ var ShaclValidator_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "shacl_validator_grpc/proto/shacl_validator.proto",
+	Metadata: "shacl_validator.proto",
 }

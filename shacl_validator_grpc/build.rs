@@ -7,6 +7,6 @@
 // This is essentially a macro for codegen that allows us to use
 // the protobuf structs like any other rust struct in our code
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tonic_build::compile_protos("proto/shacl_validator.proto")?;
+    tonic_build::compile_protos("../shacl_validator.proto")?;
     Ok(())
 }
