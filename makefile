@@ -10,6 +10,7 @@ protoc:
     --proto_path=. \
     --python_out=shacl_validator_grpc_py \
     --grpc_python_out=shacl_validator_grpc_py \
+	--pyi_out=shacl_validator_grpc_py \
     shacl_validator.proto
 
 # clean up trace/profiling/build artifacts
