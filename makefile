@@ -6,11 +6,11 @@
 # Generate the protobuf client code needed to connect to the grpc server
 protoc:
 	protoc --proto_path=. --go_out=. --go-grpc_out=. shacl_validator.proto
-	python3 -m grpc_tools.protoc \
-		--proto_path=. \
-		--python_out=shacl_validator_grpc_py/protoBuild \
-		--grpc_python_out=shacl_validator_grpc_py/protoBuild \
-		shacl_validator.proto
+	shacl_validator_grpc_py/.venv/bin/python -m grpc_tools.protoc \
+    --proto_path=. \
+    --python_out=shacl_validator_grpc_py \
+    --grpc_python_out=shacl_validator_grpc_py \
+    shacl_validator.proto
 
 # clean up trace/profiling/build artifacts
 clean:

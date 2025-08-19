@@ -2,13 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [project]
-name = "shacl-validator-gprc-py"
+name = "shacl-validator-grpc-py"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "grpcio>=1.74.0",
+    "grpcio-tools>=1.74.0",
     "pyshacl>=0.30.1",
     "rdflib>=7.1.4",
 ]
@@ -16,7 +17,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "grpcio-tools>=1.74.0",
-    "l>=0.11.0",
     "pyright>=1.1.403",
     "pytest>=8.4.1",
 ]

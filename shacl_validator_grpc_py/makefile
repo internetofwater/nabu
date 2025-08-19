@@ -2,7 +2,7 @@ test:
 	uv run pytest -vv
 
 deps:
-	uv sync
+	uv sync --dev 
 
 check:
 	uv run pyright
