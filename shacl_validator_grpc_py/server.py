@@ -12,7 +12,8 @@ import os
 import argparse
 from concurrent import futures
 import grpc
-from shacl_validator_pb2 import TurtleValidationRequest, ValidationReply
+from rdflib import Graph
+from shacl_validator_pb2 import TurtleValidationRequest, ValidationReply, LocationOriented
 
 from grpc import ServicerContext
 
@@ -20,7 +21,7 @@ from grpc import ServicerContext
 import shacl_validator_pb2_grpc
 
 # Import validation logic
-from lib import validate_jsonld
+from lib import validate_graph
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -32,12 +33,14 @@ class ShaclValidator(shacl_validator_pb2_grpc.ShaclValidatorServicer):
         self, request: TurtleValidationRequest, context: ServicerContext
     ) -> ValidationReply:
         
-        conforms, _, text = validate_jsonld(request.triples, format="location_oriented")
+        turtle = Graph()
+        turtle.parse(data=request.triples, format="turtle")
+        conforms, _, text = validate_graph(turtle, format="location_oriented")
 
         return ValidationReply(
             valid=conforms,
             message=text,
-            ShaclType="location_oriented",
+            ShaclType=LocationOriented,
         )
 
 

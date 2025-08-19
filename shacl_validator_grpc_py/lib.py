@@ -13,18 +13,17 @@ SCHEMA = "https://schema.org/"
 location_oriented_shacl = Graph().parse(location_oriented_path, format="turtle")
 dataset_oriented_shacl = Graph().parse(dataset_oriented_path, format="turtle")
 
-def validate_jsonld(jsonld: str, format: Literal["location_oriented", "dataset_oriented"] ):
-    data_graph = Graph()
-    data_graph.parse(data=jsonld, format="json-ld")
-
+def validate_graph(data_graph: Graph, format: Literal["location_oriented", "dataset_oriented"]):
     match format:
         case "location_oriented":
-
-
             place_iri = URIRef(SCHEMA + "Place")
 
             if not any(data_graph.subjects(RDF.type, place_iri)):
-                return False, "", "SHACL Validation failed: Location Oriented jsonld must have '@type': 'Place'"
+                return (
+                    False,
+                    "",
+                    "SHACL Validation failed: Location Oriented jsonld must have '@type': 'Place'",
+                )
 
             return pyshacl.validate(
                 data_graph,
@@ -41,4 +40,12 @@ def validate_jsonld(jsonld: str, format: Literal["location_oriented", "dataset_o
             )
         case _:
             assert_never(format)
+
+
+def validate_jsonld(jsonld: str, format: Literal["location_oriented", "dataset_oriented"] ):
+    data_graph = Graph()
+    data_graph.parse(data=jsonld, format="json-ld")
+    return validate_graph(data_graph, format)
+
+   
 
