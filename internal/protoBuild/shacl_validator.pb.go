@@ -71,27 +71,27 @@ func (MatchingShaclType) EnumDescriptor() ([]byte, []int) {
 	return file_shacl_validator_proto_rawDescGZIP(), []int{0}
 }
 
-type TurtleValidationRequest struct {
+type JsoldValidationRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Triples       string                 `protobuf:"bytes,1,opt,name=triples,proto3" json:"triples,omitempty"`
+	Jsonld        string                 `protobuf:"bytes,1,opt,name=jsonld,proto3" json:"jsonld,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *TurtleValidationRequest) Reset() {
-	*x = TurtleValidationRequest{}
+func (x *JsoldValidationRequest) Reset() {
+	*x = JsoldValidationRequest{}
 	mi := &file_shacl_validator_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TurtleValidationRequest) String() string {
+func (x *JsoldValidationRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TurtleValidationRequest) ProtoMessage() {}
+func (*JsoldValidationRequest) ProtoMessage() {}
 
-func (x *TurtleValidationRequest) ProtoReflect() protoreflect.Message {
+func (x *JsoldValidationRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_shacl_validator_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -103,14 +103,14 @@ func (x *TurtleValidationRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TurtleValidationRequest.ProtoReflect.Descriptor instead.
-func (*TurtleValidationRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use JsoldValidationRequest.ProtoReflect.Descriptor instead.
+func (*JsoldValidationRequest) Descriptor() ([]byte, []int) {
 	return file_shacl_validator_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *TurtleValidationRequest) GetTriples() string {
+func (x *JsoldValidationRequest) GetJsonld() string {
 	if x != nil {
-		return x.Triples
+		return x.Jsonld
 	}
 	return ""
 }
@@ -179,9 +179,9 @@ var File_shacl_validator_proto protoreflect.FileDescriptor
 
 const file_shacl_validator_proto_rawDesc = "" +
 	"\n" +
-	"\x15shacl_validator.proto\x12\x0fshacl_validator\"3\n" +
-	"\x17TurtleValidationRequest\x12\x18\n" +
-	"\atriples\x18\x01 \x01(\tR\atriples\"\x96\x01\n" +
+	"\x15shacl_validator.proto\x12\x0fshacl_validator\"0\n" +
+	"\x16JsoldValidationRequest\x12\x16\n" +
+	"\x06jsonld\x18\x01 \x01(\tR\x06jsonld\"\x96\x01\n" +
 	"\x0fValidationReply\x12\x14\n" +
 	"\x05valid\x18\x01 \x01(\bR\x05valid\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12E\n" +
@@ -190,9 +190,9 @@ const file_shacl_validator_proto_rawDesc = "" +
 	"_ShaclType*>\n" +
 	"\x11MatchingShaclType\x12\x14\n" +
 	"\x10LocationOriented\x10\x00\x12\x13\n" +
-	"\x0fDatasetOriented\x10\x012h\n" +
-	"\x0eShaclValidator\x12V\n" +
-	"\bValidate\x12(.shacl_validator.TurtleValidationRequest\x1a .shacl_validator.ValidationReplyB\x15Z\x13internal/protoBuildb\x06proto3"
+	"\x0fDatasetOriented\x10\x012g\n" +
+	"\x0eShaclValidator\x12U\n" +
+	"\bValidate\x12'.shacl_validator.JsoldValidationRequest\x1a .shacl_validator.ValidationReplyB\x15Z\x13internal/protoBuildb\x06proto3"
 
 var (
 	file_shacl_validator_proto_rawDescOnce sync.Once
@@ -209,13 +209,13 @@ func file_shacl_validator_proto_rawDescGZIP() []byte {
 var file_shacl_validator_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_shacl_validator_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_shacl_validator_proto_goTypes = []any{
-	(MatchingShaclType)(0),          // 0: shacl_validator.MatchingShaclType
-	(*TurtleValidationRequest)(nil), // 1: shacl_validator.TurtleValidationRequest
-	(*ValidationReply)(nil),         // 2: shacl_validator.ValidationReply
+	(MatchingShaclType)(0),         // 0: shacl_validator.MatchingShaclType
+	(*JsoldValidationRequest)(nil), // 1: shacl_validator.JsoldValidationRequest
+	(*ValidationReply)(nil),        // 2: shacl_validator.ValidationReply
 }
 var file_shacl_validator_proto_depIdxs = []int32{
 	0, // 0: shacl_validator.ValidationReply.ShaclType:type_name -> shacl_validator.MatchingShaclType
-	1, // 1: shacl_validator.ShaclValidator.Validate:input_type -> shacl_validator.TurtleValidationRequest
+	1, // 1: shacl_validator.ShaclValidator.Validate:input_type -> shacl_validator.JsoldValidationRequest
 	2, // 2: shacl_validator.ShaclValidator.Validate:output_type -> shacl_validator.ValidationReply
 	2, // [2:3] is the sub-list for method output_type
 	1, // [1:2] is the sub-list for method input_type

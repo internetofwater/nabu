@@ -39,7 +39,7 @@ class ShaclValidatorStub(object):
         """
         self.Validate = channel.unary_unary(
                 '/shacl_validator.ShaclValidator/Validate',
-                request_serializer=shacl__validator__pb2.TurtleValidationRequest.SerializeToString,
+                request_serializer=shacl__validator__pb2.JsoldValidationRequest.SerializeToString,
                 response_deserializer=shacl__validator__pb2.ValidationReply.FromString,
                 _registered_method=True)
 
@@ -58,7 +58,7 @@ def add_ShaclValidatorServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Validate': grpc.unary_unary_rpc_method_handler(
                     servicer.Validate,
-                    request_deserializer=shacl__validator__pb2.TurtleValidationRequest.FromString,
+                    request_deserializer=shacl__validator__pb2.JsoldValidationRequest.FromString,
                     response_serializer=shacl__validator__pb2.ValidationReply.SerializeToString,
             ),
     }
@@ -87,7 +87,7 @@ class ShaclValidator(object):
             request,
             target,
             '/shacl_validator.ShaclValidator/Validate',
-            shacl__validator__pb2.TurtleValidationRequest.SerializeToString,
+            shacl__validator__pb2.JsoldValidationRequest.SerializeToString,
             shacl__validator__pb2.ValidationReply.FromString,
             options,
             channel_credentials,

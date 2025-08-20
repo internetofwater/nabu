@@ -12,11 +12,11 @@ class MatchingShaclType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
 LocationOriented: MatchingShaclType
 DatasetOriented: MatchingShaclType
 
-class TurtleValidationRequest(_message.Message):
-    __slots__ = ("triples",)
-    TRIPLES_FIELD_NUMBER: _ClassVar[int]
-    triples: str
-    def __init__(self, triples: _Optional[str] = ...) -> None: ...
+class JsoldValidationRequest(_message.Message):
+    __slots__ = ("jsonld",)
+    JSONLD_FIELD_NUMBER: _ClassVar[int]
+    jsonld: str
+    def __init__(self, jsonld: _Optional[str] = ...) -> None: ...
 
 class ValidationReply(_message.Message):
     __slots__ = ("valid", "message", "ShaclType")

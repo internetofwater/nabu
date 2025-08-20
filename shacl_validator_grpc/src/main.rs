@@ -5,7 +5,7 @@ use std::{fs, path::Path};
 
 use shacl_validator::shacl_validator_server::{ShaclValidator, ShaclValidatorServer};
 use shacl_validator::ValidationReply;
-use shacl_validator::{MatchingShaclType, TurtleValidationRequest};
+use shacl_validator::{MatchingShaclType, JsoldValidationRequest};
 use shacl_validator_grpc::Validator;
 use tokio::net::UnixListener;
 use tokio::signal;
@@ -24,7 +24,7 @@ impl ShaclValidator for Validator {
     /// Returns a ValidationReply with the validation result.
     async fn validate(
         &self,
-        request: Request<TurtleValidationRequest>,
+        request: Request<JsoldValidationRequest>,
     ) -> Result<Response<ValidationReply>, Status> {
         println!("Received request");
 
@@ -32,8 +32,8 @@ impl ShaclValidator for Validator {
 
         let req = request.into_inner();
 
-        let dataset_validation_report = self.validate_dataset_oriented(&req.triples);
-        let location_validation_report = self.validate_location_oriented(&req.triples);
+        let dataset_validation_report = self.validate_dataset_oriented(&req.jsonld);
+        let location_validation_report = self.validate_location_oriented(&req.jsonld);
 
         println!("Validation took {:?}", start.elapsed());
 
