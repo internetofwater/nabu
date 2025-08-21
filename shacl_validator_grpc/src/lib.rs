@@ -1,13 +1,16 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use shacl_ast::compiled::schema::SchemaIR;
 use shacl_validation::shacl_processor::{GraphValidation, ShaclProcessor, ShaclValidationMode};
 use shacl_validation::store::graph::Graph;
 use shacl_validation::validate_error::ValidateError;
 use shacl_validation::validation_report::report::ValidationReport;
 use sparql_service::RdfData;
-use srdf::{RDFFormat, SRDFGraph};
+use rudof_lib::{
+    RDFFormat, ShaclSchemaIR,
+    srdf::{self, SRDFGraph},
+};
+
 
 // Dynamically include the proto file using a macro
 pub mod shacl_validator {
@@ -24,8 +27,8 @@ use std::io::Cursor;
 /// An empty struct upon which to implement the necessary traits
 /// for our grpc server with tokio and tonic
 pub struct Validator {
-    pub dataset_schema: Arc<SchemaIR<RdfData>>,
-    pub location_schema: Arc<SchemaIR<RdfData>>,
+    pub dataset_schema: Arc<ShaclSchemaIR>,
+    pub location_schema: Arc<ShaclSchemaIR>,
 }
 
 impl Default for Validator {
@@ -67,7 +70,7 @@ impl Validator {
 
 /// Validate an arbitrary string of rdf triples against a string of shacl shapes.
 pub fn validate_turtle(
-    shacl: &SchemaIR<RdfData>,
+    shacl: &ShaclSchemaIR,
     triples: &str,
 ) -> Result<ValidationReport, ValidateError> {
 
@@ -88,7 +91,7 @@ pub fn validate_turtle(
     Ok(report)
 }
 
-pub fn validate_n_quads(schema: &SchemaIR<RdfData>, quads: &str) -> Result<ValidationReport, ValidateError> {
+pub fn validate_n_quads(schema: &ShaclSchemaIR, quads: &str) -> Result<ValidationReport, ValidateError> {
 
     let srdf_graph = SRDFGraph::from_str(
         quads,
@@ -103,6 +106,23 @@ pub fn validate_n_quads(schema: &SchemaIR<RdfData>, quads: &str) -> Result<Valid
     let report = endpoint_validation.validate(schema)?;
     Ok(report)
 }
+
+pub fn validate_jsonld(schema: &ShaclSchemaIR, jsonld: &str) -> Result<ValidationReport, ValidateError> {
+
+    let srdf_graph = SRDFGraph::from_str(
+        jsonld,
+        &RDFFormat::JsonLd,
+        None,
+        &srdf::ReaderMode::default(),
+    )?;
+
+    let data = Graph::from_graph(srdf_graph)?;
+
+    let endpoint_validation = GraphValidation::from_graph(data, ShaclValidationMode::Native);
+    let report = endpoint_validation.validate(schema)?;
+    Ok(report)
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -188,7 +208,7 @@ mod tests {
             !report.conforms(),
             "Report should indicate conformance for valid location-oriented data"
         );
-        println!("Report: {}", report.to_string());
+        println!("Report: {}", report);
     }
 
     #[test]

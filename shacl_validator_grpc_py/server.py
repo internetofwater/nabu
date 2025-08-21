@@ -92,6 +92,13 @@ def main():
         default="/tmp/shacl_validator.sock",
         help="Path to the Unix domain socket (default: /tmp/shacl_validator.sock)",
     )
+    parser.add_argument(
+        "--shape",
+        type=str,
+        default="/tmp/shacl_validator.sock",
+        help="Path to the Unix domain socket (default: /tmp/shacl_validator.sock)",
+    )
+
     args = parser.parse_args()
 
     logger.info(f"Starting SHACL Validation Server on {args.socket}")
