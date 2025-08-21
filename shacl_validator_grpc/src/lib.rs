@@ -56,7 +56,7 @@ impl Validator {
         &self,
         triples: &str,
     ) -> Result<ValidationReport, ValidateError> {
-        validate_n_quads(&self.location_schema, triples)
+        validate_jsonld(&self.location_schema, triples)
     }
 
     /// Validate rdf triples against the dataset-oriented shacl shape
@@ -64,7 +64,7 @@ impl Validator {
         &self,
         triples: &str,
     ) -> Result<ValidationReport, ValidateError> {
-        validate_n_quads(&self.dataset_schema, triples)
+        validate_jsonld(&self.dataset_schema, triples)
     }
 }
 

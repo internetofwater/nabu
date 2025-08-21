@@ -11,6 +11,7 @@ import logging
 import os
 import argparse
 from concurrent import futures
+from pathlib import Path
 import grpc
 from rdflib import Graph
 from shacl_validator_pb2 import JsoldValidationRequest, ValidationReply, LocationOriented
@@ -93,15 +94,16 @@ def main():
         help="Path to the Unix domain socket (default: /tmp/shacl_validator.sock)",
     )
     parser.add_argument(
-        "--shape",
+        "--shacl",
         type=str,
-        default="/tmp/shacl_validator.sock",
-        help="Path to the Unix domain socket (default: /tmp/shacl_validator.sock)",
+        default=str((Path(__file__).parent.parent / "shacl_shapes" / "locationOriented.ttl").absolute()),
+        help="Path to the shacl file to use for validation",
     )
 
     args = parser.parse_args()
 
     logger.info(f"Starting SHACL Validation Server on {args.socket}")
+    logger.info(f"SHACL file used for validation: {args.shacl}")
     serve(socket_path=args.socket)
 
 
