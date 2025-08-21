@@ -5,7 +5,7 @@ use std::{fs, path::Path};
 
 use shacl_validator::shacl_validator_server::{ShaclValidator, ShaclValidatorServer};
 use shacl_validator::ValidationReply;
-use shacl_validator::{MatchingShaclType, JsoldValidationRequest};
+use shacl_validator::{JsoldValidationRequest, MatchingShaclType};
 use shacl_validator_grpc::Validator;
 use tokio::net::UnixListener;
 use tokio::signal;

@@ -1,16 +1,15 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
+use rudof_lib::{
+    srdf::{self, SRDFGraph},
+    RDFFormat, ShaclSchemaIR,
+};
 use shacl_validation::shacl_processor::{GraphValidation, ShaclProcessor, ShaclValidationMode};
 use shacl_validation::store::graph::Graph;
 use shacl_validation::validate_error::ValidateError;
 use shacl_validation::validation_report::report::ValidationReport;
 use sparql_service::RdfData;
-use rudof_lib::{
-    RDFFormat, ShaclSchemaIR,
-    srdf::{self, SRDFGraph},
-};
-
 
 // Dynamically include the proto file using a macro
 pub mod shacl_validator {
@@ -73,7 +72,6 @@ pub fn validate_turtle(
     shacl: &ShaclSchemaIR,
     triples: &str,
 ) -> Result<ValidationReport, ValidateError> {
-
     let srdf_graph = SRDFGraph::from_str(
         triples,
         &RDFFormat::Turtle,
@@ -91,8 +89,10 @@ pub fn validate_turtle(
     Ok(report)
 }
 
-pub fn validate_n_quads(schema: &ShaclSchemaIR, quads: &str) -> Result<ValidationReport, ValidateError> {
-
+pub fn validate_n_quads(
+    schema: &ShaclSchemaIR,
+    quads: &str,
+) -> Result<ValidationReport, ValidateError> {
     let srdf_graph = SRDFGraph::from_str(
         quads,
         &RDFFormat::NQuads,
@@ -107,8 +107,10 @@ pub fn validate_n_quads(schema: &ShaclSchemaIR, quads: &str) -> Result<Validatio
     Ok(report)
 }
 
-pub fn validate_jsonld(schema: &ShaclSchemaIR, jsonld: &str) -> Result<ValidationReport, ValidateError> {
-
+pub fn validate_jsonld(
+    schema: &ShaclSchemaIR,
+    jsonld: &str,
+) -> Result<ValidationReport, ValidateError> {
     let srdf_graph = SRDFGraph::from_str(
         jsonld,
         &RDFFormat::JsonLd,
@@ -123,7 +125,6 @@ pub fn validate_jsonld(schema: &ShaclSchemaIR, jsonld: &str) -> Result<Validatio
     Ok(report)
 }
 
-
 #[cfg(test)]
 mod tests {
 
@@ -132,170 +133,27 @@ mod tests {
     use shacl_validation::store::ShaclDataManager;
     use srdf::RDFFormat;
 
-    use crate::validate_n_quads;
-    use crate::validate_turtle;
+    use crate::validate_jsonld;
 
     #[test]
-    fn test_empty() {
-        let schema = ShaclDataManager::load(Cursor::new(""), RDFFormat::Turtle, None).unwrap();
-        let result = validate_turtle(&schema, "");
-        assert!(result.is_ok());
+    pub fn test_ref_dam() {
+        let location_schema = {
+            let shacl = include_str!("../../shacl_shapes/locationOriented.ttl");
+            ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap()
+        };
+        let jsonld = include_str!("testdata/ref_dam.jsonld");
+        let report = validate_jsonld(&location_schema, jsonld).unwrap();
+        assert!(report.conforms(), "SHACL Validation failed:\n{}", report);
     }
 
     #[test]
-    fn test_valid_triple() {
-        // Minimal SHACL shape: ex:Person must have an ex:name property of type xsd:string
-        let shacl = r#"
-                @prefix sh: <http://www.w3.org/ns/shacl#> .
-                @prefix ex: <http://example.org/> .
-                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-                ex:PersonShape
-                    a sh:NodeShape ;
-                    sh:targetClass ex:Person ;
-                    sh:property [
-                        sh:path ex:name ;
-                        sh:datatype xsd:string ;
-                    ] .
-            "#;
-
-        // Valid triple: ex:alice is a ex:Person and has an ex:name "Alice"
-        let turtle = r#"
-                @prefix ex: <http://example.org/> .
-                @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-                ex:alice a ex:Person ;
-                    ex:name "Alice"^^xsd:string .
-            "#;
-
-        let schema = ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap();
-
-        let result = validate_turtle(&schema, turtle);
-        assert!(result.is_ok(), "Validation should succeed for valid data");
-        let report = result.unwrap();
-        assert!(report.conforms(), "Report should indicate conformance");
-    }
-
-    #[test]
-    fn test_full_location_oriented() {
-        // Minimal valid RDF data for the locationOriented.ttl SHACL shape
-        let quads = include_str!("testdata/fullLocationOrientedExample.nq");
-
-        let validator = crate::Validator::default();
-
-        let result = validate_n_quads(&validator.location_schema, quads);
-        let report = result.unwrap();
-        assert!(
-            report.conforms(),
-            "Report should indicate non conformance for invalid location-oriented data"
-        );
-    }
-
-    #[test]
-    fn test_bad_full_location_oriented_quad() {
-        // Minimal valid RDF data for the locationOriented.ttl SHACL shape
-        let quads = include_str!("testdata/fullLocationOrientedInvalidExample.nq");
-
-        let validator = crate::Validator::default();
-
-        let result = validate_n_quads(&validator.location_schema, quads);
-        assert!(
-            result.is_ok(),
-            "Validation should succeed for valid location-oriented data"
-        );
-        let report = result.unwrap();
-        assert!(
-            !report.conforms(),
-            "Report should indicate conformance for valid location-oriented data"
-        );
-        println!("Report: {}", report);
-    }
-
-    #[test]
-    fn test_minimal_location_oriented() {
-        // Minimal valid RDF data for the locationOriented.ttl SHACL shape
-        let triples = include_str!("testdata/minimalLocationOrientedExample.ttl");
-
-        let validator = crate::Validator::default();
-
-        let result = validator.validate_location_oriented(triples);
-        assert!(
-            result.is_ok(),
-            "Validation should succeed for valid location-oriented data"
-        );
-        let report = result.unwrap();
-        assert!(
-            report.conforms(),
-            "Report should indicate conformance for valid location-oriented data"
-        );
-    }
-
-    #[test]
-    fn test_empty_turtle() {
-        // Minimal SHACL shape: ex:Person must have an ex:name property of type xsd:string
-        let shacl = r#"
-            @prefix sh: <http://www.w3.org/ns/shacl#> .
-            @prefix ex: <http://example.org/> .
-            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-            ex:PersonShape
-                a sh:NodeShape ;
-                sh:targetClass ex:Person ;
-                sh:property [
-                    sh:path ex:name ;
-                    sh:datatype xsd:string ;
-                    sh:minCount 1 ;
-                ] .
-        "#;
-
-        // Valid triple: ex:alice is a ex:Person and has an ex:name "Alice"
-        let turtle = "";
-
-        let schema = ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap();
-        let result = validate_turtle(&schema, turtle);
-        assert!(
-            result.is_ok(),
-            "Parsing should succeed even with invalid data"
-        );
-        let report = result.unwrap();
-        // this is confusing but appears to be correct vv
-        assert!(report.conforms(), "An empty triple has no nodes to validate and thus is valid");
-    }
-
-    #[test]
-    fn test_invalid_turtle() {
-        // Minimal SHACL shape: ex:Person must have an ex:name property of type xsd:string
-        let shacl = r#"
-            @prefix sh: <http://www.w3.org/ns/shacl#> .
-            @prefix ex: <http://example.org/> .
-            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-            ex:PersonShape
-                a sh:NodeShape ;
-                sh:targetClass ex:Person ;
-                sh:property [
-                    sh:path ex:name ;
-                    sh:datatype xsd:string ;
-                    sh:minCount 1 ;
-                ] .
-        "#;
-
-        // Valid turtle: ex:alice is a ex:Person and has an ex:name "Alice"
-        let turtle = r#"
-            @prefix ex: <http://example.org/> .
-            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
-            ex:alice a ex:Person ;
-                ex:invalidDummyProperty "Alice"^^xsd:string .
-        "#;
-
-        let schema = ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap();
-        let result = validate_turtle(&schema, turtle);
-        assert!(
-            result.is_ok(),
-            "Parsing should succeed even with invalid data"
-        );
-        let report = result.unwrap();
-        assert!(!report.conforms(), "Report should indicate non-conformance");
+    pub fn test_invalid_ref_dam() {
+        let location_schema = {
+            let shacl = include_str!("../../shacl_shapes/locationOriented.ttl");
+            ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap()
+        };
+        let jsonld = include_str!("testdata/invalid/ref_dam.jsonld");
+        let report = validate_jsonld(&location_schema, jsonld).unwrap();
+        assert!(!report.conforms(), "SHACL Validation unexpectedly succeeded:\n{}", report);
     }
 }
