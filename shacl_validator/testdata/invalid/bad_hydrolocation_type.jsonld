@@ -1,0 +1,13 @@
+{
+  "@context": {
+    "@vocab":"https://schema.org/",
+    "hyf": "https://www.opengis.net/def/schema/hy_features/hyf/",
+    "locType": "http://vocabulary.odm2.org/sitetype/"
+  },
+  "@id": "https://geoconnex.us/usgs/monitoring-location/08282300",
+  "hyf:HydroLocationType": 200,
+  "@type": "Place",
+  "sameAs": {"@id":"https://geoconnex.us/ref/gages/1018463"},
+  "name": "Rio Brazos at Fishtail Road NR Tierra Amarilla, NM",
+  "description": "Stream/River Site"
+}

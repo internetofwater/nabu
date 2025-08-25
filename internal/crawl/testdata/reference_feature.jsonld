@@ -6,7 +6,7 @@
             "type": "@type"
         }
     ],
-    "type": "schema:Place",
+    "@type": "schema:Place",
     "id": "0124568",
     "prev": "0124472",
     "next": "0124616",

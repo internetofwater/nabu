@@ -1,9 +1,0 @@
-@prefix schema: <https://schema.org/> .
-@prefix gsp: <http://www.opengis.net/ont/geosparql#> .
-@prefix ex: <http://example.org/> .
-
-ex:place1 a schema:Place ;
-    schema:name "Test Place" ;
-    gsp:hasGeometry [
-        gsp:asWKT "POINT(-100 100)"^^<http://www.opengis.net/ont/geosparql#wktLiteral>
-    ] .
