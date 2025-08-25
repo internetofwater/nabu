@@ -37,7 +37,10 @@ impl ShaclValidator for Validator {
 
         println!("Validation took {:?}", start.elapsed());
 
-        match (dataset_validation_report, location_validation_report) {
+        match (
+            dataset_validation_report.await,
+            location_validation_report.await,
+        ) {
             // If one report is successful and the other fails, return the successful one
             (Ok(report), Err(_)) => {
                 let reply = ValidationReply {

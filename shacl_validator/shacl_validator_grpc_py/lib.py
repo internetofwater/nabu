@@ -6,8 +6,8 @@ from typing import Literal, assert_never
 import pyshacl
 from rdflib import Graph, RDF, URIRef
 
-location_oriented_path = Path(__file__).parent.parent / "shacl_shapes" / "locationOriented.ttl"
-dataset_oriented_path = Path(__file__).parent.parent / "shacl_shapes" / "datasetOriented.ttl"
+location_oriented_path = Path(__file__).parent.parent / "shapes" / "locationOriented.ttl"
+dataset_oriented_path = Path(__file__).parent.parent / "shapes" / "datasetOriented.ttl"
 SCHEMA = "https://schema.org/"
 
 location_oriented_shacl = Graph().parse(location_oriented_path, format="turtle")

@@ -2,14 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use rudof_lib::{
+    oxrdf::{Literal, NamedNode, Term},
     srdf::{self, SRDFGraph},
     RDFFormat, ShaclSchemaIR,
 };
-use shacl_validation::shacl_processor::{GraphValidation, ShaclProcessor, ShaclValidationMode};
 use shacl_validation::store::graph::Graph;
 use shacl_validation::validate_error::ValidateError;
 use shacl_validation::validation_report::report::ValidationReport;
+use shacl_validation::{
+    shacl_processor::{GraphValidation, ShaclProcessor, ShaclValidationMode},
+    validation_report::result::ValidationResult,
+};
 use sparql_service::RdfData;
+use srdf::{AsyncSRDF, Object};
 
 // Dynamically include the proto file using a macro
 pub mod shacl_validator {
@@ -51,19 +56,19 @@ impl Default for Validator {
 
 impl Validator {
     /// Validate rdf triples against the location-oriented shacl shape
-    pub fn validate_location_oriented(
+    pub async fn validate_location_oriented(
         &self,
         triples: &str,
     ) -> Result<ValidationReport, ValidateError> {
-        validate_jsonld(&self.location_schema, triples)
+        validate_jsonld(&self.location_schema, triples).await
     }
 
     /// Validate rdf triples against the dataset-oriented shacl shape
-    pub fn validate_dataset_oriented(
+    pub async fn validate_dataset_oriented(
         &self,
         triples: &str,
     ) -> Result<ValidationReport, ValidateError> {
-        validate_jsonld(&self.dataset_schema, triples)
+        validate_jsonld(&self.dataset_schema, triples).await
     }
 }
 
@@ -107,7 +112,7 @@ pub fn validate_n_quads(
     Ok(report)
 }
 
-pub fn validate_jsonld(
+pub async fn validate_jsonld(
     schema: &ShaclSchemaIR,
     jsonld: &str,
 ) -> Result<ValidationReport, ValidateError> {
@@ -118,9 +123,30 @@ pub fn validate_jsonld(
         &srdf::ReaderMode::default(),
     )?;
 
-    let data = Graph::from_graph(srdf_graph)?;
+    let rdf_type = NamedNode::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap();
+    let place_iri = Term::NamedNode(NamedNode::new("https://schema.org/Place").unwrap());
+
+
+    let subjects = srdf_graph
+        .get_subjects_for_object_predicate(&place_iri, &rdf_type)
+        .await
+        .unwrap();
+
+    if subjects.is_empty() {
+        let node = Object::BlankNode("missing @type error".to_string());
+
+        let results = vec![ValidationResult::new(
+            node.clone(),
+            node.clone(),
+            node.clone(),
+        )];
+        return Ok(ValidationReport::default().with_results(results));
+    }
+
+    let data = Graph::from_graph(srdf_graph.clone())?;
 
     let endpoint_validation = GraphValidation::from_graph(data, ShaclValidationMode::Native);
+
     let report = endpoint_validation.validate(schema)?;
     Ok(report)
 }
@@ -135,32 +161,50 @@ mod tests {
 
     use crate::validate_jsonld;
 
-    #[test]
-    pub fn test_all_valid_cases() {
+    #[tokio::test]
+    pub async fn test_all_valid_cases() {
         let location_schema = {
             let shacl = include_str!("../../shapes/locationOriented.ttl");
             ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap()
         };
         let valid_dir = "../testdata/valid/";
-        for file in std::fs::read_dir(valid_dir).unwrap() {
-            let jsonld = std::fs::read_to_string(file.unwrap().path()).unwrap();
-            let report = validate_jsonld(&location_schema, jsonld.as_str()).unwrap();
-            assert!(report.conforms(), "SHACL Validation failed:\n{}", report);
+        for file_result in std::fs::read_dir(valid_dir).unwrap() {
+            let file = file_result.unwrap();
+
+            let path = file.path();
+            let filename = path.display().to_string();
+
+            let jsonld = std::fs::read_to_string(&path).unwrap();
+            let report = validate_jsonld(&location_schema, &jsonld).await.unwrap();
+            assert!(
+                report.conforms(),
+                "SHACL Validation unexpectedly failed: {}\n{}",
+                filename.clone(),
+                report.to_string()
+            );
         }
     }
 
-    #[test]
-    pub fn test_invalid_case() {
+    #[tokio::test]
+    pub async fn test_invalid_case() {
         let location_schema = {
             let shacl = include_str!("../../shapes/locationOriented.ttl");
             ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap()
         };
         let invalid_dir = "../testdata/invalid/";
-        for file in std::fs::read_dir(invalid_dir).unwrap() {
-            let jsonld = std::fs::read_to_string(file.unwrap().path()).unwrap();
-            let report = validate_jsonld(&location_schema, jsonld.as_str()).unwrap();
+        for file_result in std::fs::read_dir(invalid_dir).unwrap() {
+            let file = file_result.unwrap();
+
+            let path = file.path();
+            let filename = path.display().to_string();
+
+            let jsonld = std::fs::read_to_string(&path).unwrap();
+            let report = validate_jsonld(&location_schema, &jsonld).await.unwrap();
+
             assert!(
                 !report.conforms(),
+                "SHACL Validation unexpectedly passed: {}\n",
+                filename.clone()
             );
         }
     }
