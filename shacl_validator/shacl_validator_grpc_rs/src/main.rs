@@ -7,9 +7,7 @@ use shacl_validator::shacl_validator_server::{ShaclValidator, ShaclValidatorServ
 use shacl_validator::ValidationReply;
 use shacl_validator::{JsoldValidationRequest, MatchingShaclType};
 use shacl_validator_grpc::Validator;
-use tokio::net::UnixListener;
 use tokio::signal;
-use tokio_stream::wrappers::UnixListenerStream;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 
@@ -106,39 +104,26 @@ impl ShaclValidator for Validator {
 
 #[tokio::main(flavor = "multi_thread")] // defaults to number of cpus on the system
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let path = "/tmp/shacl_validator.sock";
-
-    // Remove the socket file if it already exists
-    if Path::new(path).exists() {
-        fs::remove_file(path)?;
-    }
-
-    std::fs::create_dir_all(Path::new(path).parent().unwrap())?;
-
-    let uds = UnixListener::bind(path)?;
-    let uds_stream = UnixListenerStream::new(uds);
 
     let validator = Validator::default();
+
+    let path = "0.0.0.0:50051";
+    let tcp_listener = tokio::net::TcpListener::bind(path).await.unwrap();
+    let tcp_stream = tokio_stream::wrappers::TcpListenerStream::new(tcp_listener);
 
     println!("Starting gRPC server on {}", path);
 
     // Run the server and listen for Ctrl+C
     let server = Server::builder()
         .add_service(ShaclValidatorServer::new(validator))
-        .serve_with_incoming_shutdown(uds_stream, async {
+        .serve_with_incoming_shutdown(tcp_stream, async {
             signal::ctrl_c()
                 .await
                 .expect("failed to install Ctrl+C handler");
         });
 
     // Make sure that the server is ran on the runtime
-    let result = tokio::spawn(server).await?;
+    let result = tokio::spawn(server).await??;
 
-    // Clean up the socket file on shutdown
-    if Path::new(path).exists() {
-        println!("Cleaning up socket file at {}", path);
-        fs::remove_file(path)?;
-    }
-    result?;
-    Ok(())
+    Ok(result)
 }

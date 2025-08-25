@@ -10,5 +10,5 @@ time grpcurl -plaintext \
   -proto ../shacl_validator.proto \
   -d '{"jsonld":"{\"@context\":{\"schema\":\"https://schema.org/\",\"ex\":\"http://example.org/\"},\"@graph\":[{\"@type\":\"schema:Place\",\"@id\":\"ex:foo\",\"schema:name\":\"Test\"}]}"}' \
   -authority dummy \
-  unix:///tmp/shacl_validator.sock \
+  localhost:50051 \
   shacl_validator.ShaclValidator/Validate

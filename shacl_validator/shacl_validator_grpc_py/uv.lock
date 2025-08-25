@@ -256,7 +256,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "grpcio-tools" },
     { name = "pyright" },
     { name = "pytest" },
 ]
@@ -271,7 +270,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "grpcio-tools", specifier = ">=1.74.0" },
     { name = "pyright", specifier = ">=1.1.403" },
     { name = "pytest", specifier = ">=8.4.1" },
 ]

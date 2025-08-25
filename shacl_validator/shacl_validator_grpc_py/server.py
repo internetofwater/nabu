@@ -45,25 +45,18 @@ class ShaclValidator(shacl_validator_pb2_grpc.ShaclValidatorServicer):
         )
 
 
-def serve(socket_path: str = "/tmp/shacl_validator.sock"):
+def serve(socket_path: str = "0.0.0.0:50051"):
     """Start the gRPC server.
 
     Args:
         socket_path: Path to the Unix domain socket to listen on.
     """
-    # Clean up the socket file if it already exists
-    if os.path.exists(socket_path):
-        os.unlink(socket_path)
-
-    # Create the directory if it doesn't exist
-    socket_dir = os.path.dirname(socket_path)
-    if socket_dir and not os.path.exists(socket_dir):
-        os.makedirs(socket_dir, exist_ok=True)
-
     # Configure the server
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     # Add the Unix domain socket to the server
-    server.add_insecure_port(f"unix://{socket_path}")
+    success = server.add_insecure_port(socket_path)
+    if not success:
+        raise Exception(f"Failed to add port to server: {socket_path}")
 
     shacl_validator_pb2_grpc.add_ShaclValidatorServicer_to_server(
         ShaclValidator(), server
@@ -78,9 +71,6 @@ def serve(socket_path: str = "/tmp/shacl_validator.sock"):
     except KeyboardInterrupt:
         logger.info("Server shutting down...")
         server.stop(0)
-        # Clean up the socket file
-        if os.path.exists(socket_path):
-            os.unlink(socket_path)
         logger.info("Server shut down successfully")
 
 
@@ -90,8 +80,8 @@ def main():
     parser.add_argument(
         "--socket",
         type=str,
-        default="/tmp/shacl_validator.sock",
-        help="Path to the Unix domain socket (default: /tmp/shacl_validator.sock)",
+        default="0.0.0.0:50051",
+        help="Path to the grpc socket to listen on",
     )
     parser.add_argument(
         "--shacl",

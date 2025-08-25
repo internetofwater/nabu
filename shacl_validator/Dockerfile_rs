@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY shacl_validator_grpc_rs /app
 COPY shacl_validator.proto /shacl_validator.proto
+COPY shapes /shapes
 
 RUN cargo build --release
 
