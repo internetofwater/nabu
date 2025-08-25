@@ -7,9 +7,6 @@ on:
   push:
     paths:
       - 'shacl_validator/shacl_validator_grpc_rs/**'
-  pull_request:
-    paths:
-      - 'shacl_validator/shacl_validator_grpc_rs/**'
 
 jobs:
   test:
