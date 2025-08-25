@@ -180,7 +180,7 @@ mod tests {
                 report.conforms(),
                 "SHACL Validation unexpectedly failed: {}\n{}",
                 filename.clone(),
-                report.to_string()
+                report
             );
         }
     }
