@@ -121,9 +121,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
 
     // Make sure that the server is ran on the runtime
-    let result = tokio::spawn(server).await??;
+    tokio::spawn(server).await??;
 
     println!("Shutting down gRPC server");
 
-    Ok(result)
+    Ok(())
 }
