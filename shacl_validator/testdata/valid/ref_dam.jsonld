@@ -2,8 +2,7 @@
     "@context": [
         {
             "schema": "https://schema.org/",
-            "gsp": "http://www.opengis.net/ont/geosparql#",
-            "type": "@type"
+            "gsp": "http://www.opengis.net/ont/geosparql#"
         }
     ],
     "@type": "schema:Place",

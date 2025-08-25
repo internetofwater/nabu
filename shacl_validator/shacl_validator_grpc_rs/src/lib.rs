@@ -34,11 +34,11 @@ impl Default for Validator {
     fn default() -> Self {
         // Load the dataset-oriented schema
         let dataset_schema = {
-            let shacl = include_str!("../../shacl_shapes/datasetOriented.ttl");
+            let shacl = include_str!("../../shapes/datasetOriented.ttl");
             Arc::new(ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap())
         };
         let location_schema = {
-            let shacl = include_str!("../../shacl_shapes/locationOriented.ttl");
+            let shacl = include_str!("../../shapes/locationOriented.ttl");
             Arc::new(ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap())
         };
 
@@ -136,24 +136,32 @@ mod tests {
     use crate::validate_jsonld;
 
     #[test]
-    pub fn test_ref_dam() {
+    pub fn test_all_valid_cases() {
         let location_schema = {
-            let shacl = include_str!("../../shacl_shapes/locationOriented.ttl");
+            let shacl = include_str!("../../shapes/locationOriented.ttl");
             ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap()
         };
-        let jsonld = include_str!("testdata/ref_dam.jsonld");
-        let report = validate_jsonld(&location_schema, jsonld).unwrap();
-        assert!(report.conforms(), "SHACL Validation failed:\n{}", report);
+        let valid_dir = "../testdata/valid/";
+        for file in std::fs::read_dir(valid_dir).unwrap() {
+            let jsonld = std::fs::read_to_string(file.unwrap().path()).unwrap();
+            let report = validate_jsonld(&location_schema, jsonld.as_str()).unwrap();
+            assert!(report.conforms(), "SHACL Validation failed:\n{}", report);
+        }
     }
 
     #[test]
-    pub fn test_invalid_ref_dam() {
+    pub fn test_invalid_case() {
         let location_schema = {
-            let shacl = include_str!("../../shacl_shapes/locationOriented.ttl");
+            let shacl = include_str!("../../shapes/locationOriented.ttl");
             ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap()
         };
-        let jsonld = include_str!("testdata/invalid/ref_dam.jsonld");
-        let report = validate_jsonld(&location_schema, jsonld).unwrap();
-        assert!(!report.conforms(), "SHACL Validation unexpectedly succeeded:\n{}", report);
+        let invalid_dir = "../testdata/invalid/";
+        for file in std::fs::read_dir(invalid_dir).unwrap() {
+            let jsonld = std::fs::read_to_string(file.unwrap().path()).unwrap();
+            let report = validate_jsonld(&location_schema, jsonld.as_str()).unwrap();
+            assert!(
+                !report.conforms(),
+            );
+        }
     }
 }
