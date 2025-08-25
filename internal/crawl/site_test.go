@@ -67,7 +67,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		t.Logf("cargo found at %s", cargoPath)
 	}
 
-	rustProjRoot := filepath.Join(projectpath.Root, "shacl_validator_grpc")
+	rustProjRoot := filepath.Join(projectpath.Root, "shacl_validator", "shacl_validator_grpc_rs")
 	// run cargo run
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
@@ -102,7 +102,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 	case <-found:
 		// Proceed
 	case <-time.After(30 * time.Second):
-		t.Fatal("Timed out waiting for gRPC server to start")
+		t.Fatal("Timed out waiting for gRPC server to start; the server may be failing to start due to a port conflict")
 	}
 
 	t.Run("valid jsonld", func(t *testing.T) {

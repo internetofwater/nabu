@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use rudof_lib::{
-    oxrdf::{Literal, NamedNode, Term},
+    oxrdf::{NamedNode, Term},
     srdf::{self, SRDFGraph},
     RDFFormat, ShaclSchemaIR,
 };

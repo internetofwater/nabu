@@ -42,7 +42,9 @@ deadcode:
 
 # test with gotestsum, a helpful wrapper for go test
 test:
-	gotestsum --max-fails 1 && cd shacl_validator_grpc && cargo test
+	gotestsum --max-fails 1 && \
+	cd shacl_validator/shacl_validator_grpc_rs && cargo test && \
+	cd ../shacl_validator_grpc_py && uv run pytest
 
 lint:
 	golangci-lint run

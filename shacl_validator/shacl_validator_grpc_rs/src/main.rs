@@ -1,8 +1,6 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{fs, path::Path};
-
 use shacl_validator::shacl_validator_server::{ShaclValidator, ShaclValidatorServer};
 use shacl_validator::ValidationReply;
 use shacl_validator::{JsoldValidationRequest, MatchingShaclType};
@@ -124,6 +122,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Make sure that the server is ran on the runtime
     let result = tokio::spawn(server).await??;
+
+    println!("Shutting down gRPC server");
 
     Ok(result)
 }

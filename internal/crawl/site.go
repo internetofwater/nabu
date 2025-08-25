@@ -174,8 +174,9 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 				// For the time being, it is better to harvest and then have the integrator fix it
 				// after the fact; in the future there could be a strict
 				// validation mode wherein we fail fast upon shacl non-compliance
+			} else {
+				return "", hash != "", fmt.Errorf("failed to communicate with shacl validation service: %w", err)
 			}
-			return "", hash != "", fmt.Errorf("failed to communicate with shacl validation service: %w", err)
 		}
 	}
 
