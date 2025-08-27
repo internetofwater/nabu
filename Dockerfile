@@ -32,8 +32,4 @@ COPY --from=go-builder /app/nabu /app/nabu
 ADD https://schema.org/version/latest/schemaorg-current-https.jsonld /app/assets/schemaorg-current-https.jsonld
 ADD https://schema.org/version/latest/schemaorg-current-http.jsonld /app/assets/schemaorg-current-http.jsonld
 
-COPY ./docker/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
-ENTRYPOINT ["./entrypoint.sh"]
-
+ENTRYPOINT [ "/app/nabu" ]
