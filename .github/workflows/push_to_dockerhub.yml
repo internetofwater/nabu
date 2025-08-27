@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: shacl_validator/shacl_validator_grpc_rs
+        working-directory: shacl_validator/
 
     steps:
       - name: Checkout code
@@ -90,6 +90,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
+          file: Dockerfile_rs
           push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -102,7 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: shacl_validator/shacl_validator_grpc_py
+        working-directory: shacl_validator/
 
     steps:
       - name: Checkout code
@@ -131,6 +132,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
+          file: Dockerfile_py
           push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
