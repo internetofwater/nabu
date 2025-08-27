@@ -20,3 +20,8 @@ dev = [
     "pyright>=1.1.403",
     "pytest>=8.4.1",
 ]
+
+
+[tool.pyright]
+# ignore generated code
+ignore = ["*pb2_grpc.py"]

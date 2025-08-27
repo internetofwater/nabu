@@ -1,0 +1,40 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: MIT
+
+name: Python Tests
+
+on:
+  push:
+    paths:
+      - 'shacl_validator/shacl_validator_grpc_py/**'
+  workflow_dispatch: # Allows manual triggering of the workflow
+
+jobs:
+  pyright:
+    runs-on: ubuntu-latest
+    defaults:
+        run:
+          working-directory: shacl_validator/shacl_validator_grpc_py
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+            python-version-file: ".python-version"
+
+      - name: Install the project
+        run: uv sync --all-extras --dev --all-packages --all-groups
+
+      - name: Run type checks
+        run: uv run ruff --check
+
+      - name: Run tests
+        run: uv run pytest
