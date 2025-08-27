@@ -19,9 +19,16 @@ dependencies = [
 dev = [
     "pyright>=1.1.403",
     "pytest>=8.4.1",
+    "ruff>=0.12.10",
 ]
 
 
 [tool.pyright]
 # ignore generated code
 ignore = ["*pb2_grpc.py"]
+
+
+[tool.ruff]
+exclude = [
+    "*pb2_grpc.py"
+]

@@ -8,7 +8,6 @@ and provides SHACL validation services.
 """
 
 import logging
-import os
 import argparse
 from concurrent import futures
 from pathlib import Path

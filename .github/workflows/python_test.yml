@@ -34,7 +34,7 @@ jobs:
         run: uv sync --all-extras --dev --all-packages --all-groups
 
       - name: Run type checks
-        run: uv run ruff --check
+        run: uv run ruff check
 
       - name: Run tests
         run: uv run pytest
