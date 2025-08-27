@@ -10,7 +10,7 @@ on:
   workflow_dispatch: # Allows manual triggering of the workflow
 
 jobs:
-  pyright:
+  checks:
     runs-on: ubuntu-latest
     defaults:
         run:
@@ -28,7 +28,7 @@ jobs:
       - name: "Set up Python"
         uses: actions/setup-python@v5
         with:
-            python-version-file: ".python-version"
+            python-version-file: shacl_validator/shacl_validator_grpc_py/.python-version
 
       - name: Install the project
         run: uv sync --all-extras --dev --all-packages --all-groups
