@@ -5,13 +5,21 @@
 
 # Generate the protobuf client code needed to connect to the grpc server
 protoc:
-	protoc --proto_path=. --go_out=. --go-grpc_out=. shacl_validator.proto
-	shacl_validator_grpc_py/.venv/bin/python -m grpc_tools.protoc \
-    --proto_path=. \
-    --python_out=shacl_validator_grpc_py \
-    --grpc_python_out=shacl_validator_grpc_py \
-	--pyi_out=shacl_validator_grpc_py \
-    shacl_validator.proto
+	protoc --proto_path=. --go_out=. --go-grpc_out=. shacl_validator/shacl_validator.proto
+
+	shacl_validator/shacl_validator_grpc_py/.venv/bin/python -m grpc_tools.protoc \
+		--proto_path=shacl_validator \
+		--python_out=shacl_validator/shacl_validator_grpc_py \
+		--grpc_python_out=shacl_validator/shacl_validator_grpc_py \
+		--pyi_out=shacl_validator/shacl_validator_grpc_py \
+		shacl_validator/shacl_validator.proto
+
+	protoc \
+	--proto_path=shacl_validator \
+	--js_out=import_style=commonjs,binary:shacl_validator/shacl_validator_client_ts \
+	--grpc-web_out=import_style=typescript,mode=grpcweb:shacl_validator/shacl_validator_client_ts \
+	shacl_validator.proto
+
 
 # clean up trace/profiling/build artifacts
 clean:
