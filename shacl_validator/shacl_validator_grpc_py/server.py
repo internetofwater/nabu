@@ -10,6 +10,7 @@ and provides SHACL validation services.
 import logging
 import argparse
 from concurrent import futures
+from optparse import check_builtin
 from pathlib import Path
 import grpc
 from rdflib import Graph
@@ -21,7 +22,7 @@ from grpc import ServicerContext
 import shacl_validator_pb2_grpc
 
 # Import validation logic
-from lib import validate_graph
+from lib import check_jsonld_from_oaf_endpoint, validate_graph
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -88,12 +89,18 @@ def main():
         default=str((Path(__file__).parent.parent / "shacl_shapes" / "locationOriented.ttl").absolute()),
         help="Path to the shacl file to use for validation",
     )
-
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    check_subparser = subparsers.add_parser("check", help="Check jsonld from an OGC API-Features endpoint")
+    check_subparser.add_argument("--endpoint", type=str, help="OGC API-Features endpoint")
+    check_subparser.add_argument("--collection", type=str, help="OGC API-Features collection")
     args = parser.parse_args()
 
-    logger.info(f"Starting SHACL Validation Server on {args.socket}")
-    logger.info(f"SHACL file used for validation: {args.shacl}")
-    serve(socket_path=args.socket)
+    if args.command == "check":
+        check_jsonld_from_oaf_endpoint(args.endpoint, args.collection)
+    else:
+        logger.info(f"Starting SHACL Validation Server on {args.socket}")
+        logger.info(f"SHACL file used for validation: {args.shacl}")
+        serve(socket_path=args.socket)
 
 
 if __name__ == "__main__":

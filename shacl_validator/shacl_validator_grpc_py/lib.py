@@ -1,10 +1,10 @@
-# Copyright 2025 Lincoln Institute of Land Policy
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
 from typing import Literal, assert_never
 import pyshacl
 from rdflib import Graph, RDF, URIRef
+import requests
 
 location_oriented_path = Path(__file__).parent.parent / "shapes" / "locationOriented.ttl"
 dataset_oriented_path = Path(__file__).parent.parent / "shapes" / "datasetOriented.ttl"
@@ -48,4 +48,24 @@ def validate_jsonld(jsonld: str, format: Literal["location_oriented", "dataset_o
     return validate_graph(data_graph, format)
 
    
+def check_jsonld_from_oaf_endpoint(endpoint: str , collection_to_check: str):
 
+    print(f"Checking {endpoint} for {collection_to_check}")
+
+    url = f"{endpoint}/collections/{collection_to_check}/items"
+
+    response = requests.get(url)
+    response.raise_for_status()
+
+    json = response.json()
+
+    for feature in json["features"]:
+        id = feature["id"]
+        url = f"{endpoint}/collections/{collection_to_check}/items/{id}?f=jsonld"
+        response = requests.get(url)
+        response.raise_for_status()
+        jsonld = response.json()
+        conforms, _, text = validate_jsonld(jsonld, format="location_oriented")
+        
+        if not conforms:
+            print(f"SHACL Validation failed for {id}: \n{text}")
