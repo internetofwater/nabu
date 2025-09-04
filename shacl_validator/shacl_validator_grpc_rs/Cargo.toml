@@ -14,7 +14,6 @@ shacl_validation = "0.1.60"
 srdf = "0.1.60"
 sparql_service = "0.1.60"
 tokio-stream = "0.1.17"
-shacl_ast = "0.1.63"
 rudof_lib = "0.1.85"
 
 [build-dependencies]

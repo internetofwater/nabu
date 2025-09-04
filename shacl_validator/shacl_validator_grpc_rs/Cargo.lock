@@ -2307,7 +2307,6 @@ version = "0.1.0"
 dependencies = [
  "prost",
  "rudof_lib",
- "shacl_ast",
  "shacl_validation",
  "sparql_service",
  "srdf",
