@@ -1,7 +1,7 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use shacl_ast::compiled::schema::SchemaIR;
+use shacl_ir::compiled::schema::SchemaIR;
 use shacl_validation::shacl_processor::{GraphValidation, ShaclProcessor, ShaclValidationMode};
 use shacl_validation::store::graph::Graph;
 use shacl_validation::validate_error::ValidateError;
@@ -24,8 +24,8 @@ use std::io::Cursor;
 /// An empty struct upon which to implement the necessary traits
 /// for our grpc server with tokio and tonic
 pub struct Validator {
-    pub dataset_schema: Arc<SchemaIR<RdfData>>,
-    pub location_schema: Arc<SchemaIR<RdfData>>,
+    pub dataset_schema: Arc<SchemaIR>,
+    pub location_schema: Arc<SchemaIR>,
 }
 
 impl Default for Validator {
@@ -67,10 +67,9 @@ impl Validator {
 
 /// Validate an arbitrary string of rdf triples against a string of shacl shapes.
 pub fn validate_triples(
-    shacl: &SchemaIR<RdfData>,
+    shacl: &SchemaIR,
     triples: &str,
 ) -> Result<ValidationReport, ValidateError> {
-
     let srdf_graph = SRDFGraph::from_str(
         triples,
         &RDFFormat::Turtle,
@@ -177,7 +176,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_empty_triple() {
         // Minimal SHACL shape: ex:Person must have an ex:name property of type xsd:string
@@ -207,7 +205,10 @@ mod tests {
         );
         let report = result.unwrap();
         // this is confusing but appears to be correct vv
-        assert!(report.conforms(), "An empty triple has no nodes to validate and thus is valid");
+        assert!(
+            report.conforms(),
+            "An empty triple has no nodes to validate and thus is valid"
+        );
     }
 
     #[test]

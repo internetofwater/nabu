@@ -10,11 +10,12 @@ edition = "2021"
 tonic = "*"
 prost = "0.13"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "signal"] }
-shacl_validation = "0.1.60"
-srdf = "0.1.60"
-sparql_service = "0.1.60"
+shacl_validation = "0.1.80"
+srdf = "0.1.89"
+sparql_service = "0.1.87"
 tokio-stream = "0.1.17"
-shacl_ast = "0.1.63"
+shacl_ast = "0.1.89"
+shacl_ir = "0.1.89"
 
 [build-dependencies]
 tonic-build = "*"
