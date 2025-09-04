@@ -10,7 +10,6 @@ and provides SHACL validation services.
 import logging
 import argparse
 from concurrent import futures
-from optparse import check_builtin
 from pathlib import Path
 import grpc
 from rdflib import Graph
