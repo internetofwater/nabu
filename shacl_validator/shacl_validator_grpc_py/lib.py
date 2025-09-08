@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from time import sleep
+from tkinter import NONE
 from typing import Literal, assert_never
 import pyshacl
 from rdflib import Graph, RDF, URIRef
@@ -53,17 +54,18 @@ def validate_jsonld_from_url(url: str, watch: bool):
             except Exception as text:
                 if lastPrint != str(text):
                     print(f"Error: {text}", flush=True)
+                    print(response.text, flush=True, end="\n\n")
                 lastPrint = str(text)
                 continue
             conforms, _, text = validate_jsonld(jsonld, format="location_oriented")
             if not conforms:
                 if text != lastPrint:
-                    print(text, flush=True)
+                    print(text, flush=True, end="\n\n")
                 lastPrint = text
             else:
                 text = "Shacl Validation passed"
                 if lastPrint != text:
-                    print("Shacl Validation passed", flush=True)
+                    print("Shacl Validation passed", flush=True, end="\n\n")
                 lastPrint = text
             if not watch:
                 return
