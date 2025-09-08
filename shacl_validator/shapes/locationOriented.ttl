@@ -51,7 +51,6 @@ ex:DatasetShape a sh:NodeShape ;
     sh:property [
         sh:path schema:license ;
         sh:datatype sh:IRI ;
-        sh:minCount 1 ;
     ] ;
 
     sh:property [

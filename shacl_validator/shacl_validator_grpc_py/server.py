@@ -21,7 +21,7 @@ from grpc import ServicerContext
 import shacl_validator_pb2_grpc
 
 # Import validation logic
-from lib import check_jsonld_from_oaf_endpoint, validate_graph
+from lib import check_jsonld_from_oaf_endpoint, validate_graph, validate_jsonld_from_url
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -89,13 +89,23 @@ def main():
         help="Path to the shacl file to use for validation",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
-    check_subparser = subparsers.add_parser("check", help="Check jsonld from an OGC API-Features endpoint")
-    check_subparser.add_argument("--endpoint", type=str, help="OGC API-Features endpoint")
-    check_subparser.add_argument("--collection", type=str, help="OGC API-Features collection")
+    check_oaf_subparser = subparsers.add_parser("check_oaf", help="Check jsonld from an OGC API-Features endpoint")
+    check_url_subparser = subparsers.add_parser("check_url", help="Check jsonld from a single url")
+    check_url_subparser.add_argument("--url", type=str, help="URL to check", required=True)
+    check_url_subparser.add_argument("--loop", action="store_true", help="Loop checking the url", default=False)
+
+    check_oaf_subparser.add_argument(
+        "--endpoint", type=str, help="OGC API-Features endpoint"
+    )
+    check_oaf_subparser.add_argument(
+        "--collection", type=str, help="OGC API-Features collection"
+    )
     args = parser.parse_args()
 
-    if args.command == "check":
+    if args.command == "check_oaf":
         check_jsonld_from_oaf_endpoint(args.endpoint, args.collection)
+    elif args.command == "check_url":
+        validate_jsonld_from_url(args.url, loop=args.loop)
     else:
         logger.info(f"Starting SHACL Validation Server on {args.socket}")
         logger.info(f"SHACL file used for validation: {args.shacl}")

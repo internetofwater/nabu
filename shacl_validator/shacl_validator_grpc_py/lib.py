@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
+from time import sleep
 from typing import Literal, assert_never
 import pyshacl
 from rdflib import Graph, RDF, URIRef
@@ -41,6 +42,26 @@ def validate_graph(data_graph: Graph, format: Literal["location_oriented", "data
         case _:
             assert_never(format)
 
+def validate_jsonld_from_url(url: str, loop: bool):
+    lastPrint = ""
+    while True:
+        response = requests.get(url)
+        response.raise_for_status()
+        jsonld = response.json()
+        conforms, _, text = validate_jsonld(jsonld, format="location_oriented")
+        if not conforms:
+            if text == lastPrint:
+                continue
+            lastPrint = text
+            print(f"SHACL Validation failed: \n{text}")
+        else:
+            if lastPrint == "Shacl Validation passed":
+                continue
+            lastPrint = "Shacl Validation passed"
+            print(lastPrint)
+        if not loop:
+            return
+        sleep(2)
 
 def validate_jsonld(jsonld: str, format: Literal["location_oriented", "dataset_oriented"] ):
     data_graph = Graph()
