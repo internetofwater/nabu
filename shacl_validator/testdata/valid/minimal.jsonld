@@ -1,0 +1,8 @@
+{
+    "@context": {
+        "schema": "https://schema.org/",
+        "gsp": "https://www.opengis.net/ont/geosparql#"
+    },
+    "@type": "schema:Place",
+    "schema:name": "Illinois River Brandon Road LD"
+}
