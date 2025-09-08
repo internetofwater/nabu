@@ -6,7 +6,7 @@ name: Test shacl_validator_grpc
 on:
   push:
     paths:
-      - 'shacl_validator/shacl_validator_grpc_rs/**'
+      - 'shacl_validator/**'
 
 jobs:
   test:

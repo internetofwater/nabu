@@ -8,6 +8,20 @@
 
 @base <http://geoconnex.us/> .
 
+ex:ProviderShape a sh:NodeShape ;
+    sh:targetClass schema:provider ;
+
+    sh:property [
+        sh:path schema:url ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+
+    sh:property [
+        sh:path schema:name ;
+        sh:datatype xsd:string ;
+    ]    
+.
+
 ex:DatasetShape a sh:NodeShape ;
     sh:targetClass schema:Dataset ;
 
@@ -30,7 +44,7 @@ ex:DatasetShape a sh:NodeShape ;
 
     sh:property [
         sh:path schema:url ;
-        sh:datatype sh:IRI ;
+        sh:nodeKind sh:IRI ;
     ] ;
 
     sh:property [
@@ -50,7 +64,7 @@ ex:DatasetShape a sh:NodeShape ;
 
     sh:property [
         sh:path schema:license ;
-        sh:datatype sh:IRI ;
+        sh:nodeKind sh:IRI ;
     ] ;
 
     sh:property [
@@ -138,7 +152,7 @@ ex:MeasurementMethodShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path schema:url ;
-        sh:datatype xsd:anyURI ;
+        sh:nodeKind sh:IRI ;
     ] .
 
 ex:DistributionShape a sh:NodeShape ;
@@ -148,7 +162,7 @@ ex:DistributionShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path schema:contentUrl ;
-        sh:datatype xsd:anyURI ;
+        sh:nodeKind sh:IRI ;
     ] ;
     sh:property [
         sh:path schema:encodingFormat ;

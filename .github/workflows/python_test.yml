@@ -6,7 +6,7 @@ name: Python Tests
 on:
   push:
     paths:
-      - 'shacl_validator/shacl_validator_grpc_py/**'
+      - 'shacl_validator/**'
   workflow_dispatch: # Allows manual triggering of the workflow
 
 jobs:

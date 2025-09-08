@@ -42,7 +42,7 @@ def validate_graph(data_graph: Graph, format: Literal["location_oriented", "data
         case _:
             assert_never(format)
 
-def validate_jsonld_from_url(url: str, loop: bool):
+def validate_jsonld_from_url(url: str, watch: bool):
     lastPrint = ""
     try:
         while True:
@@ -59,7 +59,7 @@ def validate_jsonld_from_url(url: str, loop: bool):
                 if lastPrint != text:
                     print("Shacl Validation passed", flush=True)
                 lastPrint = text
-            if not loop:
+            if not watch:
                 return
             sleep(2)
     except KeyboardInterrupt:
