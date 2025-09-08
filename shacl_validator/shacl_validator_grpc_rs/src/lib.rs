@@ -133,7 +133,7 @@ pub async fn validate_jsonld(
         .unwrap();
 
     if subjects.is_empty() {
-        let node = Object::BlankNode("missing @type error".to_string());
+        let node = Object::BlankNode("missing @type: 'schema:Place' error".to_string());
 
         let results = vec![ValidationResult::new(
             node.clone(),
