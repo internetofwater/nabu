@@ -44,24 +44,26 @@ def validate_graph(data_graph: Graph, format: Literal["location_oriented", "data
 
 def validate_jsonld_from_url(url: str, loop: bool):
     lastPrint = ""
-    while True:
-        response = requests.get(url)
-        response.raise_for_status()
-        jsonld = response.json()
-        conforms, _, text = validate_jsonld(jsonld, format="location_oriented")
-        if not conforms:
-            if text == lastPrint:
-                continue
-            lastPrint = text
-            print(f"SHACL Validation failed: \n{text}")
-        else:
-            if lastPrint == "Shacl Validation passed":
-                continue
-            lastPrint = "Shacl Validation passed"
-            print(lastPrint)
-        if not loop:
-            return
-        sleep(2)
+    try:
+        while True:
+            response = requests.get(url)
+            response.raise_for_status()
+            jsonld = response.json()
+            conforms, _, text = validate_jsonld(jsonld, format="location_oriented")
+            if not conforms:
+                if text != lastPrint:
+                    print(text)
+                lastPrint = text
+            else:
+                text = "Shacl Validation passed"
+                if lastPrint != text:
+                    print("Shacl Validation passed")
+                lastPrint = text
+            if not loop:
+                return
+            sleep(2)
+    except KeyboardInterrupt:
+        pass
 
 def validate_jsonld(jsonld: str, format: Literal["location_oriented", "dataset_oriented"] ):
     data_graph = Graph()
