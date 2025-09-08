@@ -23,7 +23,7 @@ def validate_graph(data_graph: Graph, format: Literal["location_oriented", "data
                 return (
                     False,
                     "",
-                    "SHACL Validation failed: Location Oriented jsonld must have '@type': 'Place'",
+                    "SHACL Validation failed: Location Oriented jsonld must have '@type': 'schema:Place'",
                 )
 
             return pyshacl.validate(
