@@ -1,20 +1,13 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{fs, path::Path};
-
 use shacl_validator::shacl_validator_server::{ShaclValidator, ShaclValidatorServer};
 use shacl_validator::ValidationReply;
-use shacl_validator::{
-    MatchingShaclType, TurtleValidationRequest,
-};
+use shacl_validator::{JsoldValidationRequest, MatchingShaclType};
 use shacl_validator_grpc::Validator;
-use tokio::net::UnixListener;
 use tokio::signal;
-use tokio_stream::wrappers::UnixListenerStream;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
-
 
 // Dynamically include the proto file using a macro
 pub mod shacl_validator {
@@ -27,7 +20,7 @@ impl ShaclValidator for Validator {
     /// Returns a ValidationReply with the validation result.
     async fn validate(
         &self,
-        request: Request<TurtleValidationRequest>,
+        request: Request<JsoldValidationRequest>,
     ) -> Result<Response<ValidationReply>, Status> {
         println!("Received request");
 
@@ -35,12 +28,15 @@ impl ShaclValidator for Validator {
 
         let req = request.into_inner();
 
-        let dataset_validation_report = self.validate_dataset_oriented(&req.triples);
-        let location_validation_report = self.validate_location_oriented(&req.triples);
+        let dataset_validation_report = self.validate_dataset_oriented(&req.jsonld);
+        let location_validation_report = self.validate_location_oriented(&req.jsonld);
 
         println!("Validation took {:?}", start.elapsed());
 
-        match (dataset_validation_report, location_validation_report) {
+        match (
+            dataset_validation_report.await,
+            location_validation_report.await,
+        ) {
             // If one report is successful and the other fails, return the successful one
             (Ok(report), Err(_)) => {
                 let reply = ValidationReply {
@@ -106,39 +102,28 @@ impl ShaclValidator for Validator {
 
 #[tokio::main(flavor = "multi_thread")] // defaults to number of cpus on the system
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let path = "/tmp/shacl_validator.sock";
-
-    // Remove the socket file if it already exists
-    if Path::new(path).exists() {
-        fs::remove_file(path)?;
-    }
-
-    std::fs::create_dir_all(Path::new(path).parent().unwrap())?;
-
-    let uds = UnixListener::bind(path)?;
-    let uds_stream = UnixListenerStream::new(uds);
 
     let validator = Validator::default();
+
+    let path = "0.0.0.0:50051";
+    let tcp_listener = tokio::net::TcpListener::bind(path).await.unwrap();
+    let tcp_stream = tokio_stream::wrappers::TcpListenerStream::new(tcp_listener);
 
     println!("Starting gRPC server on {}", path);
 
     // Run the server and listen for Ctrl+C
     let server = Server::builder()
         .add_service(ShaclValidatorServer::new(validator))
-        .serve_with_incoming_shutdown(uds_stream, async {
+        .serve_with_incoming_shutdown(tcp_stream, async {
             signal::ctrl_c()
                 .await
                 .expect("failed to install Ctrl+C handler");
         });
 
     // Make sure that the server is ran on the runtime
-    let result = tokio::spawn(server).await?;
+    tokio::spawn(server).await??;
 
-    // Clean up the socket file on shutdown
-    if Path::new(path).exists() {
-        println!("Cleaning up socket file at {}", path);
-        fs::remove_file(path)?;
-    }
-    result?;
+    println!("Shutting down gRPC server");
+
     Ok(())
 }

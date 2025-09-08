@@ -77,7 +77,7 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap Sitemap, validateS
 	var grpcClient protoBuild.ShaclValidatorClient
 	// shacl validation is optional
 	if validateShacl {
-		conn, err := grpc.NewClient("unix:///tmp/shacl_validator.sock",
+		conn, err := grpc.NewClient("0.0.0.0:50051",
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		)
 		if err != nil {

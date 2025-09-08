@@ -18,23 +18,6 @@ RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go mod tidy && \
     go build -o nabu ./cmd/nabu
 
 
-FROM rust:slim AS rust-builder
-
-WORKDIR /app
-
-# Install dependencies needed for building native C libraries and openssl
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    pkg-config \
-    libssl-dev \
-    protobuf-compiler \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY shacl_validator_grpc /app
-
-RUN cargo build --release
-
-
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -44,14 +27,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 COPY --from=go-builder /app/nabu /app/nabu
-COPY --from=rust-builder /app/target/release/shacl_validator_grpc /app/shacl_validator_grpc
 
 # Rest stays the same
 ADD https://schema.org/version/latest/schemaorg-current-https.jsonld /app/assets/schemaorg-current-https.jsonld
 ADD https://schema.org/version/latest/schemaorg-current-http.jsonld /app/assets/schemaorg-current-http.jsonld
 
-COPY ./docker/entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
-ENTRYPOINT ["./entrypoint.sh"]
-
+ENTRYPOINT [ "/app/nabu" ]

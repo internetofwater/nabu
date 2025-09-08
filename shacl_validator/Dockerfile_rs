@@ -1,0 +1,22 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
+
+FROM rust:slim AS rust-builder
+
+WORKDIR /app
+
+# Install dependencies needed for building native C libraries and openssl
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY shacl_validator_grpc_rs /app
+COPY shacl_validator.proto /shacl_validator.proto
+COPY shapes /shapes
+
+RUN cargo build --release
+
+ENTRYPOINT [ "/app/target/release/shacl_validator_grpc" ]

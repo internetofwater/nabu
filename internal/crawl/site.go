@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/pkg"
 	log "github.com/sirupsen/logrus"
@@ -165,18 +164,19 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 
 	// make sure the pointer itself is not nil and not empty
 	if config.grpcClient != nil && *config.grpcClient != nil {
-		triples, err := common.JsonldToNQ(string(jsonld), config.jsonLdProc, config.jsonLdOpt)
-		if err != nil {
-			return "", hash != "", fmt.Errorf("failed to convert JSON-LD to N-Quads: %w", err)
-		}
-		err = validate_shacl(ctx, *config.grpcClient, triples)
+		err = validate_shacl(ctx, *config.grpcClient, string(jsonld))
 		if err != nil {
 			if urlErr, ok := err.(pkg.UrlCrawlError); ok {
 				log.Errorf("SHACL validation failed for %s: %s", url.Loc, urlErr.Message)
 				config.nonFatalErrorChan <- urlErr
-				return "", hash != "", nil
+				// we don't return here because it is non fatal
+				// and not all integrations may be compliant with our shacl shapes yet;
+				// For the time being, it is better to harvest and then have the integrator fix it
+				// after the fact; in the future there could be a strict
+				// validation mode wherein we fail fast upon shacl non-compliance
+			} else {
+				return "", hash != "", fmt.Errorf("failed to communicate with shacl validation service: %w", err)
 			}
-			return "", hash != "", fmt.Errorf("failed to validate shacl: %w", err)
 		}
 	}
 

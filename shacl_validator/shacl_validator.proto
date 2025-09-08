@@ -7,11 +7,11 @@ package shacl_validator;
 option go_package = "internal/protoBuild";
 
 service ShaclValidator {
-    rpc Validate (TurtleValidationRequest) returns (ValidationReply);
+    rpc Validate (JsoldValidationRequest) returns (ValidationReply);
 }
 
-message TurtleValidationRequest {
-   string triples = 1;
+message JsoldValidationRequest {
+   string jsonld = 1;
 }
 
 // Which shacl file we are in coformance with

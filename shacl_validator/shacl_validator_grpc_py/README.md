@@ -1,0 +1,1 @@
+This package is a grpc server for shacl validation in Python using pyshacl

@@ -36,4 +36,8 @@ dist
 dist-ssr
 *.local
 
-.vite
+.vite/
+
+__pycache__/
+.venv/
+.pytest_cache/
