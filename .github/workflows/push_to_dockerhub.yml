@@ -59,9 +59,6 @@ jobs:
 
   build-and-push-shacl-rs:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: shacl_validator/
 
     steps:
       - name: Checkout code
@@ -89,8 +86,8 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v4
         with:
-          context: .
-          file: Dockerfile_rs
+          context: shacl_validator
+          file: shacl_validator/Dockerfile_rs
           push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -98,12 +95,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-
   build-and-push-shacl-py:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: shacl_validator/
 
     steps:
       - name: Checkout code
@@ -131,8 +124,8 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v4
         with:
-          context: .
-          file: Dockerfile_py
+          context: shacl_validator
+          file: shacl_validator/Dockerfile_py
           push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
