@@ -2,7 +2,6 @@
 
 from pathlib import Path
 from time import sleep
-from tkinter import NONE
 from typing import Literal, assert_never
 import pyshacl
 from rdflib import Graph, RDF, URIRef
