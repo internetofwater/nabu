@@ -47,8 +47,14 @@ def validate_jsonld_from_url(url: str, watch: bool):
     try:
         while True:
             response = requests.get(url)
-            response.raise_for_status()
-            jsonld = response.json()
+            try:
+                response.raise_for_status()
+                jsonld = response.json()
+            except Exception as text:
+                if lastPrint != str(text):
+                    print(f"Error: {text}", flush=True)
+                lastPrint = str(text)
+                continue
             conforms, _, text = validate_jsonld(jsonld, format="location_oriented")
             if not conforms:
                 if text != lastPrint:
@@ -61,7 +67,7 @@ def validate_jsonld_from_url(url: str, watch: bool):
                 lastPrint = text
             if not watch:
                 return
-            sleep(2)
+            sleep(3)
     except KeyboardInterrupt:
         pass
 
