@@ -52,12 +52,12 @@ def validate_jsonld_from_url(url: str, loop: bool):
             conforms, _, text = validate_jsonld(jsonld, format="location_oriented")
             if not conforms:
                 if text != lastPrint:
-                    print(text)
+                    print(text, flush=True)
                 lastPrint = text
             else:
                 text = "Shacl Validation passed"
                 if lastPrint != text:
-                    print("Shacl Validation passed")
+                    print("Shacl Validation passed", flush=True)
                 lastPrint = text
             if not loop:
                 return
