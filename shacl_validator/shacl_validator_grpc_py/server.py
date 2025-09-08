@@ -92,7 +92,7 @@ def main():
     check_oaf_subparser = subparsers.add_parser("check_oaf", help="Check jsonld from an OGC API-Features endpoint")
     check_url_subparser = subparsers.add_parser("check_url", help="Check jsonld from a single url")
     check_url_subparser.add_argument("--url", type=str, help="URL to check", required=True)
-    check_url_subparser.add_argument("--loop", action="store_true", help="Loop checking the url", default=False)
+    check_url_subparser.add_argument("--watch", action="store_true", help="Loop checking the url", default=False)
 
     check_oaf_subparser.add_argument(
         "--endpoint", type=str, help="OGC API-Features endpoint"
@@ -105,7 +105,7 @@ def main():
     if args.command == "check_oaf":
         check_jsonld_from_oaf_endpoint(args.endpoint, args.collection)
     elif args.command == "check_url":
-        validate_jsonld_from_url(args.url, loop=args.loop)
+        validate_jsonld_from_url(args.url, watch=args.watch)
     else:
         logger.info(f"Starting SHACL Validation Server on {args.socket}")
         logger.info(f"SHACL file used for validation: {args.shacl}")
