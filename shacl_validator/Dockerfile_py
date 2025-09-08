@@ -35,4 +35,4 @@ COPY --from=builder --chown=app:app /app /app
 # Place executables in the environment at the front of the path
 ENV PATH="/app/service/.venv/bin:$PATH"
 
-CMD ["python", "/app/service/server.py"]
+ENTRYPOINT ["python", "/app/service/server.py"]
