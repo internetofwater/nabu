@@ -8,6 +8,7 @@ import styles from "./CrawlStatusDashboard.module.css";
 import type { SitemapCrawlStats, SitemapIndexCrawlStats } from "./types";
 import { get_s3_bucket, get_s3_client, get_minio_endpoint } from "./env";
 import { make_jsonld } from "./lib";
+import Logo from "../src/assets/geoconnex-logo.png"
 
 const CrawlStatusDashboard = () => {
   const [data, setData] = useState<SitemapIndexCrawlStats>([]);
@@ -90,7 +91,7 @@ const CrawlStatusDashboard = () => {
       <div className={styles.headerRow}>
         <a href="https://docs.geoconnex.us">
           <img
-            src="/src/assets/geoconnex-logo.png"
+            src={Logo}
             style={{
               scale: "0.6",
               filter: "drop-shadow(0 0 3px white)",
