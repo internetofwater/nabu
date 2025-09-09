@@ -6,6 +6,7 @@ package crawl
 import (
 	"bufio"
 	"context"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -77,6 +78,8 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 	cmd := exec.Command(cargoPath, "run")
 	stdout, err := cmd.StdoutPipe()
 	require.NoError(t, err)
+	stderr, err := cmd.StderrPipe()
+	require.NoError(t, err)
 	err = cmd.Start()
 	require.NoError(t, err)
 	defer func() {
@@ -96,6 +99,16 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 				close(found)
 				return
 			}
+		}
+		if err := scanner.Err(); err != nil {
+			t.Error(err)
+		}
+		errContent, err := io.ReadAll(stderr)
+		if err != nil {
+			t.Error(err)
+		}
+		if len(errContent) > 0 {
+			t.Error(string(errContent))
 		}
 	}()
 	select {
@@ -121,7 +134,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		}
 		conf, err := NewSitemapHarvestConfig(mockedClient,
 			Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}},
-			"http://0.0.0.0:50051")
+			"0.0.0.0:50051")
 		require.NoError(t, err)
 		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
@@ -140,7 +153,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 				File:       "testdata/emptyAsTriples.jsonld",
 			},
 		})
-		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, "http://0.0.0.0:50051")
+		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, "0.0.0.0:50051")
 
 		require.NoError(t, err)
 		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
@@ -164,7 +177,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 			},
 		})
 
-		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, "http://0.0.0.0:50051")
+		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, "0.0.0.0:50051")
 		require.NoError(t, err)
 		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
