@@ -43,7 +43,7 @@ jobs:
           images: |
             internetofwater/nabu
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
             type=semver,pattern={{version}}
 
       - name: Build and Push Docker Image
@@ -80,7 +80,7 @@ jobs:
           images: |
             internetofwater/shacl_validator_grpc_rs
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
             type=semver,pattern={{version}}
 
       - name: Build and Push Docker Image
@@ -118,7 +118,7 @@ jobs:
           images: |
             internetofwater/shacl_validator_grpc_py
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
             type=semver,pattern={{version}}
 
       - name: Build and Push Docker Image

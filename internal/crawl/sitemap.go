@@ -60,7 +60,7 @@ type SitemapHarvestConfig struct {
 // Make a new SiteHarvestConfig with all the clients and config
 // initialized and ready to crawl a sitemap
 // this config is shared across all goroutines and thus must be thread safe
-func NewSitemapHarvestConfig(httpClient *http.Client, sitemap Sitemap, validateShacl bool) (SitemapHarvestConfig, error) {
+func NewSitemapHarvestConfig(httpClient *http.Client, sitemap Sitemap, shaclAddress string) (SitemapHarvestConfig, error) {
 
 	firstUrl := sitemap.URL[0]
 	robotstxt, err := newRobots(firstUrl.Loc)
@@ -76,8 +76,8 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap Sitemap, validateS
 	var conn *grpc.ClientConn
 	var grpcClient protoBuild.ShaclValidatorClient
 	// shacl validation is optional
-	if validateShacl {
-		conn, err := grpc.NewClient("0.0.0.0:50051",
+	if shaclAddress != "" {
+		conn, err := grpc.NewClient(shaclAddress,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 		)
 		if err != nil {
@@ -121,7 +121,7 @@ func (s Sitemap) ensureValid(workers int) error {
 }
 
 // Harvest all the URLs in the given sitemap
-func (s Sitemap) Harvest(ctx context.Context, client *http.Client, workers int, sitemapID string, validateShacl bool, cleanupOldJsonld bool) (pkg.SitemapCrawlStats, error) {
+func (s Sitemap) Harvest(ctx context.Context, client *http.Client, workers int, sitemapID string, shaclAddress string, cleanupOldJsonld bool) (pkg.SitemapCrawlStats, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapID))
 	defer span.End()
 
@@ -132,7 +132,7 @@ func (s Sitemap) Harvest(ctx context.Context, client *http.Client, workers int, 
 		return pkg.SitemapCrawlStats{}, err
 	}
 
-	sitemapHarvestConf, err := NewSitemapHarvestConfig(client, s, validateShacl)
+	sitemapHarvestConf, err := NewSitemapHarvestConfig(client, s, shaclAddress)
 	if err != nil {
 		return pkg.SitemapCrawlStats{}, err
 	}

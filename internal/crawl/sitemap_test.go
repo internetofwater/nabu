@@ -40,6 +40,6 @@ func TestHarvestSitemap(t *testing.T) {
 	require.NoError(t, err)
 	_, errs := sitemap.
 		SetStorageDestination(storage.DiscardCrawlStorage{}).
-		Harvest(context.Background(), mockedClient, 10, "test", false, false)
+		Harvest(context.Background(), mockedClient, 10, "test", "", false)
 	require.NoError(t, errs)
 }
