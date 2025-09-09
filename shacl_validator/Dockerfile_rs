@@ -1,7 +1,7 @@
 # Copyright 2025 Lincoln Institute of Land Policy
 # SPDX-License-Identifier: Apache-2.0
 
-FROM rust:slim AS builder
+FROM rust:slim AS rust-builder
 
 WORKDIR /app
 
@@ -13,42 +13,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy manifests first (so deps can be cached)
-COPY shacl_validator_grpc_rs/Cargo.toml shacl_validator_grpc_rs/Cargo.lock ./
-
-# Create a dummy main to force dependency compilation only
-RUN mkdir src && echo "fn main() {}" > src/main.rs
-
-# Build dependencies with persistent cargo cache
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/app/target \
-    cargo build --release || true
-
-# Remove dummy source
-RUN rm -rf src
-
-# Copy full project
 COPY shacl_validator_grpc_rs /app
 COPY shacl_validator.proto /shacl_validator.proto
 COPY shapes /shapes
 
-# Build actual binary using cache mounts again
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/app/target \
-    cargo build --release
+RUN cargo build --release
 
-FROM debian:bookworm-slim AS runtime
+ENTRYPOINT [ "/app/target/release/shacl_validator_grpc" ]
 
-WORKDIR /app
 
-# Install only runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libssl3 \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+FROM debian:bookworm-slim AS final
 
-# Copy the built binary from the builder stage
-COPY --from=builder /app/target/release/shacl_validator_grpc /app/shacl_validator_grpc
-COPY shapes /shapes
+COPY --from=rust-builder /app/target/release/shacl_validator_grpc /usr/local/bin/shacl_validator_grpc
 
-ENTRYPOINT ["/app/shacl_validator_grpc"]
+ENTRYPOINT [ "/usr/local/bin/shacl_validator_grpc" ]
