@@ -1,7 +1,7 @@
 # Copyright 2025 Lincoln Institute of Land Policy
 # SPDX-License-Identifier: Apache-2.0
 
-FROM rust:slim AS rust-builder
+FROM rust:slim AS builder
 
 WORKDIR /app
 
@@ -13,10 +13,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy project files
 COPY shacl_validator_grpc_rs /app
 COPY shacl_validator.proto /shacl_validator.proto
 COPY shapes /shapes
 
+# Build in release mode
 RUN cargo build --release
 
-ENTRYPOINT [ "/app/target/release/shacl_validator_grpc" ]
+FROM debian:bookworm-slim AS runtime
+
+WORKDIR /app
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl3 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the built binary from the builder stage
+COPY --from=builder /app/target/release/shacl_validator_grpc /app/shacl_validator_grpc
+COPY shapes /shapes
+
+ENTRYPOINT ["/app/shacl_validator_grpc"]
