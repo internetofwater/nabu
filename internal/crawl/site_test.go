@@ -121,7 +121,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		}
 		conf, err := NewSitemapHarvestConfig(mockedClient,
 			Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}},
-			true)
+			"http://0.0.0.0:50051")
 		require.NoError(t, err)
 		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
@@ -140,7 +140,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 				File:       "testdata/emptyAsTriples.jsonld",
 			},
 		})
-		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, true)
+		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, "http://0.0.0.0:50051")
 
 		require.NoError(t, err)
 		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
@@ -164,7 +164,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 			},
 		})
 
-		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, true)
+		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, "http://0.0.0.0:50051")
 		require.NoError(t, err)
 		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)

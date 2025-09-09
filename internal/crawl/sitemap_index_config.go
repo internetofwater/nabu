@@ -14,8 +14,8 @@ func (i Index) WithStorageDestination(storageDestination storage.CrawlStorage) I
 	return i
 }
 
-func (i Index) WithShaclValidationConfig(enabled bool) Index {
-	i.shaclValidationEnabled = enabled
+func (i Index) WithShaclValidationConfig(shaclAddress string) Index {
+	i.shaclAddress = shaclAddress
 	return i
 }
 
