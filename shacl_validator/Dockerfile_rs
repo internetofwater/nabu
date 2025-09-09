@@ -13,13 +13,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy project files
+# Copy manifests first (so deps can be cached)
+COPY shacl_validator_grpc_rs/Cargo.toml shacl_validator_grpc_rs/Cargo.lock ./
+
+# Create a dummy main to force dependency compilation only
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+
+# Build dependencies with persistent cargo cache
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/app/target \
+    cargo build --release || true
+
+# Remove dummy source
+RUN rm -rf src
+
+# Copy full project
 COPY shacl_validator_grpc_rs /app
 COPY shacl_validator.proto /shacl_validator.proto
 COPY shapes /shapes
 
-# Build in release mode
-RUN cargo build --release
+# Build actual binary using cache mounts again
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/app/target \
+    cargo build --release
 
 FROM debian:bookworm-slim AS runtime
 
