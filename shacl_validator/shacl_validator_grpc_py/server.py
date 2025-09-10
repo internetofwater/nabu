@@ -13,6 +13,7 @@ from concurrent import futures
 from pathlib import Path
 import grpc
 from rdflib import Graph
+from geoconnex_gen import GeoconnexCSVConfig, generate_geoconnex_csv
 from shacl_validator_pb2 import JsoldValidationRequest, ValidationReply, LocationOriented
 
 from grpc import ServicerContext
@@ -90,22 +91,52 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command", required=False)
     check_oaf_subparser = subparsers.add_parser("check_oaf", help="Check jsonld from an OGC API-Features endpoint")
-    check_url_subparser = subparsers.add_parser("check_url", help="Check jsonld from a single url")
-    check_url_subparser.add_argument("--url", type=str, help="URL to check", required=True)
-    check_url_subparser.add_argument("--watch", action="store_true", help="Loop checking the url", default=False)
-
     check_oaf_subparser.add_argument(
         "--endpoint", type=str, help="OGC API-Features endpoint"
     )
     check_oaf_subparser.add_argument(
         "--collection", type=str, help="OGC API-Features collection"
     )
+
+    check_url_subparser = subparsers.add_parser("check_url", help="Check jsonld from a single url")
+    check_url_subparser.add_argument("--url", type=str, help="URL to check", required=True)
+    check_url_subparser.add_argument("--watch", action="store_true", help="Loop checking the url", default=False)
+
+    generate_geoconnex_csv_subparser = subparsers.add_parser("generate_geoconnex_csv", help="Generate geoconnex csv from a collection")
+    generate_geoconnex_csv_subparser.add_argument(
+        "--oaf_items_endpoint", type=str, help="The full url to your OGC API-Features collection", required=True
+    )
+    generate_geoconnex_csv_subparser.add_argument(
+        "--validate_shacl", type=bool, help="Validate all jsonld items before generating csv", default=False
+    )
+    generate_geoconnex_csv_subparser.add_argument(
+        "--description", type=str, help="Description for the geoconnex csv", default="", required=True 
+    )
+    generate_geoconnex_csv_subparser.add_argument(
+        "--contact_email", type=str, help="Contact email for the csv submissions", required=True, default=""
+    )
+    generate_geoconnex_csv_subparser.add_argument(
+        "--geoconnex_namespace", type=str, help="Namespace for the geoconnex csv", required=True
+    )
+    
+
     args = parser.parse_args()
 
     if args.command == "check_oaf":
         check_jsonld_from_oaf_endpoint(args.endpoint, args.collection)
     elif args.command == "check_url":
         validate_jsonld_from_url(args.url, watch=args.watch)
+    elif args.command == "generate_geoconnex_csv":
+        generate_geoconnex_csv(
+            GeoconnexCSVConfig(
+                oaf_items_endpoint=args.oaf_items_endpoint,
+                description=args.description,
+                contact_email=args.contact_email,
+                shacl_shape=args.shacl,
+                check_shacl=args.validate_shacl,
+                geoconnex_namespace=args.geoconnex_namespace,
+            )
+        )
     else:
         logger.info(f"Starting SHACL Validation Server on {args.socket}")
         logger.info(f"SHACL file used for validation: {args.shacl}")
