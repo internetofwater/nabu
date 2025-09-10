@@ -88,7 +88,7 @@ def main():
         default=str((Path(__file__).parent.parent / "shacl_shapes" / "locationOriented.ttl").absolute()),
         help="Path to the shacl file to use for validation",
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command", required=False)
     check_oaf_subparser = subparsers.add_parser("check_oaf", help="Check jsonld from an OGC API-Features endpoint")
     check_url_subparser = subparsers.add_parser("check_url", help="Check jsonld from a single url")
     check_url_subparser.add_argument("--url", type=str, help="URL to check", required=True)
