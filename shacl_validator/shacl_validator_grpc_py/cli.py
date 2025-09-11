@@ -90,8 +90,8 @@ def main():
             )
         )
     else:
-        logger.info(f"Starting SHACL Validation Server on {args.socket}")
-        logger.info(f"SHACL file used for validation: {args.shacl}")
+        logger.info(f"Starting SHACL Validation Server on {args.address}")
+        logger.info(f"SHACL file used for validation: {args.shacl_file}")
         serve(socket_path=args.address)
 
 
