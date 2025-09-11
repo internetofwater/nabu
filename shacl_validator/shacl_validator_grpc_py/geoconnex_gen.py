@@ -26,7 +26,7 @@ def generate_geoconnex_csv(config: GeoconnexCSVConfig):
     collection_resp.raise_for_status()
     collection = collection_resp.json()
 
-    csv_header = ["id", "target", "creator", "description"]
+    csv_header_row = ["id", "target", "creator", "description"]
     csv_rows = []
 
     if config.check_shacl:
@@ -50,6 +50,8 @@ def generate_geoconnex_csv(config: GeoconnexCSVConfig):
 
             if not conforms:
                 raise Exception(f"SHACL Validation failed for {jsonld_url}: \n{text}")
+            
+            print(f"SHACL Validation passed for {jsonld_url}")
 
         csv_rows.append(
             [f"https://geoconnex.us/{config.geoconnex_namespace}/{feature_id}", feature_url, config.contact_email, config.description]
@@ -58,7 +60,7 @@ def generate_geoconnex_csv(config: GeoconnexCSVConfig):
     output_path = Path("geoconnex.csv")
     with open(output_path.absolute(), "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(csv_header)
+        writer.writerow(csv_header_row)
         writer.writerows(csv_rows)
 
     print(f"CSV written to {output_path.absolute()}")
