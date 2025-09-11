@@ -22,7 +22,6 @@ def validate_graph(data_graph: Graph, shacl_shape: Graph):
 
         return pyshacl.validate(
             data_graph,
-            inference="none",
             shacl_graph=shacl_shape,
             data_graph_format="json-ld",  # Explicitly state data graph format
             shacl_graph_format="turtle",  # Explicitly state shapes graph format

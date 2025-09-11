@@ -228,6 +228,7 @@ ex:DistributionShape a sh:NodeShape ;
                 sh:datatype gsp:wktLiteral ;
             ] ;
         ] ;
+        sh:minCount 1 ;
     ] ;
     # schema for the geo coordinates (i.e. lat / long key val mapping)
     sh:property [
