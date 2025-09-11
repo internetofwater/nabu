@@ -5,7 +5,7 @@
 @prefix schema: <https://schema.org/> .
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-
+@prefix sf: <http://www.opengis.net/ont/sf#> .
 @base <http://geoconnex.us/> .
 
 ex:ProviderShape a sh:NodeShape ;
@@ -233,6 +233,10 @@ ex:DistributionShape a sh:NodeShape ;
     # schema for the geo coordinates (i.e. lat / long key val mapping)
     sh:property [
         sh:path schema:geo ;
+        sh:or (
+            [sh:class schema:GeoShape  ]
+            [sh:class schema:GeoCoordinates]
+        );
         sh:minCount 1;
     ] ;
 
