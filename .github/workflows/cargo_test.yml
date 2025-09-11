@@ -11,13 +11,21 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        run: rustup toolchain install stable --profile minimal
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # failure could be caused by clippy and thus we should still cache all the 
+          # dependency downloads that are irrelevant to the lint errors
+          cache-on-failure: true
+          cache-all-crates: true
 
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler

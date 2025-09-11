@@ -1,1 +1,1 @@
-This program is a shacl validator in Rust. Nabu communicates with this service via gRPC. We have to do this since there are no shacl libraries written for Go.
+This program is a shacl validator in Rust. It should pass all the same tests as our Python validator. Nabu communicates with this service via gRPC. We have to do this since there are no shacl libraries written for Go.
