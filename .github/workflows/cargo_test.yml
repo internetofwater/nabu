@@ -27,6 +27,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
+          workspaces: |
+            shacl_validator/shacl_validator_grpc_rs -> target
           cache-on-failure: true
           cache-all-crates: true
 
