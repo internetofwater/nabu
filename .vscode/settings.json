@@ -15,4 +15,5 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+    "python.defaultInterpreterPath": "${workspaceFolder}/shacl_validator/shacl_validator_grpc_py/.venv/bin/python",
 }

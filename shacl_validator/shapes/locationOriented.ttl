@@ -1,26 +1,43 @@
+@prefix dc: <http://purl.org/dc/terms/> .
+@prefix ex: <http://geoconnex.us/shapes#> .
 @prefix gsp: <http://www.opengis.net/ont/geosparql#> .
 @prefix hyf: <https://www.opengis.net/def/schema/hy_features/hyf/> .
 @prefix schema: <https://schema.org/> .
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix dc: <http://purl.org/dc/terms/> .
-@prefix ex: <http://geoconnex.us/shapes#> .
 
 @base <http://geoconnex.us/> .
 
 ex:ProviderShape a sh:NodeShape ;
-    sh:targetClass schema:provider ;
+    sh:targetClass schema:Organization, schema:Person ;
 
+
+    # Require that provider is either an Organization or Person
+    sh:or (
+        [ sh:class schema:Organization ]
+        [ sh:class schema:Person ]
+        # we specify government organization as a separate type since our 
+        # shacl shape doesnt have rdfs reasoning for subclasses
+        [ sh:class schema:GovernmentOrganization ]
+    ) ;
+
+    # A top level uri linking to the provider, not the specific datasets
     sh:property [
         sh:path schema:url ;
-        sh:nodeKind sh:IRI ;
-    ] ;
+        sh:or (
+            [ sh:datatype xsd:string ]
+            [ sh:datatype xsd:anyURI ]
+        ) ;
+    ];
 
+    # The name of the provider, i.e. usgs
     sh:property [
         sh:path schema:name ;
         sh:datatype xsd:string ;
-    ]    
+        sh:minCount 1 ;
+    ] 
 .
+
 
 ex:DatasetShape a sh:NodeShape ;
     sh:targetClass schema:Dataset ;
@@ -28,7 +45,6 @@ ex:DatasetShape a sh:NodeShape ;
     sh:property [
         sh:path schema:identifier ;
         sh:datatype xsd:string ;
-        # sh:minCount 1 ;
     ] ;
 
     sh:property [
@@ -42,14 +58,16 @@ ex:DatasetShape a sh:NodeShape ;
         sh:datatype xsd:string ;
     ] ;
 
+    # A url about the dataset itself 
     sh:property [
         sh:path schema:url ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] ;
 
     sh:property [
         sh:path schema:provider ;
         sh:node ex:ProviderShape ;
+        sh:minCount 1 ;
     ] ;
 
     sh:property [
@@ -87,15 +105,10 @@ ex:DatasetShape a sh:NodeShape ;
         sh:datatype xsd:string ;
     ] ;
 
-    # sh:property [
-    #     sh:path dc:accrualPeriodicity ;
-    #     sh:nodeKind sh:IRI ;
-    # ] ;
-
-    # sh:property [
-    #     sh:path dcat:temporalResolution ;
-    #     sh:datatype xsd:duration ;
-    # ] ;
+    sh:property [
+        sh:path dc:accrualPeriodicity ;
+        sh:datatype xsd:string ;
+    ] ;
 
     sh:property [
         sh:path schema:about ;
@@ -103,6 +116,8 @@ ex:DatasetShape a sh:NodeShape ;
     ] .
 
 ex:VariableShape a sh:NodeShape ;
+    sh:targetClass schema:PropertyValue ; 
+
     sh:property [
         sh:path schema:name ;
         sh:datatype xsd:string ;
@@ -113,11 +128,11 @@ ex:VariableShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path schema:propertyID ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] ;
     sh:property [
         sh:path schema:url ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] ;
     sh:property [
         sh:path schema:unitText ;
@@ -125,11 +140,11 @@ ex:VariableShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path <http://qudt.org/schema/qudt/hasQuantityKind> ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] ;
     sh:property [
         sh:path schema:unitCode ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] ;
     sh:property [
         sh:path schema:measurementTechnique ;
@@ -152,17 +167,19 @@ ex:MeasurementMethodShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path schema:url ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] .
 
 ex:DistributionShape a sh:NodeShape ;
+    sh:targetClass schema:DataDownload ;
+
     sh:property [
         sh:path schema:name ;
         sh:datatype xsd:string ;
     ] ;
     sh:property [
         sh:path schema:contentUrl ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] ;
     sh:property [
         sh:path schema:encodingFormat ;
@@ -170,10 +187,9 @@ ex:DistributionShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path dc:conformsTo ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] ;
 .
-
 
 
 <#LocationOrientedShape> a sh:NodeShape ;
@@ -198,10 +214,7 @@ ex:DistributionShape a sh:NodeShape ;
 
     sh:property [
         sh:path schema:subjectOf ;
-        sh:or (
-            [ sh:nodeKind sh:IRI ]       # Option 1: just an IRI
-            [ sh:node ex:DatasetShape ]  # Option 2: a full dataset node
-        ) ;
+        sh:node ex:DatasetShape ;
     ]  ;
 
 
@@ -216,10 +229,10 @@ ex:DistributionShape a sh:NodeShape ;
             ] ;
         ] ;
     ] ;
-
     # schema for the geo coordinates (i.e. lat / long key val mapping)
     sh:property [
         sh:path schema:geo ;
+        sh:minCount 1;
     ] ;
 
     sh:property [

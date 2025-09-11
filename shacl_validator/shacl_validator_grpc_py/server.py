@@ -31,12 +31,17 @@ logger = logging.getLogger(__name__)
 
 
 class ShaclValidator(shacl_validator_pb2_grpc.ShaclValidatorServicer):
+
+
+    def __init__(self, shacl_shape: Graph):
+        self.shacl_shape = shacl_shape
+
     def Validate(
         self, request: JsoldValidationRequest, context: ServicerContext
     ) -> ValidationReply:
         jsonld = Graph()
         jsonld.parse(data=request.jsonld, format="json-ld")
-        conforms, _, text = validate_graph(jsonld, format="location_oriented")
+        conforms, _, text = validate_graph(jsonld, shacl_shape=self.shacl_shape)
 
         return ValidationReply(
             valid=conforms,
@@ -45,7 +50,7 @@ class ShaclValidator(shacl_validator_pb2_grpc.ShaclValidatorServicer):
         )
 
 
-def serve(socket_path: str = "0.0.0.0:50051"):
+def serve(shacl_shape: Graph, socket_path: str = "0.0.0.0:50051"):
     """Start the gRPC server.
 
     Args:
@@ -59,7 +64,7 @@ def serve(socket_path: str = "0.0.0.0:50051"):
         raise Exception(f"Failed to add port to server: {socket_path}")
 
     shacl_validator_pb2_grpc.add_ShaclValidatorServicer_to_server(
-        ShaclValidator(), server
+        ShaclValidator(shacl_shape), server
     )
 
     # Start the server
