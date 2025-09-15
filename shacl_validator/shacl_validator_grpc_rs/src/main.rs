@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use shacl_validator::shacl_validator_server::{ShaclValidator, ShaclValidatorServer};
+use shacl_validator::JsoldValidationRequest;
 use shacl_validator::ValidationReply;
-use shacl_validator::{JsoldValidationRequest, MatchingShaclType};
 use shacl_validator_grpc::Validator;
 use tokio::signal;
 use tonic::transport::Server;
@@ -38,7 +38,6 @@ impl ShaclValidator for Validator {
                 let reply = ValidationReply {
                     valid: report.conforms(),
                     message: report.to_string(),
-                    shacl_type: Some(MatchingShaclType::DatasetOriented as i32),
                 };
                 Ok(Response::new(reply))
             }

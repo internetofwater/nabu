@@ -14,7 +14,6 @@ from rdflib import Graph
 from shacl_validator_pb2 import (
     JsoldValidationRequest,
     ValidationReply,
-    LocationOriented,
 )
 
 from grpc import ServicerContext
@@ -46,7 +45,6 @@ class ShaclValidator(shacl_validator_pb2_grpc.ShaclValidatorServicer):
         return ValidationReply(
             valid=conforms,
             message=text,
-            ShaclType=LocationOriented,
         )
 
 

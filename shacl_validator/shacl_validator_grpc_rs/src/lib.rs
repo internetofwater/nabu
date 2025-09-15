@@ -134,7 +134,9 @@ pub async fn validate_jsonld(
         .is_empty();
 
     if not_type_dataset && not_type_place {
-        return Ok(new_report_with_error_msg("Not of '@type':schema:Place nor '@type':schema: Dataset"));
+        return Ok(new_report_with_error_msg(
+            "Not of '@type':schema:Place nor '@type':schema: Dataset",
+        ));
     }
 
     let data = Graph::from_graph(srdf_graph.clone())?;
