@@ -105,7 +105,7 @@ fn new_report_with_error_msg(msg: &str) -> ValidationReport {
         node.clone(),
         node.clone(),
     )];
-    ValidationReport::default().with_results(results);
+    ValidationReport::default().with_results(results)
 }
 
 pub async fn validate_jsonld(
