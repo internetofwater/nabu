@@ -134,7 +134,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		}
 		conf, err := NewSitemapHarvestConfig(mockedClient,
 			Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}},
-			"0.0.0.0:50051")
+			"0.0.0.0:50051", false)
 		require.NoError(t, err)
 		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
@@ -153,7 +153,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 				File:       "testdata/emptyAsTriples.jsonld",
 			},
 		})
-		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, "0.0.0.0:50051")
+		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, "0.0.0.0:50051", false)
 
 		require.NoError(t, err)
 		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
@@ -177,7 +177,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 			},
 		})
 
-		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, "0.0.0.0:50051")
+		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, "0.0.0.0:50051", false)
 		require.NoError(t, err)
 		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
@@ -186,5 +186,25 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		for err := range conf.nonFatalErrorChan {
 			require.Equal(t, pkg.ShaclInvalid, err.ShaclStatus)
 		}
+	})
+
+	t.Run("strict mode exits early on bad jsonld", func(t *testing.T) {
+		const dummy_domain = "https://waterdata.usgs.gov"
+		url := URL{
+			Loc: dummy_domain,
+		}
+		mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
+			dummy_domain: {
+				StatusCode:  200,
+				File:        "testdata/nonconforming.jsonld",
+				ContentType: "application/ld+json",
+			},
+		})
+
+		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, "0.0.0.0:50051", true)
+		require.NoError(t, err)
+		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
+		require.Error(t, err)
+		close(conf.nonFatalErrorChan)
 	})
 }

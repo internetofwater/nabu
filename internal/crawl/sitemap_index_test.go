@@ -126,10 +126,10 @@ func TestHarvestSitemapIndex(t *testing.T) {
 	sitemap, err := NewSitemap(context.Background(), mockedClient, sitemapUrls.GetUrlList()[0])
 	require.NoError(t, err)
 
-	_, errs := sitemap.SetStorageDestination(tmpStore).Harvest(context.Background(), mockedClient, 10, "test", "", false)
+	_, errs := sitemap.SetStorageDestination(tmpStore).Harvest(context.Background(), mockedClient, 10, "test", "", false, true)
 	require.NoError(t, errs)
 
-	_, errs = sitemap.SetStorageDestination(container.ClientWrapper).Harvest(context.Background(), mockedClient, 1, "test", "", false)
+	_, errs = sitemap.SetStorageDestination(container.ClientWrapper).Harvest(context.Background(), mockedClient, 1, "test", "", false, true)
 	require.NoError(t, errs)
 	numObjs, err := container.ClientWrapper.NumberOfMatchingObjects([]string{""})
 	require.NoError(t, err)

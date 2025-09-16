@@ -55,12 +55,13 @@ type SitemapHarvestConfig struct {
 	nonFatalErrorChan         chan pkg.UrlCrawlError
 	storageDestination        storage.CrawlStorage
 	checkExistenceBeforeCrawl atomic.Bool
+	exitOnShaclFailure        bool
 }
 
 // Make a new SiteHarvestConfig with all the clients and config
 // initialized and ready to crawl a sitemap
 // this config is shared across all goroutines and thus must be thread safe
-func NewSitemapHarvestConfig(httpClient *http.Client, sitemap Sitemap, shaclAddress string) (SitemapHarvestConfig, error) {
+func NewSitemapHarvestConfig(httpClient *http.Client, sitemap Sitemap, shaclAddress string, exitOnShaclFailure bool) (SitemapHarvestConfig, error) {
 
 	firstUrl := sitemap.URL[0]
 	robotstxt, err := newRobots(firstUrl.Loc)
@@ -103,6 +104,7 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap Sitemap, shaclAddr
 		jsonLdOpt:          JsonLdOpts,
 		nonFatalErrorChan:  crawlErrorChan,
 		storageDestination: sitemap.storageDestination,
+		exitOnShaclFailure: exitOnShaclFailure,
 	}, nil
 }
 
@@ -121,7 +123,7 @@ func (s Sitemap) ensureValid(workers int) error {
 }
 
 // Harvest all the URLs in the given sitemap
-func (s Sitemap) Harvest(ctx context.Context, client *http.Client, workers int, sitemapID string, shaclAddress string, cleanupOldJsonld bool) (pkg.SitemapCrawlStats, error) {
+func (s Sitemap) Harvest(ctx context.Context, client *http.Client, workers int, sitemapID string, shaclAddress string, cleanupOldJsonld bool, exitOnShaclFailure bool) (pkg.SitemapCrawlStats, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapID))
 	defer span.End()
 
@@ -132,7 +134,7 @@ func (s Sitemap) Harvest(ctx context.Context, client *http.Client, workers int, 
 		return pkg.SitemapCrawlStats{}, err
 	}
 
-	sitemapHarvestConf, err := NewSitemapHarvestConfig(client, s, shaclAddress)
+	sitemapHarvestConf, err := NewSitemapHarvestConfig(client, s, shaclAddress, exitOnShaclFailure)
 	if err != nil {
 		return pkg.SitemapCrawlStats{}, err
 	}
