@@ -32,10 +32,7 @@
         }
     ],
     "gsp:hasGeometry": {
-        "@type": "http://www.opengis.net/ont/sf#MultiPolygon",
-        "gsp:asWKT": {
-            "@type": "http://www.opengis.net/ont/geosparql#wktLiteral"
-        }
+        "@type": "http://www.opengis.net/ont/sf#MultiPolygon"
     },
     "schema:provider": {
         "@type": "schema:GovernmentOrganization",
