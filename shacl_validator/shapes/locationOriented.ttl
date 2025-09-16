@@ -155,7 +155,6 @@ ex:DatasetShape a sh:NodeShape ;
         sh:nodeKind sh:IRI ;
         sh:node ex:NoTypeShape ;
         sh:message "If a dataset is about a list of other features, the associated datasets must be IRIs so they can be linked in a graph"
-        # NOTE: Check if we want to require this
     ] .
 
 ex:VariableShape a sh:NodeShape ;
