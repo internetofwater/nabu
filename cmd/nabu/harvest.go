@@ -31,6 +31,7 @@ type HarvestCmd struct {
 	SitemapWorkers        int    `arg:"--sitemap-workers" default:"10"`
 	HeadlessChromeUrl     string `arg:"--headless-chrome-url" default:"0.0.0.0:9222" help:"port for interacting with the headless chrome devtools"`
 	ShaclEndpoint         string `arg:"--shacl-grpc-endpoint" default:"" help:"full shacl grpc endpoint with port to use for validation; if empty skip validation"`
+	ExitOnShaclFailure    bool   `arg:"--exit-on-shacl-failure" default:"false" help:"immediately exit if shacl validation fails"`
 	CleanupOutdatedJsonld bool   `arg:"--cleanup-outdated-jsonld" default:"false" help:"cleanup outdated jsonld files from the bucket"`
 }
 
@@ -67,7 +68,7 @@ func Harvest(ctx context.Context, client *http.Client, minioConfig config.MinioC
 		WithConcurrencyConfig(args.ConcurrentSitemaps, args.SitemapWorkers).
 		WithSpecifiedSourceFilter(args.Source).
 		WithHeadlessChromeUrl(args.HeadlessChromeUrl).
-		WithShaclValidationConfig(args.ShaclEndpoint).
+		WithShaclValidationConfig(args.ShaclEndpoint, args.ExitOnShaclFailure).
 		WithOldJsonldCleanup(args.CleanupOutdatedJsonld).
 		HarvestSitemaps(ctx, client)
 	if err != nil {

@@ -13,7 +13,7 @@
     "fid": 9635,
     "placefp": "24568",
     "affgeoid": "1600000US0124568",
-    "name": "Eufaula",
+    "schema:name": "Eufaula",
     "census_profile": "https://data.census.gov/cedsci/profile?g=1600000US0124568",
     "placens": "02403575",
     "statefp": "01",

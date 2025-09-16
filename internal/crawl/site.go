@@ -169,11 +169,15 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 			if urlErr, ok := err.(pkg.UrlCrawlError); ok {
 				log.Errorf("SHACL validation failed for %s: %s", url.Loc, urlErr.Message)
 				config.nonFatalErrorChan <- urlErr
-				// we don't return here because it is non fatal
+				// we don't always return here because it is non fatal
 				// and not all integrations may be compliant with our shacl shapes yet;
 				// For the time being, it is better to harvest and then have the integrator fix it
 				// after the fact; in the future there could be a strict
 				// validation mode wherein we fail fast upon shacl non-compliance
+				// however, we do allow a flag to exit and strictly fail
+				if config.exitOnShaclFailure {
+					return "", hash != "", fmt.Errorf("SHACL validation failed for %s: %s", url.Loc, urlErr.Message)
+				}
 			} else {
 				return "", hash != "", fmt.Errorf("failed to communicate with shacl validation service: %w", err)
 			}
