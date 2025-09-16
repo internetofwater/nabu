@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use shacl_validator::shacl_validator_server::{ShaclValidator, ShaclValidatorServer};
+use shacl_validator::JsoldValidationRequest;
 use shacl_validator::ValidationReply;
-use shacl_validator::{JsoldValidationRequest, MatchingShaclType};
 use shacl_validator_grpc::Validator;
 use tokio::signal;
 use tonic::transport::Server;
@@ -28,72 +28,22 @@ impl ShaclValidator for Validator {
 
         let req = request.into_inner();
 
-        let dataset_validation_report = self.validate_dataset_oriented(&req.jsonld);
-        let location_validation_report = self.validate_location_oriented(&req.jsonld);
+        let location_validation_report = self.validate_location_oriented(&req.jsonld).await;
 
         println!("Validation took {:?}", start.elapsed());
 
-        match (
-            dataset_validation_report.await,
-            location_validation_report.await,
-        ) {
+        match location_validation_report {
             // If one report is successful and the other fails, return the successful one
-            (Ok(report), Err(_)) => {
+            Ok(report) => {
                 let reply = ValidationReply {
                     valid: report.conforms(),
                     message: report.to_string(),
-                    shacl_type: Some(MatchingShaclType::DatasetOriented as i32),
                 };
                 Ok(Response::new(reply))
-            }
-            (Err(_), Ok(report)) => {
-                let reply = ValidationReply {
-                    valid: report.conforms(),
-                    message: report.to_string(),
-                    shacl_type: Some(MatchingShaclType::LocationOriented as i32),
-                };
-                Ok(Response::new(reply))
-            }
-            // if both reports are successful, return the one that conforms
-            (Ok(report1), Ok(report2)) => {
-                match (report1.conforms(), report2.conforms()) {
-                    (true, _) => {
-                        let reply = ValidationReply {
-                            valid: true,
-                            message: report1.to_string(),
-                            shacl_type: Some(MatchingShaclType::DatasetOriented as i32),
-                        };
-                        Ok(Response::new(reply))
-                    }
-                    (_, true) => {
-                        let reply = ValidationReply {
-                            valid: true,
-                            message: report2.to_string(),
-                            shacl_type: Some(MatchingShaclType::LocationOriented as i32),
-                        };
-                        Ok(Response::new(reply))
-                    }
-                    // if neither conform, return both reports so
-                    // the user can see what went wrong
-                    (false, false) => {
-                        let reply = ValidationReply {
-                            valid: false,
-                            message: format!(
-                                "Dataset validation report:\n{}\n\nLocation validation report:\n{}",
-                                report1, report2
-                            ),
-                            shacl_type: None,
-                        };
-                        Ok(Response::new(reply))
-                    }
-                }
             }
             // If both reports fail, return both errors
-            (Err(e1), Err(e2)) => {
-                let msg = format!(
-                    "Dataset validation error: {:?}; Location validation error: {:?}",
-                    e1, e2
-                );
+            Err(report) => {
+                let msg = format!("Shacl validation error: {:?}", report);
                 Err(Status::internal(msg))
             }
         }
@@ -102,7 +52,6 @@ impl ShaclValidator for Validator {
 
 #[tokio::main(flavor = "multi_thread")] // defaults to number of cpus on the system
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     let validator = Validator::default();
 
     let path = "0.0.0.0:50051";

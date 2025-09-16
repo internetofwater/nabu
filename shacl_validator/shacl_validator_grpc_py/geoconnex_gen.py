@@ -3,6 +3,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from rdflib import Graph
 import requests
 import csv
 from lib import validate_jsonld
@@ -13,7 +14,7 @@ class GeoconnexCSVConfig:
     contact_email: str
     check_shacl: bool
     oaf_items_endpoint: str
-    shacl_shape: str
+    shacl_shape: Graph
     description: str
     geoconnex_namespace: str
 
@@ -46,7 +47,7 @@ def generate_geoconnex_csv(config: GeoconnexCSVConfig):
                 jsonld = response.json()
             except Exception as text:
                 raise Exception(f"Failed to parse jsonld for {jsonld_url}: \n{text}")
-            conforms, _, text = validate_jsonld(jsonld, format="location_oriented")
+            conforms, _, text = validate_jsonld(jsonld, shacl_shape=config.shacl_shape)
 
             if not conforms:
                 raise Exception(f"SHACL Validation failed for {jsonld_url}: \n{text}")

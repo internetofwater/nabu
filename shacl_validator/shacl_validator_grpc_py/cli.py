@@ -4,6 +4,8 @@
 import argparse
 import logging
 from pathlib import Path
+
+from rdflib import Graph
 from geoconnex_gen import GeoconnexCSVConfig, generate_geoconnex_csv
 
 # Import validation logic
@@ -32,7 +34,7 @@ def main():
         type=str,
         default=str(
             (
-                Path(__file__).parent.parent / "shacl_shapes" / "locationOriented.ttl"
+                Path(__file__).parent.parent / "shapes" / "locationOriented.ttl"
             ).absolute()
         ),
         help="Path to the shacl file to use for validation",
@@ -59,7 +61,7 @@ def main():
         "--validate_shacl", help="Validate all jsonld items before generating csv", action="store_true", default=False
     )
     generate_geoconnex_csv_subparser.add_argument(
-        "--shacl_file", type=str, help="Path to the shacl file to use for validation", required=False, default=str((Path(__file__).parent.parent / "shacl_shapes" / "locationOriented.ttl").absolute())
+        "--shacl_file", type=str, help="Path to the shacl file to use for validation", required=False, default=str((Path(__file__).parent.parent / "shapes" / "locationOriented.ttl").absolute())
     )
     generate_geoconnex_csv_subparser.add_argument(
         "--description", type=str, help="Description for the geoconnex csv", default="", required=True 
@@ -73,11 +75,12 @@ def main():
     
 
     args = parser.parse_args()
+    graph = Graph().parse(args.shacl_file)
 
     if args.command == "check_oaf":
-        check_jsonld_from_oaf_endpoint(args.endpoint, args.collection)
+        check_jsonld_from_oaf_endpoint(args.endpoint, args.collection, graph)
     elif args.command == "check_url":
-        validate_jsonld_from_url(args.url, watch=args.watch)
+        validate_jsonld_from_url(args.url, watch=args.watch, shacl_shape=graph)
     elif args.command == "generate_geoconnex_csv":
         generate_geoconnex_csv(
             GeoconnexCSVConfig(
@@ -92,7 +95,7 @@ def main():
     else:
         logger.info(f"Starting SHACL Validation Server on {args.address}")
         logger.info(f"SHACL file used for validation: {args.shacl_file}")
-        serve(socket_path=args.address)
+        serve(graph, socket_path=args.address)
 
 
 if __name__ == "__main__":

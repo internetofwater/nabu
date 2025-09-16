@@ -32,11 +32,6 @@ export class ValidationReply extends jspb.Message {
   getMessage(): string;
   setMessage(value: string): ValidationReply;
 
-  getShacltype(): MatchingShaclType;
-  setShacltype(value: MatchingShaclType): ValidationReply;
-  hasShacltype(): boolean;
-  clearShacltype(): ValidationReply;
-
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ValidationReply.AsObject;
   static toObject(includeInstance: boolean, msg: ValidationReply): ValidationReply.AsObject;
@@ -49,16 +44,6 @@ export namespace ValidationReply {
   export type AsObject = {
     valid: boolean,
     message: string,
-    shacltype?: MatchingShaclType,
-  }
-
-  export enum ShacltypeCase { 
-    _SHACLTYPE_NOT_SET = 0,
-    SHACLTYPE = 3,
   }
 }
 
-export enum MatchingShaclType { 
-  LOCATIONORIENTED = 0,
-  DATASETORIENTED = 1,
-}

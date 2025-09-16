@@ -24,53 +24,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Which shacl file we are in coformance with
-type MatchingShaclType int32
-
-const (
-	MatchingShaclType_LocationOriented MatchingShaclType = 0
-	MatchingShaclType_DatasetOriented  MatchingShaclType = 1
-)
-
-// Enum value maps for MatchingShaclType.
-var (
-	MatchingShaclType_name = map[int32]string{
-		0: "LocationOriented",
-		1: "DatasetOriented",
-	}
-	MatchingShaclType_value = map[string]int32{
-		"LocationOriented": 0,
-		"DatasetOriented":  1,
-	}
-)
-
-func (x MatchingShaclType) Enum() *MatchingShaclType {
-	p := new(MatchingShaclType)
-	*p = x
-	return p
-}
-
-func (x MatchingShaclType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (MatchingShaclType) Descriptor() protoreflect.EnumDescriptor {
-	return file_shacl_validator_shacl_validator_proto_enumTypes[0].Descriptor()
-}
-
-func (MatchingShaclType) Type() protoreflect.EnumType {
-	return &file_shacl_validator_shacl_validator_proto_enumTypes[0]
-}
-
-func (x MatchingShaclType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use MatchingShaclType.Descriptor instead.
-func (MatchingShaclType) EnumDescriptor() ([]byte, []int) {
-	return file_shacl_validator_shacl_validator_proto_rawDescGZIP(), []int{0}
-}
-
 type JsoldValidationRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Jsonld        string                 `protobuf:"bytes,1,opt,name=jsonld,proto3" json:"jsonld,omitempty"`
@@ -115,11 +68,11 @@ func (x *JsoldValidationRequest) GetJsonld() string {
 	return ""
 }
 
+// Which shacl file we are in coformance with
 type ValidationReply struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Valid         bool                   `protobuf:"varint,1,opt,name=valid,proto3" json:"valid,omitempty"`
 	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	ShaclType     *MatchingShaclType     `protobuf:"varint,3,opt,name=ShaclType,proto3,enum=shacl_validator.MatchingShaclType,oneof" json:"ShaclType,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -168,29 +121,16 @@ func (x *ValidationReply) GetMessage() string {
 	return ""
 }
 
-func (x *ValidationReply) GetShaclType() MatchingShaclType {
-	if x != nil && x.ShaclType != nil {
-		return *x.ShaclType
-	}
-	return MatchingShaclType_LocationOriented
-}
-
 var File_shacl_validator_shacl_validator_proto protoreflect.FileDescriptor
 
 const file_shacl_validator_shacl_validator_proto_rawDesc = "" +
 	"\n" +
 	"%shacl_validator/shacl_validator.proto\x12\x0fshacl_validator\"0\n" +
 	"\x16JsoldValidationRequest\x12\x16\n" +
-	"\x06jsonld\x18\x01 \x01(\tR\x06jsonld\"\x96\x01\n" +
+	"\x06jsonld\x18\x01 \x01(\tR\x06jsonld\"A\n" +
 	"\x0fValidationReply\x12\x14\n" +
 	"\x05valid\x18\x01 \x01(\bR\x05valid\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\x12E\n" +
-	"\tShaclType\x18\x03 \x01(\x0e2\".shacl_validator.MatchingShaclTypeH\x00R\tShaclType\x88\x01\x01B\f\n" +
-	"\n" +
-	"_ShaclType*>\n" +
-	"\x11MatchingShaclType\x12\x14\n" +
-	"\x10LocationOriented\x10\x00\x12\x13\n" +
-	"\x0fDatasetOriented\x10\x012g\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage2g\n" +
 	"\x0eShaclValidator\x12U\n" +
 	"\bValidate\x12'.shacl_validator.JsoldValidationRequest\x1a .shacl_validator.ValidationReplyB\x15Z\x13internal/protoBuildb\x06proto3"
 
@@ -206,22 +146,19 @@ func file_shacl_validator_shacl_validator_proto_rawDescGZIP() []byte {
 	return file_shacl_validator_shacl_validator_proto_rawDescData
 }
 
-var file_shacl_validator_shacl_validator_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_shacl_validator_shacl_validator_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_shacl_validator_shacl_validator_proto_goTypes = []any{
-	(MatchingShaclType)(0),         // 0: shacl_validator.MatchingShaclType
-	(*JsoldValidationRequest)(nil), // 1: shacl_validator.JsoldValidationRequest
-	(*ValidationReply)(nil),        // 2: shacl_validator.ValidationReply
+	(*JsoldValidationRequest)(nil), // 0: shacl_validator.JsoldValidationRequest
+	(*ValidationReply)(nil),        // 1: shacl_validator.ValidationReply
 }
 var file_shacl_validator_shacl_validator_proto_depIdxs = []int32{
-	0, // 0: shacl_validator.ValidationReply.ShaclType:type_name -> shacl_validator.MatchingShaclType
-	1, // 1: shacl_validator.ShaclValidator.Validate:input_type -> shacl_validator.JsoldValidationRequest
-	2, // 2: shacl_validator.ShaclValidator.Validate:output_type -> shacl_validator.ValidationReply
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	0, // 0: shacl_validator.ShaclValidator.Validate:input_type -> shacl_validator.JsoldValidationRequest
+	1, // 1: shacl_validator.ShaclValidator.Validate:output_type -> shacl_validator.ValidationReply
+	1, // [1:2] is the sub-list for method output_type
+	0, // [0:1] is the sub-list for method input_type
+	0, // [0:0] is the sub-list for extension type_name
+	0, // [0:0] is the sub-list for extension extendee
+	0, // [0:0] is the sub-list for field type_name
 }
 
 func init() { file_shacl_validator_shacl_validator_proto_init() }
@@ -229,20 +166,18 @@ func file_shacl_validator_shacl_validator_proto_init() {
 	if File_shacl_validator_shacl_validator_proto != nil {
 		return
 	}
-	file_shacl_validator_shacl_validator_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shacl_validator_shacl_validator_proto_rawDesc), len(file_shacl_validator_shacl_validator_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_shacl_validator_shacl_validator_proto_goTypes,
 		DependencyIndexes: file_shacl_validator_shacl_validator_proto_depIdxs,
-		EnumInfos:         file_shacl_validator_shacl_validator_proto_enumTypes,
 		MessageInfos:      file_shacl_validator_shacl_validator_proto_msgTypes,
 	}.Build()
 	File_shacl_validator_shacl_validator_proto = out.File

@@ -27,7 +27,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15shacl_validator.proto\x12\x0fshacl_validator\"(\n\x16JsoldValidationRequest\x12\x0e\n\x06jsonld\x18\x01 \x01(\t\"{\n\x0fValidationReply\x12\r\n\x05valid\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12:\n\tShaclType\x18\x03 \x01(\x0e\x32\".shacl_validator.MatchingShaclTypeH\x00\x88\x01\x01\x42\x0c\n\n_ShaclType*>\n\x11MatchingShaclType\x12\x14\n\x10LocationOriented\x10\x00\x12\x13\n\x0f\x44\x61tasetOriented\x10\x01\x32g\n\x0eShaclValidator\x12U\n\x08Validate\x12\'.shacl_validator.JsoldValidationRequest\x1a .shacl_validator.ValidationReplyB\x15Z\x13internal/protoBuildb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15shacl_validator.proto\x12\x0fshacl_validator\"(\n\x16JsoldValidationRequest\x12\x0e\n\x06jsonld\x18\x01 \x01(\t\"1\n\x0fValidationReply\x12\r\n\x05valid\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t2g\n\x0eShaclValidator\x12U\n\x08Validate\x12\'.shacl_validator.JsoldValidationRequest\x1a .shacl_validator.ValidationReplyB\x15Z\x13internal/protoBuildb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,12 +35,10 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'shacl_validator_pb2', _glob
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z\023internal/protoBuild'
-  _globals['_MATCHINGSHACLTYPE']._serialized_start=209
-  _globals['_MATCHINGSHACLTYPE']._serialized_end=271
   _globals['_JSOLDVALIDATIONREQUEST']._serialized_start=42
   _globals['_JSOLDVALIDATIONREQUEST']._serialized_end=82
   _globals['_VALIDATIONREPLY']._serialized_start=84
-  _globals['_VALIDATIONREPLY']._serialized_end=207
-  _globals['_SHACLVALIDATOR']._serialized_start=273
-  _globals['_SHACLVALIDATOR']._serialized_end=376
+  _globals['_VALIDATIONREPLY']._serialized_end=133
+  _globals['_SHACLVALIDATOR']._serialized_start=135
+  _globals['_SHACLVALIDATOR']._serialized_end=238
 # @@protoc_insertion_point(module_scope)

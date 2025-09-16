@@ -1,26 +1,80 @@
+@prefix dc: <http://purl.org/dc/terms/> .
+@prefix ex: <http://geoconnex.us/shapes#> .
 @prefix gsp: <http://www.opengis.net/ont/geosparql#> .
 @prefix hyf: <https://www.opengis.net/def/schema/hy_features/hyf/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix schema: <https://schema.org/> .
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix dc: <http://purl.org/dc/terms/> .
-@prefix ex: <http://geoconnex.us/shapes#> .
 
+# Some shacl validators need to set a dummy base 
+# value even if it is not actively used 
 @base <http://geoconnex.us/> .
 
+
+ex:NoTypeShape a sh:NodeShape ;
+    sh:property [
+        sh:path rdf:type ;
+        sh:maxCount 0 ;
+        sh:message "No type should be explicitly set on this node in order to prevent strictly applying other shacl shapes to it"
+    ] .
+
 ex:ProviderShape a sh:NodeShape ;
-    sh:targetClass schema:provider ;
+    sh:targetClass schema:Organization, schema:Person, schema:GovernmentOrganization, schema:ResearchOrganization;
+
+    # Require that provider is either an Organization or Person
+    sh:or (
+        [ sh:class schema:Organization ]
+        [ sh:class schema:Person ]
+        # we specify government organization as a separate type since our 
+        # shacl shape doesnt have rdfs reasoning for subclasses
+        [ sh:class schema:GovernmentOrganization ]
+        [ sh:class schema:ResearchOrganization ]
+    ) ;
 
     sh:property [
         sh:path schema:url ;
-        sh:nodeKind sh:IRI ;
-    ] ;
+        sh:or (
+            [ sh:datatype xsd:string ]
+            [ sh:datatype xsd:anyURI ]
+        ) ;
+        sh:message "The provider may optionally have a URL describing it"
+    ];
 
     sh:property [
         sh:path schema:name ;
         sh:datatype xsd:string ;
-    ]    
+        sh:minCount 1 ;
+        sh:message "The provider must have an associated human-readable name, i.e. USGS"
+    ] 
 .
+
+ex:PublisherShape a sh:NodeShape ; 
+    sh:targetClass schema:publisher ;
+
+    # Require that provider is either an Organization or Person
+    sh:or (
+        [ sh:class schema:Organization ]
+        [ sh:class schema:Person ]
+        # we specify government organization as a separate type since our 
+        # shacl shape doesnt have rdfs reasoning for subclasses
+        [ sh:class schema:GovernmentOrganization ]
+        [ sh:class schema:ResearchOrganization ]
+    ) ;
+
+    sh:property [
+        sh:path schema:email;
+        sh:minCount 1 ;
+        sh:message "A publisher must have an associated email that can be used to contact it in the case something is down"
+    ];
+
+    sh:property [
+        sh:path schema:name ;
+        sh:minCount 1 ;
+        sh:message "A publisher must have an associated name that can be used as its label"
+    ];
+    
+. 
 
 ex:DatasetShape a sh:NodeShape ;
     sh:targetClass schema:Dataset ;
@@ -28,13 +82,13 @@ ex:DatasetShape a sh:NodeShape ;
     sh:property [
         sh:path schema:identifier ;
         sh:datatype xsd:string ;
-        # sh:minCount 1 ;
     ] ;
 
     sh:property [
         sh:path schema:name ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
+        sh:message "Each dataset must have an associated name which can be used to label it"
     ] ;
 
     sh:property [
@@ -42,19 +96,23 @@ ex:DatasetShape a sh:NodeShape ;
         sh:datatype xsd:string ;
     ] ;
 
+    # A url about the dataset itself. NOTE: is this necessary to even have?
     sh:property [
         sh:path schema:url ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] ;
 
     sh:property [
         sh:path schema:provider ;
         sh:node ex:ProviderShape ;
+        sh:minCount 1;
+        sh:message "A dataset must have associated provider that describes the provider from which the data ultimately originates."
     ] ;
 
     sh:property [
-        sh:path schema:creator ;
-        sh:node ex:CreatorShape ;
+        sh:path schema:publisher ;
+        sh:node ex:PublisherShape ;
+        sh:message "A dataset may have an associated publisher that describes who is publishing the data. i.e. Internet Of Water publishes a crawled version of water quality portal. This however, may also be identical to the provider. i.e. USGS is both the provider and publisher of streamgage data."
     ] ;
 
     sh:property [
@@ -64,7 +122,7 @@ ex:DatasetShape a sh:NodeShape ;
 
     sh:property [
         sh:path schema:license ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] ;
 
     sh:property [
@@ -87,22 +145,21 @@ ex:DatasetShape a sh:NodeShape ;
         sh:datatype xsd:string ;
     ] ;
 
-    # sh:property [
-    #     sh:path dc:accrualPeriodicity ;
-    #     sh:nodeKind sh:IRI ;
-    # ] ;
-
-    # sh:property [
-    #     sh:path dcat:temporalResolution ;
-    #     sh:datatype xsd:duration ;
-    # ] ;
+    sh:property [
+        sh:path dc:accrualPeriodicity ;
+        sh:datatype xsd:string ;
+    ] ;
 
     sh:property [
         sh:path schema:about ;
         sh:nodeKind sh:IRI ;
+        sh:node ex:NoTypeShape ;
+        sh:message "If a dataset is about a list of other features, the associated datasets must be IRIs so they can be linked in a graph"
     ] .
 
 ex:VariableShape a sh:NodeShape ;
+    sh:targetClass schema:PropertyValue ; 
+
     sh:property [
         sh:path schema:name ;
         sh:datatype xsd:string ;
@@ -113,26 +170,29 @@ ex:VariableShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path schema:propertyID ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] ;
+
     sh:property [
         sh:path schema:url ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string
     ] ;
+
     sh:property [
         sh:path schema:unitText ;
         sh:datatype xsd:string ;
     ] ;
     sh:property [
         sh:path <http://qudt.org/schema/qudt/hasQuantityKind> ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] ;
     sh:property [
         sh:path schema:unitCode ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] ;
     sh:property [
         sh:path schema:measurementTechnique ;
+        # sh:datatype odm2:methodtype ;
         sh:datatype xsd:string ;
     ] ;
     sh:property [
@@ -152,17 +212,19 @@ ex:MeasurementMethodShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path schema:url ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] .
 
 ex:DistributionShape a sh:NodeShape ;
+    sh:targetClass schema:DataDownload ;
+
     sh:property [
         sh:path schema:name ;
         sh:datatype xsd:string ;
     ] ;
     sh:property [
         sh:path schema:contentUrl ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] ;
     sh:property [
         sh:path schema:encodingFormat ;
@@ -170,10 +232,9 @@ ex:DistributionShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path dc:conformsTo ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:string ;
     ] ;
 .
-
 
 
 <#LocationOrientedShape> a sh:NodeShape ;
@@ -184,6 +245,7 @@ ex:DistributionShape a sh:NodeShape ;
         sh:path schema:name ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
+        sh:message "Each location must have a name which identifies it in a human readable way"
     ] ;
 
     sh:property [
@@ -198,10 +260,8 @@ ex:DistributionShape a sh:NodeShape ;
 
     sh:property [
         sh:path schema:subjectOf ;
-        sh:or (
-            [ sh:nodeKind sh:IRI ]       # Option 1: just an IRI
-            [ sh:node ex:DatasetShape ]  # Option 2: a full dataset node
-        ) ;
+        sh:node ex:DatasetShape ;
+        sh:message "subjectOf datasets must conform to the dataset shape"
     ]  ;
 
 
@@ -212,25 +272,34 @@ ex:DistributionShape a sh:NodeShape ;
         sh:node [
             sh:property [
                 sh:path gsp:asWKT ;
-                sh:datatype gsp:wktLiteral ;
+                sh:minCount 1 ;
             ] ;
         ] ;
+        sh:minCount 1 ;
+        sh:message "Places must include geometry in WKT format"
     ] ;
+
 
     # schema for the geo coordinates (i.e. lat / long key val mapping)
     sh:property [
         sh:path schema:geo ;
+        sh:or (
+            [sh:class schema:GeoShape  ]
+            [sh:class schema:GeoCoordinates]
+        );
+        sh:minCount 1;
+        sh:message "A Place must include geometry in the schema.org format"
     ] ;
 
     sh:property [
         sh:path hyf:containingCatchment ;
         sh:nodeKind sh:IRI ;
+        sh:message "Any associated containingCatchment must associate them as IRIs so they can linked in a graph"
     ] ;
-
 
     sh:property [
         sh:path schema:sameAs ;
         sh:nodeKind sh:IRI ;
+        sh:message "If a place has an equivalent feature it must be an IRI so that they can be linked together in a graph"
     ]
-
 .

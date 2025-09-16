@@ -31,25 +31,18 @@ use std::io::Cursor;
 /// An empty struct upon which to implement the necessary traits
 /// for our grpc server with tokio and tonic
 pub struct Validator {
-    pub dataset_schema: Arc<ShaclSchemaIR>,
     pub location_schema: Arc<ShaclSchemaIR>,
 }
 
 impl Default for Validator {
     fn default() -> Self {
-        // Load the dataset-oriented schema
-        let dataset_schema = {
-            let shacl = include_str!("../../shapes/datasetOriented.ttl");
-            Arc::new(ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap())
-        };
-        let location_schema = {
+        let shacl_schema = {
             let shacl = include_str!("../../shapes/locationOriented.ttl");
             Arc::new(ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap())
         };
 
         Self {
-            dataset_schema,
-            location_schema,
+            location_schema: shacl_schema,
         }
     }
 }
@@ -61,14 +54,6 @@ impl Validator {
         triples: &str,
     ) -> Result<ValidationReport, ValidateError> {
         validate_jsonld(&self.location_schema, triples).await
-    }
-
-    /// Validate rdf triples against the dataset-oriented shacl shape
-    pub async fn validate_dataset_oriented(
-        &self,
-        triples: &str,
-    ) -> Result<ValidationReport, ValidateError> {
-        validate_jsonld(&self.dataset_schema, triples).await
     }
 }
 
@@ -112,6 +97,17 @@ pub fn validate_n_quads(
     Ok(report)
 }
 
+/// Create a validation report with a single error
+fn new_report_with_error_msg(msg: &str) -> ValidationReport {
+    let node = Object::BlankNode(msg.to_string());
+    let results = vec![ValidationResult::new(
+        node.clone(),
+        node.clone(),
+        node.clone(),
+    )];
+    ValidationReport::default().with_results(results)
+}
+
 pub async fn validate_jsonld(
     schema: &ShaclSchemaIR,
     jsonld: &str,
@@ -125,22 +121,22 @@ pub async fn validate_jsonld(
 
     let rdf_type = NamedNode::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap();
     let place_iri = Term::NamedNode(NamedNode::new("https://schema.org/Place").unwrap());
+    let dataset_iri = Term::NamedNode(NamedNode::new("https://schema.org/Dataset").unwrap());
 
-
-    let subjects = srdf_graph
+    let not_type_place = srdf_graph
         .get_subjects_for_object_predicate(&place_iri, &rdf_type)
-        .await
-        .unwrap();
+        .await?
+        .is_empty();
 
-    if subjects.is_empty() {
-        let node = Object::BlankNode("missing @type: 'schema:Place' error".to_string());
+    let not_type_dataset = srdf_graph
+        .get_subjects_for_object_predicate(&dataset_iri, &rdf_type)
+        .await?
+        .is_empty();
 
-        let results = vec![ValidationResult::new(
-            node.clone(),
-            node.clone(),
-            node.clone(),
-        )];
-        return Ok(ValidationReport::default().with_results(results));
+    if not_type_dataset && not_type_place {
+        return Ok(new_report_with_error_msg(
+            "Not of '@type':schema:Place nor '@type':schema: Dataset",
+        ));
     }
 
     let data = Graph::from_graph(srdf_graph.clone())?;

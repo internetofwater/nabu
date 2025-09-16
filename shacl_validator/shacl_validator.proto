@@ -15,14 +15,8 @@ message JsoldValidationRequest {
 }
 
 // Which shacl file we are in coformance with
-enum MatchingShaclType {
-    LocationOriented = 0;
-    DatasetOriented = 1;
-  }
-  
 message ValidationReply {
     bool valid = 1;
     string message = 2;
-    optional MatchingShaclType ShaclType = 3;
 }
 
