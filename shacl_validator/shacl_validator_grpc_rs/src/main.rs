@@ -44,7 +44,11 @@ impl ShaclValidator for Validator {
             // If both reports fail, return both errors
             Err(report) => {
                 let msg = format!("Shacl validation error: {:?}", report);
-                Err(Status::internal(msg))
+                let reply = ValidationReply {
+                    valid: false,
+                    message: msg,
+                };
+                Ok(Response::new(reply))
             }
         }
     }

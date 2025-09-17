@@ -21,7 +21,7 @@ func validate_shacl(ctx context.Context, grpcClient protoBuild.ShaclValidatorCli
 		return pkg.UrlCrawlError{ShaclStatus: pkg.ShaclSkipped, ShaclErrorMessage: "no jsonld to validate"}
 	}
 	ctx, grpcSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, "grpc_shacl_validation")
-	log.Debugf("validating jsonld of byte size %d", len(jsonld))
+	log.Tracef("validating jsonld of byte size %d", len(jsonld))
 	reply, err := grpcClient.Validate(ctx, &protoBuild.JsoldValidationRequest{Jsonld: jsonld})
 	if err != nil {
 		grpcSubspan.End()

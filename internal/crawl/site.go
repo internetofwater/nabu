@@ -176,7 +176,8 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 				// validation mode wherein we fail fast upon shacl non-compliance
 				// however, we do allow a flag to exit and strictly fail
 				if config.exitOnShaclFailure {
-					return "", hash != "", fmt.Errorf("SHACL validation failed for %s: %s", url.Loc, urlErr.Message)
+					log.Debug("Returning early on shacl failure")
+					return "", hash != "", fmt.Errorf("SHACL validation failed for %s: %s", url.Loc, urlErr.ShaclErrorMessage)
 				}
 			} else {
 				return "", hash != "", fmt.Errorf("failed to communicate with shacl validation service: %w", err)
