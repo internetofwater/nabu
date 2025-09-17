@@ -3,6 +3,7 @@
 @prefix gsp: <http://www.opengis.net/ont/geosparql#> .
 @prefix hyf: <https://www.opengis.net/def/schema/hy_features/hyf/> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix schema: <https://schema.org/> .
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -10,7 +11,6 @@
 # Some shacl validators need to set a dummy base 
 # value even if it is not actively used 
 @base <http://geoconnex.us/> .
-
 
 ex:NoTypeShape a sh:NodeShape ;
     sh:property [
@@ -21,6 +21,8 @@ ex:NoTypeShape a sh:NodeShape ;
 
 ex:ProviderShape a sh:NodeShape ;
     sh:targetClass schema:Organization, schema:Person, schema:GovernmentOrganization, schema:ResearchOrganization;
+
+    rdfs:comment "Represents the original person or organization that originally created or observed the data" ;
 
     # Require that provider is either an Organization or Person
     sh:or (
@@ -38,7 +40,7 @@ ex:ProviderShape a sh:NodeShape ;
             [ sh:datatype xsd:string ]
             [ sh:datatype xsd:anyURI ]
         ) ;
-        sh:message "The provider may optionally have a URL describing it"
+        rdfs:comment "The provider may optionally have a URL describing it"
     ];
 
     sh:property [
@@ -51,6 +53,8 @@ ex:ProviderShape a sh:NodeShape ;
 
 ex:PublisherShape a sh:NodeShape ; 
     sh:targetClass schema:publisher ;
+
+    rdfs:comment "Represents the person or organization that is publishing or hosting the dataset, not necessarily who originally created it" ;
 
     # Require that provider is either an Organization or Person
     sh:or (
@@ -73,15 +77,22 @@ ex:PublisherShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:message "A publisher must have an associated name that can be used as its label"
     ];
-    
+
+    sh:property [
+        sh:path schema:url ;
+        rdfs:comment "A publisher may have an associated url that can be used to contact it"
+    ];
 . 
 
 ex:DatasetShape a sh:NodeShape ;
     sh:targetClass schema:Dataset ;
 
+    rdfs:comment "This shape represents a dataset. In the OGC EDR spec, this would represent a location / parameter combination" ;
+
     sh:property [
         sh:path schema:identifier ;
         sh:datatype xsd:string ;
+        rdfs:comment "A string permanent identifier like a doi string that uniquely identifies the dataset"
     ] ;
 
     sh:property [
@@ -96,28 +107,28 @@ ex:DatasetShape a sh:NodeShape ;
         sh:datatype xsd:string ;
     ] ;
 
-    # A url about the dataset itself. NOTE: is this necessary to even have?
-    sh:property [
-        sh:path schema:url ;
-        sh:datatype xsd:string ;
-    ] ;
-
     sh:property [
         sh:path schema:provider ;
         sh:node ex:ProviderShape ;
         sh:minCount 1;
-        sh:message "A dataset must have associated provider that describes the provider from which the data ultimately originates."
+        sh:message "A dataset must have associated provider that describes from whom the data ultimately originates."
     ] ;
 
     sh:property [
         sh:path schema:publisher ;
         sh:node ex:PublisherShape ;
-        sh:message "A dataset may have an associated publisher that describes who is publishing the data. i.e. Internet Of Water publishes a crawled version of water quality portal. This however, may also be identical to the provider. i.e. USGS is both the provider and publisher of streamgage data."
+        sh:message "A dataset may have an associated publisher that describes who is making the data accessible. i.e. Internet Of Water publishes a crawled version of water quality portal. This however, may or may not be identical to the provider. i.e. USGS is both the provider and publisher of streamgage data."
     ] ;
+
+    sh:property [ 
+        sh:path schema:creator;
+        rdfs:comment "The specific individual person that did the work to create the dataset"
+    ];
 
     sh:property [
         sh:path schema:keywords ;
         sh:datatype xsd:string ;
+        rdfs:comment "Keywords that could be used to search for the data in a search system"
     ] ;
 
     sh:property [
@@ -133,21 +144,27 @@ ex:DatasetShape a sh:NodeShape ;
     sh:property [
         sh:path schema:distribution ;
         sh:node ex:DistributionShape ;
+        sh:message "A dataset must have a distribution shape that describes how the data can be downloaded"
     ] ;
 
     sh:property [
         sh:path schema:variableMeasured ;
         sh:node ex:VariableShape ;
-    ] ;
+        sh:message "A dataset must have information about the variable measured or parameter, i.e. 'Streamflow'"
+    ] ; 
 
     sh:property [
         sh:path schema:temporalCoverage ;
         sh:datatype xsd:string ;
+        rdfs:comment "A dataset may optionally have a temporal coverage string which can be used for knowing ahead of time the range of the data";
+        sh:pattern "^((\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(Z|[+-]\\d{2}:\\d{2})?)?)?/((\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(Z|[+-]\\d{2}:\\d{2})?)?)?|\\.\\.)|(\\.\\./(\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(Z|[+-]\\d{2}:\\d{2})?)?)))$" ;
+        sh:message "The temporal coverage must be a valid iso string of the format DATE/DATE, ../DATE, or DATE/.. where .. represents an unknown or ongoing temporal extent"
     ] ;
 
     sh:property [
         sh:path dc:accrualPeriodicity ;
         sh:datatype xsd:string ;
+        rdfs:comment "How frequently the dataset is updated"
     ] ;
 
     sh:property [
@@ -158,24 +175,29 @@ ex:DatasetShape a sh:NodeShape ;
     ] .
 
 ex:VariableShape a sh:NodeShape ;
-    sh:targetClass schema:PropertyValue ; 
+    sh:targetObjectsOf schema:variableMeasured ;
 
     sh:property [
         sh:path schema:name ;
         sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:message "A variable must have an associated name that can be used as its label"
     ] ;
     sh:property [
         sh:path schema:description ;
         sh:datatype xsd:string ;
+        rdfs:comment "A human readable description of the variable"
     ] ;
     sh:property [
         sh:path schema:propertyID ;
         sh:datatype xsd:string ;
+        rdfs:comment "A unique permanent identifier for the variable that could be used for programmatic access"
     ] ;
 
     sh:property [
         sh:path schema:url ;
-        sh:datatype xsd:string
+        sh:datatype xsd:string ;
+        rdfs:comment "A url that can be used to link to more information about the variable"
     ] ;
 
     sh:property [
@@ -192,7 +214,6 @@ ex:VariableShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path schema:measurementTechnique ;
-        # sh:datatype odm2:methodtype ;
         sh:datatype xsd:string ;
     ] ;
     sh:property [
@@ -202,9 +223,13 @@ ex:VariableShape a sh:NodeShape ;
     .
 
 ex:MeasurementMethodShape a sh:NodeShape ;
+    sh:targetObjectsOf schema:measurementMethod ;
+
     sh:property [
         sh:path schema:name ;
         sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:message "A measurement method must have an associated name that can be used as its label. i.e. Observation"
     ] ;
     sh:property [
         sh:path schema:description ;
@@ -215,16 +240,19 @@ ex:MeasurementMethodShape a sh:NodeShape ;
         sh:datatype xsd:string ;
     ] .
 
+# locations endpoint with parameter filled in for EDR
 ex:DistributionShape a sh:NodeShape ;
     sh:targetClass schema:DataDownload ;
 
     sh:property [
         sh:path schema:name ;
         sh:datatype xsd:string ;
+        rdfs:comment "A description of the method or service by which the data can be downloaded. i.e. USGS Instantaneous Value Service"
     ] ;
     sh:property [
         sh:path schema:contentUrl ;
         sh:datatype xsd:string ;
+        sh:minCount 1;
     ] ;
     sh:property [
         sh:path schema:encodingFormat ;

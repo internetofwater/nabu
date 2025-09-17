@@ -19,21 +19,19 @@ trap cleanup EXIT INT TERM
 cd "$(dirname "$0")" && docker compose up -d
 
 # Start cargo server
-cd ../shacl_validator_grpc
+cd ../shacl_validator/shacl_validator_grpc_rs
 cargo run &
 CARGO_PID=$!
 cd - >/dev/null
 
+sleep 3
+
 cd ../
 
-# export GRPC_GO_LOG_VERBOSITY_LEVEL=99
-# export GRPC_GO_LOG_SEVERITY_LEVEL=info
-
-# Run gleaner
 time go run ./cmd/nabu harvest --log-level DEBUG \
   --sitemap-index https://pids.geoconnex.dev/sitemap.xml \
   --concurrent-sitemaps 100 --sitemap-workers 150 \
-  --use-otel --to-disk --source ref_dams_dams__0 --validate-shacl
+  --use-otel --to-disk --source ref_dams_dams__0 --shacl-grpc-endpoint localhost:50051 --exit-on-shacl-failure
 
 # Open Jaeger UI
 open http://localhost:16686
