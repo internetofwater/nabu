@@ -127,7 +127,7 @@ func (s Sitemap) Harvest(ctx context.Context, client *http.Client, workers int, 
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapID))
 	defer span.End()
 
-	var group errgroup.Group
+	group, ctx := errgroup.WithContext(ctx)
 	group.SetLimit(workers)
 
 	if err := s.ensureValid(workers); err != nil {

@@ -5,10 +5,13 @@ package crawl
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	common "github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/stretchr/testify/require"
 )
@@ -42,4 +45,31 @@ func TestHarvestSitemap(t *testing.T) {
 		SetStorageDestination(storage.DiscardCrawlStorage{}).
 		Harvest(context.Background(), mockedClient, 10, "test", "", false, true)
 	require.NoError(t, errs)
+}
+
+func TestErrorGroupCtxCancelling(t *testing.T) {
+	start := time.Now()
+
+	group, ctx := errgroup.WithContext(context.Background())
+
+	// Goroutine that simulates long work but will be cancelled
+	group.Go(func() error {
+		select {
+		case <-time.After(10 * time.Second):
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	})
+
+	group.Go(func() error {
+		return errors.New("force cancel")
+	})
+
+	err := group.Wait()
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "force cancel")
+
+	require.Less(t, time.Since(start), 2*time.Second, "test took too long, context wasn't cancelled promptly")
 }
