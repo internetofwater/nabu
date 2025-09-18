@@ -14,30 +14,31 @@ import (
 	"go.opentelemetry.io/otel/codes"
 )
 
+type ShaclValidationFailureError struct {
+	ShaclErrorMessage string
+	Url               string
+}
+
+func (e ShaclValidationFailureError) Error() string {
+	return fmt.Sprintf("shacl validation failed for %s: %s", e.Url, e.ShaclErrorMessage)
+}
+
 // validate jsonld by sending them to the grpc server and checking the response
-func validate_shacl(ctx context.Context, grpcClient protoBuild.ShaclValidatorClient, jsonld string) error {
+func validate_shacl(ctx context.Context, grpcClient protoBuild.ShaclValidatorClient, urlSource string, jsonldContent string) error {
 	// no point in validating if there is no jsonld content; we don't want to be saving empty files
-	if jsonld == "" {
+	if jsonldContent == "" {
 		return pkg.UrlCrawlError{ShaclStatus: pkg.ShaclSkipped, ShaclErrorMessage: "no jsonld to validate"}
 	}
 	ctx, grpcSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, "grpc_shacl_validation")
-	log.Tracef("validating jsonld of byte size %d", len(jsonld))
-	reply, err := grpcClient.Validate(ctx, &protoBuild.JsoldValidationRequest{Jsonld: jsonld})
+	defer grpcSubspan.End()
+	log.Tracef("validating jsonld of byte size %d", len(jsonldContent))
+	reply, err := grpcClient.Validate(ctx, &protoBuild.JsoldValidationRequest{Jsonld: jsonldContent})
 	if err != nil {
-		grpcSubspan.End()
 		return fmt.Errorf("failed sending validation request to gRPC server: %w", err)
 	} else if !reply.Valid {
 		grpcSubspan.SetStatus(codes.Error, reply.Message)
-		grpcSubspan.End()
-		var shaclStatus pkg.ShaclStatus
-		if reply.Valid {
-			shaclStatus = pkg.ShaclValid
-		} else {
-			shaclStatus = pkg.ShaclInvalid
-		}
-		return pkg.UrlCrawlError{ShaclStatus: shaclStatus, ShaclErrorMessage: reply.Message}
+		return ShaclValidationFailureError{ShaclErrorMessage: reply.Message, Url: urlSource}
 	} else {
-		grpcSubspan.End()
 		return nil
 	}
 }

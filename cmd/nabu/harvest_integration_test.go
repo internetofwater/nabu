@@ -29,7 +29,7 @@ type GleanerInterationSuite struct {
 
 func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 
-	opentelemetry.InitTracer("gleaner_integration_test", opentelemetry.DefaultTracingEndpoint)
+	opentelemetry.InitTracer("harvest_integration_test", opentelemetry.DefaultTracingEndpoint)
 	defer opentelemetry.Shutdown()
 
 	args := fmt.Sprintf("harvest --log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
