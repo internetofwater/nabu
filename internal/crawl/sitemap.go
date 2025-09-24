@@ -225,16 +225,14 @@ func (s Sitemap) Harvest(ctx context.Context, client *http.Client, workers int, 
 		stats.CrawlFailures = append(stats.CrawlFailures, nonFatalErr)
 	}
 
-	go func() {
-		asJson, err := stats.ToJsonIoReader()
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = s.storageDestination.StoreMetadata(fmt.Sprintf("metadata/sitemaps/%s.json", sitemapID), asJson)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}()
+	asJson, err := stats.ToJsonIoReader()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = s.storageDestination.StoreMetadata(fmt.Sprintf("metadata/sitemaps/%s.json", sitemapID), asJson)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	log.Debugf("Finished crawling sitemap %s in %f seconds", sitemapID, stats.SecondsToComplete)
 

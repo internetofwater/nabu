@@ -192,7 +192,7 @@ func (m *MinioClientWrapper) GetObjectAsBytes(objectName S3Prefix) ([]byte, erro
 
 	stat, err := fileObject.Stat()
 	if err != nil {
-		log.Infof("Issue with reading an object. Seems to not exist in bucket: %s and name: %s", m.DefaultBucket, objectName)
+		log.Errorf("Issue with reading an object. Seems to not exist in bucket: %s and name: %s", m.DefaultBucket, objectName)
 		return nil, err
 	}
 
