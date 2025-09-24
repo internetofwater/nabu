@@ -11,6 +11,7 @@ import (
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
+	"github.com/minio/minio-go/v7"
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -37,6 +38,32 @@ func (s *GleanerRootSuite) TestHarvestToS3() {
 	orgsObjs, err := s.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"orgs/"})
 	s.Require().NoError(err)
 	require.Equal(s.T(), 1, orgsObjs)
+
+	// access all the objects in the metadata bucket and make sure they exist
+	buckets, err := s.minioContainer.ClientWrapper.Client.ListBuckets(context.Background())
+	require.NoError(s.T(), err)
+	const harvestBucketAndMetadataBucket = 2
+	require.Len(s.T(), buckets, harvestBucketAndMetadataBucket)
+
+	var metadataBucket minio.BucketInfo
+	found := false
+	for _, bucket := range buckets {
+		if bucket.Name != s.minioContainer.ClientWrapper.MetadataBucket {
+			continue
+		}
+
+		metadataBucket = bucket
+		found = true
+	}
+	require.True(s.T(), found)
+	objChan := s.minioContainer.ClientWrapper.Client.ListObjects(context.Background(), metadataBucket.Name, minio.ListObjectsOptions{Recursive: true})
+	items := 0
+	for obj := range objChan {
+		require.NoError(s.T(), obj.Err)
+		require.NotEmpty(s.T(), obj.Key)
+		items++
+	}
+	require.Equal(s.T(), 2, items)
 }
 
 func (s *GleanerRootSuite) TestHarvestWithSourceSpecified() {
