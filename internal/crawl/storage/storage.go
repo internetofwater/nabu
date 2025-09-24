@@ -40,6 +40,10 @@ func (s Set) Add(key objectPath) {
 
 // A storage interface that stores crawl data
 type CrawlStorage interface {
+	// Store metadata about the crawl into a named destination
+	// This may be in a different place than normal storage since it is intended to be
+	// read publicly and drive UIs
+	StoreMetadata(objectPath, io.Reader) error
 	// Store saves the contents from the reader into a named destination
 	Store(objectPath, io.Reader) error
 	// Get returns a reader to the stored file
@@ -69,6 +73,11 @@ func NewLocalTempFSCrawlStorage() (*LocalTempFSCrawlStorage, error) {
 		return nil, err
 	}
 	return &LocalTempFSCrawlStorage{baseDir: dir}, nil
+}
+
+// Storing metadata locally is the same as storing data
+func (l *LocalTempFSCrawlStorage) StoreMetadata(name string, reader io.Reader) error {
+	return l.Store(name, reader)
 }
 
 // Store saves the contents from the reader into a file named after `object`
@@ -147,6 +156,10 @@ func (l *LocalTempFSCrawlStorage) IsEmptyDir(dir objectPath) (bool, error) {
 
 // DiscardCrawlStorage is a CrawlStorage that stores nothing and is useful for testing
 type DiscardCrawlStorage struct {
+}
+
+func (DiscardCrawlStorage) StoreMetadata(string, io.Reader) error {
+	return nil
 }
 
 func (DiscardCrawlStorage) Store(string, io.Reader) error {

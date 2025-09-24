@@ -230,7 +230,7 @@ func (s Sitemap) Harvest(ctx context.Context, client *http.Client, workers int, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = s.storageDestination.Store(fmt.Sprintf("metadata/sitemaps/%s.json", sitemapID), asJson)
+		err = s.storageDestination.StoreMetadata(fmt.Sprintf("metadata/sitemaps/%s.json", sitemapID), asJson)
 		if err != nil {
 			log.Fatal(err)
 		}

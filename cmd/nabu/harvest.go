@@ -57,7 +57,7 @@ func Harvest(ctx context.Context, client *http.Client, minioConfig config.MinioC
 		if err != nil {
 			return nil, err
 		}
-		if err := minioS3.MakeDefaultBucket(); err != nil {
+		if err := minioS3.SetupBuckets(); err != nil {
 			return nil, err
 		}
 		storageDestination = minioS3
@@ -78,7 +78,7 @@ func Harvest(ctx context.Context, client *http.Client, minioConfig config.MinioC
 	if err != nil {
 		return nil, err
 	}
-	if err := storageDestination.Store(fmt.Sprintf("metadata/crawl_stats_%s.json", args.Source), strings.NewReader(asJson)); err != nil {
+	if err := storageDestination.StoreMetadata(fmt.Sprintf("metadata/crawl_stats_%s.json", args.Source), strings.NewReader(asJson)); err != nil {
 		return nil, err
 	}
 

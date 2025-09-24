@@ -50,6 +50,7 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 		&s.graphdbContainer.Client,
 		s.minioContainer.ClientWrapper,
 		s.minioContainer.ClientWrapper.DefaultBucket,
+		s.minioContainer.ClientWrapper.MetadataBucket,
 	)
 
 	s.Require().NoError(err)
@@ -69,11 +70,12 @@ func (suite *GleanerInterationSuite) SetupSuite() {
 	net, err := network.New(ctx)
 	require.NoError(t, err)
 	minioContainer, err := s3.NewMinioContainerFromConfig(s3.MinioContainerConfig{
-		Username:      "minioadmin",
-		Password:      "minioadmin",
-		DefaultBucket: "iow",
-		ContainerName: "integrationTestMinio",
-		Network:       net.Name,
+		Username:       "minioadmin",
+		Password:       "minioadmin",
+		DefaultBucket:  "iow",
+		MetadataBucket: "metadata",
+		ContainerName:  "integrationTestMinio",
+		Network:        net.Name,
 	})
 	suite.Require().NoError(err)
 	suite.minioContainer = minioContainer
@@ -85,7 +87,7 @@ func (suite *GleanerInterationSuite) SetupSuite() {
 		return suite.minioContainer.ClientWrapper.Client.IsOnline()
 	}, 10*time.Second, 500*time.Millisecond, "MinIO container did not become online in time")
 
-	err = suite.minioContainer.ClientWrapper.MakeDefaultBucket()
+	err = suite.minioContainer.ClientWrapper.SetupBuckets()
 	require.NoError(t, err)
 
 	graphdbContainer, err := triplestores.NewGraphDBContainer("iow", "./testdata/iow-config.ttl")
