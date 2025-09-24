@@ -40,12 +40,23 @@ type MinioClientWrapper struct {
 	// Specified here to avoid having to pass it as a parameter to every operation
 	// since we are only using one bucket
 	DefaultBucket string
+
+	// A separate bucket for storing public metadata
+	// This is used so the metadata can be made
+	// public without exposing crawled data
+	MetadataBucket string
 }
 
 type S3Prefix = string
 
 // MinioConnection Set up minio and initialize client
 func NewMinioClientWrapper(mcfg config.MinioConfig) (*MinioClientWrapper, error) {
+	if mcfg.MetadataBucket == "" {
+		return nil, errors.New("no metadata bucket specified")
+	}
+	if mcfg.Bucket == "" {
+		return nil, errors.New("no bucket specified")
+	}
 
 	var endpoint string
 
@@ -77,19 +88,31 @@ func NewMinioClientWrapper(mcfg config.MinioConfig) (*MinioClientWrapper, error)
 			})
 	}
 
-	return &MinioClientWrapper{Client: minioClient, DefaultBucket: mcfg.Bucket}, err
+	return &MinioClientWrapper{Client: minioClient, DefaultBucket: mcfg.Bucket, MetadataBucket: mcfg.MetadataBucket}, err
 }
 
 // Create the default bucket
-func (m *MinioClientWrapper) MakeDefaultBucket() error {
+func (m *MinioClientWrapper) SetupBuckets() error {
 	exists, err := m.Client.BucketExists(context.Background(), m.DefaultBucket)
 	if err != nil {
 		return err
 	}
-	if exists {
-		return nil
+	if !exists {
+		if err := m.Client.MakeBucket(context.Background(), m.DefaultBucket, minio.MakeBucketOptions{}); err != nil {
+			return err
+		}
 	}
-	return m.Client.MakeBucket(context.Background(), m.DefaultBucket, minio.MakeBucketOptions{})
+
+	exists, err = m.Client.BucketExists(context.Background(), m.MetadataBucket)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if err := m.Client.MakeBucket(context.Background(), m.MetadataBucket, minio.MakeBucketOptions{}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Remove an object from the store
@@ -169,7 +192,7 @@ func (m *MinioClientWrapper) GetObjectAsBytes(objectName S3Prefix) ([]byte, erro
 
 	stat, err := fileObject.Stat()
 	if err != nil {
-		log.Infof("Issue with reading an object. Seems to not exist in bucket: %s and name: %s", m.DefaultBucket, objectName)
+		log.Errorf("Issue with reading an object. Seems to not exist in bucket: %s and name: %s", m.DefaultBucket, objectName)
 		return nil, err
 	}
 
@@ -241,6 +264,11 @@ func (m *MinioClientWrapper) UploadFile(uploadPath S3Prefix, localFileName strin
 // Store bytes into the minio store
 func (m MinioClientWrapper) Store(path S3Prefix, data io.Reader) error {
 	_, err := m.Client.PutObject(context.Background(), m.DefaultBucket, path, data, -1, minio.PutObjectOptions{})
+	return err
+}
+
+func (m MinioClientWrapper) StoreMetadata(path S3Prefix, data io.Reader) error {
+	_, err := m.Client.PutObject(context.Background(), m.MetadataBucket, path, data, -1, minio.PutObjectOptions{})
 	return err
 }
 

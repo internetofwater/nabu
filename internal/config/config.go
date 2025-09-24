@@ -24,13 +24,14 @@ type SparqlConfig struct {
 
 // The config for minio/s3 operations
 type MinioConfig struct {
-	Address   string `arg:"--address" help:"The address of the s3 server" default:"127.0.0.1"` // The address of the minio server
-	Port      int    `arg:"--port" default:"9000"`
-	Accesskey string `arg:"--s3-access-key,env:S3_ACCESS_KEY" help:"Access Key (i.e. username)" default:"minioadmin"` // Access Key (i.e. username)
-	Secretkey string `arg:"--s3-secret-key,env:S3_SECRET_KEY" help:"Secret Key (i.e. password)" default:"minioadmin"` // Secret Key (i.e. password)
-	Bucket    string `arg:"--bucket" help:"The s3 bucket to use for sync operations" default:"iow"`                   // The configuration bucket
-	Region    string `arg:"--region" help:"region for the s3 server"`                                                 // region for the minio server
-	SSL       bool   `arg:"--ssl" help:"Use SSL when connecting to s3"`
+	Address        string `arg:"--address" help:"The address of the s3 server" default:"127.0.0.1"` // The address of the minio server
+	Port           int    `arg:"--port" default:"9000"`
+	Accesskey      string `arg:"--s3-access-key,env:S3_ACCESS_KEY" help:"Access Key (i.e. username)" default:"minioadmin"` // Access Key (i.e. username)
+	Secretkey      string `arg:"--s3-secret-key,env:S3_SECRET_KEY" help:"Secret Key (i.e. password)" default:"minioadmin"` // Secret Key (i.e. password)
+	Bucket         string `arg:"--bucket" help:"The s3 bucket to use for sync operations" default:"iow"`                   // The configuration bucket
+	MetadataBucket string `arg:"--metadata-bucket" help:"The s3 bucket to use for storing public metadata" default:"iow-metadata"`
+	Region         string `arg:"--region" help:"region for the s3 server"` // region for the minio server
+	SSL            bool   `arg:"--ssl" help:"Use SSL when connecting to s3"`
 }
 
 // THe config for jsonld context operations

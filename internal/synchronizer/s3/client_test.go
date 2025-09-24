@@ -32,17 +32,18 @@ type S3ClientSuite struct {
 // Setup common dependencies before starting the test suite
 func (suite *S3ClientSuite) SetupSuite() {
 	config := MinioContainerConfig{
-		Username:      "minioadmin",
-		Password:      "minioadmin",
-		DefaultBucket: "gleanerbucket",
-		ContainerName: "objects_test_minio",
+		Username:       "minioadmin",
+		Password:       "minioadmin",
+		DefaultBucket:  "gleanerbucket",
+		MetadataBucket: "metadatabucket",
+		ContainerName:  "objects_test_minio",
 	}
 	minioContainer, err := NewMinioContainerFromConfig(config)
 	suite.Require().NoError(err)
 	suite.minioContainer = minioContainer
 
 	// create the bucket
-	err = suite.minioContainer.ClientWrapper.MakeDefaultBucket()
+	err = suite.minioContainer.ClientWrapper.SetupBuckets()
 	suite.Require().NoError(err)
 
 }

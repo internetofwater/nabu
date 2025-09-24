@@ -36,19 +36,22 @@ type MinioContainerConfig struct {
 	ContainerName string
 	// the network that the container uses; leave blank to use default
 	Network string
+	// the bucket for storing metadata
+	MetadataBucket string
 }
 
 // Create a default minio container with default credentials, mainly for testing
 func NewDefaultMinioContainer() (MinioContainer, error) {
 	container, err := NewMinioContainerFromConfig(MinioContainerConfig{
-		Username:      "minioadmin",
-		Password:      "minioadmin",
-		DefaultBucket: "iow",
+		Username:       "minioadmin",
+		Password:       "minioadmin",
+		DefaultBucket:  "iow",
+		MetadataBucket: "iow-metadata",
 	})
 	if err != nil {
 		return container, err
 	}
-	if err := container.ClientWrapper.MakeDefaultBucket(); err != nil {
+	if err := container.ClientWrapper.SetupBuckets(); err != nil {
 		return container, err
 	}
 	return container, err
@@ -56,6 +59,14 @@ func NewDefaultMinioContainer() (MinioContainer, error) {
 
 // Spin up a local minio container
 func NewMinioContainerFromConfig(config MinioContainerConfig) (MinioContainer, error) {
+	if config.MetadataBucket == "" {
+		return MinioContainer{}, fmt.Errorf("metadata bucket cannot be empty")
+	}
+
+	if config.DefaultBucket == "" {
+		return MinioContainer{}, fmt.Errorf("default bucket cannot be empty")
+	}
+
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
 		Image: "minio/minio:latest",
@@ -115,7 +126,7 @@ func NewMinioContainerFromConfig(config MinioContainerConfig) (MinioContainer, e
 
 	return MinioContainer{
 		Container:     &genericContainer,
-		ClientWrapper: &MinioClientWrapper{Client: mc, DefaultBucket: config.DefaultBucket},
+		ClientWrapper: &MinioClientWrapper{Client: mc, DefaultBucket: config.DefaultBucket, MetadataBucket: config.MetadataBucket},
 		Hostname:      hostname,
 		APIPort:       apiPort.Int(),
 		UIPort:        uiPort.Int(),

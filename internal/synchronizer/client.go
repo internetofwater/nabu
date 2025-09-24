@@ -18,6 +18,8 @@ type SynchronizerClient struct {
 	GraphClient triplestores.GenericTriplestoreClient
 	// the client used for communicating with s3
 	S3Client *s3.MinioClientWrapper
+	// default bucket in the s3 that is used for metadata
+	metadataBucketName string
 	// default bucket in the s3 that is used for synchronization
 	syncBucketName string
 	// processor for JSON-LD operations; stored in this struct so we can
@@ -29,18 +31,19 @@ type SynchronizerClient struct {
 
 // Create a new SynchronizerClient by directly passing in the clients
 // Mainly used for testing
-func NewSynchronizerClientFromClients(graphClient triplestores.GenericTriplestoreClient, s3Client *s3.MinioClientWrapper, bucketName string) (SynchronizerClient, error) {
+func NewSynchronizerClientFromClients(graphClient triplestores.GenericTriplestoreClient, s3Client *s3.MinioClientWrapper, bucketName string, metadataBucketName string) (SynchronizerClient, error) {
 	processor, options, err := common.NewJsonldProcessor(false, nil)
 	if err != nil {
 		return SynchronizerClient{}, err
 	}
 
 	client := SynchronizerClient{
-		GraphClient:     graphClient,
-		S3Client:        s3Client,
-		syncBucketName:  bucketName,
-		jsonldProcessor: processor,
-		jsonldOptions:   options,
+		GraphClient:        graphClient,
+		S3Client:           s3Client,
+		syncBucketName:     bucketName,
+		metadataBucketName: metadataBucketName,
+		jsonldProcessor:    processor,
+		jsonldOptions:      options,
 	}
 	return client, nil
 }
