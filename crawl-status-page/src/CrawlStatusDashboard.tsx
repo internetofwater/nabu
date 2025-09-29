@@ -4,54 +4,85 @@
  */
 
 import { useEffect, useState } from "react";
+import {
+  use_local_services,
+  get_bucket,
+  get_prefix,
+  get_minio_client,
+} from "./env";
 import styles from "./CrawlStatusDashboard.module.css";
 import type { SitemapCrawlStats, SitemapIndexCrawlStats } from "./types";
-import { get_s3_bucket, get_s3_client, get_minio_endpoint } from "./env";
 import { make_jsonld } from "./lib";
-import Logo from "../src/assets/geoconnex-logo.png"
+import Logo from "../src/assets/geoconnex-logo.png";
+
+const BUCKET = get_bucket();
+const PREFIX = get_prefix();
 
 const CrawlStatusDashboard = () => {
   const [data, setData] = useState<SitemapIndexCrawlStats>([]);
   const [jsonldData, setJsonldData] = useState<object | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const client = get_s3_client();
 
   useEffect(() => {
     let isMounted = true;
+
     const fetchData = async () => {
       try {
-        const response = await client.listObjects({
-          Bucket: get_s3_bucket(),
-          Prefix: "metadata/sitemaps",
-        });
-
         const sitemapcrawlstats: SitemapCrawlStats[] = [];
 
-        for (const obj of response.Contents ?? []) {
-          if (!isMounted) return;
-          if (obj.Key?.endsWith(".json")) {
-            try {
-              const objectData = await client.getObject({
-                Bucket: get_s3_bucket(),
-                Key: obj.Key,
-              });
+        if (use_local_services()) {
+          // Local dev: use MinIO via S3 client
+          const client = get_minio_client();
+          const response = await client.listObjects({
+            Bucket: BUCKET,
+            Prefix: PREFIX,
+          });
 
-              const lastModified = objectData.LastModified;
-              const body = await objectData.Body?.transformToString();
-              if (!body) {
-                if (!isMounted) return;
-                setError(`No body for object ${obj.Key}`);
-                return;
+          for (const obj of response.Contents ?? []) {
+            if (!isMounted) return;
+            if (obj.Key?.endsWith(".json")) {
+              try {
+                const objectData = await client.getObject({
+                  Bucket: BUCKET,
+                  Key: obj.Key,
+                });
+                const body = await objectData.Body?.transformToString();
+                if (!body) continue;
+                const json = JSON.parse(body) as SitemapCrawlStats;
+                json.LastModified =
+                  objectData.LastModified?.toISOString() ?? "Unknown";
+                sitemapcrawlstats.push(json);
+              } catch (e) {
+                console.warn(`Error loading ${obj.Key}:`, e);
               }
-
-              const json = JSON.parse(body) as SitemapCrawlStats;
-              json.LastModified = lastModified
-                ? lastModified.toISOString()
-                : "Unknown";
-              sitemapcrawlstats.push(json);
-            } catch (e) {
-              console.warn(`Error loading ${obj.Key}:`, e);
+            }
+          }
+        } else {
+          // Prod: GCS JSON API
+          // We have to use the JSON API since GCP doesn't allow for public buckets
+          // which also have the S3 API 
+          const listUrl = `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o?prefix=${PREFIX}`;
+          const listRes = await fetch(listUrl);
+          if (!listRes.ok)
+            throw new Error(`Failed to list objects: ${String(listRes.status)}`);
+          const listJson = await listRes.json() as {
+            items: { name: string; updated: string }[];
+          };
+          for (const obj of listJson.items ?? []) {
+            if (!isMounted) return;
+            if (obj.name.endsWith(".json")) {
+              try {
+                const objectUrl = `https://storage.googleapis.com/${BUCKET}/${obj.name}`;
+                const objectRes = await fetch(objectUrl);
+                if (!objectRes.ok)
+                  throw new Error(`Failed to fetch ${obj.name}`);
+                const json = await objectRes.json() as SitemapCrawlStats;
+                json.LastModified = obj.updated ?? "Unknown";
+                sitemapcrawlstats.push(json);
+              } catch (e) {
+                console.warn(`Error loading ${obj.name}:`, e);
+              }
             }
           }
         }
@@ -59,7 +90,7 @@ const CrawlStatusDashboard = () => {
         if (isMounted) {
           setData(sitemapcrawlstats);
           const jsonld = make_jsonld(sitemapcrawlstats);
-          if (isMounted) setJsonldData(jsonld);
+          setJsonldData(jsonld);
           setLoading(false);
         }
       } catch (err: unknown) {
@@ -137,7 +168,7 @@ const CrawlStatusDashboard = () => {
       </div>
       {error ? (
         <p style={{ color: "var(--error-bg)", textAlign: "center" }}>
-          Error loading report from {get_minio_endpoint()}: <i> {error} </i>
+          Error loading report: <i> {error} </i>
         </p>
       ) : (
         data.map((sitemap) => (
@@ -198,7 +229,8 @@ const CrawlStatusDashboard = () => {
                             Link
                           </a>
                         </td>
-                        <td>{fail.Status}</td>
+                        {/* golang uses 0 for the default value, it should be ignored since 0 isnt a valid http status */}
+                        <td>{fail.Status === 0 ? "" : fail.Status}</td>
                         <td>{fail.Message}</td>
                         <td>{fail.ShaclStatus}</td>
                         <td>{fail.ShaclErrorMessage}</td>
