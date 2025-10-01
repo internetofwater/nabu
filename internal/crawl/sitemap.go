@@ -32,6 +32,7 @@ import (
 )
 
 // Represents an XML sitemap
+// https://geoconnex.us/sitemap/usgs/hydrologic-unit__0.xml is an example of a sitemap
 type Sitemap struct {
 	XMLName xml.Name `xml:":urlset"`
 	URL     []URL    `xml:":url"`

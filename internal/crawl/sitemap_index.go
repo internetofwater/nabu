@@ -25,6 +25,7 @@ import (
 )
 
 // Index is a structure of <sitemapindex>
+// https://geoconnex.us/sitemap.xml is an example of a sitemap index
 type Index struct {
 	XMLName  xml.Name `xml:"sitemapindex"`
 	Sitemaps []parts  `xml:"sitemap"`
