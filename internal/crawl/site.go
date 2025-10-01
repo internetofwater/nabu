@@ -197,7 +197,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 				// however, we do allow a flag to exit and strictly fail
 				if config.exitOnShaclFailure {
 					log.Debugf("Returning early on shacl failure for %s", url.Loc)
-					return result_metadata, nil
+					return result_metadata, fmt.Errorf("exiting early with shacl failure %s", shaclErr.ShaclErrorMessage)
 				}
 			} else {
 				return result_metadata, fmt.Errorf("failed to communicate with shacl validation service: %w", err)

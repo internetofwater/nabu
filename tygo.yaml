@@ -1,0 +1,6 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
+
+packages:
+  - path: "github.com/internetofwater/nabu/pkg"
+    output_path: "crawl-status-page/src/generated_types.ts"

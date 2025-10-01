@@ -36,3 +36,11 @@ repos:
       - id: addlicense
         args:
           ["-s=only", -l, "Apache-2.0", -c, "Lincoln Institute of Land Policy"]
+  - repo: local
+    hooks: 
+      - id: typescript_gen_types
+        name: Generate Typescript Types from go 
+        entry: tygo generate 
+        language: system
+        types: [go]
+        pass_filenames: false

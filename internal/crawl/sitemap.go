@@ -263,9 +263,6 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 		},
 		CrawlFailures: s.nonFatalErrors,
 	}
-	// we close this here to make sure we can range without blocking
-	// We know we can close this since we have already waited on all go routines
-
 	asJson, err := stats.ToJsonIoReader()
 	if err != nil {
 		log.Fatal(err)
