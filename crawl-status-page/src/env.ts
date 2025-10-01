@@ -10,6 +10,9 @@ export function use_local_services() {
 }
 
 export function get_bucket() {
+  if (import.meta.env.VITE_LOCAL_BUCKET_NAME) {
+    return String(import.meta.env.VITE_LOCAL_BUCKET_NAME);
+  }
   return "metadata-geoconnex-us";
 }
 

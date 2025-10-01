@@ -11,9 +11,10 @@ import {
   get_minio_client,
 } from "./env";
 import styles from "./CrawlStatusDashboard.module.css";
-import type { SitemapCrawlStats, SitemapIndexCrawlStats } from "./types";
 import { make_jsonld } from "./lib";
-import Logo from "../src/assets/geoconnex-logo.png";
+import CrawlFailureTable from "./CrawlFailureTable";
+import type { SitemapCrawlStats, SitemapIndexCrawlStats } from "./generated_types";
+import type { SitemapCrawlStatsWithS3Metadata } from "./types";
 
 const BUCKET = get_bucket();
 const PREFIX = get_prefix();
@@ -49,7 +50,7 @@ const CrawlStatusDashboard = () => {
                 });
                 const body = await objectData.Body?.transformToString();
                 if (!body) continue;
-                const json = JSON.parse(body) as SitemapCrawlStats;
+                const json = JSON.parse(body) as SitemapCrawlStatsWithS3Metadata;
                 json.LastModified =
                   objectData.LastModified?.toISOString() ?? "Unknown";
                 sitemapcrawlstats.push(json);
@@ -77,7 +78,7 @@ const CrawlStatusDashboard = () => {
                 const objectRes = await fetch(objectUrl);
                 if (!objectRes.ok)
                   throw new Error(`Failed to fetch ${obj.name}`);
-                const json = await objectRes.json() as SitemapCrawlStats;
+                const json = await objectRes.json() as SitemapCrawlStatsWithS3Metadata;
                 json.LastModified = obj.updated ?? "Unknown";
                 sitemapcrawlstats.push(json);
               } catch (e) {
@@ -110,62 +111,9 @@ const CrawlStatusDashboard = () => {
 
   if (loading) return <div>Loading crawl status...</div>;
 
-  const downloadBlob = (data: object) =>
-    URL.createObjectURL(
-      new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json",
-      })
-    );
 
   return (
     <>
-      <div className={styles.headerRow}>
-        <a href="https://docs.geoconnex.us">
-          <img
-            src={Logo}
-            style={{
-              scale: "0.6",
-              filter: "drop-shadow(0 0 3px white)",
-            }}
-          />
-        </a>
-        <h1 className={styles.h1}>Geoconnex Crawl Status Dashboard</h1>
-        <div className={styles.downloadButtonsRow}>
-          <a
-            href={downloadBlob(data)}
-            className={styles.downloadButton}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) =>
-              setTimeout(() => {
-                URL.revokeObjectURL(
-                  (e.currentTarget as HTMLAnchorElement).href
-                );
-              }, 1000)
-            }
-          >
-            View as JSON
-          </a>
-
-          {jsonldData && (
-            <a
-              href={downloadBlob(jsonldData)}
-              className={styles.downloadButton}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) =>
-                setTimeout(() => {
-                  URL.revokeObjectURL(
-                    (e.currentTarget as HTMLAnchorElement).href
-                  );
-                }, 1000)
-              }
-            >
-              View as JSON-LD
-            </a>
-          )}
-        </div>
-      </div>
       {error ? (
         <p style={{ color: "var(--error-bg)", textAlign: "center" }}>
           Error loading report: <i> {error} </i>
@@ -200,45 +148,10 @@ const CrawlStatusDashboard = () => {
                 ))}
               </ul>
             </details>
+              
 
             {sitemap.CrawlFailures && sitemap.CrawlFailures.length > 0 && (
-              <details>
-                <summary className={styles.errorText}>
-                  Failures ({sitemap.CrawlFailures.length})
-                </summary>
-                <table className={styles.failureTable}>
-                  <thead>
-                    <tr>
-                      <th>Feature Link</th>
-                      <th>Status Code</th>
-                      <th>Error Message</th>
-                      <th>SHACL Status</th>
-                      <th>SHACL Error Message</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sitemap.CrawlFailures.map((fail, i: number) => (
-                      <tr key={i}>
-                        <td>
-                          <a
-                            className={styles.failureLink}
-                            href={fail.Url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            Link
-                          </a>
-                        </td>
-                        {/* golang uses 0 for the default value, it should be ignored since 0 isnt a valid http status */}
-                        <td>{fail.Status === 0 ? "" : fail.Status}</td>
-                        <td>{fail.Message}</td>
-                        <td>{fail.ShaclStatus}</td>
-                        <td>{fail.ShaclErrorMessage}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </details>
+                CrawlFailureTable(sitemap.CrawlFailures)
             )}
           </div>
         ))

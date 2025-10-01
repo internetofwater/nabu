@@ -4,13 +4,14 @@
  */
 
 
-import type { JsonLdReport, SitemapCrawlStats, SitemapIndexCrawlStats } from "./types";
+import type { SitemapIndexCrawlStats } from "./generated_types";
+import type { JsonLdReport, SitemapCrawlStatsAsJsonld } from "./types";
 import vocab from "./vocab.json"
 
 export function make_jsonld(data: SitemapIndexCrawlStats) {
   const newObj = vocab as JsonLdReport;
 
-  const graphItems: SitemapCrawlStats[] = []
+  const graphItems: SitemapCrawlStatsAsJsonld[] = []
   for (const graph of data) {
     const graphItem = {
       "@id": `http://geoconnex.us/sitemap/${graph.SitemapName}`,
