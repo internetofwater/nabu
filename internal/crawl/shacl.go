@@ -27,7 +27,7 @@ func (e ShaclValidationFailureError) Error() string {
 func validate_shacl(ctx context.Context, grpcClient protoBuild.ShaclValidatorClient, urlSource string, jsonldContent string) error {
 	// no point in validating if there is no jsonld content; we don't want to be saving empty files
 	if jsonldContent == "" {
-		return pkg.UrlCrawlWarning{ShaclStatus: pkg.ShaclSkipped, ShaclValidationMessage: "no jsonld to validate"}
+		return pkg.ShaclInfo{ShaclStatus: pkg.ShaclSkipped, ShaclValidationMessage: "no jsonld to validate"}
 	}
 	ctx, grpcSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, "grpc_shacl_validation")
 	defer grpcSubspan.End()

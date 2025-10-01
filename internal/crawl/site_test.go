@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -48,9 +49,12 @@ func TestHarvestOneSite(t *testing.T) {
 	url := URL{
 		Loc: dummy_domain,
 	}
+	check := atomic.Bool{}
+	check.Store(true)
 	_, err := harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &SitemapHarvestConfig{
-		httpClient:         mockedClient,
-		storageDestination: &storage.DiscardCrawlStorage{},
+		httpClient:                mockedClient,
+		storageDestination:        &storage.DiscardCrawlStorage{},
+		checkExistenceBeforeCrawl: &check,
 	})
 	require.NoError(t, err)
 }
@@ -134,7 +138,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		}
 		sitemap := Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}
 		conf, err := NewSitemapHarvestConfig(mockedClient,
-			sitemap,
+			&sitemap,
 			"0.0.0.0:50051", false, false)
 		require.NoError(t, err)
 		_, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
@@ -153,12 +157,12 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 				File:       "testdata/emptyAsTriples.jsonld",
 			},
 		})
-		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, "0.0.0.0:50051", false, false)
+		conf, err := NewSitemapHarvestConfig(mockedClient, &Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, "0.0.0.0:50051", false, false)
 
 		require.NoError(t, err)
 		report, err := harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
-		require.Nil(t, report.warning.ShaclStatus)
+		require.Empty(t, report.warning.ShaclStatus)
 	})
 	t.Run("nonconforming jsonld", func(t *testing.T) {
 		const dummy_domain = "https://waterdata.usgs.gov"
@@ -173,7 +177,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 			},
 		})
 
-		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, "0.0.0.0:50051", false, false)
+		conf, err := NewSitemapHarvestConfig(mockedClient, &Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, "0.0.0.0:50051", false, false)
 		require.NoError(t, err)
 		report, err := harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
@@ -193,7 +197,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 			},
 		})
 
-		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, "0.0.0.0:50051", true, true)
+		conf, err := NewSitemapHarvestConfig(mockedClient, &Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, "0.0.0.0:50051", true, true)
 		require.NoError(t, err)
 		_, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.Error(t, err)

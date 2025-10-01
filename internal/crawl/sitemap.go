@@ -47,9 +47,14 @@ type Sitemap struct {
 
 	// channels for passing messages from goroutines
 	// that inform on the status of the sitemap crawl
-	nonFatalErrorChan chan pkg.UrlCrawlError   `xml:"-"`
-	warningChan       chan pkg.UrlCrawlWarning `xml:"-"`
+	nonFatalErrors []pkg.UrlCrawlError `xml:"-"`
+	errorMu        sync.Mutex
 
+	warnings  []pkg.ShaclInfo `xml:"-"`
+	warningMu sync.Mutex
+
+	// the number of parallel workers to use when harvesting the sitemap
+	// i.e. 1 worker = 1 goroutine = 1 URL
 	workers int `xml:"-"`
 }
 
@@ -66,13 +71,14 @@ type SitemapHarvestConfig struct {
 	checkExistenceBeforeCrawl *atomic.Bool
 	storageDestination        storage.CrawlStorage
 	exitOnShaclFailure        bool
+	maxShaclErrorsToStore     int
 	cleanupOldJsonld          bool
 }
 
 // Make a new SiteHarvestConfig with all the clients and config
 // initialized and ready to crawl a sitemap
 // this config is shared across all goroutines and thus must be thread safe
-func NewSitemapHarvestConfig(httpClient *http.Client, sitemap Sitemap, shaclAddress string, exitOnShaclFailure bool, cleanupOldJsonld bool) (SitemapHarvestConfig, error) {
+func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAddress string, exitOnShaclFailure bool, cleanupOldJsonld bool) (SitemapHarvestConfig, error) {
 
 	if sitemap.workers < 1 {
 		return SitemapHarvestConfig{}, fmt.Errorf("no workers set for sitemap %s", sitemap.sitemapId)
@@ -127,7 +133,7 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap Sitemap, shaclAddr
 }
 
 // make sure the config is sane	before we start
-func (s Sitemap) ensureValid(workers int) error {
+func (s *Sitemap) ensureValid(workers int) error {
 	// For the time being, we assume that the first URL in the sitemap has the
 	// same robots.txt as the rest of the items
 	if len(s.URL) == 0 {
@@ -141,7 +147,7 @@ func (s Sitemap) ensureValid(workers int) error {
 }
 
 // Harvest all the URLs in the given sitemap
-func (s Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, error) {
+func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", s.sitemapId))
 	defer span.End()
 
@@ -160,6 +166,7 @@ func (s Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pkg
 	log.Infof("Harvesting sitemap %s with %d urls", s.sitemapId, len(s.URL))
 
 	sitesHarvested := atomic.Int32{}
+	sitesWithShaclFailures := atomic.Int32{}
 
 	successfulUrls := make(map[string]string) // preallocate for performance
 	var urlMutex sync.Mutex
@@ -183,10 +190,22 @@ func (s Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pkg
 				return err
 			}
 			if !result_metadata.nonFatalError.IsNil() {
-				s.nonFatalErrorChan <- result_metadata.nonFatalError
+				s.errorMu.Lock()
+				s.nonFatalErrors = append(s.nonFatalErrors, result_metadata.nonFatalError)
+				s.errorMu.Unlock()
 			}
 			if !result_metadata.warning.IsNil() {
-				s.warningChan <- result_metadata.warning
+				shaclFailuresSoFar := sitesWithShaclFailures.Load()
+				if shaclFailuresSoFar < int32(config.maxShaclErrorsToStore) {
+					s.warningMu.Lock()
+					s.warnings = append(s.warnings, result_metadata.warning)
+					s.warningMu.Unlock()
+				}
+				if result_metadata.warning.ShaclStatus == pkg.ShaclInvalid {
+					sitesWithShaclFailures.Store(
+						shaclFailuresSoFar + 1,
+					)
+				}
 			}
 			sitesHarvested.Add(1)
 			if !result_metadata.serverHadHash && config.checkExistenceBeforeCrawl.Load() {
@@ -238,18 +257,14 @@ func (s Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pkg
 		SitemapName:       s.sitemapId,
 		SitesHarvested:    int(sitesHarvested.Load()),
 		SitesInSitemap:    len(s.URL),
+		WarningStats: pkg.WarningReport{
+			TotalShaclFailures: int(sitesWithShaclFailures.Load()),
+			ShaclWarnings:      s.warnings,
+		},
+		CrawlFailures: s.nonFatalErrors,
 	}
 	// we close this here to make sure we can range without blocking
 	// We know we can close this since we have already waited on all go routines
-	close(s.nonFatalErrorChan)
-	for nonFatalErr := range s.nonFatalErrorChan {
-		stats.CrawlFailures = append(stats.CrawlFailures, nonFatalErr)
-	}
-
-	close(s.warningChan)
-	for warning := range s.warningChan {
-		stats.CrawlWarnings = append(stats.CrawlWarnings, warning)
-	}
 
 	asJson, err := stats.ToJsonIoReader()
 	if err != nil {
@@ -274,18 +289,18 @@ type URL struct {
 }
 
 // Given a sitemap url, return a Sitemap object
-func NewSitemap(ctx context.Context, client *http.Client, sitemapURL string, workers int) (Sitemap, error) {
+func NewSitemap(ctx context.Context, client *http.Client, sitemapURL string, workers int, storageDestination storage.CrawlStorage, sitemapId string) (*Sitemap, error) {
 	if workers == 0 {
-		return Sitemap{}, fmt.Errorf("no workers set")
+		return &Sitemap{}, fmt.Errorf("no workers set")
 	}
 
-	serializedSitemap := Sitemap{}
+	serializedSitemap := Sitemap{workers: workers}
 
 	urls := make([]URL, 0)
 
 	resp, err := client.Get(sitemapURL)
 	if err != nil {
-		return serializedSitemap, err
+		return &serializedSitemap, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -297,9 +312,15 @@ func NewSitemap(ctx context.Context, client *http.Client, sitemapURL string, wor
 	})
 
 	if err != nil {
-		return serializedSitemap, err
+		return &serializedSitemap, err
 	}
 
 	serializedSitemap.URL = urls
-	return serializedSitemap, nil
+	serializedSitemap.storageDestination = storageDestination
+	serializedSitemap.sitemapId = sitemapId
+
+	serializedSitemap.nonFatalErrors = []pkg.UrlCrawlError{}
+	serializedSitemap.warnings = []pkg.ShaclInfo{}
+
+	return &serializedSitemap, nil
 }

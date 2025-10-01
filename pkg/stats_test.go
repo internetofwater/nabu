@@ -39,6 +39,15 @@ func TestUrlCrawlError_JSONSerialization(t *testing.T) {
 }
 
 func TestSitemapIndexCrawlStats_ToJson(t *testing.T) {
+	warning_stats := WarningReport{
+		TotalShaclFailures: 1,
+		ShaclWarnings: []ShaclInfo{
+			{
+				ShaclStatus:            ShaclSkipped,
+				ShaclValidationMessage: "shape fail",
+			},
+		},
+	}
 	stats := SitemapIndexCrawlStats{
 		{
 			CrawlFailures: []UrlCrawlError{
@@ -48,12 +57,7 @@ func TestSitemapIndexCrawlStats_ToJson(t *testing.T) {
 					Message: "bad request",
 				},
 			},
-			CrawlWarnings: []UrlCrawlWarning{
-				{
-					ShaclStatus:            ShaclSkipped,
-					ShaclValidationMessage: "shape fail",
-				},
-			},
+			WarningStats:      warning_stats,
 			SecondsToComplete: 1.23,
 			SitemapName:       "sitemap1.xml",
 		},
@@ -70,8 +74,8 @@ func TestSitemapIndexCrawlStats_ToJson(t *testing.T) {
 	assert.Equal(t, "http://fail.com", decoded[0].CrawlFailures[0].Url)
 	assert.Equal(t, 400, decoded[0].CrawlFailures[0].Status)
 	assert.Equal(t, "bad request", decoded[0].CrawlFailures[0].Message)
-	assert.Equal(t, ShaclSkipped, decoded[0].CrawlWarnings[0].ShaclStatus)
-	assert.Equal(t, "shape fail", decoded[0].CrawlWarnings[0].ShaclValidationMessage)
+	assert.Equal(t, ShaclSkipped, decoded[0].WarningStats.ShaclWarnings[0].ShaclStatus)
+	assert.Equal(t, "shape fail", decoded[0].WarningStats.ShaclWarnings[0].ShaclValidationMessage)
 	assert.Equal(t, 1.23, decoded[0].SecondsToComplete)
 	assert.Equal(t, "sitemap1.xml", decoded[0].SitemapName)
 }

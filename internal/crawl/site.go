@@ -79,12 +79,16 @@ func getRemoteJsonldHash(url string, client *http.Client) (string, error) {
 type harvestResult struct {
 	pathInStorage string
 	serverHadHash bool
-	warning       pkg.UrlCrawlWarning
+	warning       pkg.ShaclInfo
 	nonFatalError pkg.UrlCrawlError
 }
 
 // Crawl and download a single URL
 func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *SitemapHarvestConfig) (harvestResult, error) {
+	if sitemapId == "" {
+		return harvestResult{}, fmt.Errorf("no sitemap id specified. Must be set for identifying the sitemap with a human readable name")
+	}
+
 	// Create a new span for each URL and propagate the updated context
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
 	defer span.End()
@@ -180,7 +184,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		if err != nil {
 			if shaclErr, ok := err.(ShaclValidationFailureError); ok {
 				log.Errorf("Failure for %s: %s", url.Loc, shaclErr.ShaclErrorMessage)
-				result_metadata.warning = pkg.UrlCrawlWarning{
+				result_metadata.warning = pkg.ShaclInfo{
 					ShaclStatus:            pkg.ShaclInvalid,
 					ShaclValidationMessage: shaclErr.ShaclErrorMessage,
 				}
