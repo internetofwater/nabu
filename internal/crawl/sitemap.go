@@ -61,10 +61,15 @@ type Sitemap struct {
 // all the of the clients and config needed to harvest a particular site
 // in a sitemap; these are reused across every site in a sitemap
 type SitemapHarvestConfig struct {
-	workers                   int
-	robots                    *robotstxt.Group
-	httpClient                *http.Client
-	grpcClient                *protoBuild.ShaclValidatorClient
+	// the number of parallel workers to use when harvesting the sitemap
+	workers int
+	// the config for the robotstxt behavior
+	robots *robotstxt.Group
+	// the config for http requests
+	httpClient *http.Client
+	// the config for grpc requests
+	grpcClient *protoBuild.ShaclValidatorClient
+	// the grpc connection itself for connecting with the shacl validator
 	grpcConn                  *grpc.ClientConn
 	jsonLdProc                *ld.JsonLdProcessor
 	jsonLdOpt                 *ld.JsonLdOptions
@@ -129,6 +134,8 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAdd
 		exitOnShaclFailure:        exitOnShaclFailure,
 		cleanupOldJsonld:          cleanupOldJsonld,
 		workers:                   sitemap.workers,
+		// currently hard coded. will be configurable in the future
+		maxShaclErrorsToStore: 20,
 	}, nil
 }
 
