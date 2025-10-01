@@ -139,7 +139,7 @@ func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.Si
 			}
 
 			log.Infof("Parsing sitemap %s", part.Loc)
-			sitemap, err := NewSitemap(ctx, client, part.Loc)
+			sitemap, err := NewSitemap(ctx, client, part.Loc, i.sitemapWorkers)
 			if err != nil {
 				return err
 			}
@@ -162,9 +162,14 @@ func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.Si
 				close(errChan)
 			}()
 
+			config, err := NewSitemapHarvestConfig(client, sitemap, i.shaclAddress, i.exitOnShaclFailure, i.oldJsonldCleanupEnabled)
+			if err != nil {
+				return err
+			}
+
 			stats, harvestErr := sitemap.
 				SetStorageDestination(i.storageDestination).
-				Harvest(ctx, client, i.sitemapWorkers, id, i.shaclAddress, i.oldJsonldCleanupEnabled, i.exitOnShaclFailure)
+				Harvest(ctx, &config)
 
 			for err := range errChan {
 				if err != nil {
@@ -213,12 +218,19 @@ func (i Index) HarvestSitemap(ctx context.Context, client *http.Client, sitemapI
 		ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapIdentifier))
 		defer span.End()
 
-		sitemap, err := NewSitemap(ctx, client, part.Loc)
+		sitemap, err := NewSitemap(ctx, client, part.Loc, i.sitemapWorkers)
 		if err != nil {
 			return pkg.SitemapCrawlStats{}, err
 		}
+
+		config, err := NewSitemapHarvestConfig(client, sitemap, i.shaclAddress, i.exitOnShaclFailure, i.oldJsonldCleanupEnabled)
+
+		if err != nil {
+			return pkg.SitemapCrawlStats{}, err
+		}
+
 		return sitemap.SetStorageDestination(i.storageDestination).
-			Harvest(ctx, client, i.sitemapWorkers, id, i.shaclAddress, i.oldJsonldCleanupEnabled, i.exitOnShaclFailure)
+			Harvest(ctx, &config)
 	}
 	return pkg.SitemapCrawlStats{}, fmt.Errorf("sitemap %s not found in sitemap", sitemapIdentifier)
 }

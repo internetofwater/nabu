@@ -30,16 +30,32 @@ type UrlCrawlError struct {
 	Status int
 	// a natural language error message describing the error
 	Message string
+}
+
+func (e UrlCrawlError) IsNil() bool {
+	return e.Url == "" && e.Status == 0 && e.Message == ""
+}
+
+// A warning for a particular URL in a sitemap
+type UrlCrawlWarning struct {
 	// the status of the shacl validation operation itself
 	ShaclStatus ShaclStatus
 	// the shacl validation message
-	ShaclErrorMessage string
+	ShaclValidationMessage string
+}
+
+func (e UrlCrawlWarning) IsNil() bool {
+	return e.ShaclStatus == "" && e.ShaclValidationMessage == ""
+}
+
+func (e UrlCrawlWarning) Error() string {
+	return fmt.Errorf("shacl validation was %s: %s", e.ShaclStatus, e.ShaclValidationMessage).Error()
 }
 
 // Return a string representation of the error
 func (e UrlCrawlError) Error() string {
-	return fmt.Errorf("failed to crawl %s; status %d, message: %s, shacl status: %s, shacl message: %s",
-		e.Url, e.Status, e.Message, e.ShaclStatus, e.ShaclErrorMessage).Error()
+	return fmt.Errorf("failed to crawl %s; status %d, message: %s",
+		e.Url, e.Status, e.Message).Error()
 }
 
 // Crawl stats for a particular sitemap
@@ -48,6 +64,8 @@ type SitemapCrawlStats struct {
 	SuccessfulUrls []string
 	// Metadata about why a sitemap failed to be harvested
 	CrawlFailures []UrlCrawlError
+	// Warnings about sites that were harvested
+	CrawlWarnings []UrlCrawlWarning
 	// The number of seconds it took to crawl the sitemap
 	SecondsToComplete float64
 	// The name of the sitemap in the sitemap index

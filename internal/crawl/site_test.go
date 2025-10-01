@@ -48,7 +48,7 @@ func TestHarvestOneSite(t *testing.T) {
 	url := URL{
 		Loc: dummy_domain,
 	}
-	_, _, err := harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &SitemapHarvestConfig{
+	_, err := harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &SitemapHarvestConfig{
 		httpClient:         mockedClient,
 		storageDestination: &storage.DiscardCrawlStorage{},
 	})
@@ -132,13 +132,13 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		url := URL{
 			Loc: dummy_domain,
 		}
+		sitemap := Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}
 		conf, err := NewSitemapHarvestConfig(mockedClient,
-			Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}},
-			"0.0.0.0:50051", false)
+			sitemap,
+			"0.0.0.0:50051", false, false)
 		require.NoError(t, err)
-		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
+		_, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
-		require.Empty(t, conf.nonFatalErrorChan)
 	})
 	t.Run("empty jsonld", func(t *testing.T) {
 		const dummy_domain = "https://waterdata.usgs.gov"
@@ -153,16 +153,12 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 				File:       "testdata/emptyAsTriples.jsonld",
 			},
 		})
-		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, "0.0.0.0:50051", false)
+		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, "0.0.0.0:50051", false, false)
 
 		require.NoError(t, err)
-		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
+		report, err := harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
-		close(conf.nonFatalErrorChan)
-		require.Len(t, conf.nonFatalErrorChan, 1)
-		for err := range conf.nonFatalErrorChan {
-			require.Equal(t, pkg.ShaclSkipped, err.ShaclStatus)
-		}
+		require.Nil(t, report.warning.ShaclStatus)
 	})
 	t.Run("nonconforming jsonld", func(t *testing.T) {
 		const dummy_domain = "https://waterdata.usgs.gov"
@@ -177,15 +173,11 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 			},
 		})
 
-		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, "0.0.0.0:50051", false)
+		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, "0.0.0.0:50051", false, false)
 		require.NoError(t, err)
-		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
+		report, err := harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
-		close(conf.nonFatalErrorChan)
-		require.Len(t, conf.nonFatalErrorChan, 1)
-		for err := range conf.nonFatalErrorChan {
-			require.Equal(t, pkg.ShaclInvalid, err.ShaclStatus)
-		}
+		require.Equal(t, pkg.ShaclInvalid, report.warning.ShaclStatus)
 	})
 
 	t.Run("strict mode exits early on bad jsonld", func(t *testing.T) {
@@ -201,10 +193,9 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 			},
 		})
 
-		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}}, "0.0.0.0:50051", true)
+		conf, err := NewSitemapHarvestConfig(mockedClient, Sitemap{URL: []URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, "0.0.0.0:50051", true, true)
 		require.NoError(t, err)
-		_, _, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
+		_, err = harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.Error(t, err)
-		close(conf.nonFatalErrorChan)
 	})
 }

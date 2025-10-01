@@ -1,28 +1,28 @@
-# Copyright 2025 Lincoln Institute of Land Policy
-# SPDX-License-Identifier: Apache-2.0
+# # Copyright 2025 Lincoln Institute of Land Policy
+# # SPDX-License-Identifier: Apache-2.0
 
-name: Google S3 Ping Check
+# name: Google S3 Ping Check
 
-on:
-  workflow_dispatch: # Allows manual triggering of the workflow
-  push:
+# on:
+#   workflow_dispatch: # Allows manual triggering of the workflow
+#   push:
 
-jobs:
-  build-and-run:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+# jobs:
+#   build-and-run:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
 
-      - name: Setup go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.24
+#       - name: Setup go
+#         uses: actions/setup-go@v5
+#         with:
+#           go-version: 1.24
 
-      - name: Run Nabu
-        env:
-          S3_ACCESS_KEY: ${{ secrets.GOOGLE_S3_ACCESS_KEY }}
-          S3_SECRET_KEY: ${{ secrets.GOOGLE_S3_SECRET_KEY }}
-        run: |
-            go run ./cmd/nabu test --port 443 --region us --ssl --bucket harvest-bucket-dev --address storage.googleapis.com 
+#       - name: Run Nabu
+#         env:
+#           S3_ACCESS_KEY: ${{ secrets.GOOGLE_S3_ACCESS_KEY }}
+#           S3_SECRET_KEY: ${{ secrets.GOOGLE_S3_SECRET_KEY }}
+#         run: |
+#             go run ./cmd/nabu test --port 443 --region us --ssl --bucket harvest-bucket-dev --address storage.googleapis.com 
         

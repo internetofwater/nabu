@@ -39,11 +39,15 @@ func TestHarvestSitemap(t *testing.T) {
 			},
 		})
 
-	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml")
+	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 10)
 	require.NoError(t, err)
+
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, false)
+	require.NoError(t, err)
+
 	_, errs := sitemap.
 		SetStorageDestination(storage.DiscardCrawlStorage{}).
-		Harvest(context.Background(), mockedClient, 10, "test", "", false, true)
+		Harvest(context.Background(), &config)
 	require.NoError(t, errs)
 }
 

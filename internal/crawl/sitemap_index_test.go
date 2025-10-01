@@ -54,7 +54,7 @@ func TestParseSitemapIndex(t *testing.T) {
 
 	for _, url := range indexHarvester.GetUrlList() {
 		assert.NotEmpty(t, url)
-		sitemap, err := NewSitemap(context.Background(), mockedClient, url)
+		sitemap, err := NewSitemap(context.Background(), mockedClient, url, 1)
 		require.NoError(t, err)
 		if len(sitemap.URL) == 0 {
 			emptyMaps = append(emptyMaps, url)
@@ -123,13 +123,16 @@ func TestHarvestSitemapIndex(t *testing.T) {
 	sitemapUrls, err := NewSitemapIndexHarvester("https://geoconnex.us/sitemap.xml", mockedClient)
 	require.NoError(t, err)
 	// just test the first for the sake of brevity
-	sitemap, err := NewSitemap(context.Background(), mockedClient, sitemapUrls.GetUrlList()[0])
+	sitemap, err := NewSitemap(context.Background(), mockedClient, sitemapUrls.GetUrlList()[0], 10)
 	require.NoError(t, err)
 
-	_, errs := sitemap.SetStorageDestination(tmpStore).Harvest(context.Background(), mockedClient, 10, "test", "", false, true)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, false)
+	require.NoError(t, err)
+	_, errs := sitemap.SetStorageDestination(tmpStore).Harvest(context.Background(), &config)
 	require.NoError(t, errs)
 
-	_, errs = sitemap.SetStorageDestination(container.ClientWrapper).Harvest(context.Background(), mockedClient, 1, "test", "", false, true)
+	config.workers = 1
+	_, errs = sitemap.SetStorageDestination(container.ClientWrapper).Harvest(context.Background(), &config)
 	require.NoError(t, errs)
 	numObjs, err := container.ClientWrapper.NumberOfMatchingObjects([]string{""})
 	require.NoError(t, err)

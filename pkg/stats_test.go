@@ -13,11 +13,9 @@ import (
 
 func TestUrlCrawlError_Error(t *testing.T) {
 	err := UrlCrawlError{
-		Url:               "http://example.com",
-		Status:            404,
-		Message:           "not found",
-		ShaclStatus:       ShaclSkipped,
-		ShaclErrorMessage: "shape error",
+		Url:     "http://example.com",
+		Status:  404,
+		Message: "not found",
 	}
 	msg := err.Error()
 	assert.Contains(t, msg, "http://example.com")
@@ -27,11 +25,9 @@ func TestUrlCrawlError_Error(t *testing.T) {
 
 func TestUrlCrawlError_JSONSerialization(t *testing.T) {
 	orig := UrlCrawlError{
-		Url:               "http://example.com",
-		Status:            500,
-		Message:           "server error",
-		ShaclStatus:       ShaclSkipped,
-		ShaclErrorMessage: "no error",
+		Url:     "http://example.com",
+		Status:  500,
+		Message: "server error",
 	}
 	data, err := json.Marshal(orig)
 	require.NoError(t, err, "Marshal should not fail")
@@ -47,11 +43,15 @@ func TestSitemapIndexCrawlStats_ToJson(t *testing.T) {
 		{
 			CrawlFailures: []UrlCrawlError{
 				{
-					Url:               "http://fail.com",
-					Status:            400,
-					Message:           "bad request",
-					ShaclStatus:       ShaclSkipped,
-					ShaclErrorMessage: "shape fail",
+					Url:     "http://fail.com",
+					Status:  400,
+					Message: "bad request",
+				},
+			},
+			CrawlWarnings: []UrlCrawlWarning{
+				{
+					ShaclStatus:            ShaclSkipped,
+					ShaclValidationMessage: "shape fail",
 				},
 			},
 			SecondsToComplete: 1.23,
@@ -70,8 +70,8 @@ func TestSitemapIndexCrawlStats_ToJson(t *testing.T) {
 	assert.Equal(t, "http://fail.com", decoded[0].CrawlFailures[0].Url)
 	assert.Equal(t, 400, decoded[0].CrawlFailures[0].Status)
 	assert.Equal(t, "bad request", decoded[0].CrawlFailures[0].Message)
-	assert.Equal(t, ShaclSkipped, decoded[0].CrawlFailures[0].ShaclStatus)
-	assert.Equal(t, "shape fail", decoded[0].CrawlFailures[0].ShaclErrorMessage)
+	assert.Equal(t, ShaclSkipped, decoded[0].CrawlWarnings[0].ShaclStatus)
+	assert.Equal(t, "shape fail", decoded[0].CrawlWarnings[0].ShaclValidationMessage)
 	assert.Equal(t, 1.23, decoded[0].SecondsToComplete)
 	assert.Equal(t, "sitemap1.xml", decoded[0].SitemapName)
 }
