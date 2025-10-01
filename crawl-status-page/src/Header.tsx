@@ -6,7 +6,12 @@
 import Logo from "../src/assets/geoconnex-logo.png";
 import styles from "./CrawlStatusDashboard.module.css";
 
-export default function Header(jsonData: object, jsonldData?: object) {
+interface HeaderProps {
+  jsonData: object;
+  jsonldData?: object | null;
+}
+
+export default function Header({ jsonData, jsonldData }: HeaderProps) {
   const downloadBlob = (data: object) =>
     URL.createObjectURL(
       new Blob([JSON.stringify(data, null, 2)], {
@@ -27,6 +32,7 @@ export default function Header(jsonData: object, jsonldData?: object) {
       </a>
       <h1 className={styles.h1}>Geoconnex Crawl Status Dashboard</h1>
       <div className={styles.downloadButtonsRow}>
+        {/* JSON Export */}
         <a
           href={downloadBlob(jsonData)}
           className={styles.downloadButton}
@@ -41,6 +47,7 @@ export default function Header(jsonData: object, jsonldData?: object) {
           View as JSON
         </a>
 
+        {/* JSON-LD Export */}
         {jsonldData && (
           <a
             href={downloadBlob(jsonldData)}

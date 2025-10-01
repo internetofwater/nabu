@@ -13,25 +13,31 @@ import {
 import styles from "./CrawlStatusDashboard.module.css";
 import { make_jsonld } from "./lib";
 import CrawlFailureTable from "./CrawlFailureTable";
-import type { SitemapCrawlStats, SitemapIndexCrawlStats } from "./generated_types";
 import type { SitemapCrawlStatsWithS3Metadata } from "./types";
+import Header from "./Header";
+import CrawlWarningTable from "./CrawlWarningTable";
 
 const BUCKET = get_bucket();
 const PREFIX = get_prefix();
 
 const CrawlStatusDashboard = () => {
-  const [data, setData] = useState<SitemapIndexCrawlStats>([]);
+  const [data, setData] = useState<SitemapCrawlStatsWithS3Metadata[]>([]);
   const [jsonldData, setJsonldData] = useState<object | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (data.length > 0) {
+      setJsonldData(make_jsonld(data));
+    }
+  }, [data]);
+
 
   useEffect(() => {
     let isMounted = true;
 
     const fetchData = async () => {
       try {
-        const sitemapcrawlstats: SitemapCrawlStats[] = [];
-
         if (use_local_services()) {
           // Local dev: use MinIO via S3 client
           const client = get_minio_client();
@@ -53,7 +59,7 @@ const CrawlStatusDashboard = () => {
                 const json = JSON.parse(body) as SitemapCrawlStatsWithS3Metadata;
                 json.LastModified =
                   objectData.LastModified?.toISOString() ?? "Unknown";
-                sitemapcrawlstats.push(json);
+                setData((data) => [...data, json]);
               } catch (e) {
                 console.warn(`Error loading ${obj.Key}:`, e);
               }
@@ -80,7 +86,7 @@ const CrawlStatusDashboard = () => {
                   throw new Error(`Failed to fetch ${obj.name}`);
                 const json = await objectRes.json() as SitemapCrawlStatsWithS3Metadata;
                 json.LastModified = obj.updated ?? "Unknown";
-                sitemapcrawlstats.push(json);
+                setData((data) => [...data, json]);
               } catch (e) {
                 console.warn(`Error loading ${obj.name}:`, e);
               }
@@ -89,9 +95,6 @@ const CrawlStatusDashboard = () => {
         }
 
         if (isMounted) {
-          setData(sitemapcrawlstats);
-          const jsonld = make_jsonld(sitemapcrawlstats);
-          setJsonldData(jsonld);
           setLoading(false);
         }
       } catch (err: unknown) {
@@ -114,6 +117,7 @@ const CrawlStatusDashboard = () => {
 
   return (
     <>
+      <Header jsonData={data} jsonldData={jsonldData} />
       {error ? (
         <p style={{ color: "var(--error-bg)", textAlign: "center" }}>
           Error loading report: <i> {error} </i>
@@ -148,11 +152,13 @@ const CrawlStatusDashboard = () => {
                 ))}
               </ul>
             </details>
-              
 
-            {sitemap.CrawlFailures && sitemap.CrawlFailures.length > 0 && (
-                CrawlFailureTable(sitemap.CrawlFailures)
-            )}
+            {sitemap.WarningStats.TotalShaclFailures > 0 &&
+              CrawlWarningTable(sitemap.WarningStats)}
+
+            {sitemap.CrawlFailures &&
+              sitemap.CrawlFailures.length > 0 &&
+              CrawlFailureTable(sitemap.CrawlFailures)}
           </div>
         ))
       )}

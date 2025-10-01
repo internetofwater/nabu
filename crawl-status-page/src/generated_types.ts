@@ -41,6 +41,10 @@ export interface UrlCrawlError {
  */
 export interface ShaclInfo {
   /**
+   * THe url against which shacl validation was run
+   */
+  Url: string;
+  /**
    * the status of the shacl validation operation itself
    */
   ShaclStatus: ShaclStatus;
