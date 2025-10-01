@@ -187,6 +187,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 				result_metadata.warning = pkg.ShaclInfo{
 					ShaclStatus:            pkg.ShaclInvalid,
 					ShaclValidationMessage: shaclErr.ShaclErrorMessage,
+					Url:                    url.Loc,
 				}
 
 				// we don't always return here because it is non fatal

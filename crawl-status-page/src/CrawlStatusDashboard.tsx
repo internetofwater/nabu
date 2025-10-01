@@ -132,15 +132,15 @@ const CrawlStatusDashboard = () => {
               </span>
             </div>
             <span className={styles.meta}>
-              Sites Harvested: {sitemap.SitesHarvested} /{" "}
+              Features Harvested: {sitemap.SitesHarvested} /{" "}
               {sitemap.SitesInSitemap}
               <br />
               Time to Complete: {sitemap.SecondsToComplete.toFixed(2)}s
             </span>
 
-            <details>
+            <details style={{ marginTop: "8px" }}>
               <summary className={styles.successColor}>
-                Successful URLs ({sitemap.SuccessfulUrls.length})
+                Features downloaded ({sitemap.SuccessfulUrls.length})
               </summary>
               <ul className={styles.urlList}>
                 {sitemap.SuccessfulUrls.map((url: string) => (

@@ -9,8 +9,8 @@
     --primary-darker: #1b62d4;
     --primary-light: #4e89e8;
     --primary-lightest: #80aaef;
-    --success: #7fbf88;       /* warmer green */
-    --warning-bg: #e6c446;    /* golden yellow */
+    --success: #7fc789;       /* warmer green */
+    --warning-bg: #e9d280;    /* golden yellow */
     --error-bg: #e15b64;      /* soft red */
 }
 
@@ -114,12 +114,12 @@ summary {
 
 .failureLink:hover {
     text-decoration: underline;
-    background-color: #e03b59;
+    background-color: var(--error-bg);
 }
 
 .warningLink:hover {
     text-decoration: underline;
-    background-color: #e6ce6d;
+    background-color: var(--warning-bg);
 }
 
 a {

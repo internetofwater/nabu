@@ -10,7 +10,7 @@ export default function CrawlWarningTable(warnings: WarningReport) {
   return (
     <details style={{marginTop: "8px"}}>
       <summary className={styles.warningText}>
-        Crawl Warnings ({warnings.ShaclWarnings.length})
+        Semantic Warnings ({warnings.TotalShaclFailures})
       </summary>
       <i className={styles.brevityInfo}>
         Displaying first {warnings.ShaclWarnings.length} out of{" "}

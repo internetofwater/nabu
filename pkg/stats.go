@@ -38,6 +38,8 @@ func (e UrlCrawlError) IsNil() bool {
 
 // A warning for a particular URL in a sitemap
 type ShaclInfo struct {
+	// THe url against which shacl validation was run
+	Url string
 	// the status of the shacl validation operation itself
 	ShaclStatus ShaclStatus
 	// the shacl validation message
