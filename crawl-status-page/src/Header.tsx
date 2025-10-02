@@ -24,6 +24,7 @@ export default function Header({ jsonData, jsonldData }: HeaderProps) {
       <a href="https://docs.geoconnex.us">
         <img
           src={Logo}
+          alt="Internet of Water Logo"
           style={{
             scale: "0.6",
             filter: "drop-shadow(0 0 3px white)",

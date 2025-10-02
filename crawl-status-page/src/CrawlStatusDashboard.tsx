@@ -5,10 +5,10 @@
 
 import { useEffect, useState } from "react";
 import {
-  use_local_services,
   get_bucket,
   get_prefix,
   get_minio_client,
+  use_gcp,
 } from "./env";
 import styles from "./CrawlStatusDashboard.module.css";
 import { make_jsonld } from "./lib";
@@ -20,148 +20,228 @@ import CrawlWarningTable from "./CrawlWarningTable";
 const BUCKET = get_bucket();
 const PREFIX = get_prefix();
 
+interface SitemapItemState {
+  key: string;
+  loading: boolean;
+  error?: string;
+  data?: SitemapCrawlStatsWithS3Metadata;
+}
+
 const CrawlStatusDashboard = () => {
-  const [data, setData] = useState<SitemapCrawlStatsWithS3Metadata[]>([]);
+  const [sitemaps, setSitemaps] = useState<SitemapItemState[]>([]);
   const [jsonldData, setJsonldData] = useState<object | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Whenever we get fully loaded sitemap data, update jsonld
   useEffect(() => {
-    if (data.length > 0) {
-      setJsonldData(make_jsonld(data));
-    }
-  }, [data]);
+    const loaded = sitemaps
+      .map((s) => s.data)
+      .filter((d): d is SitemapCrawlStatsWithS3Metadata => !!d);
 
+    if (loaded.length > 0) {
+      setJsonldData(make_jsonld(loaded));
+    }
+  }, [sitemaps]);
 
   useEffect(() => {
     let isMounted = true;
 
-    const fetchData = async () => {
+    const loadSitemaps = async () => {
       try {
-        if (use_local_services()) {
-          // Local dev: use MinIO via S3 client
+        if (!use_gcp()) {
           const client = get_minio_client();
           const response = await client.listObjects({
             Bucket: BUCKET,
             Prefix: PREFIX,
           });
 
-          for (const obj of response.Contents ?? []) {
-            if (!isMounted) return;
-            if (obj.Key?.endsWith(".json")) {
-              try {
-                const objectData = await client.getObject({
-                  Bucket: BUCKET,
-                  Key: obj.Key,
-                });
-                const body = await objectData.Body?.transformToString();
-                if (!body) continue;
-                const json = JSON.parse(body) as SitemapCrawlStatsWithS3Metadata;
-                json.LastModified =
-                  objectData.LastModified?.toISOString() ?? "Unknown";
-                setData((data) => [...data, json]);
-              } catch (e) {
-                console.warn(`Error loading ${obj.Key}:`, e);
+          const objects = response.Contents ?? [];
+          if (!isMounted) return;
+
+          // Initialize state placeholders
+          setSitemaps(
+            objects
+              .filter((o) => o.Key?.endsWith(".json"))
+              .map((o) => ({ key: o.Key ?? "", loading: true }))
+          );
+
+          // Load each async
+          for (const obj of objects) {
+            if (!obj.Key?.endsWith(".json") || !isMounted) continue;
+
+            try {
+              const objectData = await client.getObject({
+                Bucket: BUCKET,
+                Key: obj.Key,
+              });
+              const body = await objectData.Body?.transformToString();
+              if (!body) throw new Error("Empty body");
+
+              const json = JSON.parse(body) as SitemapCrawlStatsWithS3Metadata;
+              json.LastModified =
+                objectData.LastModified?.toISOString() ?? "Unknown";
+
+              if (isMounted) {
+                setSitemaps((prev) =>
+                  prev.map((s) =>
+                    s.key === obj.Key ? { ...s, loading: false, data: json } : s
+                  )
+                );
               }
+            } catch (e) {
+              if (isMounted) {
+                setSitemaps((prev) =>
+                  prev.map((s) =>
+                    s.key === obj.Key
+                      ? {
+                          ...s,
+                          loading: false,
+                          error: `Error loading ${obj.Key}`,
+                        }
+                      : s
+                  )
+                );
+              }
+              console.warn(`Error loading ${obj.Key}:`, e);
             }
           }
         } else {
-          // Prod: GCS JSON API
-          // We have to use the JSON API since GCP doesn't allow for public buckets
-          // which also have the S3 API 
+          // GCS (production)
           const listUrl = `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o?prefix=${PREFIX}`;
           const listRes = await fetch(listUrl);
           if (!listRes.ok)
             throw new Error(`Failed to list objects: ${String(listRes.status)}`);
-          const listJson = await listRes.json() as {
+
+          const listJson = (await listRes.json()) as {
             items: { name: string; updated: string }[];
           };
-          for (const obj of listJson.items ?? []) {
-            if (!isMounted) return;
-            if (obj.name.endsWith(".json")) {
-              try {
-                const objectUrl = `https://storage.googleapis.com/${BUCKET}/${obj.name}`;
-                const objectRes = await fetch(objectUrl);
-                if (!objectRes.ok)
-                  throw new Error(`Failed to fetch ${obj.name}`);
-                const json = await objectRes.json() as SitemapCrawlStatsWithS3Metadata;
-                json.LastModified = obj.updated ?? "Unknown";
-                setData((data) => [...data, json]);
-              } catch (e) {
-                console.warn(`Error loading ${obj.name}:`, e);
+
+          if (!isMounted) return;
+
+          setSitemaps(
+            listJson.items
+              .filter((o) => o.name.endsWith(".json"))
+              .map((o) => ({ key: o.name, loading: true }))
+          );
+
+          for (const obj of listJson.items) {
+            if (!obj.name.endsWith(".json") || !isMounted) continue;
+
+            try {
+              const objectUrl = `https://storage.googleapis.com/${BUCKET}/${obj.name}`;
+              const objectRes = await fetch(objectUrl);
+              if (!objectRes.ok) throw new Error(`Failed to fetch ${obj.name}`);
+
+              const json =
+                (await objectRes.json()) as SitemapCrawlStatsWithS3Metadata;
+              json.LastModified = obj.updated ?? "Unknown";
+
+              if (isMounted) {
+                setSitemaps((prev) =>
+                  prev.map((s) =>
+                    s.key === obj.name
+                      ? { ...s, loading: false, data: json }
+                      : s
+                  )
+                );
               }
+            } catch (e) {
+              if (isMounted) {
+                setSitemaps((prev) =>
+                  prev.map((s) =>
+                    s.key === obj.name
+                      ? {
+                          ...s,
+                          loading: false,
+                          error: `Error loading ${obj.name}`,
+                        }
+                      : s
+                  )
+                );
+              }
+              console.warn(`Error loading ${obj.name}:`, e);
             }
           }
-        }
-
-        if (isMounted) {
-          setLoading(false);
         }
       } catch (err: unknown) {
         if (isMounted) {
           setError(err instanceof Error ? err.message : String(err));
-          console.error(err);
-          setLoading(false);
+          console.error(`Error loading sitemaps from ${BUCKET} with prefix ${PREFIX}:`, err);
         }
       }
     };
 
-    void fetchData();
+    void loadSitemaps();
     return () => {
       isMounted = false;
     };
   }, []);
 
-  if (loading) return <div>Loading crawl status...</div>;
-
-
   return (
     <>
-      <Header jsonData={data} jsonldData={jsonldData} />
-      {error ? (
+      <Header
+        jsonData={
+          sitemaps
+            .map((s) => s.data)
+            .filter(Boolean) as SitemapCrawlStatsWithS3Metadata[]
+        }
+        jsonldData={jsonldData}
+      />
+
+      {error && (
         <p style={{ color: "var(--error-bg)", textAlign: "center" }}>
-          Error loading report: <i> {error} </i>
+          Error loading report: <i>{error}</i>
         </p>
-      ) : (
-        data.map((sitemap) => (
-          <div key={sitemap.SitemapName} className={styles.sitemap}>
-            <div className={styles.sitemapHeaderRow}>
-              <h2>Sitemap: {sitemap.SitemapName}</h2>
-              <span style={{ color: "gray" }}>
-                Last Modified: {sitemap.LastModified?.split("T")[0]}
-              </span>
-            </div>
-            <span className={styles.meta}>
-              Features Harvested: {sitemap.SitesHarvested} /{" "}
-              {sitemap.SitesInSitemap}
-              <br />
-              Time to Complete: {sitemap.SecondsToComplete.toFixed(2)}s
-            </span>
-
-            <details style={{ marginTop: "8px" }}>
-              <summary className={styles.successColor}>
-                Features downloaded ({sitemap.SuccessfulUrls.length})
-              </summary>
-              <ul className={styles.urlList}>
-                {sitemap.SuccessfulUrls.map((url: string) => (
-                  <li key={url}>
-                    <a href={url} target="_blank" rel="noopener noreferrer">
-                      {url}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </details>
-
-            {sitemap.WarningStats.TotalShaclFailures > 0 &&
-              CrawlWarningTable(sitemap.WarningStats)}
-
-            {sitemap.CrawlFailures &&
-              sitemap.CrawlFailures.length > 0 &&
-              CrawlFailureTable(sitemap.CrawlFailures)}
-          </div>
-        ))
       )}
+
+      {sitemaps.map((s) => (
+        <div key={s.key} className={styles.sitemap}>
+          {s.loading && <p>Loading sitemap {s.key}…</p>}
+          {s.error && (
+            <p style={{ color: "var(--error-bg)" }}>
+              Failed to load {s.key}: {s.error}
+            </p>
+          )}
+          {s.data && (
+            <>
+              <div className={styles.sitemapHeaderRow}>
+                <h2>Sitemap: {s.data.SitemapName}</h2>
+                <span style={{ color: "gray" }}>
+                  Last Modified: {s.data.LastModified?.split("T")[0]}
+                </span>
+              </div>
+              <span className={styles.meta}>
+                Features Harvested: {s.data.SitesHarvested} /{" "}
+                {s.data.SitesInSitemap}
+                <br />
+                Time to Complete: {s.data.SecondsToComplete.toFixed(2)}s
+              </span>
+
+              <details style={{ marginTop: "8px" }}>
+                <summary className={styles.successColor}>
+                  Features downloaded ({s.data.SuccessfulUrls.length})
+                </summary>
+                <ul className={styles.urlList}>
+                  {s.data.SuccessfulUrls.map((url: string) => (
+                    <li key={url}>
+                      <a href={url} target="_blank" rel="noopener noreferrer">
+                        {url}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+
+              {s.data.WarningStats && s.data.WarningStats.TotalShaclFailures > 0 &&
+                CrawlWarningTable(s.data.WarningStats)}
+
+              {s.data.CrawlFailures &&
+                s.data.CrawlFailures.length > 0 &&
+                CrawlFailureTable(s.data.CrawlFailures)}
+            </>
+          )}
+        </div>
+      ))}
     </>
   );
 };
