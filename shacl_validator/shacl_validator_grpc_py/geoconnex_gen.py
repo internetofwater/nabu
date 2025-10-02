@@ -17,6 +17,7 @@ class GeoconnexCSVConfig:
     shacl_shape: Graph
     description: str
     geoconnex_namespace: str
+    output_path: str
 
 
 def generate_geoconnex_csv(config: GeoconnexCSVConfig):
@@ -57,9 +58,12 @@ def generate_geoconnex_csv(config: GeoconnexCSVConfig):
         csv_rows.append(
             [f"https://geoconnex.us/{config.geoconnex_namespace}/{feature_id}", feature_url, config.contact_email, config.description]
         )
+        break
 
-    output_path = Path("geoconnex.csv")
-    with open(output_path.absolute(), "w", newline="", encoding="utf-8") as f:
+    assert config.output_path, "output_path must be set"
+    output_path = Path(config.output_path).expanduser().resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path.resolve().absolute(), "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(csv_header_row)
         writer.writerows(csv_rows)

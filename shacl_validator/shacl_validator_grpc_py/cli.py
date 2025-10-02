@@ -72,7 +72,9 @@ def main():
     generate_geoconnex_csv_subparser.add_argument(
         "--geoconnex_namespace", type=str, help="Namespace for the geoconnex csv. Example: wwdh/usace", required=True
     )
-    
+    generate_geoconnex_csv_subparser.add_argument(
+        "--output_path", type=str, help="Where to save the geoconnex csv", default="~/geoconnex.csv"
+    )
 
     args = parser.parse_args()
     graph = Graph().parse(args.shacl_file)
@@ -90,6 +92,7 @@ def main():
                 shacl_shape=args.shacl_file,
                 check_shacl=args.validate_shacl,
                 geoconnex_namespace=args.geoconnex_namespace,
+                output_path=args.output_path
             )
         )
     else:
