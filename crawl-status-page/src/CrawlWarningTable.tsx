@@ -13,7 +13,7 @@ export default function CrawlWarningTable(warnings: WarningReport) {
         Semantic Warnings ({warnings.TotalShaclFailures})
       </summary>
       <i className={styles.brevityInfo}>
-        Displaying first {warnings.ShaclWarnings.length} out of{" "}
+        Displaying the first {warnings.ShaclWarnings.length} out of{" "}
         {warnings.TotalShaclFailures} total warnings for the sake of brevity
       </i>
 
