@@ -5,11 +5,14 @@
 
 import { S3 } from "@aws-sdk/client-s3";
 
-export function use_local_services() {
-  return import.meta.env.VITE_USE_GCP_FOR_DEV !== "true";
+export function use_gcp() {
+  return import.meta.env.VITE_USE_GCP_FOR_DEV === "true" || import.meta.env.PROD;
 }
 
 export function get_bucket() {
+  if (import.meta.env.VITE_LOCAL_BUCKET_NAME) {
+    return String(import.meta.env.VITE_LOCAL_BUCKET_NAME);
+  }
   return "metadata-geoconnex-us";
 }
 

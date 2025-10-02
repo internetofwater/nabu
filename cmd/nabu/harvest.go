@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
@@ -63,7 +62,7 @@ func Harvest(ctx context.Context, client *http.Client, minioConfig config.MinioC
 		storageDestination = minioS3
 	}
 
-	stats, err := index.
+	return index.
 		WithStorageDestination(storageDestination).
 		WithConcurrencyConfig(args.ConcurrentSitemaps, args.SitemapWorkers).
 		WithSpecifiedSourceFilter(args.Source).
@@ -71,16 +70,4 @@ func Harvest(ctx context.Context, client *http.Client, minioConfig config.MinioC
 		WithShaclValidationConfig(args.ShaclEndpoint, args.ExitOnShaclFailure).
 		WithOldJsonldCleanup(args.CleanupOutdatedJsonld).
 		HarvestSitemaps(ctx, client)
-	if err != nil {
-		return nil, err
-	}
-	asJson, err := stats.ToJson()
-	if err != nil {
-		return nil, err
-	}
-	if err := storageDestination.StoreMetadata(fmt.Sprintf("metadata/crawl_stats_%s.json", args.Source), strings.NewReader(asJson)); err != nil {
-		return nil, err
-	}
-
-	return stats, err
 }

@@ -25,6 +25,7 @@ import (
 )
 
 // Index is a structure of <sitemapindex>
+// https://geoconnex.us/sitemap.xml is an example of a sitemap index
 type Index struct {
 	XMLName  xml.Name `xml:"sitemapindex"`
 	Sitemaps []parts  `xml:"sitemap"`
@@ -115,6 +116,13 @@ func (i Index) GetUrlList() []string {
 }
 
 func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.SitemapIndexCrawlStats, error) {
+	if i.concurrentSitemaps < 1 {
+		return pkg.SitemapIndexCrawlStats{}, fmt.Errorf("concurrent sitemap limit is set less than 1")
+	}
+	if i.sitemapWorkers < 1 {
+		return pkg.SitemapIndexCrawlStats{}, fmt.Errorf("sitemap workers limit is set less than 1")
+	}
+
 	var group errgroup.Group
 	group.SetLimit(i.concurrentSitemaps)
 
@@ -139,7 +147,7 @@ func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.Si
 			}
 
 			log.Infof("Parsing sitemap %s", part.Loc)
-			sitemap, err := NewSitemap(ctx, client, part.Loc)
+			sitemap, err := NewSitemap(ctx, client, part.Loc, i.sitemapWorkers, i.storageDestination, id)
 			if err != nil {
 				return err
 			}
@@ -162,9 +170,13 @@ func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.Si
 				close(errChan)
 			}()
 
+			config, err := NewSitemapHarvestConfig(client, sitemap, i.shaclAddress, i.exitOnShaclFailure, i.oldJsonldCleanupEnabled)
+			if err != nil {
+				return err
+			}
+
 			stats, harvestErr := sitemap.
-				SetStorageDestination(i.storageDestination).
-				Harvest(ctx, client, i.sitemapWorkers, id, i.shaclAddress, i.oldJsonldCleanupEnabled, i.exitOnShaclFailure)
+				Harvest(ctx, &config)
 
 			for err := range errChan {
 				if err != nil {
@@ -213,12 +225,19 @@ func (i Index) HarvestSitemap(ctx context.Context, client *http.Client, sitemapI
 		ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapIdentifier))
 		defer span.End()
 
-		sitemap, err := NewSitemap(ctx, client, part.Loc)
+		sitemap, err := NewSitemap(ctx, client, part.Loc, i.sitemapWorkers, i.storageDestination, id)
 		if err != nil {
 			return pkg.SitemapCrawlStats{}, err
 		}
-		return sitemap.SetStorageDestination(i.storageDestination).
-			Harvest(ctx, client, i.sitemapWorkers, id, i.shaclAddress, i.oldJsonldCleanupEnabled, i.exitOnShaclFailure)
+
+		config, err := NewSitemapHarvestConfig(client, sitemap, i.shaclAddress, i.exitOnShaclFailure, i.oldJsonldCleanupEnabled)
+
+		if err != nil {
+			return pkg.SitemapCrawlStats{}, err
+		}
+
+		return sitemap.
+			Harvest(ctx, &config)
 	}
 	return pkg.SitemapCrawlStats{}, fmt.Errorf("sitemap %s not found in sitemap", sitemapIdentifier)
 }

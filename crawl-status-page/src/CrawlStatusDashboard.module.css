@@ -9,9 +9,11 @@
     --primary-darker: #1b62d4;
     --primary-light: #4e89e8;
     --primary-lightest: #80aaef;
-    --success: #a3be8c;
-    --error-bg: #cb2c49;
+    --success: #7fc789;       /* warmer green */
+    --warning-bg: #e9d280;    /* golden yellow */
+    --error-bg: #e15b64;      /* soft red */
 }
+
 
 body {
     background-color: #121212;
@@ -57,6 +59,10 @@ summary {
     color: var(--error-bg);
 }
 
+.warningText {
+    color: var(--warning-bg);
+}
+
 .meta {
     color: var(--primary-light);
     font-size: 0.9rem;
@@ -97,9 +103,23 @@ summary {
     color: white;
 }
 
+.warningLink {
+    background-color: var(--warning-bg);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    display: inline-block;
+    text-decoration: none;
+    color: black;
+}
+
 .failureLink:hover {
     text-decoration: underline;
-    background-color: #e03b59;
+    background-color: var(--error-bg);
+}
+
+.warningLink:hover {
+    text-decoration: underline;
+    background-color: var(--warning-bg);
 }
 
 a {
@@ -137,4 +157,12 @@ a:hover {
     flex-direction: column;
     align-items: center;
     gap: 1rem;
+}
+
+
+.brevityInfo {
+  display: block; /* ensures margin works as expected */
+  margin-top: 8px; /* adjust spacing as needed */
+  font-style: italic;
+  color: #858585; /* optional, to match your theme */
 }

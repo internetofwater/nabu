@@ -31,7 +31,7 @@ cd ../
 time go run ./cmd/nabu harvest --log-level DEBUG \
   --sitemap-index https://pids.geoconnex.dev/sitemap.xml \
   --concurrent-sitemaps 100 --sitemap-workers 30 \
-  --use-otel --to-disk --source ref_dams_dams__0 --shacl-grpc-endpoint localhost:50051 --exit-on-shacl-failure
+  --use-otel --source ref_dams_dams__0 --shacl-grpc-endpoint localhost:50051
 
 # Open Jaeger UI
 open http://localhost:16686

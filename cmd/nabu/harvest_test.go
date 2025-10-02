@@ -33,10 +33,12 @@ func (s *GleanerRootSuite) TestHarvestToS3() {
 	s.Require().NoError(err)
 	objs, err := s.minioContainer.ClientWrapper.ObjectList(context.Background(), "summoned/")
 	s.Require().NoError(err)
+	// two jsonld objects
 	s.Require().Len(objs, 2)
 
 	orgsObjs, err := s.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"orgs/"})
 	s.Require().NoError(err)
+	// they come from the same org so should be 1
 	require.Equal(s.T(), 1, orgsObjs)
 
 	// access all the objects in the metadata bucket and make sure they exist
@@ -63,7 +65,8 @@ func (s *GleanerRootSuite) TestHarvestToS3() {
 		require.NotEmpty(s.T(), obj.Key)
 		items++
 	}
-	require.Equal(s.T(), 2, items)
+	const OneSitemapSoOneMetadataObject = 1
+	require.Equal(s.T(), OneSitemapSoOneMetadataObject, items)
 }
 
 func (s *GleanerRootSuite) TestHarvestWithSourceSpecified() {

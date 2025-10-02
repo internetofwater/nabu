@@ -76,29 +76,45 @@ func getRemoteJsonldHash(url string, client *http.Client) (string, error) {
 	return trimmed, nil
 }
 
+type harvestResult struct {
+	pathInStorage string
+	serverHadHash bool
+	warning       pkg.ShaclInfo
+	nonFatalError pkg.UrlCrawlError
+}
+
 // Crawl and download a single URL
-func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *SitemapHarvestConfig) (resultingPathInStorage string, serverProvidedAssociatedHash bool, err error) {
+func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *SitemapHarvestConfig) (harvestResult, error) {
+	if sitemapId == "" {
+		return harvestResult{}, fmt.Errorf("no sitemap id specified. Must be set for identifying the sitemap with a human readable name")
+	}
+
 	// Create a new span for each URL and propagate the updated context
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
 	defer span.End()
 
 	var hash string
 	var expectedLocationInStorage string
+
+	result_metadata := harvestResult{}
+
 	if config.checkExistenceBeforeCrawl.Load() {
-		hash, err = getRemoteJsonldHash(url.Loc, config.httpClient)
+		hash, err := getRemoteJsonldHash(url.Loc, config.httpClient)
 		if err != nil {
-			return "", false, fmt.Errorf("failed to get hash for %s: %w", url.Loc, err)
+			return result_metadata, fmt.Errorf("failed to get hash for %s: %w", url.Loc, err)
 		}
 		var expectedLocationInStorage string
 		if hash != "" {
+			result_metadata.serverHadHash = true
 			expectedLocationInStorage = "summoned/" + sitemapId + "/" + hash + ".jsonld"
 			exists, err := config.storageDestination.Exists(expectedLocationInStorage)
 			if err != nil {
-				return "", hash != "", err
+				return result_metadata, err
 			}
 			if exists {
 				log.Infof("skipping %s because it already exists in %s", url.Loc, expectedLocationInStorage)
-				return expectedLocationInStorage, hash != "", nil
+				result_metadata.pathInStorage = expectedLocationInStorage
+				return result_metadata, nil
 			}
 			log.Tracef("%s does not exist in the bucket", expectedLocationInStorage)
 
@@ -110,14 +126,14 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	log.Tracef("fetching %s", url.Loc)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.Loc, nil)
 	if err != nil {
-		return "", hash != "", err
+		return result_metadata, err
 	}
 	req.Header.Set("User-Agent", gleanerAgent)
 	req.Header.Set("Accept", "application/ld+json")
 
 	resp, err := config.httpClient.Do(req)
 	if err != nil {
-		return "", hash != "", err
+		return result_metadata, err
 	}
 	span.AddEvent("http_response", trace.WithAttributes(attribute.KeyValue{Key: "status", Value: attribute.StringValue(resp.Status)}))
 
@@ -128,13 +144,13 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		log.Error(errormsg)
 		// status makes jaeger mark as failed with red, whereas SetEvent just marks it with a message
 		span.SetStatus(codes.Error, errormsg)
-		config.nonFatalErrorChan <- pkg.UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg, ShaclStatus: pkg.ShaclSkipped}
-		return "", hash != "", nil
+		result_metadata.nonFatalError = pkg.UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
+		return result_metadata, nil
 	}
 
 	rawbytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", hash != "", fmt.Errorf("failed to read response body: %w", err)
+		return result_metadata, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	jsonld, err := getJSONLD(resp, url, rawbytes)
@@ -143,11 +159,10 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		// put don't return it, since it is non fatal
 		if urlErr, ok := err.(pkg.UrlCrawlError); ok {
 			span.SetStatus(codes.Error, urlErr.Message)
-			urlErr.ShaclStatus = pkg.ShaclSkipped
-			config.nonFatalErrorChan <- urlErr
-			return "", hash != "", nil
+			result_metadata.nonFatalError = urlErr
+			return result_metadata, nil
 		}
-		return "", hash != "", fmt.Errorf("failed to get JSON-LD from response: %w", err)
+		return result_metadata, fmt.Errorf("failed to get JSON-LD from response: %w", err)
 	}
 
 	// To generate a hash we need to copy the response body
@@ -156,9 +171,10 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	summonedPath := fmt.Sprintf("summoned/%s/%s", sitemapId, itemHash)
 
 	if hash != "" && expectedLocationInStorage != "" {
+		result_metadata.serverHadHash = true
 		if summonedPath != expectedLocationInStorage {
 			log.Fatalf("hashes appear to be different for %s \n %s", summonedPath, expectedLocationInStorage)
-			return "", true, fmt.Errorf("summonedPath %s and whereItWouldBeInBucket %s are different", summonedPath, expectedLocationInStorage)
+			return result_metadata, fmt.Errorf("summonedPath %s and whereItWouldBeInBucket %s are different", summonedPath, expectedLocationInStorage)
 		}
 	}
 
@@ -168,11 +184,12 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		if err != nil {
 			if shaclErr, ok := err.(ShaclValidationFailureError); ok {
 				log.Errorf("Failure for %s: %s", url.Loc, shaclErr.ShaclErrorMessage)
-				config.nonFatalErrorChan <- pkg.UrlCrawlError{
-					Url:               url.Loc,
-					ShaclStatus:       pkg.ShaclInvalid,
-					ShaclErrorMessage: shaclErr.ShaclErrorMessage,
+				result_metadata.warning = pkg.ShaclInfo{
+					ShaclStatus:            pkg.ShaclInvalid,
+					ShaclValidationMessage: shaclErr.ShaclErrorMessage,
+					Url:                    url.Loc,
 				}
+
 				// we don't always return here because it is non fatal
 				// and not all integrations may be compliant with our shacl shapes yet;
 				// For the time being, it is better to harvest and then have the integrator fix it
@@ -181,17 +198,17 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 				// however, we do allow a flag to exit and strictly fail
 				if config.exitOnShaclFailure {
 					log.Debugf("Returning early on shacl failure for %s", url.Loc)
-					return "", hash != "", shaclErr
+					return result_metadata, fmt.Errorf("exiting early with shacl failure %s", shaclErr.ShaclErrorMessage)
 				}
 			} else {
-				return "", hash != "", fmt.Errorf("failed to communicate with shacl validation service: %w", err)
+				return result_metadata, fmt.Errorf("failed to communicate with shacl validation service: %w", err)
 			}
 		}
 	}
 
 	// Store from the buffered copy
 	if err = config.storageDestination.Store(summonedPath, bytes.NewReader(jsonld)); err != nil {
-		return "", hash != "", err
+		return result_metadata, err
 	}
 
 	if config.robots != nil && config.robots.CrawlDelay > 0 {
@@ -199,5 +216,5 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		time.Sleep(config.robots.CrawlDelay)
 	}
 
-	return summonedPath, hash != "", nil
+	return result_metadata, nil
 }
