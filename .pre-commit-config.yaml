@@ -45,3 +45,18 @@ repos:
         language: system
         types: [go]
         pass_filenames: false
+
+      - id: gofmt
+        name: gofmt
+        entry: go fmt ./...
+        language: system
+        types: [go]
+        pass_filenames: false # go fmt handles files itself
+
+
+      - id: golang lint ci
+        name: golang lint
+        entry: make lint 
+        language: system
+        types: [go]
+        pass_filenames: false # lint handles files itself
