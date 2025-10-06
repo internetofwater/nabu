@@ -208,7 +208,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 			if !result_metadata.warning.IsNil() {
 				shaclFailuresSoFar := sitesWithShaclFailures.Load()
 				if shaclFailuresSoFar < int32(config.maxShaclErrorsToStore) {
-					log.Errorf("Shacl validation failed for %s: %s", url, result_metadata.warning)
+					log.Errorf("Shacl validation failed for %s: %s", url.Loc, result_metadata.warning)
 					s.warningMu.Lock()
 					s.warnings = append(s.warnings, result_metadata.warning)
 					s.warningMu.Unlock()
