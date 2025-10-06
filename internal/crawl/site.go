@@ -195,7 +195,6 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		err = validate_shacl(ctx, *config.grpcClient, url.Loc, string(jsonld))
 		if err != nil {
 			if shaclErr, ok := err.(ShaclValidationFailureError); ok {
-				log.Errorf("Failure for %s: %s", url.Loc, shaclErr.ShaclErrorMessage)
 				result_metadata.warning = pkg.ShaclInfo{
 					ShaclStatus:            pkg.ShaclInvalid,
 					ShaclValidationMessage: shaclErr.ShaclErrorMessage,
@@ -209,8 +208,8 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 				// validation mode wherein we fail fast upon shacl non-compliance
 				// however, we do allow a flag to exit and strictly fail
 				if config.exitOnShaclFailure {
-					log.Debugf("Returning early on shacl failure for %s", url.Loc)
-					return result_metadata, fmt.Errorf("exiting early with shacl failure %s", shaclErr.ShaclErrorMessage)
+					log.Errorf("Returning early on shacl failure for %s with message %s", url.Loc, shaclErr.ShaclErrorMessage)
+					return result_metadata, fmt.Errorf("exiting early for %s with shacl failure %s", url.Loc, shaclErr.ShaclErrorMessage)
 				}
 			} else {
 				return result_metadata, fmt.Errorf("failed to communicate with shacl validation service when harvesting %s: %w", url.Loc, err)

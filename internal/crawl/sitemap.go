@@ -208,9 +208,12 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 			if !result_metadata.warning.IsNil() {
 				shaclFailuresSoFar := sitesWithShaclFailures.Load()
 				if shaclFailuresSoFar < int32(config.maxShaclErrorsToStore) {
+					log.Errorf("Shacl validation failed for %s: %s", url.Loc, result_metadata.warning)
 					s.warningMu.Lock()
 					s.warnings = append(s.warnings, result_metadata.warning)
 					s.warningMu.Unlock()
+				} else if shaclFailuresSoFar == int32(config.maxShaclErrorsToStore) {
+					log.Warnf("Too many shacl errors for %s. Skipping further errors to prevent log spam", s.sitemapId)
 				}
 				if result_metadata.warning.ShaclStatus == pkg.ShaclInvalid {
 					sitesWithShaclFailures.Store(
@@ -283,6 +286,8 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	}
 
 	log.Debugf("Finished crawling sitemap %s in %f seconds", s.sitemapId, stats.SecondsToComplete)
+
+	log.Infof("Sitemap %s had %d successful urls, %d non fatal crawl errors, and %d shacl issues", s.sitemapId, len(successfulUrls), len(stats.CrawlFailures), stats.WarningStats.TotalShaclFailures)
 
 	return stats, err
 }
