@@ -42,4 +42,4 @@ __pycache__/
 .venv/
 .pytest_cache/
 
-.env
+.env.development

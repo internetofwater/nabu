@@ -164,5 +164,15 @@ a:hover {
   display: block; /* ensures margin works as expected */
   margin-top: 8px; /* adjust spacing as needed */
   font-style: italic;
-  color: #858585; /* optional, to match your theme */
+  color: #858585;
+}
+
+
+/* Add a wrapper around the dashboard */
+@media (min-width: 768px) {
+    .dashboardContainer {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
 }

@@ -16,6 +16,7 @@ import CrawlFailureTable from "./CrawlFailureTable";
 import type { SitemapCrawlStatsWithS3Metadata } from "./types";
 import Header from "./Header";
 import CrawlWarningTable from "./CrawlWarningTable";
+import SitemapIndexInfo from "./SitemapIndexInfo";
 
 const BUCKET = get_bucket();
 const PREFIX = get_prefix();
@@ -178,7 +179,7 @@ const CrawlStatusDashboard = () => {
   }, []);
 
   return (
-    <>
+    <div className={styles.dashboardContainer}>
       <Header
         jsonData={
           sitemaps
@@ -187,7 +188,7 @@ const CrawlStatusDashboard = () => {
         }
         jsonldData={jsonldData}
       />
-
+    <SitemapIndexInfo />
       {error && (
         <p style={{ color: "var(--error-bg)", textAlign: "center" }}>
           Error loading report: <i>{error}</i>
@@ -242,7 +243,7 @@ const CrawlStatusDashboard = () => {
           )}
         </div>
       ))}
-    </>
+    </div>
   );
 };
 
