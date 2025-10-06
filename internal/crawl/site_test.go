@@ -60,6 +60,33 @@ func TestTimeout(t *testing.T) {
 	require.Contains(t, report.nonFatalError.Message, "timeout")
 }
 
+func TestTimeoutWithHEADRequest(t *testing.T) {
+
+	const dummy_domain = "http://google.com"
+
+	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
+		dummy_domain: {
+			File:    "testdata/reference_feature.jsonld",
+			Timeout: true,
+		},
+	})
+
+	url := URL{
+		Loc: dummy_domain,
+	}
+	check := atomic.Bool{}
+	check.Store(true)
+	report, err := harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &SitemapHarvestConfig{
+		httpClient:                mockedClient,
+		storageDestination:        &storage.DiscardCrawlStorage{},
+		checkExistenceBeforeCrawl: &check,
+	})
+	require.NoError(t, err)
+	require.Equal(t, 0, report.nonFatalError.Status)
+	require.Contains(t, report.nonFatalError.Message, "Head")
+	require.Contains(t, report.nonFatalError.Message, "timeout")
+}
+
 func TestHarvestOneSite(t *testing.T) {
 
 	const dummy_domain = "http://google.com"

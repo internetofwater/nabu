@@ -6,6 +6,7 @@ package crawl
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"maps"
 	"math"
@@ -194,7 +195,9 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 		group.Go(func() error {
 			result_metadata, err := harvestOneSite(ctx, s.sitemapId, url, config)
 			if err != nil {
-				log.Error(err)
+				if !errors.Is(err, context.Canceled) {
+					log.Error(err)
+				}
 				return err
 			}
 			if !result_metadata.nonFatalError.IsNil() {

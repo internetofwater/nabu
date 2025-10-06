@@ -102,6 +102,11 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 
 	if config.checkExistenceBeforeCrawl.Load() {
 		hash, err := getRemoteJsonldHash(url.Loc, config.httpClient)
+		var maxErr *common.MaxRetryError
+		if errors.As(err, &maxErr) {
+			result_metadata.nonFatalError = pkg.UrlCrawlError{Url: url.Loc, Message: err.Error()}
+			return result_metadata, nil
+		}
 		if err != nil {
 			return result_metadata, fmt.Errorf("failed to get hash for %s: %w", url.Loc, err)
 		}
