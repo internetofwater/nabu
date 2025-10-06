@@ -120,7 +120,7 @@ func TestHarvestSitemapIndex(t *testing.T) {
 	sitemapUrls, err := NewSitemapIndexHarvester("https://geoconnex.us/sitemap.xml", mockedClient)
 	require.NoError(t, err)
 	// just test the first for the sake of brevity
-	sitemap, err := NewSitemap(context.Background(), mockedClient, sitemapUrls.GetUrlList()[0], 10, container.ClientWrapper, "test")
+	sitemap, err := NewSitemap(context.Background(), mockedClient, sitemapUrls.GetUrlList()[0], 1, container.ClientWrapper, "test")
 	require.NoError(t, err)
 
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, false)

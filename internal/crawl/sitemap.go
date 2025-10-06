@@ -194,6 +194,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 		group.Go(func() error {
 			result_metadata, err := harvestOneSite(ctx, s.sitemapId, url, config)
 			if err != nil {
+				log.Error(err)
 				return err
 			}
 			if !result_metadata.nonFatalError.IsNil() {
@@ -221,7 +222,6 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 				config.checkExistenceBeforeCrawl.Store(false)
 				log.Warn("Server didn't provide a hash for checking so skipping hash checks for harvested sites")
 			}
-
 			if math.Mod(float64(sitesHarvested.Load()), 1000) == 0 {
 				log.Debugf("Harvested %d/%d sites for %s", sitesHarvested.Load(), len(s.URL), s.sitemapId)
 			}
