@@ -103,8 +103,11 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAdd
 	var grpcClient protoBuild.ShaclValidatorClient
 	// shacl validation is optional
 	if shaclAddress != "" {
+		// 8 megabytes is the current upperbound of the jsonld documents we will validate
+		// beyond that is a sign that the document may be too large or incorrectly formatted
+		eightMegabytes := 8 * 1024 * 1024
 		conn, err := grpc.NewClient(shaclAddress,
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithMaxHeaderListSize(uint32(eightMegabytes)),
 		)
 		if err != nil {
 			return SitemapHarvestConfig{}, fmt.Errorf("failed to connect to gRPC server: %w", err)
@@ -228,7 +231,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 				config.checkExistenceBeforeCrawl.Store(false)
 				log.Warn("Server didn't provide a hash for checking so skipping hash checks for harvested sites")
 			}
-			if math.Mod(float64(sitesHarvested.Load()), 1000) == 0 {
+			if math.Mod(float64(sitesHarvested.Load()), 500) == 0 {
 				log.Infof("Harvested %d/%d sites for %s", sitesHarvested.Load(), len(s.URL), s.sitemapId)
 			}
 
