@@ -128,6 +128,11 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	log.Tracef("fetching %s", url.Loc)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.Loc, nil)
 	if err != nil {
+		var maxErr *common.MaxRetryError
+		if errors.As(err, &maxErr) {
+			result_metadata.nonFatalError = pkg.UrlCrawlError{Url: url.Loc, Message: err.Error()}
+			return result_metadata, nil
+		}
 		return result_metadata, err
 	}
 	req.Header.Set("User-Agent", gleanerAgent)
