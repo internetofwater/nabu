@@ -229,7 +229,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 				log.Warn("Server didn't provide a hash for checking so skipping hash checks for harvested sites")
 			}
 			if math.Mod(float64(sitesHarvested.Load()), 1000) == 0 {
-				log.Debugf("Harvested %d/%d sites for %s", sitesHarvested.Load(), len(s.URL), s.sitemapId)
+				log.Infof("Harvested %d/%d sites for %s", sitesHarvested.Load(), len(s.URL), s.sitemapId)
 			}
 
 			urlMutex.Lock()
