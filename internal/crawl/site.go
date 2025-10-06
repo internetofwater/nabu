@@ -6,12 +6,14 @@ package crawl
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	common "github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/pkg"
 	log "github.com/sirupsen/logrus"
@@ -133,6 +135,11 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 
 	resp, err := config.httpClient.Do(req)
 	if err != nil {
+		var maxErr *common.MaxRetryError
+		if errors.As(err, &maxErr) {
+			result_metadata.nonFatalError = pkg.UrlCrawlError{Url: url.Loc, Message: err.Error()}
+			return result_metadata, nil
+		}
 		return result_metadata, err
 	}
 	span.AddEvent("http_response", trace.WithAttributes(attribute.KeyValue{Key: "status", Value: attribute.StringValue(resp.Status)}))

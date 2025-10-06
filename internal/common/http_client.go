@@ -22,6 +22,9 @@ type MockResponse struct {
 	Body        string
 	StatusCode  int
 	ContentType string
+	// If true, the request will return an error
+	// signifying that the request timedout
+	Timeout bool
 }
 
 type MockTransport struct {
@@ -38,6 +41,10 @@ func (m *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	if (m.urlToFile[full_url] != MockResponse{}) {
 		associatedMock, ok := m.urlToFile[full_url]
+
+		if ok && associatedMock.Timeout {
+			return nil, &MaxRetryError{Err: fmt.Errorf("mocked a timeout for %s", full_url)}
+		}
 
 		if ok && associatedMock.Body != "" {
 			return &http.Response{
@@ -84,9 +91,18 @@ func NewMockedClient(strictMode bool, urlToMock map[string]MockResponse) *http.C
 
 // RetryTransport implements retries and exponential backoff at the transport level
 type RetryTransport struct {
-	Base    http.RoundTripper
-	Retries int
-	Backoff time.Duration
+	Base         http.RoundTripper
+	Retries      int
+	Backoff      time.Duration
+	ThrowTimeout bool
+}
+
+type MaxRetryError struct {
+	Err error
+}
+
+func (e MaxRetryError) Error() string {
+	return e.Err.Error()
 }
 
 func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -119,7 +135,7 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return resp, nil
 	}
 
-	return nil, fmt.Errorf("failed to get a successful response from %s after %d retries: %v", req.URL.String(), t.Retries, lastErr)
+	return nil, MaxRetryError{Err: fmt.Errorf("failed to get a successful response from %s after %d retries: %v", req.URL.String(), t.Retries, lastErr)}
 }
 
 // An http transport optimized for long-lived connections
