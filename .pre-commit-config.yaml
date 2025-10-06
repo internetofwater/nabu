@@ -4,7 +4,7 @@
 minimum_pre_commit_version: "2.9.0"
 ci:
   autoupdate_schedule: monthly
-  skip: [typescript_gen_types]
+  skip: [typescript_gen_types, golang lint, gofmt ]
 repos:
   - repo: meta
     hooks:
@@ -54,7 +54,7 @@ repos:
         pass_filenames: false # go fmt handles files itself
 
 
-      - id: golang lint ci
+      - id: golang lint
         name: golang lint
         entry: make lint 
         language: system
