@@ -91,12 +91,12 @@ func NewMockedClient(strictMode bool, urlToMock map[string]MockResponse) *http.C
 
 // RetryTransport implements retries and exponential backoff at the transport level
 type RetryTransport struct {
-	Base         http.RoundTripper
-	Retries      int
-	Backoff      time.Duration
-	ThrowTimeout bool
+	Base    http.RoundTripper
+	Retries int
+	Backoff time.Duration
 }
 
+// An error returned when the maximum number of retries is exceeded.
 type MaxRetryError struct {
 	Err error
 }
