@@ -135,7 +135,7 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return resp, nil
 	}
 
-	return nil, MaxRetryError{Err: fmt.Errorf("failed to get a successful response from %s after %d retries: %v", req.URL.String(), t.Retries, lastErr)}
+	return nil, &MaxRetryError{Err: fmt.Errorf("failed to get a successful response from %s after %d retries: %v", req.URL.String(), t.Retries, lastErr)}
 }
 
 // An http transport optimized for long-lived connections
