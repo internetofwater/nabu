@@ -208,7 +208,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 					return result_metadata, fmt.Errorf("exiting early with shacl failure %s", shaclErr.ShaclErrorMessage)
 				}
 			} else {
-				return result_metadata, fmt.Errorf("failed to communicate with shacl validation service: %w", err)
+				return result_metadata, fmt.Errorf("failed to communicate with shacl validation service when harvesting %s: %w", url.Loc, err)
 			}
 		}
 	}

@@ -90,6 +90,7 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 
 			csnq, err := common.NtToNq(singleFileNquad, graphURN)
 			if err != nil {
+				log.Errorf("error converting object '%s' with urn '%s' to nq: %s", obj.Key, graphURN, err)
 				errChan <- err
 				return
 			}
