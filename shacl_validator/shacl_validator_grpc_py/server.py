@@ -28,6 +28,7 @@ from lib import validate_graph
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+MAX_MESSAGE_SIZE = 8 * 1024 * 1024  # 8 MB in bytes
 
 class ShaclValidator(shacl_validator_pb2_grpc.ShaclValidatorServicer):
 
@@ -55,7 +56,12 @@ def serve(shacl_shape: Graph, socket_path: str = "0.0.0.0:50051"):
         socket_path: Path to the Unix domain socket to listen on.
     """
     # Configure the server
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=10),
+        options=[
+            ("grpc.max_receive_message_length", MAX_MESSAGE_SIZE),
+        ],
+    )
     # Add the Unix domain socket to the server
     success = server.add_insecure_port(socket_path)
     if not success:
