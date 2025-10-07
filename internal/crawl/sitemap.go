@@ -102,11 +102,11 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAdd
 	var grpcClient protoBuild.ShaclValidatorClient
 	// shacl validation is optional
 	if shaclAddress != "" {
-		// 8 megabytes is the current upperbound of the jsonld documents we will validate
+		// 32 megabytes is the current upperbound of the jsonld documents we will validate
 		// beyond that is a sign that the document may be too large or incorrectly formatted
-		eightMegabytes := 8 * 1024 * 1024
+		thirtyTwoMB := 32 * 1024 * 1024
 		conn, err := grpc.NewClient(shaclAddress,
-			grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithMaxHeaderListSize(uint32(eightMegabytes)),
+			grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithMaxHeaderListSize(uint32(thirtyTwoMB)),
 		)
 		if err != nil {
 			return SitemapHarvestConfig{}, fmt.Errorf("failed to connect to gRPC server: %w", err)
