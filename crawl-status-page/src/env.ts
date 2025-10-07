@@ -10,10 +10,14 @@ export function use_gcp() {
 }
 
 export function get_bucket() {
+  if (use_gcp()) {
+    return "metadata-geoconnex-us";
+  }
+
   if (import.meta.env.VITE_LOCAL_BUCKET_NAME) {
     return String(import.meta.env.VITE_LOCAL_BUCKET_NAME);
   }
-  return "metadata-geoconnex-us";
+  return "iow-metadata";
 }
 
 export function get_prefix() {

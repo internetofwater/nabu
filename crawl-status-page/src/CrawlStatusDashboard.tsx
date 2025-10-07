@@ -179,7 +179,7 @@ const CrawlStatusDashboard = () => {
   }, []);
 
   return (
-    <>
+    <div className={styles.dashboardContainer}>
       <Header
         jsonData={
           sitemaps
@@ -208,7 +208,7 @@ const CrawlStatusDashboard = () => {
               <div className={styles.sitemapHeaderRow}>
                 <h2>
                   Sitemap:{" "}
-                  {s.data.SitemapSourceLink !== "" ? (
+                  {s.data.SitemapSourceLink ? (
                     <a
                       href={s.data.SitemapSourceLink}
                       target="_blank"
@@ -231,7 +231,7 @@ const CrawlStatusDashboard = () => {
               </span>
 
               <p className={styles.successColor}>
-                Features downloaded ({s.data.SitesHarvested})
+                Features Downloaded: {s.data.SitesHarvested}
               </p>
 
               {s.data.WarningStats &&
@@ -245,7 +245,7 @@ const CrawlStatusDashboard = () => {
           )}
         </div>
       ))}
-    </>
+    </div>
   );
 };
 
