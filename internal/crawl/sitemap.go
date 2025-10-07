@@ -8,10 +8,8 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"maps"
 	"math"
 	"net/http"
-	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -38,7 +36,8 @@ type Sitemap struct {
 	XMLName xml.Name `xml:":urlset"`
 	URL     []URL    `xml:":url"`
 
-	sitemapId string `xml:"-"`
+	sitemapUrl string `xml:"-"`
+	sitemapId  string `xml:"-"`
 
 	// Strategy used for storing crawled data
 	// - explicitly ignores xml marshaling
@@ -179,9 +178,6 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	sitesHarvested := atomic.Int32{}
 	sitesWithShaclFailures := atomic.Int32{}
 
-	successfulUrls := make(map[string]string) // preallocate for performance
-	var urlMutex sync.Mutex
-
 	noPreviousData, err := s.storageDestination.IsEmptyDir("summoned/" + s.sitemapId)
 	if err != nil {
 		return pkg.SitemapCrawlStats{}, err
@@ -235,9 +231,6 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 				log.Infof("Harvested %d/%d sites for %s", sitesHarvested.Load(), len(s.URL), s.sitemapId)
 			}
 
-			urlMutex.Lock()
-			successfulUrls[url.Loc] = result_metadata.pathInStorage
-			urlMutex.Unlock()
 			return nil
 		})
 	}
@@ -268,7 +261,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	}
 
 	stats := pkg.SitemapCrawlStats{
-		SuccessfulUrls:    slices.Collect(maps.Keys(successfulUrls)),
+		SitemapSourceLink: s.sitemapUrl,
 		SecondsToComplete: time.Since(start).Seconds(),
 		SitemapName:       s.sitemapId,
 		SitesHarvested:    int(sitesHarvested.Load()),
@@ -290,7 +283,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 
 	log.Debugf("Finished crawling sitemap %s in %f seconds", s.sitemapId, stats.SecondsToComplete)
 
-	log.Infof("Sitemap %s had %d successful urls, %d non fatal crawl errors, and %d shacl issues", s.sitemapId, len(successfulUrls), len(stats.CrawlFailures), stats.WarningStats.TotalShaclFailures)
+	log.Infof("Sitemap %s had %d harvested urls, %d non fatal crawl errors, and %d shacl issues", s.sitemapId, stats.SitesHarvested, len(stats.CrawlFailures), stats.WarningStats.TotalShaclFailures)
 
 	return stats, err
 }
@@ -306,10 +299,16 @@ type URL struct {
 // Given a sitemap url, return a Sitemap object
 func NewSitemap(ctx context.Context, client *http.Client, sitemapURL string, workers int, storageDestination storage.CrawlStorage, sitemapId string) (*Sitemap, error) {
 	if workers == 0 {
-		return &Sitemap{}, fmt.Errorf("no workers set")
+		return &Sitemap{}, fmt.Errorf("no workers set in sitemap for %s", sitemapURL)
 	}
 
-	serializedSitemap := Sitemap{workers: workers}
+	serializedSitemap := Sitemap{workers: workers,
+		storageDestination: storageDestination,
+		sitemapId:          sitemapId,
+		sitemapUrl:         sitemapURL,
+		nonFatalErrors:     []pkg.UrlCrawlError{},
+		warnings:           []pkg.ShaclInfo{},
+	}
 
 	urls := make([]URL, 0)
 
@@ -331,11 +330,6 @@ func NewSitemap(ctx context.Context, client *http.Client, sitemapURL string, wor
 	}
 
 	serializedSitemap.URL = urls
-	serializedSitemap.storageDestination = storageDestination
-	serializedSitemap.sitemapId = sitemapId
-
-	serializedSitemap.nonFatalErrors = []pkg.UrlCrawlError{}
-	serializedSitemap.warnings = []pkg.ShaclInfo{}
 
 	return &serializedSitemap, nil
 }

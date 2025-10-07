@@ -4,18 +4,14 @@
  */
 
 import { useEffect, useState } from "react";
-import {
-  get_bucket,
-  get_prefix,
-  get_minio_client,
-  use_gcp,
-} from "./env";
+import { get_bucket, get_prefix, get_minio_client, use_gcp } from "./env";
 import styles from "./CrawlStatusDashboard.module.css";
 import { make_jsonld } from "./lib";
 import CrawlFailureTable from "./CrawlFailureTable";
 import type { SitemapCrawlStatsWithS3Metadata } from "./types";
 import Header from "./Header";
 import CrawlWarningTable from "./CrawlWarningTable";
+import SitemapIndexInfo from "./SitemapIndexInfo";
 
 const BUCKET = get_bucket();
 const PREFIX = get_prefix();
@@ -110,7 +106,9 @@ const CrawlStatusDashboard = () => {
           const listUrl = `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o?prefix=${PREFIX}`;
           const listRes = await fetch(listUrl);
           if (!listRes.ok)
-            throw new Error(`Failed to list objects: ${String(listRes.status)}`);
+            throw new Error(
+              `Failed to list objects: ${String(listRes.status)}`
+            );
 
           const listJson = (await listRes.json()) as {
             items: { name: string; updated: string }[];
@@ -166,7 +164,10 @@ const CrawlStatusDashboard = () => {
       } catch (err: unknown) {
         if (isMounted) {
           setError(err instanceof Error ? err.message : String(err));
-          console.error(`Error loading sitemaps from ${BUCKET} with prefix ${PREFIX}:`, err);
+          console.error(
+            `Error loading sitemaps from ${BUCKET} with prefix ${PREFIX}:`,
+            err
+          );
         }
       }
     };
@@ -193,7 +194,7 @@ const CrawlStatusDashboard = () => {
           Error loading report: <i>{error}</i>
         </p>
       )}
-
+    <SitemapIndexInfo  sitemapsCurrentlyShown={sitemaps.length} sitemapIndex={"https://geoconnex.us/sitemap.xml"} />
       {sitemaps.map((s) => (
         <div key={s.key} className={styles.sitemap}>
           {s.loading && <p>Loading sitemap {s.key}…</p>}
@@ -205,34 +206,36 @@ const CrawlStatusDashboard = () => {
           {s.data && (
             <>
               <div className={styles.sitemapHeaderRow}>
-                <h2>Sitemap: {s.data.SitemapName}</h2>
+                <h2>
+                  Sitemap:{" "}
+                  {s.data.SitemapSourceLink !== "" ? (
+                    <a
+                      href={s.data.SitemapSourceLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {s.data.SitemapName}
+                    </a>
+                  ): (
+                    s.data.SitemapName
+                  )}
+                </h2>
                 <span style={{ color: "gray" }}>
                   Last Modified: {s.data.LastModified?.split("T")[0]}
                 </span>
               </div>
               <span className={styles.meta}>
-                Features Harvested: {s.data.SitesHarvested} /{" "}
-                {s.data.SitesInSitemap}
+                Sites in Sitemap: {s.data.SitesInSitemap}
                 <br />
                 Time to Complete: {s.data.SecondsToComplete.toFixed(2)}s
               </span>
 
-              <details style={{ marginTop: "8px" }}>
-                <summary className={styles.successColor}>
-                  Features downloaded ({s.data.SuccessfulUrls.length})
-                </summary>
-                <ul className={styles.urlList}>
-                  {s.data.SuccessfulUrls.map((url: string) => (
-                    <li key={url}>
-                      <a href={url} target="_blank" rel="noopener noreferrer">
-                        {url}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </details>
+              <p className={styles.successColor}>
+                Features downloaded ({s.data.SitesHarvested})
+              </p>
 
-              {s.data.WarningStats && s.data.WarningStats.TotalShaclFailures > 0 &&
+              {s.data.WarningStats &&
+                s.data.WarningStats.TotalShaclFailures > 0 &&
                 CrawlWarningTable(s.data.WarningStats)}
 
               {s.data.CrawlFailures &&
