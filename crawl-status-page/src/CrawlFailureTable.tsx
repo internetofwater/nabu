@@ -11,7 +11,7 @@ export default function CrawlFailureTable(failures: UrlCrawlError[]) {
   return (
     <details>
       <summary className={styles.errorText}>
-        Failures ({failures.length})
+        Failures: {failures.length}
       </summary>
       <table className={styles.failureTable}>
         <thead>
