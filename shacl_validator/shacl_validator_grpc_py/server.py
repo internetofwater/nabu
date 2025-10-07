@@ -28,7 +28,7 @@ from lib import validate_graph
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MAX_MESSAGE_SIZE = 8 * 1024 * 1024  # 8 MB in bytes
+MAX_MESSAGE_SIZE = 32 * 1024 * 1024  # 32 MB in bytes
 
 class ShaclValidator(shacl_validator_pb2_grpc.ShaclValidatorServicer):
 
