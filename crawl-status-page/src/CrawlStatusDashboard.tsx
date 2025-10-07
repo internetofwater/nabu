@@ -179,7 +179,7 @@ const CrawlStatusDashboard = () => {
   }, []);
 
   return (
-    <>
+    <div className={styles.dashboardContainer}>
       <Header
         jsonData={
           sitemaps
@@ -231,7 +231,7 @@ const CrawlStatusDashboard = () => {
               </span>
 
               <p className={styles.successColor}>
-                Features downloaded ({s.data.SitesHarvested})
+                Features Downloaded: {s.data.SitesHarvested}
               </p>
 
               {s.data.WarningStats &&
@@ -245,7 +245,7 @@ const CrawlStatusDashboard = () => {
           )}
         </div>
       ))}
-    </>
+    </div>
   );
 };
 

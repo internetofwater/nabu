@@ -166,3 +166,11 @@ a:hover {
   font-style: italic;
   color: #858585; /* optional, to match your theme */
 }
+
+@media (min-width: 768px) {
+    .dashboardContainer {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+}
