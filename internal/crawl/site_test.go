@@ -34,6 +34,17 @@ func TestGetJsonLDWithBadMimetype(t *testing.T) {
 
 }
 
+func TestNoJsonLDInHTML(t *testing.T) {
+
+	resp := &http.Response{}
+	resp.Header = http.Header{
+		"Content-Type": []string{"text/html"},
+	}
+	_, err := getJSONLD(resp, URL{}, nil)
+	require.ErrorAs(t, err, &pkg.UrlCrawlError{})
+
+}
+
 func TestTimeout(t *testing.T) {
 
 	const dummy_domain = "http://google.com"
