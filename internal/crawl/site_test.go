@@ -34,6 +34,43 @@ func TestGetJsonLDWithBadMimetype(t *testing.T) {
 
 }
 
+func TestNoJsonLDInHTML(t *testing.T) {
+
+	resp := &http.Response{}
+	resp.Header = http.Header{
+		"Content-Type": []string{"text/html"},
+	}
+	_, err := getJSONLD(resp, URL{}, nil)
+	require.ErrorAs(t, err, &pkg.UrlCrawlError{})
+
+}
+
+func TestNoJSONLDInHarvest(t *testing.T) {
+
+	const dummy_domain = "http://google.com"
+
+	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
+		dummy_domain: {
+			Body:        "Nothing to parse",
+			ContentType: "text/html",
+			StatusCode:  200,
+		},
+	})
+
+	url := URL{
+		Loc: dummy_domain,
+	}
+	check := atomic.Bool{}
+	check.Store(true)
+	report, err := harvestOneSite(context.Background(), "DUMMY_SITEMAP", url, &SitemapHarvestConfig{
+		httpClient:                mockedClient,
+		storageDestination:        &storage.DiscardCrawlStorage{},
+		checkExistenceBeforeCrawl: &check,
+	})
+	require.NoError(t, err)
+	require.Equal(t, 200, report.nonFatalError.Status)
+}
+
 func TestTimeout(t *testing.T) {
 
 	const dummy_domain = "http://google.com"

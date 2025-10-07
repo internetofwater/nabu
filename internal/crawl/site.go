@@ -28,21 +28,19 @@ import (
 // inside the html
 func getJSONLD(resp *http.Response, url URL, body []byte) ([]byte, error) {
 	mime := resp.Header.Get("Content-Type")
-	if !strings.Contains(mime, "application/ld+json") {
-		if strings.Contains(mime, "text/html") {
-			jsonldString, err := GetJsonLDFromHTML(body)
-			if err != nil {
-				log.Errorf("failed to parse jsonld within the html for %s", url.Loc)
-				return nil, err
-			}
-			return []byte(jsonldString), nil
-		} else {
-			errormsg := fmt.Sprintf("got wrong file type %s for %s", mime, url.Loc)
-			log.Error(errormsg)
-			return nil, pkg.UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
+	if strings.Contains(mime, "application/ld+json") {
+		return body, nil
+	} else if strings.Contains(mime, "text/html") {
+		jsonldString, err := GetJsonLDFromHTML(body)
+		if err != nil {
+			log.Errorf("failed to parse jsonld within the html for %s", url.Loc)
+			return nil, pkg.UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: err.Error()}
 		}
+		return []byte(jsonldString), nil
 	}
-	return body, nil
+	errormsg := fmt.Sprintf("got wrong file type %s for %s", mime, url.Loc)
+	log.Error(errormsg)
+	return nil, pkg.UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
 }
 
 // Get the hash of the remote jsonld by using the Content-Digest header
@@ -172,6 +170,8 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		if urlErr, ok := err.(pkg.UrlCrawlError); ok {
 			span.SetStatus(codes.Error, urlErr.Message)
 			result_metadata.nonFatalError = urlErr
+			result_metadata.nonFatalError.Status = resp.StatusCode
+			result_metadata.nonFatalError.Message = urlErr.Message
 			return result_metadata, nil
 		}
 		return result_metadata, fmt.Errorf("failed to get JSON-LD from response: %w", err)
