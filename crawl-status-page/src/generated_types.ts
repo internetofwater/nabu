@@ -72,9 +72,12 @@ export interface WarningReport {
  */
 export interface SitemapCrawlStats {
   /**
-   * All the urls that were successfully crawled
+   * The link to the sitemap itself, containing all
+   * the sites that were harvested
+   * This allows a client to inspect the sitemap
+   * without needing to keep it all in this payload
    */
-  SuccessfulUrls: string[];
+  SitemapSourceLink: string;
   /**
    * Metadata about why a sitemap failed to be harvested
    */

@@ -73,8 +73,11 @@ type WarningReport struct {
 
 // Crawl stats for a particular sitemap
 type SitemapCrawlStats struct {
-	// All the urls that were successfully crawled
-	SuccessfulUrls []string
+	// The link to the sitemap itself, containing all
+	// the sites that were harvested
+	// This allows a client to inspect the sitemap
+	// without needing to keep it all in this payload
+	SitemapSourceLink string
 	// Metadata about why a sitemap failed to be harvested
 	CrawlFailures []UrlCrawlError
 	// Metadata about shacl validation warnings
