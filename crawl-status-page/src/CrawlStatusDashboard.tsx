@@ -208,7 +208,7 @@ const CrawlStatusDashboard = () => {
               <div className={styles.sitemapHeaderRow}>
                 <h2>
                   Sitemap:{" "}
-                  {s.data.SitemapSourceLink !== "" ? (
+                  {s.data.SitemapSourceLink ? (
                     <a
                       href={s.data.SitemapSourceLink}
                       target="_blank"
