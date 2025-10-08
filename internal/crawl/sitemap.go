@@ -260,6 +260,8 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 			}
 			cleanupChannel <- cleanedUpFiles
 		}()
+	} else {
+		log.Warnf("Skipping old JSON-LD cleanups. It is possible %s will contain outdated JSON-LD files", "summoned/"+s.sitemapId)
 	}
 
 	stats := pkg.SitemapCrawlStats{
