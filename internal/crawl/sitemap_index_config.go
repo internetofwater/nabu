@@ -20,8 +20,8 @@ func (i Index) WithShaclValidationConfig(shaclAddress string, exitOnShaclFailure
 	return i
 }
 
-func (i Index) WithOldJsonldCleanup(enabled bool) Index {
-	i.oldJsonldCleanupEnabled = enabled
+func (i Index) WithOutdatedJsonldCleanup(enabled bool) Index {
+	i.outdatedJsonldCleanupEnabled = enabled
 	return i
 }
 

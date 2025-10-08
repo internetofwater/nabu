@@ -17,6 +17,7 @@ import (
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/common/projectpath"
+	"github.com/internetofwater/nabu/internal/crawl/storage"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/require"
@@ -458,6 +459,42 @@ func (suite *S3ClientSuite) TestPullWithBytesums() {
 
 	err = suite.minioContainer.ClientWrapper.Remove(prefix)
 	suite.Require().NoError(err)
+}
+
+func (suite *S3ClientSuite) TestCleanupOldFiles() {
+	store := suite.minioContainer.ClientWrapper
+	err := store.Store("summoned/sitemap1/testfile.txt", bytes.NewReader([]byte("dummy_data")))
+	suite.Require().NoError(err)
+	filesinStorage := make(storage.Set)
+
+	// make sure files that are seen are kept
+	filesinStorage.Add("summoned/sitemap1/testfile.txt")
+	cleanedUpFiles, err := storage.CleanupFiles("summoned/sitemap1", filesinStorage, store)
+	suite.Require().Len(cleanedUpFiles, 0)
+	suite.Require().NoError(err)
+	res, err := store.Exists("summoned/sitemap1/testfile.txt")
+	suite.Require().NoError(err)
+	suite.Require().True(res, "File should still exist since it was in the set")
+
+	// make sure files that are not seen are removed
+	err = store.Store("summoned/sitemap1/THIS_SHOULD_BE_REMOVED.txt", bytes.NewReader([]byte("dummy_data")))
+	suite.Require().NoError(err)
+	cleanedUpFiles, err = storage.CleanupFiles("summoned/sitemap1", filesinStorage, store)
+	suite.Require().NoError(err)
+	res, err = store.Exists("summoned/sitemap1/THIS_SHOULD_BE_REMOVED.txt")
+	suite.Require().NoError(err)
+	suite.Require().False(res)
+	suite.Require().Len(cleanedUpFiles, 1)
+
+	// make sure files that in a different base path are not touched
+	err = store.Store("summoned/sitemap2/KEEP_THIS.txt", bytes.NewReader([]byte("dummy_data")))
+	suite.Require().NoError(err)
+	cleanedUpFiles, err = storage.CleanupFiles("summoned/sitemap1", filesinStorage, store)
+	suite.Require().Len(cleanedUpFiles, 0)
+	suite.Require().NoError(err)
+	res, err = store.Exists("summoned/sitemap2/KEEP_THIS.txt")
+	suite.Require().NoError(err)
+	suite.Require().True(res)
 }
 
 func (suite *S3ClientSuite) TestIsEmpty() {

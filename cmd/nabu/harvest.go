@@ -68,6 +68,6 @@ func Harvest(ctx context.Context, client *http.Client, minioConfig config.MinioC
 		WithSpecifiedSourceFilter(args.Source).
 		WithHeadlessChromeUrl(args.HeadlessChromeUrl).
 		WithShaclValidationConfig(args.ShaclEndpoint, args.ExitOnShaclFailure).
-		WithOldJsonldCleanup(args.CleanupOutdatedJsonld).
+		WithOutdatedJsonldCleanup(args.CleanupOutdatedJsonld).
 		HarvestSitemaps(ctx, client)
 }

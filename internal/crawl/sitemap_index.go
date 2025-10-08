@@ -30,14 +30,14 @@ type Index struct {
 	XMLName  xml.Name `xml:"sitemapindex"`
 	Sitemaps []parts  `xml:"sitemap"`
 
-	storageDestination      storage.CrawlStorage `xml:"-"`
-	concurrentSitemaps      int                  `xml:"-"`
-	specificSourceToHarvest string               `xml:"-"`
-	sitemapWorkers          int                  `xml:"-"`
-	headlessChromeUrl       string               `xml:"-"`
-	shaclAddress            string               `xml:"-"`
-	oldJsonldCleanupEnabled bool                 `xml:"-"`
-	exitOnShaclFailure      bool                 `xml:"-"`
+	storageDestination           storage.CrawlStorage `xml:"-"`
+	concurrentSitemaps           int                  `xml:"-"`
+	specificSourceToHarvest      string               `xml:"-"`
+	sitemapWorkers               int                  `xml:"-"`
+	headlessChromeUrl            string               `xml:"-"`
+	shaclAddress                 string               `xml:"-"`
+	outdatedJsonldCleanupEnabled bool                 `xml:"-"`
+	exitOnShaclFailure           bool                 `xml:"-"`
 }
 
 // parts is a structure of <sitemap> in <sitemapindex>
@@ -170,12 +170,12 @@ func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.Si
 				close(errChan)
 			}()
 
-			config, err := NewSitemapHarvestConfig(client, sitemap, i.shaclAddress, i.exitOnShaclFailure, i.oldJsonldCleanupEnabled)
+			config, err := NewSitemapHarvestConfig(client, sitemap, i.shaclAddress, i.exitOnShaclFailure, i.outdatedJsonldCleanupEnabled)
 			if err != nil {
 				return err
 			}
 
-			stats, harvestErr := sitemap.
+			stats, _, harvestErr := sitemap.
 				Harvest(ctx, &config)
 
 			for err := range errChan {
@@ -230,14 +230,15 @@ func (i Index) HarvestSitemap(ctx context.Context, client *http.Client, sitemapI
 			return pkg.SitemapCrawlStats{}, err
 		}
 
-		config, err := NewSitemapHarvestConfig(client, sitemap, i.shaclAddress, i.exitOnShaclFailure, i.oldJsonldCleanupEnabled)
+		config, err := NewSitemapHarvestConfig(client, sitemap, i.shaclAddress, i.exitOnShaclFailure, i.outdatedJsonldCleanupEnabled)
 
 		if err != nil {
 			return pkg.SitemapCrawlStats{}, err
 		}
 
-		return sitemap.
+		stats, _, err := sitemap.
 			Harvest(ctx, &config)
+		return stats, err
 	}
 	return pkg.SitemapCrawlStats{}, fmt.Errorf("sitemap %s not found in sitemap", sitemapIdentifier)
 }

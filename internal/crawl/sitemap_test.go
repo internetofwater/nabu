@@ -4,6 +4,7 @@
 package crawl
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"testing"
@@ -45,9 +46,55 @@ func TestHarvestSitemap(t *testing.T) {
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, false)
 	require.NoError(t, err)
 
-	_, errs := sitemap.
+	_, _, err = sitemap.
 		Harvest(context.Background(), &config)
-	require.NoError(t, errs)
+	require.NoError(t, err)
+}
+
+func TestHarvestSitemapWithCleanup(t *testing.T) {
+
+	mockedClient := common.NewMockedClient(
+		true,
+		map[string]common.MockResponse{
+			"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {
+				StatusCode: 200,
+				File:       "testdata/sitemap.xml",
+			},
+			"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C": {
+				StatusCode: 200,
+				File:       "testdata/reference_feature.jsonld",
+			},
+			"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2": {
+				StatusCode: 200,
+				File:       "testdata/reference_feature.jsonld",
+			},
+			"https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A": {
+				StatusCode: 200,
+				File:       "testdata/reference_feature.jsonld",
+			},
+		})
+
+	storage, err := storage.NewLocalTempFSCrawlStorage()
+	require.NoError(t, err)
+	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 10, storage, "test")
+	require.NoError(t, err)
+
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, true)
+	require.NoError(t, err)
+
+	err = storage.Store("summoned/"+sitemap.sitemapId+"/testfile.txt", bytes.NewReader([]byte("dummy_data")))
+	require.NoError(t, err)
+	err = storage.Store("summoned/"+sitemap.sitemapId+"/testfile2.txt", bytes.NewReader([]byte("dummy_data")))
+	require.NoError(t, err)
+	err = storage.Store("summoned/"+sitemap.sitemapId+"/testfile3.txt", bytes.NewReader([]byte("dummy_data")))
+	require.NoError(t, err)
+
+	_, cleanupChan, err := sitemap.
+		Harvest(context.Background(), &config)
+	require.NoError(t, err)
+	// wait for cleanup to finish
+	cleanedUpFiles := <-cleanupChan
+	require.Len(t, cleanedUpFiles, 3)
 }
 
 func TestErrorGroupCtxCancelling(t *testing.T) {
