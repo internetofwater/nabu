@@ -194,7 +194,10 @@ const CrawlStatusDashboard = () => {
           Error loading report: <i>{error}</i>
         </p>
       )}
-    <SitemapIndexInfo  sitemapsCurrentlyShown={sitemaps.length} sitemapIndex={"https://geoconnex.us/sitemap.xml"} />
+      <SitemapIndexInfo
+        sitemapsCurrentlyShown={sitemaps.length}
+        sitemapIndex={"https://geoconnex.us/sitemap.xml"}
+      />
       {sitemaps.map((s) => (
         <div key={s.key} className={styles.sitemap}>
           {s.loading && <p>Loading sitemap {s.key}…</p>}
@@ -216,7 +219,7 @@ const CrawlStatusDashboard = () => {
                     >
                       {s.data.SitemapName}
                     </a>
-                  ): (
+                  ) : (
                     s.data.SitemapName
                   )}
                 </h2>
@@ -229,10 +232,11 @@ const CrawlStatusDashboard = () => {
                 <br />
                 Time to Complete: {s.data.SecondsToComplete.toFixed(2)}s
               </span>
-
-              <p className={styles.successColor}>
-                Features Downloaded: {s.data.SitesHarvested}
-              </p>
+              <strong>
+                <p className={styles.successColor}>
+                  Features Downloaded: {s.data.SitesHarvested}
+                </p>
+              </strong>
 
               {s.data.WarningStats &&
                 s.data.WarningStats.TotalShaclFailures > 0 &&

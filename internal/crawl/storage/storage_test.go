@@ -48,6 +48,10 @@ func TestSet(t *testing.T) {
 	set.Add("testfile.txt")
 	require.True(t, set.Contains("testfile.txt"))
 	require.False(t, set.Contains("testfile2.txt"))
+
+	require.Len(t, set, 1)
+	set.Add("testfile3.txt")
+	require.Len(t, set, 2)
 }
 
 func TestListDir(t *testing.T) {

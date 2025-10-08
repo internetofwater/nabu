@@ -203,7 +203,6 @@ func CleanupFiles(pathInStorage string, sitesToKeep Set, storage CrawlStorage) (
 		return nil, fmt.Errorf("sitesToKeep is empty")
 	}
 
-	log.Infof("Cleaning up old JSON-LD files in %s", pathInStorage)
 	files, err := storage.ListDir(pathInStorage)
 	if err != nil {
 		log.Error(err)
@@ -227,6 +226,5 @@ func CleanupFiles(pathInStorage string, sitesToKeep Set, storage CrawlStorage) (
 		}
 		pathsDeleted = append(pathsDeleted, absPath)
 	}
-	log.Infof("Old file cleanup complete, deleted %d files", len(pathsDeleted))
 	return pathsDeleted, nil
 }

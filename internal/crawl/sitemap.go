@@ -177,10 +177,10 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	start := time.Now()
 	log.Infof("Harvesting sitemap %s with %d urls", s.sitemapId, len(s.URL))
 
-	seenSitesMu := sync.Mutex{}
+	downloadedSitesMu := sync.Mutex{}
 	// includes both sites that were download
 	// and sites that were skipped due to having a matching hash
-	sitesSeenDuringHarvest := make(storage.Set)
+	sitesDownloaded := make(storage.Set)
 
 	sitesWithShaclFailures := atomic.Int32{}
 
@@ -226,18 +226,25 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 					)
 				}
 			}
-			seenSitesMu.Lock()
-			sitesSeenDuringHarvest.Add(result_metadata.pathInStorage)
-			seenSitesMu.Unlock()
-
+			if result_metadata.pathInStorage != "" {
+				downloadedSitesMu.Lock()
+				if sitesDownloaded.Contains(result_metadata.pathInStorage) {
+					downloadedSitesMu.Unlock()
+					errMsg := fmt.Sprintf("Got at least two responses in the same sitemap crawl that resolved to the same path in storage: %s. URL %s has potential duplicate data in API", result_metadata.pathInStorage, url.Loc)
+					log.Error(errMsg)
+					return pkg.UrlCrawlError{Url: url.Loc, Message: errMsg}
+				}
+				sitesDownloaded.Add(result_metadata.pathInStorage)
+				downloadedSitesMu.Unlock()
+			}
 			if !result_metadata.serverHadHash && config.checkExistenceBeforeCrawl.Load() {
 				// if the server didn't provide a hash then we can skip the hash check
 				// since presumably the server doesn't support this header in the HEAD request
 				config.checkExistenceBeforeCrawl.Store(false)
 				log.Warnf("Server didn't provide a hash on %s. Skipping hash checks going forward for harvested sites", url.Loc)
 			}
-			if math.Mod(float64(len(sitesSeenDuringHarvest)), 500) == 0 {
-				log.Infof("Harvested %d/%d sites for %s", len(sitesSeenDuringHarvest), len(s.URL), s.sitemapId)
+			if math.Mod(float64(len(sitesDownloaded)), 500) == 0 {
+				log.Infof("Harvested %d/%d sites for %s", len(sitesDownloaded), len(s.URL), s.sitemapId)
 			}
 
 			return nil
@@ -252,7 +259,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 		go func() {
 			defer close(cleanupChannel)
 			log.Info("Cleaning up outdated JSON-LD files in summoned/" + s.sitemapId)
-			cleanedUpFiles, err := storage.CleanupFiles("summoned/"+s.sitemapId, sitesSeenDuringHarvest, s.storageDestination)
+			cleanedUpFiles, err := storage.CleanupFiles("summoned/"+s.sitemapId, sitesDownloaded, s.storageDestination)
 			if err != nil {
 				log.Error(err)
 			} else {
@@ -268,7 +275,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 		SitemapSourceLink: s.sitemapUrl,
 		SecondsToComplete: time.Since(start).Seconds(),
 		SitemapName:       s.sitemapId,
-		SitesHarvested:    len(sitesSeenDuringHarvest),
+		SitesHarvested:    len(sitesDownloaded),
 		SitesInSitemap:    len(s.URL),
 		WarningStats: pkg.WarningReport{
 			TotalShaclFailures: int(sitesWithShaclFailures.Load()),

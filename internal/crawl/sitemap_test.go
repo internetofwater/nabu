@@ -27,28 +27,33 @@ func TestHarvestSitemap(t *testing.T) {
 				File:       "testdata/sitemap.xml",
 			},
 			"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C": {
-				StatusCode: 200,
-				File:       "testdata/reference_feature.jsonld",
+				StatusCode:  200,
+				File:        "testdata/reference_feature.jsonld",
+				ContentType: "application/ld+json",
 			},
 			"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2": {
-				StatusCode: 200,
-				File:       "testdata/reference_feature.jsonld",
+				StatusCode:  200,
+				File:        "testdata/reference_feature_2.jsonld",
+				ContentType: "application/ld+json",
 			},
 			"https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A": {
-				StatusCode: 200,
-				File:       "testdata/reference_feature.jsonld",
+				StatusCode:  200,
+				File:        "testdata/reference_feature_3.jsonld",
+				ContentType: "application/ld+json",
 			},
 		})
 
-	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 10, &storage.DiscardCrawlStorage{}, "test")
+	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, &storage.DiscardCrawlStorage{}, "test")
 	require.NoError(t, err)
 
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, false)
 	require.NoError(t, err)
 
-	_, _, err = sitemap.
+	results, _, err := sitemap.
 		Harvest(context.Background(), &config)
 	require.NoError(t, err)
+
+	require.Equal(t, results.SitesHarvested, 3)
 }
 
 func TestHarvestSitemapWithCleanup(t *testing.T) {
@@ -61,22 +66,25 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 				File:       "testdata/sitemap.xml",
 			},
 			"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C": {
-				StatusCode: 200,
-				File:       "testdata/reference_feature.jsonld",
+				StatusCode:  200,
+				File:        "testdata/reference_feature.jsonld",
+				ContentType: "application/ld+json",
 			},
 			"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2": {
-				StatusCode: 200,
-				File:       "testdata/reference_feature.jsonld",
+				StatusCode:  200,
+				File:        "testdata/reference_feature_2.jsonld",
+				ContentType: "application/ld+json",
 			},
 			"https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A": {
-				StatusCode: 200,
-				File:       "testdata/reference_feature.jsonld",
+				StatusCode:  200,
+				File:        "testdata/reference_feature_3.jsonld",
+				ContentType: "application/ld+json",
 			},
 		})
 
 	storage, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
-	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 10, storage, "test")
+	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
 	require.NoError(t, err)
 
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, true)
