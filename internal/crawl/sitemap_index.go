@@ -175,7 +175,7 @@ func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.Si
 				return err
 			}
 
-			stats, harvestErr := sitemap.
+			stats, _, harvestErr := sitemap.
 				Harvest(ctx, &config)
 
 			for err := range errChan {
@@ -236,8 +236,9 @@ func (i Index) HarvestSitemap(ctx context.Context, client *http.Client, sitemapI
 			return pkg.SitemapCrawlStats{}, err
 		}
 
-		return sitemap.
+		stats, _, err := sitemap.
 			Harvest(ctx, &config)
+		return stats, err
 	}
 	return pkg.SitemapCrawlStats{}, fmt.Errorf("sitemap %s not found in sitemap", sitemapIdentifier)
 }

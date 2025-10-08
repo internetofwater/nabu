@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -124,21 +125,21 @@ func (l *LocalTempFSCrawlStorage) Exists(object string) (bool, error) {
 }
 
 func (l *LocalTempFSCrawlStorage) ListDir(prefix string) (Set, error) {
-	filepath := filepath.Join(l.baseDir, prefix)
+	dirPath := filepath.Join(l.baseDir, prefix)
 
-	files, err := os.ReadDir(filepath)
+	entries, err := os.ReadDir(dirPath)
 	if err != nil {
 		return nil, err
 	}
 
 	set := make(Set)
-	for _, file := range files {
-		set[objectPath(file.Name())] = struct{}{}
+	for _, entry := range entries {
+		fullPath := filepath.Join(dirPath, entry.Name())
+		set.Add(fullPath)
 	}
 
 	return set, nil
 }
-
 func (l *LocalTempFSCrawlStorage) Remove(object string) error {
 	return os.Remove(filepath.Join(l.baseDir, object))
 }
@@ -186,3 +187,46 @@ func (DiscardCrawlStorage) IsEmptyDir(objectPath) (bool, error) {
 
 var _ CrawlStorage = DiscardCrawlStorage{}
 var _ CrawlStorage = &LocalTempFSCrawlStorage{}
+
+// Given a storage path, iterate through it and remove any files that aren't in sitesToKeep
+func CleanupFiles(pathInStorage string, sitesToKeep Set, storage CrawlStorage) ([]string, error) {
+	if pathInStorage == "" {
+		return nil, fmt.Errorf("path is empty")
+	}
+	if !strings.Contains(pathInStorage, "/") {
+		return nil, fmt.Errorf("path should not be just one filename but got: %s", pathInStorage)
+	}
+	if strings.HasPrefix(pathInStorage, "/") {
+		return nil, fmt.Errorf("path should not be absolute and start with / but got %s", pathInStorage)
+	}
+	if len(sitesToKeep) == 0 {
+		return nil, fmt.Errorf("sitesToKeep is empty")
+	}
+
+	log.Infof("Cleaning up old JSON-LD files in %s", pathInStorage)
+	files, err := storage.ListDir(pathInStorage)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	pathsDeleted := []string{}
+	for absPath := range files {
+		index := strings.Index(absPath, pathInStorage)
+		if index == -1 {
+			return nil, fmt.Errorf("unexpected path format: %s", absPath)
+		}
+		relativePath := absPath[index:]
+
+		// don't clean up sites we harvested
+		if sitesToKeep.Contains(relativePath) {
+			continue
+		}
+		if err := storage.Remove(relativePath); err != nil {
+			log.Errorf("Error cleaning up outdated file %s: %v", absPath, err)
+			return nil, err
+		}
+		pathsDeleted = append(pathsDeleted, absPath)
+	}
+	log.Infof("Old file cleanup complete, deleted %d files", len(pathsDeleted))
+	return pathsDeleted, nil
+}

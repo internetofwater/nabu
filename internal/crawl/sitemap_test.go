@@ -45,9 +45,9 @@ func TestHarvestSitemap(t *testing.T) {
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, false)
 	require.NoError(t, err)
 
-	_, errs := sitemap.
+	_, _, err = sitemap.
 		Harvest(context.Background(), &config)
-	require.NoError(t, errs)
+	require.NoError(t, err)
 }
 
 func TestErrorGroupCtxCancelling(t *testing.T) {

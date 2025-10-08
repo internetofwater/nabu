@@ -6,6 +6,7 @@ package storage
 import (
 	"bytes"
 	"io"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -47,4 +48,53 @@ func TestSet(t *testing.T) {
 	set.Add("testfile.txt")
 	require.True(t, set.Contains("testfile.txt"))
 	require.False(t, set.Contains("testfile2.txt"))
+}
+
+func TestListDir(t *testing.T) {
+	storage, err := NewLocalTempFSCrawlStorage()
+	require.NoError(t, err)
+	err = storage.Store("testfile.txt", bytes.NewReader([]byte("dummy_data")))
+	require.NoError(t, err)
+	set, err := storage.ListDir("")
+	require.NoError(t, err)
+	for item := range set {
+		isAbs := path.IsAbs(item)
+		require.True(t, isAbs, "ListDir paths should be absolute")
+		require.Contains(t, item, "/testfile.txt")
+	}
+}
+
+func TestCleanupOldJsonld(t *testing.T) {
+	storage, err := NewLocalTempFSCrawlStorage()
+	// setup
+	require.NoError(t, err)
+	err = storage.Store("summoned/sitemap1/testfile.txt", bytes.NewReader([]byte("dummy_data")))
+	require.NoError(t, err)
+	filesinStorage := make(Set)
+
+	// "make sure files that are seen are kept"
+	filesinStorage.Add("summoned/sitemap1/testfile.txt")
+	_, err = CleanupFiles("summoned/sitemap1", filesinStorage, storage)
+	require.NoError(t, err)
+	res, err := storage.Exists("summoned/sitemap1/testfile.txt")
+	require.NoError(t, err)
+	require.True(t, res, "File should still exist since it was in the set")
+
+	// "make sure files that are not seen are removed"
+	err = storage.Store("summoned/sitemap1/THIS_SHOULD_BE_REMOVED.txt", bytes.NewReader([]byte("dummy_data")))
+	require.NoError(t, err)
+	_, err = CleanupFiles("summoned/sitemap1", filesinStorage, storage)
+	require.NoError(t, err)
+	res, err = storage.Exists("summoned/sitemap1/THIS_SHOULD_BE_REMOVED.txt")
+	require.NoError(t, err)
+	require.False(t, res)
+
+	// make sure files that in a different path are not touched", func(t *testing.T)
+	err = storage.Store("summoned/sitemap2/KEEP_THIS.txt", bytes.NewReader([]byte("dummy_data")))
+	require.NoError(t, err)
+	_, err = CleanupFiles("summoned/sitemap1", filesinStorage, storage)
+	require.NoError(t, err)
+	res, err = storage.Exists("summoned/sitemap2/KEEP_THIS.txt")
+	require.NoError(t, err)
+	require.True(t, res)
 }

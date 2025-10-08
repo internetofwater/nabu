@@ -157,12 +157,12 @@ func (s *Sitemap) ensureValid(workers int) error {
 }
 
 // Harvest all the URLs in the given sitemap
-func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, error) {
+func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, chan []string, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", s.sitemapId))
 	defer span.End()
 
 	if err := s.ensureValid(config.workers); err != nil {
-		return pkg.SitemapCrawlStats{}, err
+		return pkg.SitemapCrawlStats{}, nil, err
 	}
 
 	group, ctx := errgroup.WithContext(ctx)
@@ -175,12 +175,16 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	start := time.Now()
 	log.Infof("Harvesting sitemap %s with %d urls", s.sitemapId, len(s.URL))
 
-	sitesHarvested := atomic.Int32{}
+	seenSitesMu := sync.Mutex{}
+	// includes both sites that were download
+	// and sites that were skipped due to having a matching hash
+	sitesSeenDuringHarvest := make(storage.Set)
+
 	sitesWithShaclFailures := atomic.Int32{}
 
 	noPreviousData, err := s.storageDestination.IsEmptyDir("summoned/" + s.sitemapId)
 	if err != nil {
-		return pkg.SitemapCrawlStats{}, err
+		return pkg.SitemapCrawlStats{}, nil, err
 	}
 
 	if noPreviousData {
@@ -220,43 +224,35 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 					)
 				}
 			}
-			sitesHarvested.Add(1)
+			seenSitesMu.Lock()
+			sitesSeenDuringHarvest.Add(result_metadata.pathInStorage)
+			seenSitesMu.Unlock()
+
 			if !result_metadata.serverHadHash && config.checkExistenceBeforeCrawl.Load() {
 				// if the server didn't provide a hash then we can skip the hash check
 				// since presumably the server doesn't support this header in the HEAD request
 				config.checkExistenceBeforeCrawl.Store(false)
-				log.Warn("Server didn't provide a hash for checking so skipping hash checks for harvested sites")
+				log.Warnf("Server didn't provide a hash on %s. Skipping hash checks going forward for harvested sites", url.Loc)
 			}
-			if math.Mod(float64(sitesHarvested.Load()), 500) == 0 {
-				log.Infof("Harvested %d/%d sites for %s", sitesHarvested.Load(), len(s.URL), s.sitemapId)
+			if math.Mod(float64(len(sitesSeenDuringHarvest)), 500) == 0 {
+				log.Infof("Harvested %d/%d sites for %s", len(sitesSeenDuringHarvest), len(s.URL), s.sitemapId)
 			}
 
 			return nil
 		})
 	}
 	if err = group.Wait(); err != nil {
-		return pkg.SitemapCrawlStats{}, err
+		return pkg.SitemapCrawlStats{}, nil, err
 	}
 
+	cleanupChannel := make(chan []string, 1)
 	if config.cleanupOldJsonld {
 		go func() {
-			dir := "summoned/" + s.sitemapId
-			log.Infof("Cleaning up old JSON-LD files in %s", dir)
-			files, err := s.storageDestination.ListDir(dir)
+			cleanedUpFiles, err := storage.CleanupFiles("summoned/"+s.sitemapId, sitesSeenDuringHarvest, s.storageDestination)
 			if err != nil {
 				log.Error(err)
-				return
 			}
-			var deleteTotal int
-			for k, v := range files {
-				if !files.Contains(k) {
-					if err := s.storageDestination.Remove(fmt.Sprintf("summoned/%s/%s", s.sitemapId, v)); err != nil {
-						log.Error(err)
-					}
-					deleteTotal++
-				}
-			}
-			log.Infof("Json-LD cleanup complete, deleted %d files", deleteTotal)
+			cleanupChannel <- cleanedUpFiles
 		}()
 	}
 
@@ -264,7 +260,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 		SitemapSourceLink: s.sitemapUrl,
 		SecondsToComplete: time.Since(start).Seconds(),
 		SitemapName:       s.sitemapId,
-		SitesHarvested:    int(sitesHarvested.Load()),
+		SitesHarvested:    len(sitesSeenDuringHarvest),
 		SitesInSitemap:    len(s.URL),
 		WarningStats: pkg.WarningReport{
 			TotalShaclFailures: int(sitesWithShaclFailures.Load()),
@@ -285,7 +281,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 
 	log.Infof("Sitemap %s had %d harvested urls, %d non fatal crawl errors, and %d shacl issues", s.sitemapId, stats.SitesHarvested, len(stats.CrawlFailures), stats.WarningStats.TotalShaclFailures)
 
-	return stats, err
+	return stats, cleanupChannel, err
 }
 
 // Represents a URL tag and its attributes within a sitemap

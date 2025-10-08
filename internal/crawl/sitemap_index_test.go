@@ -125,11 +125,11 @@ func TestHarvestSitemapIndex(t *testing.T) {
 
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, false)
 	require.NoError(t, err)
-	_, errs := sitemap.Harvest(context.Background(), &config)
+	_, _, errs := sitemap.Harvest(context.Background(), &config)
 	require.NoError(t, errs)
 
 	config.workers = 1
-	_, errs = sitemap.Harvest(context.Background(), &config)
+	_, _, errs = sitemap.Harvest(context.Background(), &config)
 	require.NoError(t, errs)
 	numObjs, err := container.ClientWrapper.NumberOfMatchingObjects([]string{""})
 	require.NoError(t, err)
