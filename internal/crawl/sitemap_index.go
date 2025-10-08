@@ -30,14 +30,14 @@ type Index struct {
 	XMLName  xml.Name `xml:"sitemapindex"`
 	Sitemaps []parts  `xml:"sitemap"`
 
-	storageDestination      storage.CrawlStorage `xml:"-"`
-	concurrentSitemaps      int                  `xml:"-"`
-	specificSourceToHarvest string               `xml:"-"`
-	sitemapWorkers          int                  `xml:"-"`
-	headlessChromeUrl       string               `xml:"-"`
-	shaclAddress            string               `xml:"-"`
-	oldJsonldCleanupEnabled bool                 `xml:"-"`
-	exitOnShaclFailure      bool                 `xml:"-"`
+	storageDestination           storage.CrawlStorage `xml:"-"`
+	concurrentSitemaps           int                  `xml:"-"`
+	specificSourceToHarvest      string               `xml:"-"`
+	sitemapWorkers               int                  `xml:"-"`
+	headlessChromeUrl            string               `xml:"-"`
+	shaclAddress                 string               `xml:"-"`
+	outdatedJsonldCleanupEnabled bool                 `xml:"-"`
+	exitOnShaclFailure           bool                 `xml:"-"`
 }
 
 // parts is a structure of <sitemap> in <sitemapindex>
@@ -170,7 +170,7 @@ func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.Si
 				close(errChan)
 			}()
 
-			config, err := NewSitemapHarvestConfig(client, sitemap, i.shaclAddress, i.exitOnShaclFailure, i.oldJsonldCleanupEnabled)
+			config, err := NewSitemapHarvestConfig(client, sitemap, i.shaclAddress, i.exitOnShaclFailure, i.outdatedJsonldCleanupEnabled)
 			if err != nil {
 				return err
 			}
@@ -230,7 +230,7 @@ func (i Index) HarvestSitemap(ctx context.Context, client *http.Client, sitemapI
 			return pkg.SitemapCrawlStats{}, err
 		}
 
-		config, err := NewSitemapHarvestConfig(client, sitemap, i.shaclAddress, i.exitOnShaclFailure, i.oldJsonldCleanupEnabled)
+		config, err := NewSitemapHarvestConfig(client, sitemap, i.shaclAddress, i.exitOnShaclFailure, i.outdatedJsonldCleanupEnabled)
 
 		if err != nil {
 			return pkg.SitemapCrawlStats{}, err

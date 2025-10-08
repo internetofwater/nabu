@@ -77,13 +77,15 @@ type SitemapHarvestConfig struct {
 	storageDestination        storage.CrawlStorage
 	exitOnShaclFailure        bool
 	maxShaclErrorsToStore     int
-	cleanupOldJsonld          bool
+	// cleanup any jsonld in the last dir in the path
+	// that wasn't found during the sitemap crawl
+	cleanupOutdatedJsonld bool
 }
 
 // Make a new SiteHarvestConfig with all the clients and config
 // initialized and ready to crawl a sitemap
 // this config is shared across all goroutines and thus must be thread safe
-func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAddress string, exitOnShaclFailure bool, cleanupOldJsonld bool) (SitemapHarvestConfig, error) {
+func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAddress string, exitOnShaclFailure bool, cleanupOutdatedJsonld bool) (SitemapHarvestConfig, error) {
 
 	if sitemap.workers < 1 {
 		return SitemapHarvestConfig{}, fmt.Errorf("no workers set for sitemap %s", sitemap.sitemapId)
@@ -135,7 +137,7 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAdd
 		storageDestination:        sitemap.storageDestination,
 		checkExistenceBeforeCrawl: &checkJsonldExistsBeforeDownloading,
 		exitOnShaclFailure:        exitOnShaclFailure,
-		cleanupOldJsonld:          cleanupOldJsonld,
+		cleanupOutdatedJsonld:     cleanupOutdatedJsonld,
 		workers:                   sitemap.workers,
 		// currently hard coded. will be configurable in the future
 		maxShaclErrorsToStore: 20,
@@ -246,7 +248,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	}
 
 	cleanupChannel := make(chan []string, 1)
-	if config.cleanupOldJsonld {
+	if config.cleanupOutdatedJsonld {
 		go func() {
 			cleanedUpFiles, err := storage.CleanupFiles("summoned/"+s.sitemapId, sitesSeenDuringHarvest, s.storageDestination)
 			if err != nil {

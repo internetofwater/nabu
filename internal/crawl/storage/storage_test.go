@@ -64,7 +64,7 @@ func TestListDir(t *testing.T) {
 	}
 }
 
-func TestCleanupOldJsonld(t *testing.T) {
+func TestCleanupOutdatedJsonld(t *testing.T) {
 	storage, err := NewLocalTempFSCrawlStorage()
 	// setup
 	require.NoError(t, err)
