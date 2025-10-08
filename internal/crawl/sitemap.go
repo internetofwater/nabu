@@ -275,11 +275,11 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	}
 	asJson, err := stats.ToJsonIoReader()
 	if err != nil {
-		log.Fatal(err)
+		return pkg.SitemapCrawlStats{}, nil, err
 	}
 	err = s.storageDestination.StoreMetadata(fmt.Sprintf("metadata/sitemaps/%s.json", s.sitemapId), asJson)
 	if err != nil {
-		log.Fatal(err)
+		return pkg.SitemapCrawlStats{}, nil, err
 	}
 
 	log.Debugf("Finished crawling sitemap %s in %f seconds", s.sitemapId, stats.SecondsToComplete)
