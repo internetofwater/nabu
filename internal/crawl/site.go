@@ -117,7 +117,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 				return result_metadata, err
 			}
 			if exists {
-				log.Infof("skipping %s because it already exists in %s", url.Loc, expectedLocationInStorage)
+				log.Tracef("skipping %s because it already exists in %s", url.Loc, expectedLocationInStorage)
 				result_metadata.pathInStorage = expectedLocationInStorage
 				return result_metadata, nil
 			}

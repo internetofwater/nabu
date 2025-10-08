@@ -255,8 +255,9 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 			cleanedUpFiles, err := storage.CleanupFiles("summoned/"+s.sitemapId, sitesSeenDuringHarvest, s.storageDestination)
 			if err != nil {
 				log.Error(err)
+			} else {
+				log.Infof("Cleaned up %d outdated JSON-LD files", len(cleanedUpFiles))
 			}
-			log.Infof("Cleaned up %d outdated JSON-LD files", len(cleanedUpFiles))
 			cleanupChannel <- cleanedUpFiles
 		}()
 	}
@@ -282,7 +283,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 		return pkg.SitemapCrawlStats{}, nil, err
 	}
 
-	log.Debugf("Finished crawling sitemap %s in %f seconds", s.sitemapId, stats.SecondsToComplete)
+	log.Infof("Finished crawling sitemap %s in %f seconds", s.sitemapId, stats.SecondsToComplete)
 
 	log.Infof("Sitemap %s had %d harvested urls, %d non fatal crawl errors, and %d shacl issues", s.sitemapId, stats.SitesHarvested, len(stats.CrawlFailures), stats.WarningStats.TotalShaclFailures)
 
