@@ -95,9 +95,9 @@ export interface SitemapCrawlStats {
    */
   SitemapName: string;
   /**
-   * The number of sites that were successfully crawled and stored
+   * The number of sites that were successfully crawled and stored or skipped due to a matching hash in storage
    */
-  SitesHarvested: number /* int */;
+  SuccessfulSites: number /* int */;
   /**
    * The number of total sites in the sitemap
    */

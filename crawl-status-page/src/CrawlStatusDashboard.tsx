@@ -234,7 +234,7 @@ const CrawlStatusDashboard = () => {
               </span>
               <strong>
                 <p className={styles.successColor}>
-                  Features Downloaded: {s.data.SitesHarvested}
+                  Successful Features: {s.data.SuccessfulSites}
                 </p>
               </strong>
 

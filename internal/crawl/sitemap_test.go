@@ -53,7 +53,7 @@ func TestHarvestSitemap(t *testing.T) {
 		Harvest(context.Background(), &config)
 	require.NoError(t, err)
 
-	require.Equal(t, results.SitesHarvested, 3)
+	require.Equal(t, results.SuccessfulSites, 3)
 }
 
 func TestHarvestSitemapWithCleanup(t *testing.T) {
