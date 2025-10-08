@@ -60,5 +60,12 @@ services:
       - "9000:9000"
       - "9001:9001"
 
+  chrome:
+    image: chromedp/headless-shell:latest
+    container_name: chrorom9e92292e
+    restart: unless-stopped
+    ports:
+      - "9222:9222"
+
 volumes:
   minio_data:
