@@ -1,0 +1,20 @@
+{
+    "@context": [
+        {
+            "schema": "https://schema.org/",
+            "gsp": "http://www.opengis.net/ont/geosparql#",
+            "type": "@type"
+        }
+    ],
+    "@type": "schema:Place",
+    "id": "0124568",
+    "prev": "0124472",
+    "next": "0124616",
+    "fid": 9635,
+    "placefp": "24568",
+    "affgeoid": "1600000US0124568",
+    "schema:name": "Eufaula",
+    "census_profile": "https://data.census.gov/cedsci/profile?g=1600000US0124568",
+    "placens": "02403575",
+    "statefp": "01"
+}

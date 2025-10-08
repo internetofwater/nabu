@@ -226,6 +226,6 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		log.Debug("sleeping for", config.robots.CrawlDelay)
 		time.Sleep(config.robots.CrawlDelay)
 	}
-
+	result_metadata.pathInStorage = summonedPath
 	return result_metadata, nil
 }
