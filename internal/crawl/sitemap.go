@@ -250,10 +250,13 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	cleanupChannel := make(chan []string, 1)
 	if config.cleanupOutdatedJsonld {
 		go func() {
+			defer close(cleanupChannel)
+			log.Info("Cleaning up outdated JSON-LD files in summoned/" + s.sitemapId)
 			cleanedUpFiles, err := storage.CleanupFiles("summoned/"+s.sitemapId, sitesSeenDuringHarvest, s.storageDestination)
 			if err != nil {
 				log.Error(err)
 			}
+			log.Infof("Cleaned up %d outdated JSON-LD files", len(cleanedUpFiles))
 			cleanupChannel <- cleanedUpFiles
 		}()
 	}
