@@ -4,8 +4,6 @@
 package crawl
 
 import (
-	"crypto/sha256"
-	"fmt"
 	"os"
 	"testing"
 
@@ -76,26 +74,11 @@ func TestRobots(t *testing.T) {
 			require.Error(t, err)
 		} else {
 			require.NoError(t, err)
-			allowed := robotstxt.Test(gleanerAgent)
+			allowed := robotstxt.Test(common.HarvestAgent)
 			assert.Equal(t, tc.allowsCrawling, allowed)
 		}
 	}
 
-}
-
-func FuzzGetHash(f *testing.F) {
-	// Seed with example inputs
-	f.Add([]byte("test data"))
-	f.Add([]byte("test data2"))
-
-	f.Fuzz(func(t *testing.T, input []byte) {
-		// Run function with fuzz input
-		hash := generateHashFilename(input)
-
-		// rehash to verify correctness
-		expectedHash := fmt.Sprintf("%x.jsonld", sha256.Sum256(input))
-		require.Equal(t, expectedHash, hash, "hash should match expected sha256")
-	})
 }
 
 func TestGetJsonLdFromHTML(t *testing.T) {

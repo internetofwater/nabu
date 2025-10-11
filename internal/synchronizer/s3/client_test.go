@@ -6,6 +6,7 @@ package s3
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
 	"fmt"
 	"io"
 	"os"
@@ -318,7 +319,7 @@ func (suite *S3ClientSuite) TestGetObjectAsNamedGraph() {
 // Test that the minio client conforms to the crud interface so gleaner can use it
 func (suite *S3ClientSuite) TestCRUD() {
 	testBytes := bytes.NewReader([]byte("test data"))
-	err := suite.minioContainer.ClientWrapper.Store("test/testCRUD", testBytes)
+	err := suite.minioContainer.ClientWrapper.StoreWithoutServersideHash("test/testCRUD", testBytes)
 	suite.Require().NoError(err)
 
 	exists, err := suite.minioContainer.ClientWrapper.Exists("test/testCRUD")
@@ -350,7 +351,7 @@ func (suite *S3ClientSuite) TestPull() {
 	for i := range 100 {
 		dataPoint := fmt.Sprintf("test data %d", i)
 		data = append(data, dataPoint)
-		err := suite.minioContainer.ClientWrapper.Store(fmt.Sprintf("%s%d", prefix, i), bytes.NewReader([]byte(dataPoint)))
+		err := suite.minioContainer.ClientWrapper.StoreWithoutServersideHash(fmt.Sprintf("%s%d", prefix, i), bytes.NewReader([]byte(dataPoint)))
 		suite.Require().NoError(err)
 	}
 
@@ -399,11 +400,11 @@ func (suite *S3ClientSuite) TestPullWithBytesums() {
 	const prefix = "pull_bytesum_test/"
 	for i := range 10 {
 		dataPoint := fmt.Sprintf("test bytesum data %d", i)
-		err := suite.minioContainer.ClientWrapper.Store(fmt.Sprintf("%s%d", prefix, i), bytes.NewReader([]byte(dataPoint)))
+		err := suite.minioContainer.ClientWrapper.StoreWithoutServersideHash(fmt.Sprintf("%s%d", prefix, i), bytes.NewReader([]byte(dataPoint)))
 		suite.Require().NoError(err)
 
 		byteSum := common.ByteSum([]byte(dataPoint))
-		err = suite.minioContainer.ClientWrapper.Store(fmt.Sprintf("%s%d.bytesum", prefix, i), bytes.NewReader([]byte(fmt.Sprintf("%d", byteSum))))
+		err = suite.minioContainer.ClientWrapper.StoreWithoutServersideHash(fmt.Sprintf("%s%d.bytesum", prefix, i), bytes.NewReader([]byte(fmt.Sprintf("%d", byteSum))))
 		suite.Require().NoError(err)
 	}
 
@@ -463,7 +464,7 @@ func (suite *S3ClientSuite) TestPullWithBytesums() {
 
 func (suite *S3ClientSuite) TestCleanupOldFiles() {
 	store := suite.minioContainer.ClientWrapper
-	err := store.Store("summoned/sitemap1/testfile.txt", bytes.NewReader([]byte("dummy_data")))
+	err := store.StoreWithoutServersideHash("summoned/sitemap1/testfile.txt", bytes.NewReader([]byte("dummy_data")))
 	suite.Require().NoError(err)
 	filesinStorage := make(storage.Set)
 
@@ -477,7 +478,7 @@ func (suite *S3ClientSuite) TestCleanupOldFiles() {
 	suite.Require().True(res, "File should still exist since it was in the set")
 
 	// make sure files that are not seen are removed
-	err = store.Store("summoned/sitemap1/THIS_SHOULD_BE_REMOVED.txt", bytes.NewReader([]byte("dummy_data")))
+	err = store.StoreWithoutServersideHash("summoned/sitemap1/THIS_SHOULD_BE_REMOVED.txt", bytes.NewReader([]byte("dummy_data")))
 	suite.Require().NoError(err)
 	cleanedUpFiles, err = storage.CleanupFiles("summoned/sitemap1", filesinStorage, store)
 	suite.Require().NoError(err)
@@ -487,7 +488,7 @@ func (suite *S3ClientSuite) TestCleanupOldFiles() {
 	suite.Require().Len(cleanedUpFiles, 1)
 
 	// make sure files that in a different base path are not touched
-	err = store.Store("summoned/sitemap2/KEEP_THIS.txt", bytes.NewReader([]byte("dummy_data")))
+	err = store.StoreWithoutServersideHash("summoned/sitemap2/KEEP_THIS.txt", bytes.NewReader([]byte("dummy_data")))
 	suite.Require().NoError(err)
 	cleanedUpFiles, err = storage.CleanupFiles("summoned/sitemap1", filesinStorage, store)
 	suite.Require().Len(cleanedUpFiles, 0)
@@ -500,11 +501,23 @@ func (suite *S3ClientSuite) TestCleanupOldFiles() {
 func (suite *S3ClientSuite) TestIsEmpty() {
 	// populate the minio bucket with 10 data points and their byte sums
 	const prefix = "is_empty_test/"
-	err := suite.minioContainer.ClientWrapper.Store(prefix+"test", bytes.NewReader([]byte("test data")))
+	err := suite.minioContainer.ClientWrapper.StoreWithoutServersideHash(prefix+"test", bytes.NewReader([]byte("test data")))
 	suite.Require().NoError(err)
 	empty, err := suite.minioContainer.ClientWrapper.IsEmptyDir(prefix)
 	suite.Require().NoError(err)
 	suite.Require().False(empty)
+}
+
+func (suite *S3ClientSuite) TestGetMD5HashServerside() {
+	const prefix = "hash_test/"
+	data := []byte("test data")
+	md5String := fmt.Sprintf("%x", md5.Sum(data))
+	err := suite.minioContainer.ClientWrapper.StoreWithHash(prefix+"test", bytes.NewReader(data), len(data))
+	suite.Require().NoError(err)
+	hash, err := suite.minioContainer.ClientWrapper.GetHash(prefix + "test")
+	suite.Require().NoError(err)
+	suite.Require().Equal(md5String, hash)
+
 }
 
 // Run the entire test suite

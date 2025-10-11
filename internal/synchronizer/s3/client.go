@@ -30,7 +30,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var _ storage.BatchCrawlStorage = MinioClientWrapper{}
+var _ storage.CrawlStorage = &MinioClientWrapper{}
 
 // Wrapper to allow us to extend the minio client struct with new methods
 type MinioClientWrapper struct {
@@ -164,6 +164,15 @@ func (m *MinioClientWrapper) ObjectList(ctx context.Context, prefix S3Prefix) ([
 	return objectInfo, nil
 }
 
+// Get the hash of the file using ETag header metadata
+func (m MinioClientWrapper) GetHash(objectName S3Prefix) (storage.Md5Hash, error) {
+	result, err := m.Client.StatObject(context.Background(), m.DefaultBucket, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		return "", err
+	}
+	return result.ETag, nil
+}
+
 // Return the number of objects that match a given prefix within the
 // specified bucket
 func (m *MinioClientWrapper) NumberOfMatchingObjects(prefixes []S3Prefix) (int, error) {
@@ -257,12 +266,22 @@ func (m *MinioClientWrapper) UploadFile(uploadPath S3Prefix, localFileName strin
 	}
 	defer func() { _ = file.Close() }()
 
-	err = m.Store(uploadPath, file)
+	stat, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	err = m.StoreWithHash(uploadPath, file, int(stat.Size()))
 	return err
 }
 
-// Store bytes into the minio store
-func (m MinioClientWrapper) Store(path S3Prefix, data io.Reader) error {
+// StoreWithServersideHash bytes into the minio store
+func (m MinioClientWrapper) StoreWithHash(path S3Prefix, data io.Reader, sizeInBytes int) error {
+	_, err := m.Client.PutObject(context.Background(), m.DefaultBucket, path, data, int64(sizeInBytes), minio.PutObjectOptions{})
+	return err
+}
+
+func (m MinioClientWrapper) StoreWithoutServersideHash(path S3Prefix, data io.Reader) error {
 	_, err := m.Client.PutObject(context.Background(), m.DefaultBucket, path, data, -1, minio.PutObjectOptions{})
 	return err
 }
@@ -392,21 +411,6 @@ func (m MinioClientWrapper) IsEmptyDir(path S3Prefix) (bool, error) {
 		}
 	}
 	return true, nil
-}
-
-func (m MinioClientWrapper) BatchStore(batch chan storage.BatchFileObject) error {
-	snowBallChan := make(chan minio.SnowballObject)
-
-	go func() {
-		for obj := range batch {
-			snowBallChan <- minio.SnowballObject{
-				Key:     obj.Path,
-				Content: obj.Reader,
-			}
-		}
-		close(snowBallChan)
-	}()
-	return m.Client.PutObjectsSnowball(context.Background(), m.DefaultBucket, minio.SnowballOptions{}, snowBallChan)
 }
 
 // PullSeparateFilesToDir downloads all the objects with the given prefix

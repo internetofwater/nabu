@@ -90,11 +90,11 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, true)
 	require.NoError(t, err)
 
-	err = storage.Store("summoned/"+sitemap.sitemapId+"/testfile.txt", bytes.NewReader([]byte("dummy_data")))
+	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.sitemapId+"/testfile.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
-	err = storage.Store("summoned/"+sitemap.sitemapId+"/testfile2.txt", bytes.NewReader([]byte("dummy_data")))
+	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.sitemapId+"/testfile2.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
-	err = storage.Store("summoned/"+sitemap.sitemapId+"/testfile3.txt", bytes.NewReader([]byte("dummy_data")))
+	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.sitemapId+"/testfile3.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
 
 	_, cleanupChan, err := sitemap.
@@ -128,7 +128,7 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 			},
 		})
 
-	err = storage.Store("summoned/"+sitemap.sitemapId+"/dummy.txt", bytes.NewReader([]byte("dummy_data")))
+	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.sitemapId+"/dummy.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
 
 	sitemap, err = NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")

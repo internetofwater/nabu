@@ -4,189 +4,58 @@
 package storage
 
 import (
-	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
 
-type BatchFileObject struct {
-	Path   string
-	Reader io.Reader
-}
-
-type BatchCrawlStorage interface {
-	CrawlStorage
-	BatchStore(chan BatchFileObject) error
-}
-
 // a path delimited by /
-type objectPath = string
+type ObjectPath = string
 
 // a unique set of object paths with quick lookup
-type Set map[objectPath]struct{}
+type Set map[ObjectPath]struct{}
 
-func (s Set) Contains(key objectPath) bool {
+// Returns true if the key is in the set
+func (s Set) Contains(key ObjectPath) bool {
 	_, ok := s[key]
 	return ok
 }
 
-func (s Set) Add(key objectPath) {
+// Add a key to the set
+func (s Set) Add(key ObjectPath) {
 	s[key] = struct{}{}
 }
+
+// A hash of a file generated from the md5 algorithm
+type Md5Hash = string
 
 // A storage interface that stores crawl data
 type CrawlStorage interface {
 	// Store metadata about the crawl into a named destination
 	// This may be in a different place than normal storage since it is intended to be
 	// read publicly and drive UIs
-	StoreMetadata(objectPath, io.Reader) error
-	// Store saves the contents from the reader into a named destination
-	Store(objectPath, io.Reader) error
+	StoreMetadata(ObjectPath, io.Reader) error
+	// StoreWithServersideHash saves the contents from the reader into a named destination
+	// and guarantees that the storage provider will create a hash for it that can be retrieved
+	StoreWithHash(ObjectPath, io.Reader, int) error
+	// StoreWithoutServersideHash saves the contents from the reader into a named destination
+	// but does not guarantee that the storage provider will create a hash for it
+	StoreWithoutServersideHash(ObjectPath, io.Reader) error
 	// Get returns a reader to the stored file
-	Get(objectPath) (io.ReadCloser, error)
+	Get(ObjectPath) (io.ReadCloser, error)
 	// Exists returns true if the file exists
-	Exists(objectPath) (bool, error)
+	Exists(ObjectPath) (bool, error)
 	// ListDir returns a list of objects in the directory
-	ListDir(objectPath) (Set, error)
+	ListDir(ObjectPath) (Set, error)
 	// Remove removes the file
-	Remove(objectPath) error
+	Remove(ObjectPath) error
 	// IsEmptyDir returns true if the directory is empty
-	IsEmptyDir(objectPath) (bool, error)
+	IsEmptyDir(ObjectPath) (bool, error)
+	// Get the hash of the file
+	GetHash(ObjectPath) (Md5Hash, error)
 }
-
-// Storage for crawl data where the files
-// are stored on disk; useful for debugging and
-// and local tests
-type LocalTempFSCrawlStorage struct {
-	// the directory used for storing all tmp files
-	baseDir string
-}
-
-// NewLocalTempFSCrawlStorage creates a new storage with a temporary base directory
-func NewLocalTempFSCrawlStorage() (*LocalTempFSCrawlStorage, error) {
-	dir, err := os.MkdirTemp("", "nabu-gleaner-")
-	if err != nil {
-		return nil, err
-	}
-	return &LocalTempFSCrawlStorage{baseDir: dir}, nil
-}
-
-// Storing metadata locally is the same as storing data
-func (l *LocalTempFSCrawlStorage) StoreMetadata(name string, reader io.Reader) error {
-	return l.Store(name, reader)
-}
-
-// Store saves the contents from the reader into a file named after `object`
-func (l *LocalTempFSCrawlStorage) Store(name string, reader io.Reader) error {
-
-	if l.baseDir == "" {
-		return fmt.Errorf("baseDir is empty")
-	}
-
-	destPath := filepath.Join(l.baseDir, name)
-
-	log.Tracef("saving data to %s", destPath)
-
-	// Make sure directory exists
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-		return err
-	}
-
-	destFile, err := os.Create(destPath)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = destFile.Close() }()
-
-	_, err = io.Copy(destFile, reader)
-	return err
-}
-
-// Get returns a reader to the stored file
-func (l *LocalTempFSCrawlStorage) Get(object string) (io.ReadCloser, error) {
-	return os.Open(filepath.Join(l.baseDir, object))
-}
-
-// Exists checks if the file Exists
-func (l *LocalTempFSCrawlStorage) Exists(object string) (bool, error) {
-	_, err := os.Stat(filepath.Join(l.baseDir, object))
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
-}
-
-func (l *LocalTempFSCrawlStorage) ListDir(prefix string) (Set, error) {
-	dirPath := filepath.Join(l.baseDir, prefix)
-
-	entries, err := os.ReadDir(dirPath)
-	if err != nil {
-		return nil, err
-	}
-
-	set := make(Set)
-	for _, entry := range entries {
-		fullPath := filepath.Join(dirPath, entry.Name())
-		set.Add(fullPath)
-	}
-
-	return set, nil
-}
-func (l *LocalTempFSCrawlStorage) Remove(object string) error {
-	return os.Remove(filepath.Join(l.baseDir, object))
-}
-
-func (l *LocalTempFSCrawlStorage) IsEmptyDir(dir objectPath) (bool, error) {
-	files, err := os.ReadDir(filepath.Join(l.baseDir, dir))
-	if errors.Is(err, os.ErrNotExist) {
-		return true, nil
-	} else if err != nil {
-		return false, err
-	}
-
-	return len(files) == 0, nil
-}
-
-// DiscardCrawlStorage is a CrawlStorage that stores nothing and is useful for testing
-type DiscardCrawlStorage struct {
-}
-
-func (DiscardCrawlStorage) StoreMetadata(string, io.Reader) error {
-	return nil
-}
-
-func (DiscardCrawlStorage) Store(string, io.Reader) error {
-	return nil
-}
-func (DiscardCrawlStorage) Get(string) (io.ReadCloser, error) {
-	return nil, nil
-}
-func (DiscardCrawlStorage) Exists(string) (bool, error) {
-	return false, nil
-}
-
-func (DiscardCrawlStorage) Remove(string) error {
-	return nil
-}
-
-func (DiscardCrawlStorage) ListDir(string) (Set, error) {
-	return make(Set), nil
-}
-
-func (DiscardCrawlStorage) IsEmptyDir(objectPath) (bool, error) {
-	return true, nil
-}
-
-var _ CrawlStorage = DiscardCrawlStorage{}
-var _ CrawlStorage = &LocalTempFSCrawlStorage{}
 
 // Given a storage path, iterate through it and remove any files that aren't in sitesToKeep
 func CleanupFiles(pathInStorage string, sitesToKeep Set, storage CrawlStorage) ([]string, error) {

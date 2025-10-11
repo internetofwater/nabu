@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -25,6 +24,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/internetofwater/nabu/internal/crawl/url_info"
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	"github.com/piprate/json-gold/ld"
 	"golang.org/x/sync/errgroup"
@@ -33,11 +33,16 @@ import (
 // Represents an XML sitemap
 // https://geoconnex.us/sitemap/usgs/hydrologic-unit__0.xml is an example of a sitemap
 type Sitemap struct {
-	XMLName xml.Name `xml:":urlset"`
-	URL     []URL    `xml:":url"`
+	XMLName xml.Name       `xml:":urlset"`
+	URL     []url_info.URL `xml:":url"`
 
+	// The url to the sitemap itself
 	sitemapUrl string `xml:"-"`
-	sitemapId  string `xml:"-"`
+	// The unique identifier for the sitemap
+	// essentially just a serialized version of the path
+	// in the URL without the hostname, special characters,
+	// / or the final .xml
+	sitemapId string `xml:"-"`
 
 	// Strategy used for storing crawled data
 	// - explicitly ignores xml marshaling
@@ -96,7 +101,7 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAdd
 	if err != nil {
 		return SitemapHarvestConfig{}, err
 	}
-	if !robotstxt.Test(gleanerAgent) {
+	if !robotstxt.Test(common.HarvestAgent) {
 		return SitemapHarvestConfig{}, fmt.Errorf("robots.txt does not allow us to crawl %s", firstUrl.Loc)
 	}
 
@@ -198,7 +203,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 
 	for _, url := range s.URL {
 		group.Go(func() error {
-			result_metadata, err := harvestOneSite(ctx, s.sitemapId, url, config)
+			result_metadata, err := harvestOnePID(ctx, s.sitemapId, url, config)
 			if err != nil {
 				if !errors.Is(err, context.Canceled) {
 					log.Error(err)
@@ -299,14 +304,6 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	return stats, cleanupChannel, err
 }
 
-// Represents a URL tag and its attributes within a sitemap
-type URL struct {
-	Loc        string  `xml:"loc"`
-	LastMod    string  `xml:"lastmod"`
-	ChangeFreq string  `xml:"changefreq"`
-	Priority   float32 `xml:"priority"`
-}
-
 // Given a sitemap url, return a Sitemap object
 func NewSitemap(ctx context.Context, client *http.Client, sitemapURL string, workers int, storageDestination storage.CrawlStorage, sitemapId string) (*Sitemap, error) {
 	if workers == 0 {
@@ -321,7 +318,7 @@ func NewSitemap(ctx context.Context, client *http.Client, sitemapURL string, wor
 		warnings:           []pkg.ShaclInfo{},
 	}
 
-	urls := make([]URL, 0)
+	urls := make([]url_info.URL, 0)
 
 	resp, err := client.Get(sitemapURL)
 	if err != nil {
@@ -329,14 +326,10 @@ func NewSitemap(ctx context.Context, client *http.Client, sitemapURL string, wor
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	err = sitemap.Parse(resp.Body, func(entry sitemap.Entry) error {
-		url := URL{}
-		url.Loc = strings.TrimSpace(entry.GetLocation())
-		urls = append(urls, url)
+	if err = sitemap.Parse(resp.Body, func(entry sitemap.Entry) error {
+		urls = append(urls, *url_info.NewUrlFromSitemapEntry(entry))
 		return nil
-	})
-
-	if err != nil {
+	}); err != nil {
 		return &serializedSitemap, err
 	}
 
