@@ -518,6 +518,16 @@ func (suite *S3ClientSuite) TestGetMD5HashServerside() {
 	suite.Require().NoError(err)
 	suite.Require().Equal(md5String, hash)
 
+	suite.T().Run("catches bad hash from multipart upload", func(t *testing.T) {
+		const undefinedSize = -1
+		// undefined size prevents minio from generating a hash
+		err := suite.minioContainer.ClientWrapper.StoreWithHash(prefix+"testNoHash", bytes.NewReader(data), undefinedSize)
+		suite.Require().NoError(err)
+
+		_, err = suite.minioContainer.ClientWrapper.GetHash(prefix + "testNoHash")
+		suite.Require().Error(err)
+	})
+
 }
 
 // Run the entire test suite

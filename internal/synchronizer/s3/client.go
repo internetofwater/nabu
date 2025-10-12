@@ -170,6 +170,9 @@ func (m MinioClientWrapper) GetHash(objectName S3Prefix) (storage.Md5Hash, error
 	if err != nil {
 		return "", err
 	}
+	if strings.Contains(result.ETag, "-") {
+		return "", fmt.Errorf("object %s contains - signifying that the data came from a multipart upload and thus the hash is not of the raw content", objectName)
+	}
 	return result.ETag, nil
 }
 
