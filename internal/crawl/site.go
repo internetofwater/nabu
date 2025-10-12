@@ -138,8 +138,10 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 		return result_metadata, fmt.Errorf("failed to get JSON-LD from response: %w", err)
 	}
 
-	summonedPath := fmt.Sprintf("summoned/%s/%s.jsonld", sitemapId, url.Base64Loc)
-
+	summonedPath, err := urlToStoragePath(sitemapId, url)
+	if err != nil {
+		return result_metadata, fmt.Errorf("failed to get storage path: %w", err)
+	}
 	if hash != "" && expectedLocationInStorage != "" {
 		result_metadata.serverHadHash = true
 		if summonedPath != expectedLocationInStorage {

@@ -163,6 +163,14 @@ func (s *Sitemap) ensureValid(workers int) error {
 	return nil
 }
 
+// given the sitemap identifier and the url return the path to store it
+func urlToStoragePath(sitemapId string, url url_info.URL) (string, error) {
+	if url.Base64Loc == "" {
+		return "", fmt.Errorf("no base64 loc for url %s", url.Loc)
+	}
+	return fmt.Sprintf("summoned/%s/%s.jsonld", sitemapId, url.Base64Loc), nil
+}
+
 // Harvest all the URLs in the given sitemap
 func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, chan []string, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", s.sitemapId))
@@ -182,10 +190,16 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	start := time.Now()
 	log.Infof("Harvesting sitemap %s with %d urls", s.sitemapId, len(s.URL))
 
-	downloadedSitesMu := sync.Mutex{}
+	successfulSitesMu := sync.Mutex{}
 	// includes both sites that were download
 	// and sites that were skipped due to having a matching hash
 	successfulSites := make(storage.Set)
+
+	// the number of sites that were hit with a fetch request
+	// regardless of whether or not they returned an error
+	totalSitesContacted := atomic.Int64{}
+
+	sitesInSitemap := make(storage.Set)
 
 	sitesWithShaclFailures := atomic.Int32{}
 
@@ -202,6 +216,12 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	}
 
 	for _, url := range s.URL {
+
+		if path, err := urlToStoragePath(s.sitemapId, url); err != nil {
+			return pkg.SitemapCrawlStats{}, nil, err
+		} else {
+			sitesInSitemap.Add(path)
+		}
 		group.Go(func() error {
 			result_metadata, err := harvestOnePID(ctx, s.sitemapId, url, config)
 			if err != nil {
@@ -210,6 +230,9 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 				}
 				return err
 			}
+
+			totalSitesContacted.Store((totalSitesContacted.Add(1)))
+
 			if !result_metadata.nonFatalError.IsNil() {
 				s.errorMu.Lock()
 				s.nonFatalErrors = append(s.nonFatalErrors, result_metadata.nonFatalError)
@@ -232,15 +255,15 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 				}
 			}
 			if result_metadata.pathInStorage != "" {
-				downloadedSitesMu.Lock()
+				successfulSitesMu.Lock()
 				if successfulSites.Contains(result_metadata.pathInStorage) {
-					downloadedSitesMu.Unlock()
+					successfulSitesMu.Unlock()
 					errMsg := fmt.Sprintf("Got at least two responses in the same sitemap crawl that resolved to the same path in storage: %s. URL %s has potential duplicate data in API", result_metadata.pathInStorage, url.Loc)
 					log.Error(errMsg)
 					return pkg.UrlCrawlError{Url: url.Loc, Message: errMsg}
 				}
 				successfulSites.Add(result_metadata.pathInStorage)
-				downloadedSitesMu.Unlock()
+				successfulSitesMu.Unlock()
 			}
 			if !result_metadata.serverHadHash && config.checkExistenceBeforeCrawl.Load() {
 				// if the server didn't provide a hash then we can skip the hash check
@@ -248,8 +271,8 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 				config.checkExistenceBeforeCrawl.Store(false)
 				log.Warnf("Server didn't provide a hash on %s. Skipping hash checks going forward for harvested sites", url.Loc)
 			}
-			if math.Mod(float64(len(successfulSites)), 500) == 0 {
-				log.Infof("Harvested %d/%d sites for %s", len(successfulSites), len(s.URL), s.sitemapId)
+			if math.Mod(float64(totalSitesContacted.Load()), 500) == 0 {
+				log.Infof("Harvested %d/%d sites for %s", totalSitesContacted.Load(), len(s.URL), s.sitemapId)
 			}
 
 			return nil
@@ -264,7 +287,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 		go func() {
 			defer close(cleanupChannel)
 			log.Info("Cleaning up outdated JSON-LD files in summoned/" + s.sitemapId)
-			cleanedUpFiles, err := storage.CleanupFiles("summoned/"+s.sitemapId, successfulSites, s.storageDestination)
+			cleanedUpFiles, err := storage.CleanupFiles("summoned/"+s.sitemapId, sitesInSitemap, s.storageDestination)
 			if err != nil {
 				log.Error(err)
 			} else {

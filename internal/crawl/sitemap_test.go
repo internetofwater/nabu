@@ -100,6 +100,8 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, true)
 	require.NoError(t, err)
 
+	// store three files in the storage that are not part of the sitemap
+	// thus we want these to be cleaned up
 	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.sitemapId+"/testfile.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
 	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.sitemapId+"/testfile2.txt", bytes.NewReader([]byte("dummy_data")))
@@ -143,6 +145,7 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 			},
 		})
 
+	// store a file that is not in the sitemap
 	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.sitemapId+"/dummy.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
 
@@ -157,7 +160,7 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 	require.NoError(t, err)
 	// wait for cleanup to finish
 	cleanedUpFiles = <-cleanupChan
-	require.Len(t, cleanedUpFiles, 3, "There should be 3 files cleaned up, representing dummy.txt that were manually added as well as the two features that were not found")
+	require.Len(t, cleanedUpFiles, 1, "There should be 1 file cleaned up, representing dummy.txt; the other sites which 404d but are in the sitemap should stay in case they are temporarily failing")
 }
 
 func TestErrorGroupCtxCancelling(t *testing.T) {
