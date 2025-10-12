@@ -214,6 +214,11 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 				File:        "testdata/reference_feature.jsonld",
 				ContentType: "application/ld+json",
 			},
+			dummy_domain + "/robots.txt": {
+				StatusCode:  200,
+				File:        "testdata/google_robots.txt",
+				ContentType: "application/text/plain",
+			},
 		})
 
 		url := url_info.NewUrlFromString(dummy_domain)
@@ -234,6 +239,11 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 				StatusCode: 200,
 				File:       "testdata/emptyAsTriples.jsonld",
 			},
+			dummy_domain + "/robots.txt": {
+				StatusCode:  200,
+				File:        "testdata/usgs_robots.txt",
+				ContentType: "application/text/plain",
+			},
 		})
 		conf, err := NewSitemapHarvestConfig(mockedClient, &Sitemap{URL: []url_info.URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, "0.0.0.0:50051", false, false)
 
@@ -250,6 +260,11 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 				StatusCode:  200,
 				File:        "testdata/nonconforming.jsonld",
 				ContentType: "application/ld+json",
+			},
+			dummy_domain + "/robots.txt": {
+				StatusCode:  200,
+				File:        "testdata/usgs_robots.txt",
+				ContentType: "application/text/plain",
 			},
 		})
 
@@ -268,6 +283,11 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 				StatusCode:  200,
 				File:        "testdata/nonconforming.jsonld",
 				ContentType: "application/ld+json",
+			},
+			dummy_domain + "/robots.txt": {
+				StatusCode:  200,
+				File:        "testdata/usgs_robots.txt",
+				ContentType: "application/text/plain",
 			},
 		})
 

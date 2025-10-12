@@ -97,7 +97,7 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAdd
 	}
 
 	firstUrl := sitemap.URL[0]
-	robotstxt, err := newRobots(firstUrl.Loc)
+	robotstxt, err := newRobots(httpClient, firstUrl.Loc)
 	if err != nil {
 		return SitemapHarvestConfig{}, err
 	}

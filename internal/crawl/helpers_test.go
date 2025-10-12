@@ -68,8 +68,14 @@ func TestRobots(t *testing.T) {
 		},
 	}
 
+	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
+		"https://waterdata.usgs.gov/robots.txt": {File: "testdata/usgs_robots.txt", StatusCode: 200, ContentType: "application/text/plain"},
+		"https://google.com/robots.txt":         {File: "testdata/google_robots.txt", StatusCode: 200, ContentType: "application/text/plain"},
+		"https://geoconnex.us/robots.txt":       {File: "testdata/geoconnex_robots.txt", StatusCode: 200, ContentType: "application/text/plain"},
+	})
+
 	for _, tc := range testCases {
-		robotstxt, err := newRobots(tc.url)
+		robotstxt, err := newRobots(mockedClient, tc.url)
 		if tc.shouldFail {
 			require.Error(t, err)
 		} else {

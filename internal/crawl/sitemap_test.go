@@ -41,6 +41,11 @@ func TestHarvestSitemap(t *testing.T) {
 				File:        "testdata/reference_feature_3.jsonld",
 				ContentType: "application/ld+json",
 			},
+			"https://geoconnex.us/robots.txt": {
+				StatusCode:  200,
+				File:        "testdata/geoconnex_robots.txt",
+				ContentType: "application/text/plain",
+			},
 		})
 
 	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, &storage.DiscardCrawlStorage{}, "test")
@@ -79,6 +84,11 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 				StatusCode:  200,
 				File:        "testdata/reference_feature_3.jsonld",
 				ContentType: "application/ld+json",
+			},
+			"https://geoconnex.us/robots.txt": {
+				StatusCode:  200,
+				File:        "testdata/geoconnex_robots.txt",
+				ContentType: "application/text/plain",
 			},
 		})
 
@@ -125,6 +135,11 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 				StatusCode:  200,
 				File:        "testdata/reference_feature_3.jsonld",
 				ContentType: "application/ld+json",
+			},
+			"https://geoconnex.us/robots.txt": {
+				StatusCode:  200,
+				File:        "testdata/geoconnex_robots.txt",
+				ContentType: "application/text/plain",
 			},
 		})
 

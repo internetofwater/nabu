@@ -6,6 +6,7 @@ package crawl
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -27,7 +28,7 @@ func getHostname(urlToCheck string) (string, error) {
 
 // Create a new robots.txt object from a remote url
 // this can be used to check if we are allowed to crawl
-func newRobots(urlToCheck string) (*robotstxt.Group, error) {
+func newRobots(httpClient *http.Client, urlToCheck string) (*robotstxt.Group, error) {
 
 	basename, err := getHostname(urlToCheck)
 	if err != nil {
@@ -36,7 +37,7 @@ func newRobots(urlToCheck string) (*robotstxt.Group, error) {
 
 	robotsUrl := basename + "/robots.txt"
 
-	resp, err := common.NewCrawlerClient().Get(robotsUrl)
+	resp, err := httpClient.Get(robotsUrl)
 	if err != nil {
 		return nil, err
 	}
