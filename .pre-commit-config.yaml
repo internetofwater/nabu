@@ -4,7 +4,7 @@
 minimum_pre_commit_version: "2.9.0"
 ci:
   autoupdate_schedule: monthly
-  skip: [typescript_gen_types, golang lint, gofmt ]
+  skip: [typescript_gen_types, golang lint, gofmt, ts build, ts lint ]
 repos:
   - repo: meta
     hooks:
@@ -61,7 +61,7 @@ repos:
         types: [go]
         pass_filenames: false # lint handles files itself
 
-      - id: npm run build
+      - id: ts build
         name: Ensure no frontend build errors
         entry: bash -c "cd crawl-status-page && npm run build"
         language: system
@@ -69,7 +69,7 @@ repos:
         pass_filenames: false # build handles files itself
 
 
-      - id: npm run lint
+      - id: ts lint
         name: Ensure no frontend lint errors
         entry: bash -c "cd crawl-status-page && npm run lint"
         language: system
