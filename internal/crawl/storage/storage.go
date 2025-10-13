@@ -4,11 +4,15 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 // a path delimited by /
@@ -77,23 +81,58 @@ func CleanupFiles(pathInStorage string, sitesToKeep Set, storage CrawlStorage) (
 		log.Error(err)
 		return nil, err
 	}
-	pathsDeleted := []string{}
+
+	var (
+		pathsDeleted []string
+		mu           sync.Mutex // protect shared slice
+	)
+
+	eg, ctx := errgroup.WithContext(context.Background())
+	const maxConcurrency = 10
+	eg.SetLimit(maxConcurrency)
+
+	exitingEarly := atomic.Bool{}
+	exitingEarly.Store(false)
+
 	for absPath := range files {
+
 		index := strings.Index(absPath, pathInStorage)
 		if index == -1 {
 			return nil, fmt.Errorf("unexpected path format: %s", absPath)
 		}
 		relativePath := absPath[index:]
 
-		// don't clean up sites we harvested
 		if sitesToKeep.Contains(relativePath) {
 			continue
 		}
-		if err := storage.Remove(relativePath); err != nil {
-			log.Errorf("Error cleaning up outdated file %s: %v", absPath, err)
-			return nil, err
-		}
-		pathsDeleted = append(pathsDeleted, absPath)
+
+		eg.Go(func() error {
+			// Check if context is already canceled due to another error
+			if ctx.Err() != nil {
+				// Only log the ctx cancell error once
+				if !exitingEarly.Load() {
+					log.Error("Context was cancelled; exiting early")
+					exitingEarly.Store(true)
+				}
+				return ctx.Err()
+			}
+
+			if err := storage.Remove(relativePath); err != nil {
+				log.Errorf("Error cleaning up outdated file %s: %v", absPath, err)
+				return err
+			}
+
+			mu.Lock()
+			pathsDeleted = append(pathsDeleted, absPath)
+			mu.Unlock()
+			return nil
+		})
 	}
+
+	if err := eg.Wait(); err != nil {
+		// At this point, all other goroutines that haven't started will be canceled
+		return pathsDeleted, err
+	}
+
 	return pathsDeleted, nil
 }
