@@ -39,7 +39,7 @@ func Test(ctx context.Context, client *synchronizer.SynchronizerClient) error {
 		return fmt.Errorf("hashes do not match")
 	}
 
-	log.Info("S3 test passed; you should be able to use this bucket with Nabu")
+	log.Info("Storage test passed; you should be able to use this bucket with Nabu")
 
 	return nil
 }

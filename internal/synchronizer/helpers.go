@@ -100,7 +100,8 @@ func deterministicGzipWriter(w io.Writer) (*gzip.Writer, error) {
 }
 
 // Consume the nqChan and write to the pipeWriter; return the hash of all the data that
-// was written to that pipe
+// was written to that pipe. We have to calculate this hash ourselves since
+// most S3 implmentations don't add hashes to multipart uploads
 func writeToPipeAndGetByteSum(compress bool, nqChan <-chan string, pipeWriter *io.PipeWriter) (string, error) {
 	hashDestination := &common.SumWriter{}
 	var zipper *gzip.Writer
