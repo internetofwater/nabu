@@ -153,9 +153,9 @@ func newLongLivedHttpTransport() http.RoundTripper {
 		MaxIdleConns:          0,
 		MaxIdleConnsPerHost:   0,
 		MaxConnsPerHost:       0,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
+		IdleConnTimeout:       120 * time.Second,
+		TLSHandshakeTimeout:   20 * time.Second,
+		ExpectContinueTimeout: 2 * time.Second,
 		DisableKeepAlives:     false,
 		ForceAttemptHTTP2:     true,
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -171,7 +171,7 @@ func newLongLivedHttpTransport() http.RoundTripper {
 // An http client optimized for long lived crawler requests and setting otel
 func newClientFromRoundTrip(transport http.RoundTripper) *http.Client {
 	return &http.Client{
-		Timeout:   30 * time.Second,
+		Timeout:   90 * time.Second,
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			span := trace.SpanFromContext(req.Context())
