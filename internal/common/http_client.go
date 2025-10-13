@@ -5,6 +5,7 @@ package common
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -114,10 +115,16 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		resp, err := t.Base.RoundTrip(req)
 
 		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			var netErr net.Error
+			if errors.As(err, &netErr) && netErr.Timeout() {
 				log.Warnf("retrying after timeout on %s (attempt %d)", req.URL.String(), i+1)
 				time.Sleep(time.Duration(i+1) * t.Backoff)
 				lastErr = err
+				continue
+			} else if errors.Is(err, context.DeadlineExceeded) {
+				log.Warnf("retrying after context deadline exceeded on %s (attempt %d)", req.URL.String(), i+1)
+				lastErr = err
+				time.Sleep(time.Duration(i+1) * t.Backoff)
 				continue
 			}
 			return nil, err
