@@ -47,7 +47,7 @@ repos:
         pass_filenames: false
 
       - id: gofmt
-        name: gofmt
+        name: Format go code
         entry: go fmt ./...
         language: system
         types: [go]
@@ -55,8 +55,23 @@ repos:
 
 
       - id: golang lint
-        name: golang lint
+        name: Lint go code
         entry: make lint 
         language: system
         types: [go]
         pass_filenames: false # lint handles files itself
+
+      - id: npm run build
+        name: Ensure no frontend build errors
+        entry: bash -c "cd crawl-status-page && npm run build"
+        language: system
+        types_or: [javascript, jsx, ts, tsx]
+        pass_filenames: false # build handles files itself
+
+
+      - id: npm run lint
+        name: Ensure no frontend lint errors
+        entry: bash -c "cd crawl-status-page && npm run lint"
+        language: system
+        types_or: [javascript, jsx, ts, tsx]
+        pass_filenames: false # build handles files itself
