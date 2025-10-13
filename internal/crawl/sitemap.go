@@ -172,7 +172,7 @@ func urlToStoragePath(sitemapId string, url url_info.URL) (string, error) {
 }
 
 // Harvest all the URLs in the given sitemap
-func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, chan []string, error) {
+func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, []string, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", s.sitemapId))
 	defer span.End()
 
@@ -282,19 +282,16 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 		return pkg.SitemapCrawlStats{}, nil, err
 	}
 
-	cleanupChannel := make(chan []string, 1)
+	cleanupChannel := []string{}
 	if config.cleanupOutdatedJsonld {
-		go func() {
-			defer close(cleanupChannel)
-			log.Info("Cleaning up outdated JSON-LD files in summoned/" + s.sitemapId)
-			cleanedUpFiles, err := storage.CleanupFiles("summoned/"+s.sitemapId, sitesInSitemap, s.storageDestination)
-			if err != nil {
-				log.Error(err)
-			} else {
-				log.Infof("Cleaned up %d outdated JSON-LD files in summoned/%s", len(cleanedUpFiles), s.sitemapId)
-			}
-			cleanupChannel <- cleanedUpFiles
-		}()
+		log.Info("Cleaning up outdated JSON-LD files in summoned/" + s.sitemapId)
+		cleanedUpFiles, err := storage.CleanupFiles("summoned/"+s.sitemapId, sitesInSitemap, s.storageDestination)
+		if err != nil {
+			log.Error(err)
+		} else {
+			log.Infof("Cleaned up %d outdated JSON-LD files in summoned/%s", len(cleanedUpFiles), s.sitemapId)
+		}
+		cleanupChannel = cleanedUpFiles
 	} else {
 		log.Warnf("Skipping old JSON-LD cleanups. It is possible %s will contain outdated JSON-LD files", "summoned/"+s.sitemapId)
 	}
