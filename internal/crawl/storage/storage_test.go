@@ -17,7 +17,7 @@ func TestGleanerTempFSCrawlStorage(t *testing.T) {
 	require.NoError(t, err)
 
 	// Store data
-	err = storage.Store("testfile.txt", bytes.NewReader([]byte("dummy_data")))
+	err = storage.StoreWithoutServersideHash("testfile.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
 
 	// Get data
@@ -48,12 +48,16 @@ func TestSet(t *testing.T) {
 	set.Add("testfile.txt")
 	require.True(t, set.Contains("testfile.txt"))
 	require.False(t, set.Contains("testfile2.txt"))
+
+	require.Len(t, set, 1)
+	set.Add("testfile3.txt")
+	require.Len(t, set, 2)
 }
 
 func TestListDir(t *testing.T) {
 	storage, err := NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
-	err = storage.Store("testfile.txt", bytes.NewReader([]byte("dummy_data")))
+	err = storage.StoreWithoutServersideHash("testfile.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
 	set, err := storage.ListDir("")
 	require.NoError(t, err)
@@ -68,7 +72,7 @@ func TestCleanupOutdatedJsonld(t *testing.T) {
 	storage, err := NewLocalTempFSCrawlStorage()
 	// setup
 	require.NoError(t, err)
-	err = storage.Store("summoned/sitemap1/testfile.txt", bytes.NewReader([]byte("dummy_data")))
+	err = storage.StoreWithoutServersideHash("summoned/sitemap1/testfile.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
 	filesinStorage := make(Set)
 
@@ -81,7 +85,7 @@ func TestCleanupOutdatedJsonld(t *testing.T) {
 	require.True(t, res, "File should still exist since it was in the set")
 
 	// "make sure files that are not seen are removed"
-	err = storage.Store("summoned/sitemap1/THIS_SHOULD_BE_REMOVED.txt", bytes.NewReader([]byte("dummy_data")))
+	err = storage.StoreWithoutServersideHash("summoned/sitemap1/THIS_SHOULD_BE_REMOVED.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
 	_, err = CleanupFiles("summoned/sitemap1", filesinStorage, storage)
 	require.NoError(t, err)
@@ -90,7 +94,7 @@ func TestCleanupOutdatedJsonld(t *testing.T) {
 	require.False(t, res)
 
 	// make sure files that in a different path are not touched", func(t *testing.T)
-	err = storage.Store("summoned/sitemap2/KEEP_THIS.txt", bytes.NewReader([]byte("dummy_data")))
+	err = storage.StoreWithoutServersideHash("summoned/sitemap2/KEEP_THIS.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
 	_, err = CleanupFiles("summoned/sitemap1", filesinStorage, storage)
 	require.NoError(t, err)

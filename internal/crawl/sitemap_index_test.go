@@ -114,6 +114,11 @@ func TestHarvestSitemapIndex(t *testing.T) {
 			File:        "testdata/1086.jsonld",
 			ContentType: "application/ld+json",
 		},
+		"https://geoconnex.us/robots.txt": {
+			StatusCode:  200,
+			File:        "testdata/geoconnex_robots.txt",
+			ContentType: "application/text/plain",
+		},
 	})
 
 	// get the sitemap index

@@ -86,8 +86,8 @@ type SitemapCrawlStats struct {
 	SecondsToComplete float64
 	// The name of the sitemap in the sitemap index
 	SitemapName string
-	// The number of sites that were successfully crawled and stored
-	SitesHarvested int
+	// The number of sites that were successfully crawled and stored or skipped due to a matching hash in storage
+	SuccessfulSites int
 	// The number of total sites in the sitemap
 	SitesInSitemap int
 }

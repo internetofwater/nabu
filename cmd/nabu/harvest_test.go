@@ -28,6 +28,7 @@ func (s *GleanerRootSuite) TestHarvestToS3() {
 		"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {File: "testdata/stations__5.xml", StatusCode: 200},
 		"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2":   {File: "testdata/1085.jsonld", StatusCode: 200, ContentType: "application/ld+json"},
 		"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C":    {File: "testdata/1084.jsonld", StatusCode: 200, ContentType: "application/ld+json"},
+		"https://geoconnex.us/robots.txt":                      {File: "testdata/geoconnex_robots.txt", StatusCode: 200, ContentType: "application/text/plain"},
 	})
 	_, err := NewNabuRunnerFromString(args).Run(context.Background(), mockedClient)
 	s.Require().NoError(err)
@@ -76,6 +77,7 @@ func (s *GleanerRootSuite) TestHarvestWithSourceSpecified() {
 		"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {File: "testdata/stations__5.xml", StatusCode: 200},
 		"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2":   {File: "testdata/1085.jsonld", StatusCode: 200, ContentType: "application/ld+json"},
 		"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C":    {File: "testdata/1084.jsonld", StatusCode: 200, ContentType: "application/ld+json"},
+		"https://geoconnex.us/robots.txt":                      {File: "testdata/geoconnex_robots.txt", StatusCode: 200, ContentType: "application/text/plain"},
 	})
 
 	_, err := NewNabuRunnerFromString(args).Run(context.Background(), mockedClient)
@@ -93,6 +95,7 @@ func (s *GleanerRootSuite) TestHarvestToDisk() {
 		"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {File: "testdata/stations__5.xml", StatusCode: 200},
 		"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2":   {File: "testdata/1085.jsonld", StatusCode: 200, ContentType: "application/ld+json"},
 		"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C":    {File: "testdata/1084.jsonld", StatusCode: 200, ContentType: "application/ld+json"},
+		"https://geoconnex.us/robots.txt":                      {File: "testdata/geoconnex_robots.txt", StatusCode: 200, ContentType: "application/text/plain"},
 	})
 	_, err := NewNabuRunnerFromString(args).Run(context.Background(), mockedClient)
 	s.Require().NoError(err)
@@ -104,6 +107,7 @@ func (s *GleanerRootSuite) TestBadFileType() {
 		"https://geoconnex.us/sitemap.xml":                           {File: "testdata/sitemap_index_selfie.xml", StatusCode: 200},
 		"https://geoconnex.us/sitemap/SELFIE/SELFIE_ids__0.xml":      {File: "testdata/SELFIE_ids__0.xml", StatusCode: 200},
 		"https://geoconnex.us/SELFIE/usgs/huc/huc12obs/070900020601": {Body: "DUMMY BAD", StatusCode: 200, ContentType: "application/ld+DUMMY"},
+		"https://geoconnex.us/robots.txt":                            {File: "testdata/geoconnex_robots.txt", StatusCode: 200, ContentType: "application/text/plain"},
 	})
 	stats, err := NewNabuRunnerFromString(args).Run(context.Background(), mockedClient)
 	s.Require().NoError(err)

@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"testing"
 	"time"
@@ -42,6 +43,7 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 		"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {File: "testdata/stations__5.xml", StatusCode: 200},
 		"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2":   {File: "testdata/1085.jsonld", StatusCode: 200, ContentType: "application/ld+json"},
 		"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C":    {File: "testdata/1084.jsonld", StatusCode: 200, ContentType: "application/ld+json"},
+		"https://geoconnex.us/robots.txt":                      {File: "testdata/geoconnex_robots.txt", StatusCode: 200, ContentType: "application/text/plain"},
 	})
 	_, err := NewNabuRunnerFromString(args).Run(ctx, mockedClient)
 	s.Require().NoError(err)
@@ -58,7 +60,10 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 	err = client.SyncTriplestoreGraphs(ctx, "summoned/", true)
 	s.Require().NoError(err)
 
-	exists, err := client.GraphClient.GraphExists(context.Background(), "urn:iow:summoned:iow_wqp_stations__5:1c9ccd5f69ee83108a2f849c8c3afcc0f255e2d1a7c56dfe55b3728ef357c5fe.jsonld")
+	const pid = "https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C"
+	encodedPid := base64.StdEncoding.EncodeToString([]byte(pid))
+	s.Require().Equal("aHR0cHM6Ly9nZW9jb25uZXgudXMvaW93L3dxcC9CUE1XUVgtMTA4NC1XUi1DQzAxQw==", encodedPid)
+	exists, err := client.GraphClient.GraphExists(context.Background(), "urn:iow:summoned:iow_wqp_stations__5:"+encodedPid+".jsonld")
 	s.Require().NoError(err)
 	s.Require().True(exists)
 }

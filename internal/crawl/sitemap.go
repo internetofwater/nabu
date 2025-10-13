@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -25,6 +24,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/internetofwater/nabu/internal/crawl/url_info"
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	"github.com/piprate/json-gold/ld"
 	"golang.org/x/sync/errgroup"
@@ -33,11 +33,16 @@ import (
 // Represents an XML sitemap
 // https://geoconnex.us/sitemap/usgs/hydrologic-unit__0.xml is an example of a sitemap
 type Sitemap struct {
-	XMLName xml.Name `xml:":urlset"`
-	URL     []URL    `xml:":url"`
+	XMLName xml.Name       `xml:":urlset"`
+	URL     []url_info.URL `xml:":url"`
 
+	// The url to the sitemap itself
 	sitemapUrl string `xml:"-"`
-	sitemapId  string `xml:"-"`
+	// The unique identifier for the sitemap
+	// essentially just a serialized version of the path
+	// in the URL without the hostname, special characters,
+	// / or the final .xml
+	sitemapId string `xml:"-"`
 
 	// Strategy used for storing crawled data
 	// - explicitly ignores xml marshaling
@@ -92,11 +97,11 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAdd
 	}
 
 	firstUrl := sitemap.URL[0]
-	robotstxt, err := newRobots(firstUrl.Loc)
+	robotstxt, err := newRobots(httpClient, firstUrl.Loc)
 	if err != nil {
 		return SitemapHarvestConfig{}, err
 	}
-	if !robotstxt.Test(gleanerAgent) {
+	if !robotstxt.Test(common.HarvestAgent) {
 		return SitemapHarvestConfig{}, fmt.Errorf("robots.txt does not allow us to crawl %s", firstUrl.Loc)
 	}
 
@@ -158,6 +163,14 @@ func (s *Sitemap) ensureValid(workers int) error {
 	return nil
 }
 
+// given the sitemap identifier and the url return the path to store it
+func urlToStoragePath(sitemapId string, url url_info.URL) (string, error) {
+	if url.Base64Loc == "" {
+		return "", fmt.Errorf("no base64 loc for url %s", url.Loc)
+	}
+	return fmt.Sprintf("summoned/%s/%s.jsonld", sitemapId, url.Base64Loc), nil
+}
+
 // Harvest all the URLs in the given sitemap
 func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, chan []string, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", s.sitemapId))
@@ -177,10 +190,16 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	start := time.Now()
 	log.Infof("Harvesting sitemap %s with %d urls", s.sitemapId, len(s.URL))
 
-	seenSitesMu := sync.Mutex{}
+	successfulSitesMu := sync.Mutex{}
 	// includes both sites that were download
 	// and sites that were skipped due to having a matching hash
-	sitesSeenDuringHarvest := make(storage.Set)
+	successfulSites := make(storage.Set)
+
+	// the number of sites that were hit with a fetch request
+	// regardless of whether or not they returned an error
+	totalSitesContacted := atomic.Int64{}
+
+	sitesInSitemap := make(storage.Set)
 
 	sitesWithShaclFailures := atomic.Int32{}
 
@@ -197,14 +216,23 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	}
 
 	for _, url := range s.URL {
+
+		if path, err := urlToStoragePath(s.sitemapId, url); err != nil {
+			return pkg.SitemapCrawlStats{}, nil, err
+		} else {
+			sitesInSitemap.Add(path)
+		}
 		group.Go(func() error {
-			result_metadata, err := harvestOneSite(ctx, s.sitemapId, url, config)
+			result_metadata, err := harvestOnePID(ctx, s.sitemapId, url, config)
 			if err != nil {
 				if !errors.Is(err, context.Canceled) {
 					log.Error(err)
 				}
 				return err
 			}
+
+			totalSitesContacted.Store((totalSitesContacted.Add(1)))
+
 			if !result_metadata.nonFatalError.IsNil() {
 				s.errorMu.Lock()
 				s.nonFatalErrors = append(s.nonFatalErrors, result_metadata.nonFatalError)
@@ -226,18 +254,25 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 					)
 				}
 			}
-			seenSitesMu.Lock()
-			sitesSeenDuringHarvest.Add(result_metadata.pathInStorage)
-			seenSitesMu.Unlock()
-
+			if result_metadata.pathInStorage != "" {
+				successfulSitesMu.Lock()
+				if successfulSites.Contains(result_metadata.pathInStorage) {
+					successfulSitesMu.Unlock()
+					errMsg := fmt.Sprintf("Got at least two responses in the same sitemap crawl that resolved to the same path in storage: %s. URL %s has potential duplicate data in API", result_metadata.pathInStorage, url.Loc)
+					log.Error(errMsg)
+					return pkg.UrlCrawlError{Url: url.Loc, Message: errMsg}
+				}
+				successfulSites.Add(result_metadata.pathInStorage)
+				successfulSitesMu.Unlock()
+			}
 			if !result_metadata.serverHadHash && config.checkExistenceBeforeCrawl.Load() {
 				// if the server didn't provide a hash then we can skip the hash check
 				// since presumably the server doesn't support this header in the HEAD request
 				config.checkExistenceBeforeCrawl.Store(false)
 				log.Warnf("Server didn't provide a hash on %s. Skipping hash checks going forward for harvested sites", url.Loc)
 			}
-			if math.Mod(float64(len(sitesSeenDuringHarvest)), 500) == 0 {
-				log.Infof("Harvested %d/%d sites for %s", len(sitesSeenDuringHarvest), len(s.URL), s.sitemapId)
+			if math.Mod(float64(totalSitesContacted.Load()), 500) == 0 {
+				log.Infof("Harvested %d/%d sites for %s", totalSitesContacted.Load(), len(s.URL), s.sitemapId)
 			}
 
 			return nil
@@ -252,11 +287,11 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 		go func() {
 			defer close(cleanupChannel)
 			log.Info("Cleaning up outdated JSON-LD files in summoned/" + s.sitemapId)
-			cleanedUpFiles, err := storage.CleanupFiles("summoned/"+s.sitemapId, sitesSeenDuringHarvest, s.storageDestination)
+			cleanedUpFiles, err := storage.CleanupFiles("summoned/"+s.sitemapId, sitesInSitemap, s.storageDestination)
 			if err != nil {
 				log.Error(err)
 			} else {
-				log.Infof("Cleaned up %d outdated JSON-LD files", len(cleanedUpFiles))
+				log.Infof("Cleaned up %d outdated JSON-LD files in summoned/%s", len(cleanedUpFiles), s.sitemapId)
 			}
 			cleanupChannel <- cleanedUpFiles
 		}()
@@ -268,7 +303,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 		SitemapSourceLink: s.sitemapUrl,
 		SecondsToComplete: time.Since(start).Seconds(),
 		SitemapName:       s.sitemapId,
-		SitesHarvested:    len(sitesSeenDuringHarvest),
+		SuccessfulSites:   len(successfulSites),
 		SitesInSitemap:    len(s.URL),
 		WarningStats: pkg.WarningReport{
 			TotalShaclFailures: int(sitesWithShaclFailures.Load()),
@@ -287,17 +322,9 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 
 	log.Infof("Finished crawling sitemap %s in %f seconds", s.sitemapId, stats.SecondsToComplete)
 
-	log.Infof("Sitemap %s had %d harvested urls, %d non fatal crawl errors, and %d shacl issues", s.sitemapId, stats.SitesHarvested, len(stats.CrawlFailures), stats.WarningStats.TotalShaclFailures)
+	log.Infof("Sitemap %s had %d harvested urls, %d non fatal crawl errors, and %d shacl issues", s.sitemapId, stats.SuccessfulSites, len(stats.CrawlFailures), stats.WarningStats.TotalShaclFailures)
 
 	return stats, cleanupChannel, err
-}
-
-// Represents a URL tag and its attributes within a sitemap
-type URL struct {
-	Loc        string  `xml:"loc"`
-	LastMod    string  `xml:"lastmod"`
-	ChangeFreq string  `xml:"changefreq"`
-	Priority   float32 `xml:"priority"`
 }
 
 // Given a sitemap url, return a Sitemap object
@@ -314,7 +341,7 @@ func NewSitemap(ctx context.Context, client *http.Client, sitemapURL string, wor
 		warnings:           []pkg.ShaclInfo{},
 	}
 
-	urls := make([]URL, 0)
+	urls := make([]url_info.URL, 0)
 
 	resp, err := client.Get(sitemapURL)
 	if err != nil {
@@ -322,14 +349,10 @@ func NewSitemap(ctx context.Context, client *http.Client, sitemapURL string, wor
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	err = sitemap.Parse(resp.Body, func(entry sitemap.Entry) error {
-		url := URL{}
-		url.Loc = strings.TrimSpace(entry.GetLocation())
-		urls = append(urls, url)
+	if err = sitemap.Parse(resp.Body, func(entry sitemap.Entry) error {
+		urls = append(urls, *url_info.NewUrlFromSitemapEntry(entry))
 		return nil
-	})
-
-	if err != nil {
+	}); err != nil {
 		return &serializedSitemap, err
 	}
 

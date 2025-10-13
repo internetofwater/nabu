@@ -17,6 +17,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const HarvestAgent = "nabu"
+
 type MockResponse struct {
 	File        string
 	Body        string

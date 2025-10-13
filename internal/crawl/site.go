@@ -14,6 +14,8 @@ import (
 	"time"
 
 	common "github.com/internetofwater/nabu/internal/common"
+	hashchecks "github.com/internetofwater/nabu/internal/crawl/hash_checks"
+	"github.com/internetofwater/nabu/internal/crawl/url_info"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/pkg"
 	log "github.com/sirupsen/logrus"
@@ -26,7 +28,7 @@ import (
 // it will first try to get the jsonld directly if the content
 // type is application/ld+json otherwise it tries to find it
 // inside the html
-func getJSONLD(resp *http.Response, url URL, body []byte) ([]byte, error) {
+func getJSONLD(resp *http.Response, url url_info.URL, body []byte) ([]byte, error) {
 	mime := resp.Header.Get("Content-Type")
 	if strings.Contains(mime, "application/ld+json") {
 		return body, nil
@@ -43,39 +45,7 @@ func getJSONLD(resp *http.Response, url URL, body []byte) ([]byte, error) {
 	return nil, pkg.UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: errormsg}
 }
 
-// Get the hash of the remote jsonld by using the Content-Digest header
-// This gets us metadata about the file without needing to download it fully
-func getRemoteJsonldHash(url string, client *http.Client) (string, error) {
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodHead, url, nil)
-	if err != nil {
-		return "", err
-	}
-
-	req.Header.Set("User-Agent", gleanerAgent)
-	req.Header.Set("Want-Content-Digest", "sha256")
-	req.Header.Set("Accept", "application/ld+json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode >= 400 {
-		return "", nil
-	}
-	hash := resp.Header.Get("content-digest")
-
-	// make sure we get just the hash value
-	// not the metadata about the hash itself
-	trimmed := strings.TrimPrefix(hash, "sha256=")
-	trimmed = strings.TrimPrefix(trimmed, "sha256-")
-	trimmed = strings.TrimSpace(trimmed)
-
-	return trimmed, nil
-}
-
+// the metadata for a single url harvest
 type harvestResult struct {
 	pathInStorage string
 	serverHadHash bool
@@ -83,10 +53,13 @@ type harvestResult struct {
 	nonFatalError pkg.UrlCrawlError
 }
 
-// Crawl and download a single URL
-func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *SitemapHarvestConfig) (harvestResult, error) {
+// Crawl and download a single pid
+func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, config *SitemapHarvestConfig) (harvestResult, error) {
 	if sitemapId == "" {
 		return harvestResult{}, fmt.Errorf("no sitemap id specified. Must be set for identifying the sitemap with a human readable name")
+	}
+	if url.Base64Loc == "" {
+		return harvestResult{}, fmt.Errorf("no base64 loc specified for %s", url.Loc)
 	}
 
 	// Create a new span for each URL and propagate the updated context
@@ -99,32 +72,20 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	result_metadata := harvestResult{}
 
 	if config.checkExistenceBeforeCrawl.Load() {
-		hash, err := getRemoteJsonldHash(url.Loc, config.httpClient)
-		var maxErr *common.MaxRetryError
-		if errors.As(err, &maxErr) {
-			result_metadata.nonFatalError = pkg.UrlCrawlError{Url: url.Loc, Message: err.Error()}
+		result, err := hashchecks.NewHashChecker(config.httpClient, config.storageDestination).
+			CheckIfAlreadyExists(url, sitemapId)
+		var nonFatalError pkg.UrlCrawlError
+		if errors.As(err, &nonFatalError) {
+			result_metadata.nonFatalError = nonFatalError
 			return result_metadata, nil
 		}
 		if err != nil {
-			return result_metadata, fmt.Errorf("failed to get hash for %s: %w", url.Loc, err)
+			return result_metadata, err
 		}
-		var expectedLocationInStorage string
-		if hash != "" {
-			result_metadata.serverHadHash = true
-			expectedLocationInStorage = "summoned/" + sitemapId + "/" + hash + ".jsonld"
-			exists, err := config.storageDestination.Exists(expectedLocationInStorage)
-			if err != nil {
-				return result_metadata, err
-			}
-			if exists {
-				log.Tracef("skipping %s because it already exists in %s", url.Loc, expectedLocationInStorage)
-				result_metadata.pathInStorage = expectedLocationInStorage
-				return result_metadata, nil
-			}
-			log.Tracef("%s does not exist in the bucket", expectedLocationInStorage)
-
-		} else {
-			log.Tracef("%s has no associated hash", url.Loc)
+		result_metadata.serverHadHash = result.ServerProvidedHash
+		result_metadata.pathInStorage = result.PathInStorage
+		if result.FileAlreadyExists {
+			return result_metadata, nil
 		}
 	}
 
@@ -133,7 +94,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	if err != nil {
 		return result_metadata, err
 	}
-	req.Header.Set("User-Agent", gleanerAgent)
+	req.Header.Set("User-Agent", common.HarvestAgent)
 	req.Header.Set("Accept", "application/ld+json")
 
 	resp, err := config.httpClient.Do(req)
@@ -177,11 +138,10 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		return result_metadata, fmt.Errorf("failed to get JSON-LD from response: %w", err)
 	}
 
-	// To generate a hash we need to copy the response body
-	itemHash := generateHashFilename(rawbytes)
-
-	summonedPath := fmt.Sprintf("summoned/%s/%s", sitemapId, itemHash)
-
+	summonedPath, err := urlToStoragePath(sitemapId, url)
+	if err != nil {
+		return result_metadata, fmt.Errorf("failed to get storage path: %w", err)
+	}
 	if hash != "" && expectedLocationInStorage != "" {
 		result_metadata.serverHadHash = true
 		if summonedPath != expectedLocationInStorage {
@@ -218,7 +178,7 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 	}
 
 	// Store from the buffered copy
-	if err = config.storageDestination.Store(summonedPath, bytes.NewReader(jsonld)); err != nil {
+	if err = config.storageDestination.StoreWithHash(summonedPath, bytes.NewReader(jsonld), len(jsonld)); err != nil {
 		return result_metadata, err
 	}
 
@@ -226,6 +186,6 @@ func harvestOneSite(ctx context.Context, sitemapId string, url URL, config *Site
 		log.Debug("sleeping for", config.robots.CrawlDelay)
 		time.Sleep(config.robots.CrawlDelay)
 	}
-
+	result_metadata.pathInStorage = summonedPath
 	return result_metadata, nil
 }

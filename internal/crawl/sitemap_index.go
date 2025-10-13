@@ -165,8 +165,8 @@ func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.Si
 			const metadataFiles = 2
 			errChan := make(chan error, metadataFiles)
 			go func() {
-				errChan <- i.storageDestination.Store("orgs/"+id+".nq", strings.NewReader(nq))
-				errChan <- i.storageDestination.Store("prov/"+id+".nq", strings.NewReader(prov))
+				errChan <- i.storageDestination.StoreWithoutServersideHash("orgs/"+id+".nq", strings.NewReader(nq))
+				errChan <- i.storageDestination.StoreWithoutServersideHash("prov/"+id+".nq", strings.NewReader(prov))
 				close(errChan)
 			}()
 

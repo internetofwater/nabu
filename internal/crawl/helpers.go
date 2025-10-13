@@ -5,8 +5,8 @@ package crawl
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -15,8 +15,6 @@ import (
 	common "github.com/internetofwater/nabu/internal/common"
 	"github.com/temoto/robotstxt"
 )
-
-const gleanerAgent = "gleaner"
 
 // Given a url, strip off the end and just return the hostname with the
 // proper protocol
@@ -30,7 +28,7 @@ func getHostname(urlToCheck string) (string, error) {
 
 // Create a new robots.txt object from a remote url
 // this can be used to check if we are allowed to crawl
-func newRobots(urlToCheck string) (*robotstxt.Group, error) {
+func newRobots(httpClient *http.Client, urlToCheck string) (*robotstxt.Group, error) {
 
 	basename, err := getHostname(urlToCheck)
 	if err != nil {
@@ -39,7 +37,7 @@ func newRobots(urlToCheck string) (*robotstxt.Group, error) {
 
 	robotsUrl := basename + "/robots.txt"
 
-	resp, err := common.NewCrawlerClient().Get(robotsUrl)
+	resp, err := httpClient.Get(robotsUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -48,12 +46,7 @@ func newRobots(urlToCheck string) (*robotstxt.Group, error) {
 	if err != nil {
 		return nil, err
 	}
-	return robots.FindGroup(gleanerAgent), nil
-}
-
-func generateHashFilename(data []byte) string {
-	hash := sha256.Sum256(data)
-	return fmt.Sprintf("%x.jsonld", hash)
+	return robots.FindGroup(common.HarvestAgent), nil
 }
 
 func GetJsonLDFromHTML(data []byte) (string, error) {
