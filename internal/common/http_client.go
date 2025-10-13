@@ -5,6 +5,7 @@ package common
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -114,10 +115,16 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		resp, err := t.Base.RoundTrip(req)
 
 		if err != nil {
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			var netErr net.Error
+			if errors.As(err, &netErr) && netErr.Timeout() {
 				log.Warnf("retrying after timeout on %s (attempt %d)", req.URL.String(), i+1)
 				time.Sleep(time.Duration(i+1) * t.Backoff)
 				lastErr = err
+				continue
+			} else if errors.Is(err, context.DeadlineExceeded) {
+				log.Warnf("retrying after context deadline exceeded on %s (attempt %d)", req.URL.String(), i+1)
+				lastErr = err
+				time.Sleep(time.Duration(i+1) * t.Backoff)
 				continue
 			}
 			return nil, err
@@ -146,9 +153,9 @@ func newLongLivedHttpTransport() http.RoundTripper {
 		MaxIdleConns:          0,
 		MaxIdleConnsPerHost:   0,
 		MaxConnsPerHost:       0,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
+		IdleConnTimeout:       120 * time.Second,
+		TLSHandshakeTimeout:   20 * time.Second,
+		ExpectContinueTimeout: 2 * time.Second,
 		DisableKeepAlives:     false,
 		ForceAttemptHTTP2:     true,
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -164,7 +171,7 @@ func newLongLivedHttpTransport() http.RoundTripper {
 // An http client optimized for long lived crawler requests and setting otel
 func newClientFromRoundTrip(transport http.RoundTripper) *http.Client {
 	return &http.Client{
-		Timeout:   30 * time.Second,
+		Timeout:   90 * time.Second,
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			span := trace.SpanFromContext(req.Context())
