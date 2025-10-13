@@ -291,7 +291,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 			if err != nil {
 				log.Error(err)
 			} else {
-				log.Infof("Cleaned up %d outdated JSON-LD files", len(cleanedUpFiles))
+				log.Infof("Cleaned up %d outdated JSON-LD files in summoned/%s", len(cleanedUpFiles), s.sitemapId)
 			}
 			cleanupChannel <- cleanedUpFiles
 		}()
