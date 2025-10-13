@@ -260,11 +260,9 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.sitemapId+"/testfile3.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
 
-	stats, cleanupChan, err := sitemap.
+	stats, cleanedUpFiles, err := sitemap.
 		Harvest(context.Background(), &config)
 	require.NoError(t, err)
-	// wait for cleanup to finish
-	cleanedUpFiles := <-cleanupChan
 	require.Len(t, cleanedUpFiles, 3, "THere should be 3 files cleaned up, representing the 3 testfiles.txt that were manually added")
 
 	require.Len(t, stats.CrawlFailures, 0)
@@ -310,11 +308,9 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 	config, err = NewSitemapHarvestConfig(mockedClientWithErrors, sitemap, "", false, true)
 	require.NoError(t, err)
 
-	stats, cleanupChan, err = sitemap.
+	stats, cleanedUpFiles, err = sitemap.
 		Harvest(context.Background(), &config)
 	require.NoError(t, err)
-	// wait for cleanup to finish
-	cleanedUpFiles = <-cleanupChan
 	require.Len(t, cleanedUpFiles, 1, "There should be 1 file cleaned up, representing dummy.txt; the other sites which 404d but are in the sitemap should stay in case they are temporarily failing")
 
 	require.Len(t, stats.CrawlFailures, 2, "Two sites had 404 errors")
