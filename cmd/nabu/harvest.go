@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
@@ -35,6 +36,8 @@ type HarvestCmd struct {
 }
 
 func Harvest(ctx context.Context, client *http.Client, minioConfig config.MinioConfig, args HarvestCmd) ([]pkg.SitemapCrawlStats, error) {
+	_, _ = os.Stderr.WriteString("Test message")
+	os.Exit(1)
 	if args.SitemapIndex == "" {
 		return nil, fmt.Errorf("sitemap index must be provided")
 	}
