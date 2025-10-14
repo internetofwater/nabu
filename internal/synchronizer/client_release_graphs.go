@@ -120,6 +120,10 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 // concurrency of the conversion process
 func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix, compressGraphWithGzip bool) error {
 
+	if prefix == "" {
+		return fmt.Errorf("prefix is empty; you must specify a prefix to generate a release graph from")
+	}
+
 	releaseNqName, err := makeReleaseNqName(prefix)
 	if err != nil {
 		return err
