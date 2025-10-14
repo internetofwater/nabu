@@ -362,7 +362,7 @@ func (suite *S3ClientSuite) TestPull() {
 			err = os.Remove(tmpFile.Name())
 			suite.Require().NoError(err)
 		}()
-		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpFile.Name())
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpFile.Name(), "")
 		suite.Require().NoError(err)
 
 		concatData, err := os.ReadFile(tmpFile.Name())
@@ -379,7 +379,7 @@ func (suite *S3ClientSuite) TestPull() {
 		tmpDir, err := os.MkdirTemp("", "pull-dir-*")
 		tmpDir = tmpDir + "/"
 		suite.Require().NoError(err)
-		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir)
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, "")
 		suite.Require().NoError(err)
 
 		files, err := os.ReadDir(tmpDir)
@@ -390,6 +390,19 @@ func (suite *S3ClientSuite) TestPull() {
 			suite.Require().Contains(string(fileData), file.Name())
 		}
 	})
+
+	suite.T().Run("substr filter", func(t *testing.T) {
+		tmpDir, err := os.MkdirTemp("", "pull-dir-with-filter-*")
+		tmpDir = tmpDir + "/"
+		suite.Require().NoError(err)
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, "NOTHING_SHOULD_MATCH")
+		suite.Require().NoError(err)
+
+		files, err := os.ReadDir(tmpDir)
+		suite.Require().NoError(err)
+		suite.Require().Len(files, 0)
+	})
+
 	err := suite.minioContainer.ClientWrapper.Remove(prefix)
 	suite.Require().NoError(err)
 }
@@ -411,7 +424,7 @@ func (suite *S3ClientSuite) TestPullWithBytesums() {
 	tmpDir, err := os.MkdirTemp("", "pull-bytesum-dir-*")
 	tmpDir = tmpDir + "/"
 	suite.Require().NoError(err)
-	err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir)
+	err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, "")
 	suite.Require().NoError(err)
 
 	files, err := os.ReadDir(tmpDir)
@@ -443,7 +456,7 @@ func (suite *S3ClientSuite) TestPullWithBytesums() {
 
 		time.Sleep(time.Second)
 
-		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir)
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, "")
 		suite.Require().NoError(err)
 
 		for _, file := range files {

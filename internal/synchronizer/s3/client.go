@@ -418,7 +418,7 @@ func (m MinioClientWrapper) IsEmptyDir(path S3Prefix) (bool, error) {
 
 // PullSeparateFilesToDir downloads all the objects with the given prefix
 // and stores them in the specified directory without combining them
-func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S3Prefix, outputDir string) error {
+func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S3Prefix, outputDir string, nameFilter string) error {
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return err
 	}
@@ -434,6 +434,11 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 	cumulativeDownloadedMegabytes := float64(0)
 
 	for obj := range objChan {
+
+		if nameFilter != "" && !strings.Contains(obj.Key, nameFilter) {
+			log.Debugf("Skipping %s because it does not contain %s", obj.Key, nameFilter)
+			continue
+		}
 
 		if obj.Err != nil {
 			return fmt.Errorf("error when pulling files, %s", obj.Err)
@@ -604,7 +609,7 @@ func (m MinioClientWrapper) PullAndConcat(ctx context.Context, prefix S3Prefix, 
 // 1. Concurrently read from S3
 // 2. Pass the data to a channel
 // 3. write to the file using buffered writer
-func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFileOrDir string) error {
+func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFileOrDir string, nameFilter string) error {
 	if prefix == "" {
 		return errors.New("prefix cannot be empty when concatenating; you should not implicitly download the entire bucket")
 	}
@@ -616,9 +621,12 @@ func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFil
 
 	if isDir {
 		log.Debugf("%s was specified as the local download directory due to the ending /", outputFileOrDir)
-		return m.PullSeparateFilesToDir(ctx, prefix, outputFileOrDir)
+		return m.PullSeparateFilesToDir(ctx, prefix, outputFileOrDir, nameFilter)
 	} else {
 		log.Debugf("%s was specified as the local file destination", outputFileOrDir)
+		if nameFilter != "" {
+			return fmt.Errorf("substr is not implemented for pull and concat")
+		}
 		return m.PullAndConcat(ctx, prefix, outputFileOrDir)
 	}
 }

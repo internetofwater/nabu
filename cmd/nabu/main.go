@@ -36,7 +36,8 @@ type ReleaseCmd struct {
 }
 type ClearCmd struct{}
 type PullCmd struct {
-	Output string `arg:"positional"`
+	Output     string `arg:"positional"`
+	NameFilter string `arg:"--name-filter" help:"only pull objects whose names contain this string"`
 }
 
 type NabuArgs struct {
@@ -185,7 +186,7 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 	case n.args.Harvest != nil:
 		return Harvest(ctx, client, cfgStruct.Minio, *n.args.Harvest)
 	case n.args.Pull != nil:
-		return nil, synchronizerClient.S3Client.Pull(ctx, cfgStruct.Prefix, n.args.Pull.Output)
+		return nil, synchronizerClient.S3Client.Pull(ctx, cfgStruct.Prefix, n.args.Pull.Output, n.args.Pull.NameFilter)
 	default:
 		return nil, fmt.Errorf("unknown nabu subcommand")
 	}
