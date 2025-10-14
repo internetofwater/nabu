@@ -401,6 +401,13 @@ func (suite *S3ClientSuite) TestPull() {
 		files, err := os.ReadDir(tmpDir)
 		suite.Require().NoError(err)
 		suite.Require().Len(files, 0)
+
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, "99")
+		suite.Require().NoError(err)
+
+		files, err = os.ReadDir(tmpDir)
+		suite.Require().NoError(err)
+		suite.Require().Len(files, 1, "There should only be one file in the dir since there is only file with 99 in the name")
 	})
 
 	err := suite.minioContainer.ClientWrapper.Remove(prefix)
