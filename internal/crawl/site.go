@@ -80,7 +80,7 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 			return result_metadata, nil
 		}
 		if err != nil {
-			return result_metadata, err
+			return result_metadata, fmt.Errorf("got fatal error when checking if %s already exists: %w", url.Loc, err)
 		}
 		result_metadata.serverHadHash = result.ServerProvidedHash
 		result_metadata.pathInStorage = result.PathInStorage
@@ -92,7 +92,7 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 	log.Tracef("fetching %s", url.Loc)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.Loc, nil)
 	if err != nil {
-		return result_metadata, err
+		return result_metadata, fmt.Errorf("failed to create http request for %s: %w", url.Loc, err)
 	}
 	req.Header.Set("User-Agent", common.HarvestAgent)
 	req.Header.Set("Accept", "application/ld+json")
@@ -104,7 +104,7 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 			result_metadata.nonFatalError = pkg.UrlCrawlError{Url: url.Loc, Message: err.Error()}
 			return result_metadata, nil
 		}
-		return result_metadata, err
+		return result_metadata, fmt.Errorf("got fatal error when fetching %s: %w", url.Loc, err)
 	}
 	span.AddEvent("http_response", trace.WithAttributes(attribute.KeyValue{Key: "status", Value: attribute.StringValue(resp.Status)}))
 
@@ -121,7 +121,7 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 
 	rawbytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return result_metadata, fmt.Errorf("failed to read response body: %w", err)
+		return result_metadata, fmt.Errorf("failed to read response body for %s: %w", url.Loc, err)
 	}
 
 	jsonld, err := getJSONLD(resp, url, rawbytes)
