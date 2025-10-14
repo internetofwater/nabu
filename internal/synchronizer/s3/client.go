@@ -450,7 +450,6 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 		}
 		eg.Go(func() error {
 			megabytes := float64(obj.Size) / (1024 * 1024)
-			log.Debugf("Downloading %s of size %0.5fMB", obj.Key, megabytes)
 
 			// get the last item in the s3 object prefix
 			// this is since the s3 prefix may be nested and we don't
@@ -463,10 +462,10 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 				return err
 			}
 			if isPresent {
-				log.Warnf("File %s already exists locally, skipping download", fileName)
+				log.Infof("File %s already exists locally, skipping download", fileName)
 				return nil
 			}
-
+			log.Debugf("Downloading %s of size %0.5fMB", obj.Key, megabytes)
 			ob, err := m.Client.GetObject(ctx, m.DefaultBucket, obj.Key, minio.GetObjectOptions{})
 			if err != nil {
 				return err
