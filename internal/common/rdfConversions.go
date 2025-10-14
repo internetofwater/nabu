@@ -20,7 +20,7 @@ type NamedGraph struct {
 }
 
 // Convert a string of N-Triples to N-Quads
-func NtToNq(nt, ctx string) (string, error) {
+func NtToNq(nt, graphURN string) (string, error) {
 	dec := rdf.NewTripleDecoder(strings.NewReader(nt), rdf.NTriples)
 	triples, err := dec.DecodeAll()
 	if err != nil {
@@ -30,7 +30,7 @@ func NtToNq(nt, ctx string) (string, error) {
 
 	allQuads := make([]string, len(triples))
 	for i, triple := range triples {
-		quad, err := makeQuad(triple, ctx)
+		quad, err := makeQuad(triple, graphURN)
 		if err != nil {
 			return "", err
 		}
