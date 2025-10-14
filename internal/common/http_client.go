@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -121,8 +122,10 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				time.Sleep(time.Duration(i+1) * t.Backoff)
 				lastErr = err
 				continue
-			} else if errors.Is(err, context.DeadlineExceeded) {
-				log.Warnf("retrying after context deadline exceeded on %s (attempt %d)", req.URL.String(), i+1)
+			}
+
+			if ue, ok := err.(*url.Error); ok && ue.Timeout() {
+				log.Warnf("retrying after client timeout on %s (attempt %d)", req.URL.String(), i+1)
 				lastErr = err
 				time.Sleep(time.Duration(i+1) * t.Backoff)
 				continue
