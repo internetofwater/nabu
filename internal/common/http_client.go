@@ -105,7 +105,7 @@ type MaxRetryError struct {
 	Err error
 }
 
-func (e MaxRetryError) Error() string {
+func (e *MaxRetryError) Error() string {
 	return e.Err.Error()
 }
 
