@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -104,7 +105,7 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 			result_metadata.nonFatalError = pkg.UrlCrawlError{Url: url.Loc, Message: err.Error()}
 			return result_metadata, nil
 		}
-		return result_metadata, fmt.Errorf("got fatal error when fetching %s: %w", url.Loc, err)
+		return result_metadata, fmt.Errorf("got fatal error of type %s when fetching %s: %w", reflect.TypeOf(err).String(), url.Loc, err)
 	}
 	span.AddEvent("http_response", trace.WithAttributes(attribute.KeyValue{Key: "status", Value: attribute.StringValue(resp.Status)}))
 
