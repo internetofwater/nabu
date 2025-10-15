@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -130,5 +131,13 @@ func TestErrorWrapping(t *testing.T) {
 
 	var maxErr *MaxRetryError
 	require.True(t, errors.As(wrapped, &maxErr))
+
+	wrapped2 := &url.Error{
+		Op:  "Get",
+		URL: "https://x",
+		Err: context.DeadlineExceeded,
+	}
+
+	require.True(t, errors.Is(wrapped2, context.DeadlineExceeded))
 
 }
