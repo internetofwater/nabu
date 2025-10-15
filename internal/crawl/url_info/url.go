@@ -23,12 +23,20 @@ type URL struct {
 
 func NewUrlFromSitemapEntry(sitemap sitemap.Entry) *URL {
 
+	// need to check this to prevent a nil pointer deref panic
+	var lastModified string
+	if sitemap.GetLastModified() != nil {
+		lastModified = sitemap.GetLastModified().String()
+	} else {
+		lastModified = ""
+	}
+
 	return &URL{
 		// trim space just in case the creator of the sitemap
 		// messed up and added spaces at the start of the url
 		// preventing it from being fetched properly
 		Loc:        strings.TrimSpace(sitemap.GetLocation()),
-		LastMod:    sitemap.GetLastModified().String(),
+		LastMod:    lastModified,
 		ChangeFreq: sitemap.GetChangeFrequency(),
 		Priority:   sitemap.GetPriority(),
 		Base64Loc:  base64.StdEncoding.EncodeToString([]byte(sitemap.GetLocation())),
