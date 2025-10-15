@@ -101,7 +101,7 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 	resp, err := config.httpClient.Do(req)
 	if err != nil {
 		var maxErr *common.MaxRetryError
-		if errors.As(err, &maxErr) {
+		if errors.As(err, &maxErr) || errors.Is(err, context.DeadlineExceeded) {
 			result_metadata.nonFatalError = pkg.UrlCrawlError{Url: url.Loc, Message: err.Error()}
 			return result_metadata, nil
 		}

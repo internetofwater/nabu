@@ -4,9 +4,13 @@
 package common
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -115,4 +119,25 @@ func TestStrictMock(t *testing.T) {
 		})
 	_, err := mock.Get("http://example123.com")
 	require.Error(t, err)
+}
+
+func TestErrorWrapping(t *testing.T) {
+
+	wrapped := &url.Error{
+		Op:  "Get",
+		URL: "https://x",
+		Err: &MaxRetryError{Err: fmt.Errorf("boom")},
+	}
+
+	var maxErr *MaxRetryError
+	require.True(t, errors.As(wrapped, &maxErr))
+
+	wrapped2 := &url.Error{
+		Op:  "Get",
+		URL: "https://x",
+		Err: context.DeadlineExceeded,
+	}
+
+	require.True(t, errors.Is(wrapped2, context.DeadlineExceeded))
+
 }
