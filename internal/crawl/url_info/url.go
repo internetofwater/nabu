@@ -12,12 +12,13 @@ import (
 
 // Represents a URL tag and its attributes within a sitemap
 type URL struct {
+	// the url link itself
 	Loc        string  `xml:"loc"`
 	LastMod    string  `xml:"lastmod"`
 	ChangeFreq string  `xml:"changefreq"`
 	Priority   float32 `xml:"priority"`
 
-	// A base64 encoded version of the loc that can be used as a key for lookups
+	// A base64 encoded version of the url link loc that can be used as a key for lookups
 	Base64Loc string `xml:"-"`
 }
 
