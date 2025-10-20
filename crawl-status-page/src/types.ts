@@ -24,20 +24,20 @@ export interface JsonLdReport extends VocabType {
 
 
 export interface GCPResponse {
-	kind: string 
-	items: {
-		kind: string
-		id: string
-		selfLink: string
-		mediaLink: string
-		name: string
-		bucket: string
-		generation: string
-		metageneration: string
-		contentType: string
-		size: string
-		md5Hash: string
-		updated: string 
-		nextPageToken?: string
-	}[]
+  kind: string;
+  nextPageToken?: string;
+  items: {
+    kind: string;
+    id: string;
+    selfLink: string;
+    mediaLink: string;
+    name: string;
+    bucket: string;
+    generation: string;
+    metageneration: string;
+    contentType: string;
+    size: string;
+    md5Hash: string;
+    updated: string;
+  }[];
 }

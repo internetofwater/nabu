@@ -45,12 +45,15 @@ const CrawlStatusDashboard = () => {
     if (loaded.length > 0) setJsonldData(make_jsonld(loaded));
   }, [pages]);
 
-  // Count total pages once, then load first page
+  // Count total pages once and load first page
   useEffect(() => {
-    const countSitemaps = async () => {
+    let isMounted = true;
+
+    const countAndLoadFirstPage = async () => {
       try {
+        let total = 0;
+
         if (gcp) {
-          let total = 0;
           let pageToken: string | undefined;
           do {
             const url = new URL(
@@ -59,133 +62,201 @@ const CrawlStatusDashboard = () => {
             url.searchParams.set("prefix", PREFIX);
             url.searchParams.set("fields", "items(name),nextPageToken");
             if (pageToken) url.searchParams.set("pageToken", pageToken);
+
             const res = await fetch(url.toString());
             if (!res.ok) break;
-            const data: GCPResponse = await res.json() as GCPResponse;
-            total += (data.items ?? []).filter((i: GCPResponse["items"]) =>
+
+            const data = (await res.json()) as GCPResponse;
+            total += (data.items ?? []).filter((i) =>
               i.name.endsWith(".json")
             ).length;
             pageToken = data.nextPageToken;
           } while (pageToken);
-          setTotalSitemaps(total);
-          setTotalPages(Math.ceil(total / ITEMS_PER_PAGE));
         } else {
           const client = get_minio_client();
-          let total = 0;
           let continuationToken: string | undefined;
+
           do {
-            const params: {Bucket: string; Prefix: string; MaxKeys: number} = {
+            const params: {Bucket: string; Prefix: string; MaxKeys: number, ContinuationToken?: string} = {
               Bucket: BUCKET,
               Prefix: PREFIX,
               MaxKeys: 1000,
             };
             if (continuationToken) params.ContinuationToken = continuationToken;
+
             const res = await client.listObjectsV2(params);
-            total += (res.Contents ?? []).filter((o: any) =>
+            total += (res.Contents ?? []).filter((o) =>
               o.Key?.endsWith(".json")
             ).length;
+
             continuationToken = res.IsTruncated
               ? res.NextContinuationToken
               : undefined;
           } while (continuationToken);
-          setTotalSitemaps(total);
-          setTotalPages(Math.ceil(total / ITEMS_PER_PAGE));
         }
+
+        if (!isMounted) return;
+
+        setTotalPages(Math.ceil(total / ITEMS_PER_PAGE));
+        void loadPage(null, 0);
       } catch (err) {
-        console.warn("Error counting total sitemaps:", err);
+        console.warn("Error counting sitemaps:", err);
       }
     };
 
-    void countSitemaps();
-    void loadPage(null, 0);
-  }, []);
+    void countAndLoadFirstPage();
 
-const loadPage = async (token: string | null, pageIndex: number) => {
-  // Start loading before doing anything else
-  setLoadingPage(true);
-  setError(null);
+    return () => {
+      isMounted = false;
+    };
+  }, [gcp]);
 
-  try {
-    // Wait for next frame to let spinner render before clearing
-    await new Promise((r) => setTimeout(r, 50));
+  const loadPage = async (token: string | null, pageIndex: number) => {
+    setLoadingPage(true);
+    setError(null);
 
-    // Clear the page content AFTER spinner starts showing
-    setPages((prev) => {
-      const newPages = [...prev];
-      newPages[pageIndex] = [];
-      return newPages;
-    });
+    try {
+      await new Promise((r) => setTimeout(r, 50)); // Let spinner render
 
-    if (gcp) {
-      const listUrl = new URL(
-        `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o`
-      );
-      listUrl.searchParams.set("prefix", PREFIX);
-      listUrl.searchParams.set("maxResults", String(ITEMS_PER_PAGE));
-      if (token) listUrl.searchParams.set("pageToken", token);
-
-      const listRes = await fetch(listUrl.toString());
-      if (!listRes.ok)
-        throw new Error(`Failed to list objects: ${listRes.statusText}`);
-
-      const listJson = await listRes.json();
-      const items = (listJson.items ?? []).filter((o: any) =>
-        o.name.endsWith(".json")
-      );
-      const newNextToken = listJson.nextPageToken ?? null;
-
-      const pageSitemaps: SitemapItemState[] = items.map((o: any) => ({
-        key: o.name,
-        loading: true,
-      }));
       setPages((prev) => {
         const newPages = [...prev];
-        newPages[pageIndex] = pageSitemaps;
+        newPages[pageIndex] = [];
         return newPages;
       });
 
-      await Promise.all(
-        items.map(async (obj: any) => {
-          try {
-            const objectUrl = `https://storage.googleapis.com/${BUCKET}/${obj.name}`;
-            const objectRes = await fetch(objectUrl);
-            if (!objectRes.ok) throw new Error(`Failed to fetch ${obj.name}`);
-            const json =
-              (await objectRes.json()) as SitemapCrawlStatsWithS3Metadata;
-            json.LastModified = obj.updated ?? "Unknown";
+      if (gcp) {
+        const listUrl = new URL(
+          `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o`
+        );
+        listUrl.searchParams.set("prefix", PREFIX);
+        listUrl.searchParams.set("maxResults", String(ITEMS_PER_PAGE));
+        if (token) listUrl.searchParams.set("pageToken", token);
 
-            setPages((prev) => {
-              const newPages = [...prev];
-              const pageCopy = [...newPages[pageIndex]];
-              const idx = pageCopy.findIndex((s) => s.key === obj.name);
-              if (idx !== -1)
-                pageCopy[idx] = {
-                  ...pageCopy[idx],
-                  loading: false,
-                  data: json,
-                };
-              newPages[pageIndex] = pageCopy;
-              return newPages;
-            });
-          } catch (err) {
-            console.warn(`Error loading ${obj.name}:`, err);
-          }
-        })
-      );
+        const listRes = await fetch(listUrl.toString());
+        if (!listRes.ok)
+          throw new Error(`Failed to list objects: ${listRes.statusText}`);
+        const listJson = (await listRes.json()) as GCPResponse;
 
-      setNextToken(newNextToken);
-    } else {
-      // ... your MinIO code unchanged ...
+        const items = (listJson.items ?? []).filter((o) =>
+          o.name.endsWith(".json")
+        );
+        const newNextToken = listJson.nextPageToken ?? null;
+
+        const pageSitemaps: SitemapItemState[] = items.map((o) => ({
+          key: o.name,
+          loading: true,
+        }));
+
+        setPages((prev) => {
+          const newPages = [...prev];
+          newPages[pageIndex] = pageSitemaps;
+          return newPages;
+        });
+
+        await Promise.all(
+          items.map(async (obj) => {
+            try {
+              const objectUrl = `https://storage.googleapis.com/${BUCKET}/${obj.name}`;
+              const objectRes = await fetch(objectUrl);
+              if (!objectRes.ok) throw new Error(`Failed to fetch ${obj.name}`);
+
+              const json =
+                (await objectRes.json()) as SitemapCrawlStatsWithS3Metadata;
+              json.LastModified = obj.updated ?? "Unknown";
+
+              setPages((prev) => {
+                const newPages = [...prev];
+                const pageCopy = [...newPages[pageIndex]];
+                const idx = pageCopy.findIndex((s) => s.key === obj.name);
+                if (idx !== -1)
+                  pageCopy[idx] = {
+                    ...pageCopy[idx],
+                    loading: false,
+                    data: json,
+                  };
+                newPages[pageIndex] = pageCopy;
+                return newPages;
+              });
+            } catch (err) {
+              console.warn(`Error loading ${obj.name}:`, err);
+            }
+          })
+        );
+
+        setNextToken(newNextToken);
+      } else {
+        const client = get_minio_client();
+        const continuationToken: string | undefined = token ?? undefined;
+
+        // List objects up to ITEMS_PER_PAGE
+        const params: { Bucket: string; Prefix: string; MaxKeys: number; ContinuationToken?: string } = {
+          Bucket: BUCKET,
+          Prefix: PREFIX,
+          MaxKeys: ITEMS_PER_PAGE,
+        };
+        if (continuationToken) params.ContinuationToken = continuationToken;
+
+        const res = await client.listObjectsV2(params);
+        const items = (res.Contents ?? []).filter((o) => o.Key?.endsWith(".json"));
+        const newNextToken = res.IsTruncated ? res.NextContinuationToken : null;
+
+        const pageSitemaps: SitemapItemState[] = items.map((o) => ({
+          key: o.Key ?? "",
+          loading: true,
+        }));
+
+        setPages((prev) => {
+          const newPages = [...prev];
+          newPages[pageIndex] = pageSitemaps;
+          return newPages;
+        });
+
+        await Promise.all(
+          items.map(async (obj) => {
+            if (!obj.Key) return;
+            try {
+              const objectData = await client.getObject({ Bucket: BUCKET, Key: obj.Key });
+              const body = await objectData.Body?.transformToString();
+              if (!body) throw new Error("Empty body");
+
+              const json = JSON.parse(body) as SitemapCrawlStatsWithS3Metadata;
+              json.LastModified = objectData.LastModified?.toISOString() ?? "Unknown";
+
+              setPages((prev) => {
+                const newPages = [...prev];
+                const pageCopy = [...newPages[pageIndex]];
+                const idx = pageCopy.findIndex((s) => s.key === obj.Key);
+                if (idx !== -1) {
+                  pageCopy[idx] = { ...pageCopy[idx], loading: false, data: json };
+                }
+                newPages[pageIndex] = pageCopy;
+                return newPages;
+              });
+            } catch (err) {
+              console.warn(`Error loading ${obj.Key}:`, err);
+              setPages((prev) => {
+                const newPages = [...prev];
+                const pageCopy = [...newPages[pageIndex]];
+                const idx = pageCopy.findIndex((s) => s.key === obj.Key);
+                if (idx !== -1) {
+                  pageCopy[idx] = { ...pageCopy[idx], loading: false, error: `Error loading ${String(obj.Key)}` };
+                }
+                newPages[pageIndex] = pageCopy;
+                return newPages;
+              });
+            }
+          })
+        );
+        if (newNextToken) setNextToken(newNextToken);
+
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      console.error("Error loading sitemap page:", err);
+    } finally {
+      setTimeout(() => { setLoadingPage(false); }, 150);
     }
-  } catch (err: any) {
-    setError(err instanceof Error ? err.message : String(err));
-    console.error("Error loading sitemap page:", err);
-  } finally {
-    // Add short delay for smoother UX before removing spinner
-    setTimeout(() => setLoadingPage(false), 150);
-  }
-};
-
+  };
 
   const handleNext = () => {
     if (pages[currentPage + 1]) {
@@ -193,9 +264,8 @@ const loadPage = async (token: string | null, pageIndex: number) => {
       return;
     }
     if (!nextToken) return;
-    setPrevTokens((prev) => [...prev, nextToken]);
     void loadPage(nextToken, currentPage + 1).then(() =>
-      setCurrentPage((p) => p + 1)
+      {setCurrentPage((p) => p + 1);}
     );
   };
 
@@ -245,11 +315,7 @@ const loadPage = async (token: string | null, pageIndex: number) => {
         currentSitemaps.map((s) => (
           <div key={s.key} className={styles.sitemap}>
             {s.loading && <p>Loading sitemap {s.key}…</p>}
-            {s.error && (
-              <p style={{ color: "var(--error-bg)" }}>
-                Failed to load {s.key}: {s.error}
-              </p>
-            )}
+            {s.error && <p style={{ color: "var(--error-bg)" }}>{s.error}</p>}
             {s.data && (
               <>
                 <div className={styles.sitemapHeaderRow}>
@@ -282,12 +348,9 @@ const loadPage = async (token: string | null, pageIndex: number) => {
                   </p>
                 </strong>
 
-                {s.data.WarningStats &&
-                  s.data.WarningStats.TotalShaclFailures > 0 &&
+                {s.data.WarningStats?.TotalShaclFailures > 0 &&
                   CrawlWarningTable(s.data.WarningStats)}
-
-                {s.data.CrawlFailures &&
-                  s.data.CrawlFailures.length > 0 &&
+                {s.data.CrawlFailures?.length > 0 &&
                   CrawlFailureTable(s.data.CrawlFailures)}
               </>
             )}
@@ -312,12 +375,10 @@ const loadPage = async (token: string | null, pageIndex: number) => {
         >
           ← Prev
         </button>
-
         <span>
           Page {currentPage + 1}
-          {totalPages ? ` of ${totalPages}` : " …"}
+          {totalPages ? ` of ${String(totalPages)}` : " …"}
         </span>
-
         <button
           onClick={handleNext}
           disabled={loadingPage || (!nextToken && !pages[currentPage + 1])}
