@@ -8,13 +8,15 @@ import { get_bucket, get_prefix, get_minio_client, use_gcp } from "./env";
 import styles from "./CrawlStatusDashboard.module.css";
 import { make_jsonld } from "./lib";
 import CrawlFailureTable from "./CrawlFailureTable";
-import type { SitemapCrawlStatsWithS3Metadata } from "./types";
+import type { GCPResponse, SitemapCrawlStatsWithS3Metadata } from "./types";
 import Header from "./Header";
 import CrawlWarningTable from "./CrawlWarningTable";
 import SitemapIndexInfo from "./SitemapIndexInfo";
+import { ClipLoader } from "react-spinners";
 
 const BUCKET = get_bucket();
 const PREFIX = get_prefix();
+const ITEMS_PER_PAGE = 5;
 
 interface SitemapItemState {
   key: string;
@@ -24,107 +26,135 @@ interface SitemapItemState {
 }
 
 const CrawlStatusDashboard = () => {
-  const [sitemaps, setSitemaps] = useState<SitemapItemState[]>([]);
-  const [jsonldData, setJsonldData] = useState<object | null>(null);
+  const [pages, setPages] = useState<SitemapItemState[][]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [nextToken, setNextToken] = useState<string | null>(null);
+  const [loadingPage, setLoadingPage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [jsonldData, setJsonldData] = useState<object | null>(null);
+  const [totalPages, setTotalPages] = useState<number | null>(null);
 
-  // Whenever we get fully loaded sitemap data, update jsonld
+  const gcp = use_gcp();
+
+  // Update JSON-LD when new sitemap data loads
   useEffect(() => {
-    const loaded = sitemaps
+    const loaded = pages
+      .flat()
       .map((s) => s.data)
       .filter((d): d is SitemapCrawlStatsWithS3Metadata => !!d);
+    if (loaded.length > 0) setJsonldData(make_jsonld(loaded));
+  }, [pages]);
 
-    if (loaded.length > 0) {
-      setJsonldData(make_jsonld(loaded));
-    }
-  }, [sitemaps]);
-
+  // Count total pages once and load first page
   useEffect(() => {
     let isMounted = true;
 
-    const loadSitemaps = async () => {
+    const countAndLoadFirstPage = async () => {
       try {
-        if (!use_gcp()) {
-          const client = get_minio_client();
-          const response = await client.listObjects({
-            Bucket: BUCKET,
-            Prefix: PREFIX,
-          });
+        let total = 0;
 
-          const objects = response.Contents ?? [];
-          if (!isMounted) return;
-
-          // Initialize state placeholders
-          setSitemaps(
-            objects
-              .filter((o) => o.Key?.endsWith(".json"))
-              .map((o) => ({ key: o.Key ?? "", loading: true }))
-          );
-
-          // Load each async
-          for (const obj of objects) {
-            if (!obj.Key?.endsWith(".json") || !isMounted) continue;
-
-            try {
-              const objectData = await client.getObject({
-                Bucket: BUCKET,
-                Key: obj.Key,
-              });
-              const body = await objectData.Body?.transformToString();
-              if (!body) throw new Error("Empty body");
-
-              const json = JSON.parse(body) as SitemapCrawlStatsWithS3Metadata;
-              json.LastModified =
-                objectData.LastModified?.toISOString() ?? "Unknown";
-
-              if (isMounted) {
-                setSitemaps((prev) =>
-                  prev.map((s) =>
-                    s.key === obj.Key ? { ...s, loading: false, data: json } : s
-                  )
-                );
-              }
-            } catch (e) {
-              if (isMounted) {
-                setSitemaps((prev) =>
-                  prev.map((s) =>
-                    s.key === obj.Key
-                      ? {
-                          ...s,
-                          loading: false,
-                          error: `Error loading ${obj.Key}`,
-                        }
-                      : s
-                  )
-                );
-              }
-              console.warn(`Error loading ${obj.Key}:`, e);
-            }
-          }
-        } else {
-          // GCS (production)
-          const listUrl = `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o?prefix=${PREFIX}`;
-          const listRes = await fetch(listUrl);
-          if (!listRes.ok)
-            throw new Error(
-              `Failed to list objects: ${String(listRes.status)}`
+        if (gcp) {
+          let pageToken: string | undefined;
+          do {
+            const url = new URL(
+              `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o`
             );
+            url.searchParams.set("prefix", PREFIX);
+            url.searchParams.set("fields", "items(name),nextPageToken");
+            if (pageToken) url.searchParams.set("pageToken", pageToken);
 
-          const listJson = (await listRes.json()) as {
-            items: { name: string; updated: string }[];
-          };
+            const res = await fetch(url.toString());
+            if (!res.ok) break;
 
-          if (!isMounted) return;
+            const data = (await res.json()) as GCPResponse;
+            total += (data.items ?? []).filter((i) =>
+              i.name.endsWith(".json")
+            ).length;
+            pageToken = data.nextPageToken;
+          } while (pageToken);
+        } else {
+          const client = get_minio_client();
+          let continuationToken: string | undefined;
 
-          setSitemaps(
-            listJson.items
-              .filter((o) => o.name.endsWith(".json"))
-              .map((o) => ({ key: o.name, loading: true }))
-          );
+          do {
+            const params: {Bucket: string; Prefix: string; MaxKeys: number, ContinuationToken?: string} = {
+              Bucket: BUCKET,
+              Prefix: PREFIX,
+              MaxKeys: 1000,
+            };
+            if (continuationToken) params.ContinuationToken = continuationToken;
 
-          for (const obj of listJson.items) {
-            if (!obj.name.endsWith(".json") || !isMounted) continue;
+            const res = await client.listObjectsV2(params);
+            total += (res.Contents ?? []).filter((o) =>
+              o.Key?.endsWith(".json")
+            ).length;
 
+            continuationToken = res.IsTruncated
+              ? res.NextContinuationToken
+              : undefined;
+          } while (continuationToken);
+        }
+
+        if (!isMounted) return;
+
+        setTotalPages(Math.ceil(total / ITEMS_PER_PAGE));
+        void loadPage(null, 0);
+      } catch (err) {
+        console.warn("Error counting sitemaps:", err);
+      }
+    };
+
+    void countAndLoadFirstPage();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [gcp]);
+
+  const loadPage = async (token: string | null, pageIndex: number) => {
+    setLoadingPage(true);
+    setError(null);
+
+    try {
+      await new Promise((r) => setTimeout(r, 50)); // Let spinner render
+
+      setPages((prev) => {
+        const newPages = [...prev];
+        newPages[pageIndex] = [];
+        return newPages;
+      });
+
+      if (gcp) {
+        const listUrl = new URL(
+          `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o`
+        );
+        listUrl.searchParams.set("prefix", PREFIX);
+        listUrl.searchParams.set("maxResults", String(ITEMS_PER_PAGE));
+        if (token) listUrl.searchParams.set("pageToken", token);
+
+        const listRes = await fetch(listUrl.toString());
+        if (!listRes.ok)
+          throw new Error(`Failed to list objects: ${listRes.statusText}`);
+        const listJson = (await listRes.json()) as GCPResponse;
+
+        const items = (listJson.items ?? []).filter((o) =>
+          o.name.endsWith(".json")
+        );
+        const newNextToken = listJson.nextPageToken ?? null;
+
+        const pageSitemaps: SitemapItemState[] = items.map((o) => ({
+          key: o.name,
+          loading: true,
+        }));
+
+        setPages((prev) => {
+          const newPages = [...prev];
+          newPages[pageIndex] = pageSitemaps;
+          return newPages;
+        });
+
+        await Promise.all(
+          items.map(async (obj) => {
             try {
               const objectUrl = `https://storage.googleapis.com/${BUCKET}/${obj.name}`;
               const objectRes = await fetch(objectUrl);
@@ -134,55 +164,124 @@ const CrawlStatusDashboard = () => {
                 (await objectRes.json()) as SitemapCrawlStatsWithS3Metadata;
               json.LastModified = obj.updated ?? "Unknown";
 
-              if (isMounted) {
-                setSitemaps((prev) =>
-                  prev.map((s) =>
-                    s.key === obj.name
-                      ? { ...s, loading: false, data: json }
-                      : s
-                  )
-                );
-              }
-            } catch (e) {
-              if (isMounted) {
-                setSitemaps((prev) =>
-                  prev.map((s) =>
-                    s.key === obj.name
-                      ? {
-                          ...s,
-                          loading: false,
-                          error: `Error loading ${obj.name}`,
-                        }
-                      : s
-                  )
-                );
-              }
-              console.warn(`Error loading ${obj.name}:`, e);
+              setPages((prev) => {
+                const newPages = [...prev];
+                const pageCopy = [...newPages[pageIndex]];
+                const idx = pageCopy.findIndex((s) => s.key === obj.name);
+                if (idx !== -1)
+                  pageCopy[idx] = {
+                    ...pageCopy[idx],
+                    loading: false,
+                    data: json,
+                  };
+                newPages[pageIndex] = pageCopy;
+                return newPages;
+              });
+            } catch (err) {
+              console.warn(`Error loading ${obj.name}:`, err);
             }
-          }
-        }
-      } catch (err: unknown) {
-        if (isMounted) {
-          setError(err instanceof Error ? err.message : String(err));
-          console.error(
-            `Error loading sitemaps from ${BUCKET} with prefix ${PREFIX}:`,
-            err
-          );
-        }
-      }
-    };
+          })
+        );
 
-    void loadSitemaps();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+        setNextToken(newNextToken);
+      } else {
+        const client = get_minio_client();
+        const continuationToken: string | undefined = token ?? undefined;
+
+        // List objects up to ITEMS_PER_PAGE
+        const params: { Bucket: string; Prefix: string; MaxKeys: number; ContinuationToken?: string } = {
+          Bucket: BUCKET,
+          Prefix: PREFIX,
+          MaxKeys: ITEMS_PER_PAGE,
+        };
+        if (continuationToken) params.ContinuationToken = continuationToken;
+
+        const res = await client.listObjectsV2(params);
+        const items = (res.Contents ?? []).filter((o) => o.Key?.endsWith(".json"));
+        const newNextToken = res.IsTruncated ? res.NextContinuationToken : null;
+
+        const pageSitemaps: SitemapItemState[] = items.map((o) => ({
+          key: o.Key ?? "",
+          loading: true,
+        }));
+
+        setPages((prev) => {
+          const newPages = [...prev];
+          newPages[pageIndex] = pageSitemaps;
+          return newPages;
+        });
+
+        await Promise.all(
+          items.map(async (obj) => {
+            if (!obj.Key) return;
+            try {
+              const objectData = await client.getObject({ Bucket: BUCKET, Key: obj.Key });
+              const body = await objectData.Body?.transformToString();
+              if (!body) throw new Error("Empty body");
+
+              const json = JSON.parse(body) as SitemapCrawlStatsWithS3Metadata;
+              json.LastModified = objectData.LastModified?.toISOString() ?? "Unknown";
+
+              setPages((prev) => {
+                const newPages = [...prev];
+                const pageCopy = [...newPages[pageIndex]];
+                const idx = pageCopy.findIndex((s) => s.key === obj.Key);
+                if (idx !== -1) {
+                  pageCopy[idx] = { ...pageCopy[idx], loading: false, data: json };
+                }
+                newPages[pageIndex] = pageCopy;
+                return newPages;
+              });
+            } catch (err) {
+              console.warn(`Error loading ${obj.Key}:`, err);
+              setPages((prev) => {
+                const newPages = [...prev];
+                const pageCopy = [...newPages[pageIndex]];
+                const idx = pageCopy.findIndex((s) => s.key === obj.Key);
+                if (idx !== -1) {
+                  pageCopy[idx] = { ...pageCopy[idx], loading: false, error: `Error loading ${String(obj.Key)}` };
+                }
+                newPages[pageIndex] = pageCopy;
+                return newPages;
+              });
+            }
+          })
+        );
+        if (newNextToken) setNextToken(newNextToken);
+
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      console.error("Error loading sitemap page:", err);
+    } finally {
+      setTimeout(() => { setLoadingPage(false); }, 150);
+    }
+  };
+
+  const handleNext = () => {
+    if (pages[currentPage + 1]) {
+      setCurrentPage((p) => p + 1);
+      return;
+    }
+    if (!nextToken) return;
+    void loadPage(nextToken, currentPage + 1).then(() =>
+      {setCurrentPage((p) => p + 1);}
+    );
+  };
+
+  const handlePrev = () => {
+    if (currentPage === 0) return;
+    setCurrentPage((p) => p - 1);
+  };
+
+  const currentSitemaps = pages[currentPage] ?? [];
 
   return (
     <div className={styles.dashboardContainer}>
       <Header
         jsonData={
-          sitemaps
+          pages
+            .flat()
             .map((s) => s.data)
             .filter(Boolean) as SitemapCrawlStatsWithS3Metadata[]
         }
@@ -194,61 +293,100 @@ const CrawlStatusDashboard = () => {
           Error loading report: <i>{error}</i>
         </p>
       )}
+
       <SitemapIndexInfo
-        sitemapsCurrentlyShown={sitemaps.length}
-        sitemapIndex={"https://geoconnex.us/sitemap.xml"}
+        sitemapsCurrentlyShown={currentSitemaps.length}
+        sitemapIndex="https://geoconnex.us/sitemap.xml"
       />
-      {sitemaps.map((s) => (
-        <div key={s.key} className={styles.sitemap}>
-          {s.loading && <p>Loading sitemap {s.key}…</p>}
-          {s.error && (
-            <p style={{ color: "var(--error-bg)" }}>
-              Failed to load {s.key}: {s.error}
-            </p>
-          )}
-          {s.data && (
-            <>
-              <div className={styles.sitemapHeaderRow}>
-                <h2>
-                  Sitemap:{" "}
-                  {s.data.SitemapSourceLink ? (
-                    <a
-                      href={s.data.SitemapSourceLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {s.data.SitemapName}
-                    </a>
-                  ) : (
-                    s.data.SitemapName
-                  )}
-                </h2>
-                <span style={{ color: "gray" }}>
-                  Last Modified: {s.data.LastModified?.split("T")[0]}
-                </span>
-              </div>
-              <span className={styles.meta}>
-                Sites in Sitemap: {s.data.SitesInSitemap}
-                <br />
-                Time to Complete: {s.data.SecondsToComplete.toFixed(2)}s
-              </span>
-              <strong>
-                <p className={styles.successColor}>
-                  Successful Features: {s.data.SuccessfulSites}
-                </p>
-              </strong>
 
-              {s.data.WarningStats &&
-                s.data.WarningStats.TotalShaclFailures > 0 &&
-                CrawlWarningTable(s.data.WarningStats)}
-
-              {s.data.CrawlFailures &&
-                s.data.CrawlFailures.length > 0 &&
-                CrawlFailureTable(s.data.CrawlFailures)}
-            </>
-          )}
+      {loadingPage ? (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            minHeight: "200px",
+            marginTop: "2rem",
+          }}
+        >
+          <ClipLoader size={50} color="#0070f3" />
         </div>
-      ))}
+      ) : (
+        currentSitemaps.map((s) => (
+          <div key={s.key} className={styles.sitemap}>
+            {s.loading && <p>Loading sitemap {s.key}…</p>}
+            {s.error && <p style={{ color: "var(--error-bg)" }}>{s.error}</p>}
+            {s.data && (
+              <>
+                <div className={styles.sitemapHeaderRow}>
+                  <h2>
+                    Sitemap:{" "}
+                    {s.data.SitemapSourceLink ? (
+                      <a
+                        href={s.data.SitemapSourceLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {s.data.SitemapName}
+                      </a>
+                    ) : (
+                      s.data.SitemapName
+                    )}
+                  </h2>
+                  <span style={{ color: "gray" }}>
+                    Last Modified: {s.data.LastModified?.split("T")[0]}
+                  </span>
+                </div>
+                <span className={styles.meta}>
+                  Sites in Sitemap: {s.data.SitesInSitemap}
+                  <br />
+                  Time to Complete: {s.data.SecondsToComplete.toFixed(2)}s
+                </span>
+                <strong>
+                  <p className={styles.successColor}>
+                    Successful Features: {s.data.SuccessfulSites}
+                  </p>
+                </strong>
+
+                {s.data.WarningStats?.TotalShaclFailures > 0 &&
+                  CrawlWarningTable(s.data.WarningStats)}
+                {s.data.CrawlFailures?.length > 0 &&
+                  CrawlFailureTable(s.data.CrawlFailures)}
+              </>
+            )}
+          </div>
+        ))
+      )}
+
+      <div
+        className={styles.paginationControls}
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: "1rem",
+          marginTop: "2rem",
+          alignItems: "center",
+        }}
+      >
+        <button
+          onClick={handlePrev}
+          disabled={currentPage === 0 || loadingPage}
+          className={styles.paginationButton}
+        >
+          ← Prev
+        </button>
+        <span>
+          Page {currentPage + 1}
+          {totalPages ? ` of ${String(totalPages)}` : " …"}
+        </span>
+        <button
+          onClick={handleNext}
+          disabled={loadingPage || (!nextToken && !pages[currentPage + 1])}
+          className={styles.paginationButton}
+        >
+          Next →
+        </button>
+      </div>
     </div>
   );
 };
