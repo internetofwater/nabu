@@ -169,11 +169,12 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix, co
 	})
 	const streamObjectOfUndefinedSize = -1
 
+	releaseNqPath := fmt.Sprintf("graphs/latest/%s", releaseNqName)
 	// stream the nq data to s3
 	objInfo, err := synchronizer.S3Client.Client.PutObject(
 		context.Background(),
 		synchronizer.syncBucketName,
-		fmt.Sprintf("graphs/latest/%s", releaseNqName),
+		releaseNqPath,
 		pipeReader,
 		streamObjectOfUndefinedSize,
 		minio.PutObjectOptions{},
@@ -194,7 +195,19 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix, co
 		return err
 	}
 
-	log.Infof("Successfully uploaded N-Quads to %s (%d bytes)", objInfo.Key, objInfo.Size)
+	dataWasStreamed := objInfo.Size == -1
+	var size int64
+	if dataWasStreamed {
+		info, err := synchronizer.S3Client.Client.StatObject(context.Background(), synchronizer.syncBucketName, releaseNqPath, minio.StatObjectOptions{})
+		if err != nil {
+			return fmt.Errorf("error getting info on nq object %s after loading it into the bucket: %w", releaseNqPath, err)
+		}
+		size = info.Size
+	} else {
+		size = objInfo.Size
+	}
+
+	log.Infof("Successfully uploaded N-Quads of size %d bytes to %s", size, releaseNqPath)
 
 	return nil
 }
