@@ -433,6 +433,8 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 	var mu sync.Mutex
 	cumulativeDownloadedMegabytes := float64(0)
 
+	foundCompressed := atomic.Bool{}
+
 	for obj := range objChan {
 
 		if nameFilter != "" && !strings.Contains(obj.Key, nameFilter) {
@@ -448,6 +450,13 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 			// skip adding metadata like prov graphs or sha hashes into the concatenated file
 			continue
 		}
+
+		if strings.HasSuffix(obj.Key, ".gz") {
+			foundCompressed.Store(true)
+		} else if foundCompressed.Load() && !strings.HasSuffix(obj.Key, ".gz") {
+			log.Warnf("Found both compressed and uncompressed files in bucket at prefix %s. You should generally not store both since it can mistakenly duplicate unnecessary data", prefix)
+		}
+
 		eg.Go(func() error {
 			megabytes := float64(obj.Size) / (1024 * 1024)
 
@@ -510,6 +519,8 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 
 	// pull all bytesums after all files have been downloaded; otherwise if we were
 	// to do it in parallel with the file download it would have a race condition
+	// in which we are updating the local hashes while simultaneously checking whether
+	// or not to download the file based on that hash
 	if err := m.pullAllByteSums(ctx, prefix, outputDir); err != nil {
 		return err
 	}
