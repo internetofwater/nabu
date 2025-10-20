@@ -21,3 +21,23 @@ export type SitemapCrawlStatsAsJsonld = SitemapCrawlStats | SitemapCrawlStatsWit
 export interface JsonLdReport extends VocabType {
   "@graph": SitemapCrawlStatsAsJsonld[],
 };
+
+
+export interface GCPResponse {
+	kind: string 
+	items: {
+		kind: string
+		id: string
+		selfLink: string
+		mediaLink: string
+		name: string
+		bucket: string
+		generation: string
+		metageneration: string
+		contentType: string
+		size: string
+		md5Hash: string
+		updated: string 
+		nextPageToken?: string
+	}[]
+}
