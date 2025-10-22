@@ -24,8 +24,8 @@ fn new_report_with_error_msg(msg: &str) -> ValidationReport {
     let node = Object::BlankNode(msg.to_string());
     let results = vec![ValidationResult::new(
         node.clone(),
-        node.clone(),
-        node.clone(),
+        Object::BlankNode("".to_string()),
+        Object::BlankNode("".to_string()),
     )];
     ValidationReport::default().with_results(results)
 }
