@@ -21,7 +21,7 @@ func NewNabuRunnerFromString(args string) NabuRunner {
 	return NewNabuRunner(strings.Split(args, " "))
 }
 
-func (s *GleanerRootSuite) TestHarvestToS3() {
+func (s *NabuHarvestSuite) TestHarvestToS3() {
 	args := fmt.Sprintf("harvest --log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
 		"https://geoconnex.us/sitemap.xml":                     {File: "testdata/sitemap_index.xml", StatusCode: 200},
@@ -70,7 +70,7 @@ func (s *GleanerRootSuite) TestHarvestToS3() {
 	require.Equal(s.T(), OneSitemapSoOneMetadataObject, items)
 }
 
-func (s *GleanerRootSuite) TestHarvestWithSourceSpecified() {
+func (s *NabuHarvestSuite) TestHarvestWithSourceSpecified() {
 	args := fmt.Sprintf("harvest --log-level DEBUG --sitemap-index testdata/sitemap_index.xml --source iow_wqp_stations__5 --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 
 	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
@@ -88,7 +88,7 @@ func (s *GleanerRootSuite) TestHarvestWithSourceSpecified() {
 	require.Equal(s.T(), 1, orgsObjs)
 }
 
-func (s *GleanerRootSuite) TestHarvestToDisk() {
+func (s *NabuHarvestSuite) TestHarvestToDisk() {
 	args := "harvest --log-level DEBUG --to-disk --sitemap-index testdata/sitemap_index.xml"
 	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
 		"https://geoconnex.us/sitemap.xml":                     {File: "testdata/sitemap_index.xml", StatusCode: 200},
@@ -101,7 +101,7 @@ func (s *GleanerRootSuite) TestHarvestToDisk() {
 	s.Require().NoError(err)
 }
 
-func (s *GleanerRootSuite) TestBadFileType() {
+func (s *NabuHarvestSuite) TestBadFileType() {
 	args := "harvest --sitemap-index https://geoconnex.us/sitemap.xml --source SELFIE_SELFIE_ids__0 --log-level DEBUG --to-disk"
 	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
 		"https://geoconnex.us/sitemap.xml":                           {File: "testdata/sitemap_index_selfie.xml", StatusCode: 200},
@@ -116,20 +116,20 @@ func (s *GleanerRootSuite) TestBadFileType() {
 }
 
 // Wrapper struct to store a handle to the container for all
-type GleanerRootSuite struct {
+type NabuHarvestSuite struct {
 	suite.Suite
 	minioContainer s3.MinioContainer
 }
 
 // Setup common dependencies before starting the test suite
-func (suite *GleanerRootSuite) SetupSuite() {
+func (suite *NabuHarvestSuite) SetupSuite() {
 	container, err := s3.NewDefaultMinioContainer()
 	suite.Require().NoError(err)
 	suite.minioContainer = container
 
 }
 
-func (s *GleanerRootSuite) TearDownSuite() {
+func (s *NabuHarvestSuite) TearDownSuite() {
 	c := *s.minioContainer.Container
 	err := c.Terminate(context.Background())
 	s.Require().NoError(err)
@@ -137,5 +137,5 @@ func (s *GleanerRootSuite) TearDownSuite() {
 
 // Run the entire test suite
 func TestS3ClientSuite(t *testing.T) {
-	suite.Run(t, new(GleanerRootSuite))
+	suite.Run(t, new(NabuHarvestSuite))
 }

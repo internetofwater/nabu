@@ -22,13 +22,13 @@ import (
 )
 
 // Wrapper struct to store a handle to the container for all
-type GleanerInterationSuite struct {
+type NabuInterationSuite struct {
 	suite.Suite
 	minioContainer   s3.MinioContainer
 	graphdbContainer triplestores.GraphDBContainer
 }
 
-func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
+func (s *NabuInterationSuite) TestIntegrationWithNabu() {
 
 	opentelemetry.InitTracer("harvest_integration_test", opentelemetry.DefaultTracingEndpoint)
 	defer opentelemetry.Shutdown()
@@ -68,7 +68,7 @@ func (s *GleanerInterationSuite) TestIntegrationWithNabu() {
 	s.Require().True(exists)
 }
 
-func (suite *GleanerInterationSuite) SetupSuite() {
+func (suite *NabuInterationSuite) SetupSuite() {
 
 	ctx := context.Background()
 	t := suite.T()
@@ -100,13 +100,13 @@ func (suite *GleanerInterationSuite) SetupSuite() {
 	suite.graphdbContainer = graphdbContainer
 }
 
-func (s *GleanerInterationSuite) TearDownSuite() {
+func (s *NabuInterationSuite) TearDownSuite() {
 	c := *s.minioContainer.Container
 	err := c.Terminate(context.Background())
 	s.Require().NoError(err)
 }
 
 // Run the entire test suite
-func TestGleanerIntegrationClientSuite(t *testing.T) {
-	suite.Run(t, new(GleanerInterationSuite))
+func TestNabuIntegrationClientSuite(t *testing.T) {
+	suite.Run(t, new(NabuInterationSuite))
 }

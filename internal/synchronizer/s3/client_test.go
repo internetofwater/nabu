@@ -36,7 +36,7 @@ func (suite *S3ClientSuite) SetupSuite() {
 	config := MinioContainerConfig{
 		Username:       "minioadmin",
 		Password:       "minioadmin",
-		DefaultBucket:  "gleanerbucket",
+		DefaultBucket:  "nabutestbucket",
 		MetadataBucket: "metadatabucket",
 		ContainerName:  "objects_test_minio",
 	}
