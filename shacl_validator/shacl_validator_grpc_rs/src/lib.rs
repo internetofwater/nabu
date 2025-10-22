@@ -2,19 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use rudof_lib::{
-    oxrdf::{NamedNode, Term},
     srdf::{self, SRDFGraph},
     RDFFormat, ShaclSchemaIR,
 };
+use shacl_validation::shacl_processor::{GraphValidation, ShaclProcessor, ShaclValidationMode};
 use shacl_validation::store::graph::Graph;
 use shacl_validation::validate_error::ValidateError;
 use shacl_validation::validation_report::report::ValidationReport;
-use shacl_validation::{
-    shacl_processor::{GraphValidation, ShaclProcessor, ShaclValidationMode},
-    validation_report::result::ValidationResult,
-};
 use sparql_service::RdfData;
-use srdf::{AsyncSRDF, Object};
+use wasm_exportable_lib::validate_jsonld;
 
 // Dynamically include the proto file using a macro
 pub mod shacl_validator {
@@ -93,56 +89,6 @@ pub fn validate_n_quads(
     let data = Graph::from_graph(srdf_graph)?;
 
     let endpoint_validation = GraphValidation::from_graph(data, ShaclValidationMode::Native);
-    let report = endpoint_validation.validate(schema)?;
-    Ok(report)
-}
-
-/// Create a validation report with a single error
-fn new_report_with_error_msg(msg: &str) -> ValidationReport {
-    let node = Object::BlankNode(msg.to_string());
-    let results = vec![ValidationResult::new(
-        node.clone(),
-        node.clone(),
-        node.clone(),
-    )];
-    ValidationReport::default().with_results(results)
-}
-
-pub async fn validate_jsonld(
-    schema: &ShaclSchemaIR,
-    jsonld: &str,
-) -> Result<ValidationReport, ValidateError> {
-    let srdf_graph = SRDFGraph::from_str(
-        jsonld,
-        &RDFFormat::JsonLd,
-        None,
-        &srdf::ReaderMode::default(),
-    )?;
-
-    let rdf_type = NamedNode::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type").unwrap();
-    let place_iri = Term::NamedNode(NamedNode::new("https://schema.org/Place").unwrap());
-    let dataset_iri = Term::NamedNode(NamedNode::new("https://schema.org/Dataset").unwrap());
-
-    let not_type_place = srdf_graph
-        .get_subjects_for_object_predicate(&place_iri, &rdf_type)
-        .await?
-        .is_empty();
-
-    let not_type_dataset = srdf_graph
-        .get_subjects_for_object_predicate(&dataset_iri, &rdf_type)
-        .await?
-        .is_empty();
-
-    if not_type_dataset && not_type_place {
-        return Ok(new_report_with_error_msg(
-            "Not of '@type':schema:Place nor '@type':schema: Dataset",
-        ));
-    }
-
-    let data = Graph::from_graph(srdf_graph.clone())?;
-
-    let endpoint_validation = GraphValidation::from_graph(data, ShaclValidationMode::Native);
-
     let report = endpoint_validation.validate(schema)?;
     Ok(report)
 }
