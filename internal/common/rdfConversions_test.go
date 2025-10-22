@@ -11,7 +11,7 @@ import (
 )
 
 func TestConvertBetweenQuadsAndTriples(t *testing.T) {
-	const nq = "<https://gleaner.io/id/org/ref_gages_gages__0> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/Organization> <urn:iow:orgs:ref_gages_gages__0.nq> ."
+	const nq = "<https://nabu.io/id/org/ref_gages_gages__0> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/Organization> <urn:iow:orgs:ref_gages_gages__0.nq> ."
 	graph, err := QuadsToTripleWithCtx(nq)
 	require.NoError(t, err)
 	require.NotEmpty(t, graph.GraphURI)
