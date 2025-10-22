@@ -1,0 +1,22 @@
+# Copyright 2025 Lincoln Institute of Land Policy
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "wasm_exportable_lib"
+version = "0.1.0"
+edition = "2024"
+description = "Library code that can be built as WASM for browser use"
+
+[dependencies]
+shacl_validation = "0.1.60"
+srdf = "0.1.60"
+sparql_service = "0.1.60"
+rudof_lib = "0.1.85"
+getrandom = { version = "0.2", features = ["js"] }
+wasm-bindgen = "0.2.104"
+wasm-bindgen-futures = "0.4.54"
+
+[lib]
+# rlib allows for us to import it as a library in other cargo projects
+# cdylib allows for us to build a wasm file
+crate-type = ["rlib", "cdylib"]

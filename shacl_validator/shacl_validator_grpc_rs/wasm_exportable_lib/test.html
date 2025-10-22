@@ -1,0 +1,119 @@
+<!--
+ Copyright 2025 Lincoln Institute of Land Policy
+ SPDX-License-Identifier: Apache-2.0
+-->
+
+<!-- 
+  This file allows you to test 
+  the wasm exportable library with a simple UI
+-->
+
+<html>
+  <head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+    <title>JSON Validator</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 2em;
+        max-width: 600px;
+      }
+      textarea {
+        width: 100%;
+        height: 150px;
+        font-family: monospace;
+        margin-top: 0.5em;
+        margin-bottom: 1em;
+      }
+      button {
+        padding: 0.5em 1em;
+        font-size: 1em;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Validate JSON-LD against Geoconnex Schema</h2>
+
+    <!-- Input textarea for JSON -->
+    <label for="inputJson">Input JSON-LD:</label>
+    <textarea id="inputJson" placeholder='{"example": "data"}'></textarea>
+
+    <!-- Button to trigger validation -->
+    <button id="validateBtn">Validate</button>
+
+    <!-- Output textarea to show validation result -->
+    <label for="outputResult">Validation Result:</label>
+    <textarea id="outputResult" readonly placeholder="Result will appear here..."></textarea>
+
+    <!-- Note the usage of `type=module` here as this is an ES6 module -->
+    <script type="module">
+      // Use ES module import syntax to import functionality from the module
+      // that we have compiled.
+      //
+      // Note that the `default` import is an initialization function which
+      // will "boot" the module and make it ready to use. Currently browsers
+      // don't support natively imported WebAssembly as an ES module, but
+      // eventually the manual initialization won't be required!
+      import init, { validate_jsonld_against_geoconnex_schema } from './pkg/wasm_exportable_lib.js';
+
+      async function run() {
+        // First up we need to actually load the Wasm file, so we use the
+        // default export to inform it where the Wasm file is located on the
+        // server, and then we wait on the returned promise to wait for the
+        // Wasm to be loaded.
+        //
+        // It may look like this: `await init('./without_a_bundler_bg.wasm');`,
+        // but there is also a handy default inside `init` function, which uses
+        // `import.meta` to locate the Wasm file relatively to js file.
+        //
+        // Note that instead of a string you can also pass in any of the
+        // following things:
+        //
+        // * `WebAssembly.Module`
+        //
+        // * `ArrayBuffer`
+        //
+        // * `Response`
+        //
+        // * `Promise` which returns any of the above, e.g. `fetch("./path/to/wasm")`
+        //
+        // This gives you complete control over how the module is loaded
+        // and compiled.
+        //
+        // Also note that the promise, when resolved, yields the Wasm module's
+        // exports which is the same as importing the `*_bg` module in other
+        // modes
+        await init();
+
+        // Get references to DOM elements
+        const validateBtn = document.getElementById("validateBtn");
+        const inputJson = document.getElementById("inputJson");
+        const outputResult = document.getElementById("outputResult");
+
+        // Event listener for button click
+        validateBtn.addEventListener("click", async () => {
+          let jsonText = inputJson.value.trim();
+          if (!jsonText) {
+            outputResult.value = "Please enter some JSON first.";
+            return;
+          }
+
+          try {
+            // Validate input JSON structure before passing to WASM
+            JSON.parse(jsonText);
+
+            // And afterwards we can use all the functionality defined in wasm.
+            const result = await validate_jsonld_against_geoconnex_schema(jsonText);
+            outputResult.value = result;
+          } catch (e) {
+            // Show errors in output textarea
+            outputResult.value = "Invalid JSON: " + e.message;
+          }
+        });
+      }
+
+      run();
+    </script>
+  </body>
+</html>

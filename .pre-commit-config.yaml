@@ -4,7 +4,7 @@
 minimum_pre_commit_version: "2.9.0"
 ci:
   autoupdate_schedule: monthly
-  skip: [typescript_gen_types, golang lint, gofmt, ts build, ts lint ]
+  skip: [typescript_gen_types, golang lint, gofmt, ts build, ts lint, rustfmt, clippy, cargo check]
 repos:
   - repo: meta
     hooks:
@@ -75,3 +75,33 @@ repos:
         language: system
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false # build handles files itself
+
+      - id: ts lint
+        name: Ensure no frontend lint errors
+        entry: bash -c "cd crawl-status-page && npm run lint"
+        language: system
+        types_or: [javascript, jsx, ts, tsx]
+        pass_filenames: false # build handles files itself
+
+      - id: rustfmt
+        name: rustfmt
+        entry: bash -c "cd shacl_validator/shacl_validator_grpc_rs && cargo fmt --all -- "
+        language: system
+        types: [rust]
+        pass_filenames: false # cargo fmt handles files itself
+
+      - id: cargo check 
+        name: cargo check
+        # check everything compiles
+        entry: bash -c "cd shacl_validator/shacl_validator_grpc_rs && cargo check --examples --locked --all-features --tests --benches  --bins  --workspace"
+        language: system
+        types: [rust]
+        pass_filenames: false  # cargo check handles files itself
+
+      - id: clippy
+        name: clippy
+        # lint the entire project with warnings
+        entry: bash -c "cd shacl_validator/shacl_validator_grpc_rs && cargo clippy --benches --examples --tests --no-deps --no-default-features -- -D warnings"
+        language: system
+        types: [rust]
+        pass_filenames: false # cargo clippy handles files itself
