@@ -41,9 +41,7 @@ pub async fn validate_jsonld_against_geoconnex_schema(jsonld: String) -> String 
             Ok(report) => report.to_string(),
             Err(err) => err.to_string(),
         },
-        Err(err) => {
-            return err.to_string();
-        }
+        Err(err) => err.to_string(),
     }
 }
 
