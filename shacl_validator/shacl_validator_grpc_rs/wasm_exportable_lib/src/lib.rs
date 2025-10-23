@@ -34,7 +34,7 @@ fn new_report_with_error_msg(msg: &str) -> ValidationReport {
 // A web assembly exportable function to validate json-ld
 // against the locationOriented schema
 pub async fn validate_jsonld_against_geoconnex_schema(jsonld: String) -> String {
-    let shacl = include_str!("../../../shapes/locationOriented.ttl");
+    let shacl = include_str!("../../../shapes/geoconnex.ttl");
     let schema = ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None);
     match schema {
         Ok(schema) => match validate_jsonld(&schema, jsonld.as_str()).await {
@@ -47,7 +47,7 @@ pub async fn validate_jsonld_against_geoconnex_schema(jsonld: String) -> String 
 
 #[wasm_bindgen]
 pub async fn get_geoconnex_schema() -> String {
-    let shacl = include_str!("../../../shapes/locationOriented.ttl");
+    let shacl = include_str!("../../../shapes/geoconnex.ttl");
     shacl.to_string()
 }
 
