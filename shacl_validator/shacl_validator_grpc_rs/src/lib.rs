@@ -33,7 +33,7 @@ pub struct Validator {
 impl Default for Validator {
     fn default() -> Self {
         let shacl_schema = {
-            let shacl = include_str!("../../shapes/locationOriented.ttl");
+            let shacl = include_str!("../../shapes/geoconnex.ttl");
             Arc::new(ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap())
         };
 
@@ -106,7 +106,7 @@ mod tests {
     #[tokio::test]
     pub async fn test_all_valid_cases() {
         let location_schema = {
-            let shacl = include_str!("../../shapes/locationOriented.ttl");
+            let shacl = include_str!("../../shapes/geoconnex.ttl");
             ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap()
         };
         let valid_dir = "../testdata/valid/";
@@ -130,7 +130,7 @@ mod tests {
     #[tokio::test]
     pub async fn test_invalid_case() {
         let location_schema = {
-            let shacl = include_str!("../../shapes/locationOriented.ttl");
+            let shacl = include_str!("../../shapes/geoconnex.ttl");
             ShaclDataManager::load(Cursor::new(shacl), RDFFormat::Turtle, None).unwrap()
         };
         let invalid_dir = "../testdata/invalid/";

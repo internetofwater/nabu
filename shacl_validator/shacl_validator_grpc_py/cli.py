@@ -34,7 +34,7 @@ def main():
         type=str,
         default=str(
             (
-                Path(__file__).parent.parent / "shapes" / "locationOriented.ttl"
+                Path(__file__).parent.parent / "shapes" / "geoconnex.ttl"
             ).absolute()
         ),
         help="Path to the shacl file to use for validation",
@@ -61,7 +61,7 @@ def main():
         "--validate_shacl", help="Validate all jsonld items before generating csv", action="store_true", default=False
     )
     generate_geoconnex_csv_subparser.add_argument(
-        "--shacl_file", type=str, help="Path to the shacl file to use for validation", required=False, default=str((Path(__file__).parent.parent / "shapes" / "locationOriented.ttl").absolute())
+        "--shacl_file", type=str, help="Path to the shacl file to use for validation", required=False, default=str((Path(__file__).parent.parent / "shapes" / "geoconnex.ttl").absolute())
     )
     generate_geoconnex_csv_subparser.add_argument(
         "--description", type=str, help="Description for the geoconnex csv", default="", required=True 

@@ -9,7 +9,7 @@ from lib import validate_jsonld
 
 test_data_dir = Path(__file__).parent.parent / "testdata"
 
-shacl_graph = Graph().parse( test_data_dir.parent / "shapes" / "locationOriented.ttl")
+shacl_graph = Graph().parse( test_data_dir.parent / "shapes" / "geoconnex.ttl")
 
 def test_all_valid_cases():
 
