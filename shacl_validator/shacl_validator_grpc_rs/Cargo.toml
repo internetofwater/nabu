@@ -12,10 +12,9 @@ prost = "0.13"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "signal"] }
 shacl_validation = "0.1.136"
 srdf = "0.1.135"
-sparql_service = "0.1.134"
-tokio-stream = "0.1.17"
 rudof_lib = "0.1.136"
 wasm_exportable_lib = { path = "./wasm_exportable_lib" }
+tokio-stream = "0.1.17"
 
 [build-dependencies]
 tonic-build = "*"

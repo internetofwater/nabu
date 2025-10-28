@@ -54,6 +54,9 @@ pub async fn validate_jsonld(
     schema: &ShaclSchemaIR,
     jsonld: &str,
 ) -> Result<ValidationReport, Box<dyn std::error::Error>> {
+    // we have to drop down to the lower level struct `SRDFGraph` because
+    // we need to be able to call `get_subjects_for_object_predicate` on it
+    // to validate it is either a Place or a Dataset before running shacl
     let srdf_graph = SRDFGraph::from_str(
         jsonld,
         &RDFFormat::JsonLd,
