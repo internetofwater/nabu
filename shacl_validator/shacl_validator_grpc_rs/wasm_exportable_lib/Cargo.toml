@@ -8,10 +8,9 @@ edition = "2024"
 description = "Library code that can be built as WASM for browser use"
 
 [dependencies]
-shacl_validation = "0.1.60"
-srdf = "0.1.60"
-sparql_service = "0.1.60"
-rudof_lib = "0.1.85"
+shacl_validation = "0.1.136"
+srdf = "0.1.135"
+rudof_lib = "0.1.136"
 getrandom = { version = "0.2", features = ["js"] }
 wasm-bindgen = "0.2.104"
 wasm-bindgen-futures = "0.4.54"

@@ -8,7 +8,6 @@ use rudof_lib::{
     oxrdf::{NamedNode, Term},
     srdf::{self, SRDFGraph},
 };
-use shacl_validation::validate_error::ValidateError;
 use shacl_validation::validation_report::report::ValidationReport;
 use shacl_validation::{
     shacl_processor::{GraphValidation, ShaclProcessor, ShaclValidationMode},
@@ -25,7 +24,7 @@ fn new_report_with_error_msg(msg: &str) -> ValidationReport {
     let results = vec![ValidationResult::new(
         node.clone(),
         Object::BlankNode("".to_string()),
-        Object::BlankNode("".to_string()),
+        rudof_lib::shacl_ir::severity::CompiledSeverity::Violation,
     )];
     ValidationReport::default().with_results(results)
 }
@@ -54,7 +53,10 @@ pub async fn get_geoconnex_schema() -> String {
 pub async fn validate_jsonld(
     schema: &ShaclSchemaIR,
     jsonld: &str,
-) -> Result<ValidationReport, ValidateError> {
+) -> Result<ValidationReport, Box<dyn std::error::Error>> {
+    // we have to drop down to the lower level struct `SRDFGraph` because
+    // we need to be able to call `get_subjects_for_object_predicate` on it
+    // to validate it is either a Place or a Dataset before running shacl
     let srdf_graph = SRDFGraph::from_str(
         jsonld,
         &RDFFormat::JsonLd,

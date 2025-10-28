@@ -2,14 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use rudof_lib::{
-    srdf::{self, SRDFGraph},
-    RDFFormat, ShaclSchemaIR,
+    srdf::{self},
+    RDFFormat, RdfData, ShaclSchemaIR,
 };
 use shacl_validation::shacl_processor::{GraphValidation, ShaclProcessor, ShaclValidationMode};
 use shacl_validation::store::graph::Graph;
-use shacl_validation::validate_error::ValidateError;
 use shacl_validation::validation_report::report::ValidationReport;
-use sparql_service::RdfData;
 use wasm_exportable_lib::validate_jsonld;
 
 // Dynamically include the proto file using a macro
@@ -48,7 +46,7 @@ impl Validator {
     pub async fn validate_location_oriented(
         &self,
         triples: &str,
-    ) -> Result<ValidationReport, ValidateError> {
+    ) -> Result<ValidationReport, Box<dyn std::error::Error>> {
         validate_jsonld(&self.location_schema, triples).await
     }
 }
@@ -57,15 +55,8 @@ impl Validator {
 pub fn validate_turtle(
     shacl: &ShaclSchemaIR,
     triples: &str,
-) -> Result<ValidationReport, ValidateError> {
-    let srdf_graph = SRDFGraph::from_str(
-        triples,
-        &RDFFormat::Turtle,
-        None,
-        &srdf::ReaderMode::default(),
-    )?;
-
-    let data = RdfData::from_graph(srdf_graph)?;
+) -> Result<ValidationReport, Box<dyn std::error::Error>> {
+    let data = RdfData::from_str(triples, &RDFFormat::Turtle, None, &srdf::ReaderMode::Strict)?;
 
     let graph = Graph::from_data(data);
 
@@ -78,17 +69,12 @@ pub fn validate_turtle(
 pub fn validate_n_quads(
     schema: &ShaclSchemaIR,
     quads: &str,
-) -> Result<ValidationReport, ValidateError> {
-    let srdf_graph = SRDFGraph::from_str(
-        quads,
-        &RDFFormat::NQuads,
-        None,
-        &srdf::ReaderMode::default(),
-    )?;
+) -> Result<ValidationReport, Box<dyn std::error::Error>> {
+    let data = RdfData::from_str(quads, &RDFFormat::NQuads, None, &srdf::ReaderMode::Strict)?;
 
-    let data = Graph::from_graph(srdf_graph)?;
+    let graph = Graph::from_data(data);
 
-    let endpoint_validation = GraphValidation::from_graph(data, ShaclValidationMode::Native);
+    let endpoint_validation = GraphValidation::from_graph(graph, ShaclValidationMode::Native);
     let report = endpoint_validation.validate(schema)?;
     Ok(report)
 }
