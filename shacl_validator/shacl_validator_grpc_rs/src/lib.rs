@@ -7,7 +7,6 @@ use rudof_lib::{
 };
 use shacl_validation::shacl_processor::{GraphValidation, ShaclProcessor, ShaclValidationMode};
 use shacl_validation::store::graph::Graph;
-use shacl_validation::validate_error::ValidateError;
 use shacl_validation::validation_report::report::ValidationReport;
 use sparql_service::RdfData;
 use wasm_exportable_lib::validate_jsonld;
@@ -48,7 +47,7 @@ impl Validator {
     pub async fn validate_location_oriented(
         &self,
         triples: &str,
-    ) -> Result<ValidationReport, ValidateError> {
+    ) -> Result<ValidationReport, Box<dyn std::error::Error>> {
         validate_jsonld(&self.location_schema, triples).await
     }
 }
@@ -57,7 +56,7 @@ impl Validator {
 pub fn validate_turtle(
     shacl: &ShaclSchemaIR,
     triples: &str,
-) -> Result<ValidationReport, ValidateError> {
+) -> Result<ValidationReport, Box<dyn std::error::Error>> {
     let srdf_graph = SRDFGraph::from_str(
         triples,
         &RDFFormat::Turtle,
@@ -78,7 +77,7 @@ pub fn validate_turtle(
 pub fn validate_n_quads(
     schema: &ShaclSchemaIR,
     quads: &str,
-) -> Result<ValidationReport, ValidateError> {
+) -> Result<ValidationReport, Box<dyn std::error::Error>> {
     let srdf_graph = SRDFGraph::from_str(
         quads,
         &RDFFormat::NQuads,
