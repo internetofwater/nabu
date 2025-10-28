@@ -8,7 +8,6 @@ use rudof_lib::{
     oxrdf::{NamedNode, Term},
     srdf::{self, SRDFGraph},
 };
-use shacl_validation::validate_error::ValidateError;
 use shacl_validation::validation_report::report::ValidationReport;
 use shacl_validation::{
     shacl_processor::{GraphValidation, ShaclProcessor, ShaclValidationMode},
