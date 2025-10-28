@@ -8,7 +8,7 @@ edition = "2024"
 description = "Library code that can be built as WASM for browser use"
 
 [dependencies]
-shacl_validation = "0.1.60"
+shacl_validation = "0.1.136"
 srdf = "0.1.135"
 sparql_service = "0.1.134"
 rudof_lib = "0.1.136"
