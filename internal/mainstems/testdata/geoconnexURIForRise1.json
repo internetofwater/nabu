@@ -1,0 +1,33 @@
+{
+    "type": "FeatureCollection",
+    "features": [],
+    "numberMatched": 0,
+    "numberReturned": 0,
+    "links": [
+        {
+            "type": "application/geo+json",
+            "rel": "self",
+            "title": "This document as GeoJSON",
+            "href": "https://reference.geoconnex.us/collections/mainstems/items?f=json&skipGeometry=true&head_nhdpv2_comid=https%3A%2F%2Fgeoconnex.us%2Fnhdplusv2%2Fcomid%2F13718"
+        },
+        {
+            "rel": "alternate",
+            "type": "application/ld+json",
+            "title": "This document as RDF (JSON-LD)",
+            "href": "https://reference.geoconnex.us/collections/mainstems/items?f=jsonld&skipGeometry=true&head_nhdpv2_comid=https%3A%2F%2Fgeoconnex.us%2Fnhdplusv2%2Fcomid%2F13718"
+        },
+        {
+            "type": "text/html",
+            "rel": "alternate",
+            "title": "This document as HTML",
+            "href": "https://reference.geoconnex.us/collections/mainstems/items?f=html&skipGeometry=true&head_nhdpv2_comid=https%3A%2F%2Fgeoconnex.us%2Fnhdplusv2%2Fcomid%2F13718"
+        },
+        {
+            "type": "application/json",
+            "title": "Reference Mainstems",
+            "rel": "collection",
+            "href": "https://reference.geoconnex.us/collections/mainstems"
+        }
+    ],
+    "timeStamp": "2025-10-29T14:58:02.934834Z"
+}
