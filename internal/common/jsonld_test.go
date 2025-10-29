@@ -109,7 +109,24 @@ func TestAddJsonldContextToEmptyJsonld(t *testing.T) {
 	require.Equal(t, newJsonld["@context"].(map[string]string)["hyf"], "https://www.opengis.net/def/schema/hy_features/hyf/")
 }
 
-func TestAddJsonldContextToFilledJsonld(t *testing.T) {
+func TestAddJsonldContextToPartialJsonld(t *testing.T) {
+	var jsonld = `{
+		"@context": {
+			"TEST": "https://www.w3.org/ns/ldp#"
+		},
+		"foo": "bar"
+	}`
+	var serializedJson map[string]any
+	err := json.Unmarshal([]byte(jsonld), &serializedJson)
+	require.NoError(t, err)
+
+	newJsonld, err := AddKeyToJsonLDContext(serializedJson, "hyf", "https://www.opengis.net/def/schema/hy_features/hyf/")
+	require.NoError(t, err)
+	require.Equal(t, newJsonld["@context"].(map[string]any)["hyf"], "https://www.opengis.net/def/schema/hy_features/hyf/")
+	require.Equal(t, newJsonld["foo"], "bar")
+}
+
+func TestAddJsonldContextToJsonldFile(t *testing.T) {
 	file, err := os.Open("testdata/mainstem1.jsonld")
 	require.NoError(t, err)
 
