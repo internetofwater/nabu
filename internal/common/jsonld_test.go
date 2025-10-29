@@ -4,6 +4,7 @@
 package common
 
 import (
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -91,4 +92,43 @@ func TestSelfieExample(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, nq)
 
+}
+
+func TestAddJsonldContextToEmptyJsonld(t *testing.T) {
+	var jsonld = make(map[string]any)
+	_, err := AddKeyToJsonLDContext(jsonld, "hyf", "https://www.opengis.net/def/schema/hy_features/hyf/")
+	require.Error(t, err)
+
+	jsonld["@context"] = map[string]any{"TEST": "https://www.opengis.net/def/schema/hy_features/hyf/"}
+	_, err = AddKeyToJsonLDContext(jsonld, "hyf", "https://www.opengis.net/def/schema/hy_features/hyf/")
+	require.NoError(t, err)
+
+	jsonld["@context"] = map[string]string{"TEST": "https://www.opengis.net/def/schema/hy_features/hyf/"}
+	newJsonld, err := AddKeyToJsonLDContext(jsonld, "hyf", "https://www.opengis.net/def/schema/hy_features/hyf/")
+	require.NoError(t, err)
+	require.Equal(t, newJsonld["@context"].(map[string]string)["hyf"], "https://www.opengis.net/def/schema/hy_features/hyf/")
+}
+
+func TestAddJsonldContextToFilledJsonld(t *testing.T) {
+	file, err := os.Open("testdata/mainstem1.jsonld")
+	require.NoError(t, err)
+
+	var jsonld map[string]any
+	err = json.NewDecoder(file).Decode(&jsonld)
+	require.NoError(t, err)
+
+	resultJsonld, err := AddKeyToJsonLDContext(jsonld, "TEST", "https://www.opengis.net/def/schema/hy_features/hyf/")
+	require.NoError(t, err)
+
+	context, ok := resultJsonld["@context"].([]any)
+	require.True(t, ok)
+
+	require.Equal(t, context[2].(map[string]string)["TEST"], "https://www.opengis.net/def/schema/hy_features/hyf/")
+}
+
+func TestCatchBadValueForContext(t *testing.T) {
+	var jsonld = make(map[string]any)
+	jsonld["@context"] = 0xDEADBEEF
+	_, err := AddKeyToJsonLDContext(jsonld, "hyf", "https://www.opengis.net/def/schema/hy_features/hyf/")
+	require.Error(t, err)
 }

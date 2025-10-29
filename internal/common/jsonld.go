@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 
 	"github.com/internetofwater/nabu/internal/common/projectpath"
 
@@ -76,7 +77,6 @@ func JsonldToNQ(jsonld string, processor *ld.JsonLdProcessor, options *ld.JsonLd
 		log.Error("Error when transforming JSON-LD document to interface:", err)
 		return "", err
 	}
-
 	triples, err := processor.ToRDF(deserializeInterface, options) // returns triples but toss them, just validating
 	if err != nil {
 		log.Error("Error when transforming JSON-LD document to RDF:", err)
@@ -84,4 +84,41 @@ func JsonldToNQ(jsonld string, processor *ld.JsonLdProcessor, options *ld.JsonLd
 	}
 
 	return fmt.Sprintf("%v", triples), err
+}
+
+// Given a jsonld map, add a key to the context
+func AddKeyToJsonLDContext(jsonld map[string]any, key, value string) (map[string]any, error) {
+	context, ok := jsonld["@context"]
+	if !ok {
+		return nil, fmt.Errorf("JSON-LD document does not have @context field")
+	}
+
+	// since go doesn't have type narrowing or algebraic data types
+	// we have to check the type of the context field manually with repeated
+	// code which is ugly but works
+	arrayMap, ok := context.([]any)
+	if ok {
+		arrayMap = append(arrayMap, map[string]string{key: value})
+		jsonld["@context"] = arrayMap
+		return jsonld, nil
+	}
+	contextMap, ok := context.(map[string]any)
+	if ok {
+		contextMap[key] = value
+		jsonld["@context"] = contextMap
+		return jsonld, nil
+	}
+	stringContextMap, ok := context.(map[string]string)
+	if ok {
+		stringContextMap[key] = value
+		jsonld["@context"] = stringContextMap
+		return jsonld, nil
+	}
+
+	stringContext, ok := context.(string)
+	if ok {
+		jsonld["@context"] = map[string]any{"@vocab": stringContext, key: value}
+
+	}
+	return nil, fmt.Errorf("JSON-LD had type %s for @context field and could not be modified", reflect.TypeOf(context))
 }

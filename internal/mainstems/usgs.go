@@ -4,10 +4,14 @@
 package mainstems
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"html/template"
 	"net/http"
 
+	"github.com/internetofwater/nabu/internal/common"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -48,7 +52,7 @@ func (r USGSMainstemService) getAssociatedCatchment(longitude float64, latitude 
 	if err != nil {
 		return 0, err
 	}
-	func() { _ = resp.Body.Close() }()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != 200 {
 		return 0, fmt.Errorf("failed to get catchment for point: %s", resp.Status)
 	}
@@ -104,7 +108,7 @@ func (r USGSMainstemService) getGeoconnexURIFromComid(comid string) (geoconnexUR
 	if err != nil {
 		return "", err
 	}
-	func() { _ = resp.Body.Close() }()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("failed to get mainstem for comid: %s", resp.Status)
 	}
@@ -151,4 +155,69 @@ func (r USGSMainstemService) GetMainstemForPoint(longitude float64, latitude flo
 		mainstemURI:             mainstem,
 		foundAssociatedMainstem: mainstem != "",
 	}, nil
+}
+
+func (r USGSMainstemService) AddMainstemToJsonLD(jsonLD []byte, mainstemURI string) (jsonld []byte, err error) {
+	if mainstemURI == "" {
+		return nil, errors.New("mainstem URI is empty")
+	}
+	var jsonldMap map[string]any
+	err = json.Unmarshal(jsonLD, &jsonldMap)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, ok := jsonldMap["hyf:referencedPosition"]; ok {
+		// Mainstem already present
+		return jsonLD, nil
+	}
+
+	jsonldMap, err = common.AddKeyToJsonLDContext(jsonldMap,
+		"hyf", "https://www.opengis.net/def/schema/hy_features/hyf/",
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Template with mainstem URI placeholder
+	const referencedPositionTemplate = `
+	{
+		"hyf:referencedPosition": [
+			{
+				"hyf:HY_IndirectPosition": {
+					"hyf:distanceDescription": {
+						"hyf:HY_DistanceDescription": "upstream"
+					},
+					"hyf:linearElement": {"@id": "{{.MainstemURI}}"}
+				}
+			}
+		]
+	}`
+
+	tmpl, err := template.New("referencedPosition").Parse(referencedPositionTemplate)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, map[string]string{
+		"MainstemURI": mainstemURI,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var referencedPosition any
+	err = json.Unmarshal(buf.Bytes(), &referencedPosition)
+	if err != nil {
+		return nil, err
+	}
+
+	jsonldMap["hyf:referencedPosition"] = referencedPosition.(map[string]any)["hyf:referencedPosition"]
+	var asBytes []byte
+	asBytes, err = json.Marshal(jsonldMap)
+	if err != nil {
+		return nil, err
+	}
+	return asBytes, nil
 }
