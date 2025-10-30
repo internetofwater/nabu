@@ -10,9 +10,11 @@ from concurrent import futures
 import grpc
 from rdflib import Graph
 from starlette.applications import Starlette
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 from starlette.requests import Request
 from starlette.routing import Route
+from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware import Middleware
 import uvicorn
 
 from shacl_validator_pb2 import JsoldValidationRequest, ValidationReply
@@ -52,7 +54,9 @@ def serve_grpc(shacl_shape: Graph, grpc_port: int):
     address = f"0.0.0.0:{grpc_port}"
     server.add_insecure_port(address)
     server.start()
-    logger.info(f"gRPC server started on {address}; view protobuf file for service definition")
+    logger.info(
+        f"gRPC server started on {address}; view protobuf file for service definition"
+    )
     server.wait_for_termination()
 
 
@@ -61,7 +65,9 @@ async def validate_http(request: Request):
     try:
         data = await request.json()
         if not data:
-            return JSONResponse({"detail": "Missing JSON data in request"}, status_code=400)
+            return JSONResponse(
+                {"detail": "Missing JSON data in request"}, status_code=400
+            )
 
         shacl_shape = request.app.state.shacl_shape
         graph = Graph()
@@ -72,18 +78,35 @@ async def validate_http(request: Request):
         logger.exception("Validation failed")
         return JSONResponse({"detail": str(e)}, status_code=500)
 
+async def get_shape(request: Request):
+    """Return the SHACL shape as Turtle."""
+    shape = request.app.state.shacl_shape.serialize(format="ttl")
+    return Response(shape, media_type="text/turtle")
+
 
 def serve_http(shacl_shape: Graph, port: int):
     """Start HTTP server using Starlette."""
+
     app = Starlette(
         debug=False,
         routes=[
             Route("/validate", validate_http, methods=["POST"]),
+            Route("/shape", get_shape, methods=["GET"]),
+        ],
+        middleware=[
+            Middleware(
+                CORSMiddleware,
+                allow_origins=["*"],  # Allows all origins
+                allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                allow_headers=["*"],
+            ),  # Allows all headers
         ],
     )
     app.state.shacl_shape = shacl_shape
 
-    logger.info(f"HTTP server started on 0.0.0.0:{port}; validate data by sending JSON-LD in the body of a POST to /validate")
+    logger.info(
+        f"HTTP server started on 0.0.0.0:{port}; validate data by sending JSON-LD in the body of a POST to /validate"
+    )
     uvicorn.run(app, host="0.0.0.0", port=port)
 
 
