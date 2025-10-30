@@ -24,10 +24,16 @@ def main():
 
     server_subparser = subparsers.add_parser("serve", help="Start the gRPC server for SHACL validation")
     server_subparser.add_argument(
-        "--address",
-        type=str,
-        default="0.0.0.0:50051",
-        help="Path to the grpc socket to listen on",
+        "--grpc_port",
+        type=int,
+        default="50051",
+        help="grpc port to listen on",
+    )
+    server_subparser.add_argument(
+        "--http_port",
+        type=int,
+        default="8000",
+        help="http port to listen on",
     )
     server_subparser.add_argument(
         "--shacl_file",
@@ -96,9 +102,9 @@ def main():
             )
         )
     else:
-        logger.info(f"Starting SHACL Validation Server on {args.address}")
+        logger.info(f"Starting SHACL Validation grpc Server on {args.grpc_port}")
         logger.info(f"SHACL file used for validation: {args.shacl_file}")
-        serve(graph, socket_path=args.address)
+        serve(graph, grpc_port=args.grpc_port, http_port=args.http_port)
 
 
 if __name__ == "__main__":
