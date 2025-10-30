@@ -33,7 +33,7 @@ def main():
         "--http_port",
         type=int,
         default="8000",
-        help="grpc port to listen on",
+        help="http port to listen on",
     )
     server_subparser.add_argument(
         "--shacl_file",

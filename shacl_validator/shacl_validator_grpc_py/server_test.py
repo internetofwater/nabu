@@ -62,7 +62,7 @@ def test_http_validation(start_servers):
 
     response = requests.post(
         f"http://localhost:{http_port}/validate",
-        json={"jsonld": jsonld_data},
+        json=jsonld_data,
         timeout=3,
     )
     assert response.status_code == 200

@@ -52,7 +52,7 @@ def serve_grpc(shacl_shape: Graph, grpc_port: int):
     address = f"0.0.0.0:{grpc_port}"
     server.add_insecure_port(address)
     server.start()
-    logger.info(f"gRPC server started on {address}")
+    logger.info(f"gRPC server started on {address}; view protobuf file for service definition")
     server.wait_for_termination()
 
 
@@ -60,13 +60,12 @@ async def validate_http(request: Request):
     """HTTP handler for SHACL validation."""
     try:
         data = await request.json()
-        jsonld_data = data.get("jsonld")
-        if not jsonld_data:
-            return JSONResponse({"detail": "Missing 'jsonld' field"}, status_code=400)
+        if not data:
+            return JSONResponse({"detail": "Missing JSON data in request"}, status_code=400)
 
         shacl_shape = request.app.state.shacl_shape
         graph = Graph()
-        graph.parse(data=jsonld_data, format="json-ld")
+        graph.parse(data=data, format="json-ld")
         conforms, _, text = validate_graph(graph, shacl_shape=shacl_shape)
         return JSONResponse({"valid": conforms, "message": text})
     except Exception as e:
@@ -84,7 +83,7 @@ def serve_http(shacl_shape: Graph, port: int):
     )
     app.state.shacl_shape = shacl_shape
 
-    logger.info(f"HTTP server started on 0.0.0.0:{port}")
+    logger.info(f"HTTP server started on 0.0.0.0:{port}; validate data by sending JSON-LD in the body of a POST to /validate")
     uvicorn.run(app, host="0.0.0.0", port=port)
 
 
