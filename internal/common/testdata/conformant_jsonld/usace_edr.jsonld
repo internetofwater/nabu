@@ -1,0 +1,215 @@
+{
+    "@context": {
+        "schema": "https://schema.org/",
+        "gsp": "http://www.opengis.net/ont/geosparql#"
+    },
+    "@type": "schema:Place",
+    "@id": "http://localhost:5005/collections/usace-edr/items/17017",
+    "schema:name": "Coralville Lake Reservoir MET Station",
+    "schema:identifier": "549868",
+    "schema:dateModified": "2025-05-21T12:00:00.000Z",
+    "schema:description": "The U.S. Army Corps of Engineers (USACE) completed construction of Coralville Dam in June 1957 for the purpose of flood risk management, recreation, and fish and wildlife management.  Coralville Dam is located on the Iowa River about 4 miles north of Iowa City, Iowa. The earthen dam is over about a quarter mile long with a maximum height of 96 feet. Water can be released from the lake in two ways. The first is through the gated outlet structure, which consists of a gate tower, a 23-feet-diameter reinforced concrete conduit, and a stilling basin, which helps slow down water as it is released from the lake. The second is through an emergency spillway located on the west side of the dam. The spillway structure consists of a concrete barrier wall with a concrete lined chute and side walls. The spillway allows water to flow over the top of the barrier wall during extremely high lake levels. The spillway structure transitions into a natural ground spillway that empties into the Iowa River approximately a quarter mile downstream of the dam. Coralville Dam has prevented over $700 million in flood damages and protects more than 23,000 people living and working in the area below the dam. The highest lake elevation observed was in 2008 and was just over 5 feet higher than the crest of the emergency spillway. Water has reached the spillway only two times, in 1993 and 2008. The 2008 event released the record amount of water through the dam at 39,500 cubic feet per second, approximately 16% of the design capacity.",
+    "gsp:hasGeometry": {
+        "@type": "http://www.opengis.net/ont/sf#Point",
+        "gsp:asWKT": {
+            "@type": "http://www.opengis.net/ont/geosparql#wktLiteral",
+            "@value": "POINT (-91.52778 41.72472)"
+        }
+    },
+    "schema:geo": {
+        "@type": "schema:GeoCoordinates",
+        "schema:longitude": -91.52778,
+        "schema:latitude": 41.72472
+    },
+    "schema:subjectOf": [
+        {
+            "@type": "schema:Dataset",
+            "schema:identifier": "Outflow",
+            "schema:name": "Outflow in Cubic feet per second",
+            "schema:provider": {
+                "@type": "schema:GovernmentOrganization",
+                "schema:url": "https://water.sec.usace.army.mil/cda/reporting/providers/projects?fmt=geojson",
+                "schema:name": "US Army Corps of Engineers"
+            },
+            "schema:variableMeasured": {
+                "@type": "schema:PropertyValue",
+                "schema:description": "Outflow in Cubic feet per second",
+                "schema:unitText": "cfs",
+                "schema:name": "Cubic feet per second"
+            },
+            "schema:publisher": {
+                "@type": "schema:Organization",
+                "schema:name": "Internet of Water",
+                "schema:email": "internetofwater@lincolninst.edu"
+            }
+        },
+        {
+            "@type": "schema:Dataset",
+            "schema:identifier": "Elevation",
+            "schema:name": "Elevation in Feet",
+            "schema:provider": {
+                "@type": "schema:GovernmentOrganization",
+                "schema:url": "https://water.sec.usace.army.mil/cda/reporting/providers/projects?fmt=geojson",
+                "schema:name": "US Army Corps of Engineers"
+            },
+            "schema:variableMeasured": {
+                "@type": "schema:PropertyValue",
+                "schema:description": "Elevation in Feet",
+                "schema:unitText": "ft",
+                "schema:name": "Feet"
+            },
+            "schema:publisher": {
+                "@type": "schema:Organization",
+                "schema:name": "Internet of Water",
+                "schema:email": "internetofwater@lincolninst.edu"
+            }
+        },
+        {
+            "@type": "schema:Dataset",
+            "schema:identifier": "Air Temperature",
+            "schema:name": "Air Temperature in Fahrenheit",
+            "schema:provider": {
+                "@type": "schema:GovernmentOrganization",
+                "schema:url": "https://water.sec.usace.army.mil/cda/reporting/providers/projects?fmt=geojson",
+                "schema:name": "US Army Corps of Engineers"
+            },
+            "schema:variableMeasured": {
+                "@type": "schema:PropertyValue",
+                "schema:description": "Air Temperature in Fahrenheit",
+                "schema:unitText": "F",
+                "schema:name": "Fahrenheit"
+            },
+            "schema:publisher": {
+                "@type": "schema:Organization",
+                "schema:name": "Internet of Water",
+                "schema:email": "internetofwater@lincolninst.edu"
+            }
+        },
+        {
+            "@type": "schema:Dataset",
+            "schema:identifier": "Precipitation",
+            "schema:name": "Precipitation in Inches",
+            "schema:provider": {
+                "@type": "schema:GovernmentOrganization",
+                "schema:url": "https://water.sec.usace.army.mil/cda/reporting/providers/projects?fmt=geojson",
+                "schema:name": "US Army Corps of Engineers"
+            },
+            "schema:variableMeasured": {
+                "@type": "schema:PropertyValue",
+                "schema:description": "Precipitation in Inches",
+                "schema:unitText": "in",
+                "schema:name": "Inches"
+            },
+            "schema:publisher": {
+                "@type": "schema:Organization",
+                "schema:name": "Internet of Water",
+                "schema:email": "internetofwater@lincolninst.edu"
+            }
+        },
+        {
+            "@type": "schema:Dataset",
+            "schema:identifier": "Conservation Storage",
+            "schema:name": "Conservation Storage in Acre-feet",
+            "schema:provider": {
+                "@type": "schema:GovernmentOrganization",
+                "schema:url": "https://water.sec.usace.army.mil/cda/reporting/providers/projects?fmt=geojson",
+                "schema:name": "US Army Corps of Engineers"
+            },
+            "schema:variableMeasured": {
+                "@type": "schema:PropertyValue",
+                "schema:description": "Conservation Storage in Acre-feet",
+                "schema:unitText": "ac-ft",
+                "schema:name": "Acre-feet"
+            },
+            "schema:publisher": {
+                "@type": "schema:Organization",
+                "schema:name": "Internet of Water",
+                "schema:email": "internetofwater@lincolninst.edu"
+            }
+        },
+        {
+            "@type": "schema:Dataset",
+            "schema:identifier": "Wind Direction",
+            "schema:name": "Wind Direction in Degrees",
+            "schema:provider": {
+                "@type": "schema:GovernmentOrganization",
+                "schema:url": "https://water.sec.usace.army.mil/cda/reporting/providers/projects?fmt=geojson",
+                "schema:name": "US Army Corps of Engineers"
+            },
+            "schema:variableMeasured": {
+                "@type": "schema:PropertyValue",
+                "schema:description": "Wind Direction in Degrees",
+                "schema:unitText": "deg",
+                "schema:name": "Degrees"
+            },
+            "schema:publisher": {
+                "@type": "schema:Organization",
+                "schema:name": "Internet of Water",
+                "schema:email": "internetofwater@lincolninst.edu"
+            }
+        },
+        {
+            "@type": "schema:Dataset",
+            "schema:identifier": "Inflow",
+            "schema:name": "Inflow in Cubic feet per second",
+            "schema:provider": {
+                "@type": "schema:GovernmentOrganization",
+                "schema:url": "https://water.sec.usace.army.mil/cda/reporting/providers/projects?fmt=geojson",
+                "schema:name": "US Army Corps of Engineers"
+            },
+            "schema:variableMeasured": {
+                "@type": "schema:PropertyValue",
+                "schema:description": "Inflow in Cubic feet per second",
+                "schema:unitText": "cfs",
+                "schema:name": "Cubic feet per second"
+            },
+            "schema:publisher": {
+                "@type": "schema:Organization",
+                "schema:name": "Internet of Water",
+                "schema:email": "internetofwater@lincolninst.edu"
+            }
+        },
+        {
+            "@type": "schema:Dataset",
+            "schema:identifier": "Flood Storage",
+            "schema:name": "Flood Storage in Acre-feet",
+            "schema:provider": {
+                "@type": "schema:GovernmentOrganization",
+                "schema:url": "https://water.sec.usace.army.mil/cda/reporting/providers/projects?fmt=geojson",
+                "schema:name": "US Army Corps of Engineers"
+            },
+            "schema:variableMeasured": {
+                "@type": "schema:PropertyValue",
+                "schema:description": "Flood Storage in Acre-feet",
+                "schema:unitText": "ac-ft",
+                "schema:name": "Acre-feet"
+            },
+            "schema:publisher": {
+                "@type": "schema:Organization",
+                "schema:name": "Internet of Water",
+                "schema:email": "internetofwater@lincolninst.edu"
+            }
+        },
+        {
+            "@type": "schema:Dataset",
+            "schema:identifier": "Elevation Tailwater",
+            "schema:name": "Elevation Tailwater in Feet",
+            "schema:provider": {
+                "@type": "schema:GovernmentOrganization",
+                "schema:url": "https://water.sec.usace.army.mil/cda/reporting/providers/projects?fmt=geojson",
+                "schema:name": "US Army Corps of Engineers"
+            },
+            "schema:variableMeasured": {
+                "@type": "schema:PropertyValue",
+                "schema:description": "Elevation Tailwater in Feet",
+                "schema:unitText": "ft",
+                "schema:name": "Feet"
+            },
+            "schema:publisher": {
+                "@type": "schema:Organization",
+                "schema:name": "Internet of Water",
+                "schema:email": "internetofwater@lincolninst.edu"
+            }
+        }
+    ]
+}

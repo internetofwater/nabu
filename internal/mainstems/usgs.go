@@ -11,6 +11,8 @@ import (
 	"html/template"
 	"net/http"
 
+	"github.com/go-spatial/geom"
+	wktEncoder "github.com/go-spatial/geom/encoding/wkt"
 	"github.com/internetofwater/nabu/internal/common"
 	log "github.com/sirupsen/logrus"
 )
@@ -136,7 +138,24 @@ func (r USGSMainstemService) getGeoconnexURIFromComid(comid string) (geoconnexUR
 	return "", nil
 }
 
-func (r USGSMainstemService) GetMainstemForPoint(longitude float64, latitude float64) (MainstemQueryResponse, error) {
+func (r USGSMainstemService) GetMainstemForWkt(wkt string) (MainstemQueryResponse, error) {
+	geometry, err := wktEncoder.DecodeString(wkt)
+	if err != nil {
+		return MainstemQueryResponse{}, err
+	}
+	switch geometry.(type) {
+	case geom.Point:
+		point := geometry.(*geom.Point)
+		return r.getMainstemForPoint(point.X(), point.Y())
+	case geom.Polygon:
+		_ = geometry.(*geom.Polygon)
+		// ??
+	}
+
+	return MainstemQueryResponse{}, nil
+}
+
+func (r USGSMainstemService) getMainstemForPoint(longitude float64, latitude float64) (MainstemQueryResponse, error) {
 	featureId, err := r.getAssociatedCatchment(longitude, latitude)
 	if err != nil {
 		return MainstemQueryResponse{}, err
@@ -157,22 +176,17 @@ func (r USGSMainstemService) GetMainstemForPoint(longitude float64, latitude flo
 	}, nil
 }
 
-func (r USGSMainstemService) AddMainstemToJsonLD(jsonLD []byte, mainstemURI string) (jsonld []byte, err error) {
+func (r USGSMainstemService) AddMainstemToJsonLD(jsonldMap map[string]any, mainstemURI string) (map[string]any, error) {
 	if mainstemURI == "" {
 		return nil, errors.New("mainstem URI is empty")
-	}
-	var jsonldMap map[string]any
-	err = json.Unmarshal(jsonLD, &jsonldMap)
-	if err != nil {
-		return nil, err
 	}
 
 	if _, ok := jsonldMap["hyf:referencedPosition"]; ok {
 		// Mainstem already present
-		return jsonLD, nil
+		return jsonldMap, nil
 	}
 
-	jsonldMap, err = common.AddKeyToJsonLDContext(jsonldMap,
+	jsonldMap, err := common.AddKeyToJsonLDContext(jsonldMap,
 		"hyf", "https://www.opengis.net/def/schema/hy_features/hyf/",
 	)
 	if err != nil {
@@ -214,10 +228,5 @@ func (r USGSMainstemService) AddMainstemToJsonLD(jsonLD []byte, mainstemURI stri
 	}
 
 	jsonldMap["hyf:referencedPosition"] = referencedPosition.(map[string]any)["hyf:referencedPosition"]
-	var asBytes []byte
-	asBytes, err = json.Marshal(jsonldMap)
-	if err != nil {
-		return nil, err
-	}
-	return asBytes, nil
+	return jsonldMap, nil
 }

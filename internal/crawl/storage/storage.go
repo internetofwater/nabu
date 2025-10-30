@@ -43,7 +43,7 @@ type CrawlStorage interface {
 	StoreMetadata(ObjectPath, io.Reader) error
 	// StoreWithServersideHash saves the contents from the reader into a named destination
 	// and guarantees that the storage provider will create a hash for it that can be retrieved
-	StoreWithHash(ObjectPath, io.Reader, int) error
+	StoreWithHash(path ObjectPath, data io.Reader, byteLength int) error
 	// StoreWithoutServersideHash saves the contents from the reader into a named destination
 	// but does not guarantee that the storage provider will create a hash for it
 	StoreWithoutServersideHash(ObjectPath, io.Reader) error

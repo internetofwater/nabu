@@ -5,7 +5,10 @@ package common
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/piprate/json-gold/ld"
@@ -148,4 +151,54 @@ func TestCatchBadValueForContext(t *testing.T) {
 	jsonld["@context"] = 0xDEADBEEF
 	_, err := AddKeyToJsonLDContext(jsonld, "hyf", "https://www.opengis.net/def/schema/hy_features/hyf/")
 	require.Error(t, err)
+}
+
+func TestAgainstAllValidJsonldInShaclTests(t *testing.T) {
+
+	path := "../../shacl_validator/testdata/valid/"
+
+	dir, err := os.ReadDir(path)
+	require.NoError(t, err)
+
+	for _, file := range dir {
+		if file.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(file.Name(), ".jsonld") {
+			continue
+		}
+		f, err := os.Open(filepath.Join(path, file.Name()))
+		require.NoError(t, err)
+		var jsonld map[string]any
+		err = json.NewDecoder(f).Decode(&jsonld)
+		require.NoError(t, err)
+		_, err = AddKeyToJsonLDContext(jsonld, "hyf", "https://www.opengis.net/def/schema/hy_features/hyf/")
+		require.NoError(t, err)
+	}
+
+}
+
+func TestGetGeometryFromAllValidJsonldInShaclTests(t *testing.T) {
+
+	path := "testdata/conformant_jsonld/"
+
+	dir, err := os.ReadDir(path)
+	require.NoError(t, err)
+
+	for _, file := range dir {
+		if file.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(file.Name(), ".jsonld") {
+			continue
+		}
+		f, err := os.Open(filepath.Join(path, file.Name()))
+		require.NoError(t, err)
+		var jsonld map[string]any
+		err = json.NewDecoder(f).Decode(&jsonld)
+		require.NoError(t, err)
+		_, ok := GetWktFromJsonld(jsonld)
+		require.True(t, ok, fmt.Errorf("%s failed to find geometry", file.Name()))
+	}
+
 }

@@ -34,7 +34,7 @@ func TestLocationWithoutMainstem(t *testing.T) {
 	)
 
 	client := NewUSGSMainstemService(mockClient)
-	resp, err := client.GetMainstemForPoint(-105.5343083, 40.3440796)
+	resp, err := client.getMainstemForPoint(-105.5343083, 40.3440796)
 	require.NoError(t, err)
 	require.False(t, resp.foundAssociatedMainstem)
 }
@@ -61,7 +61,7 @@ func TestLocationWithMainstem(t *testing.T) {
 	)
 
 	client := NewUSGSMainstemService(mockClient)
-	mainstem, err := client.GetMainstemForPoint(-106.7366, 36.5948)
+	mainstem, err := client.getMainstemForPoint(-106.7366, 36.5948)
 	require.NoError(t, err)
 	require.True(t, mainstem.foundAssociatedMainstem)
 	require.Equal(t, "https://geoconnex.us/ref/mainstems/1608053", mainstem.mainstemURI)

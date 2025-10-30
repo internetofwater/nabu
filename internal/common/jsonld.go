@@ -87,7 +87,7 @@ func JsonldToNQ(jsonld string, processor *ld.JsonLdProcessor, options *ld.JsonLd
 }
 
 // Given a jsonld map, add a key to the context
-func AddKeyToJsonLDContext(jsonld map[string]any, key, value string) (map[string]any, error) {
+func AddKeyToJsonLDContext(jsonld map[string]any, key, value string) (newJsonld map[string]any, err error) {
 	context, ok := jsonld["@context"]
 	if !ok {
 		return nil, fmt.Errorf("JSON-LD document does not have @context field")
@@ -121,4 +121,19 @@ func AddKeyToJsonLDContext(jsonld map[string]any, key, value string) (map[string
 
 	}
 	return nil, fmt.Errorf("JSON-LD had type %s for @context field and could not be modified", reflect.TypeOf(context))
+}
+
+func GetWktFromJsonld(jsonld map[string]any) (wkt string, hasGeometry bool) {
+	schema_geo, ok := jsonld["gsp:hasGeometry"].(map[string]any)
+	if ok {
+		geo, ok := schema_geo["gsp:asWKT"].(map[string]any)
+		if ok {
+			wkt, ok := geo["@value"].(string)
+			if ok {
+				return wkt, true
+			}
+		}
+	}
+
+	return "", false
 }
