@@ -1,7 +1,7 @@
 # Copyright 2025 Lincoln Institute of Land Policy
 # SPDX-License-Identifier: Apache-2.0
 
-"""gRPC + HTTP server for SHACL validation service."""
+"""gRPC + HTTP server for SHACL validation service (Starlette version)."""
 
 import logging
 import threading
@@ -9,7 +9,10 @@ from concurrent import futures
 
 import grpc
 from rdflib import Graph
-from fastapi import FastAPI, HTTPException
+from starlette.applications import Starlette
+from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.routing import Route
 import uvicorn
 
 from shacl_validator_pb2 import JsoldValidationRequest, ValidationReply
@@ -45,40 +48,51 @@ def serve_grpc(shacl_shape: Graph, grpc_port: int):
     )
     shacl_validator_pb2_grpc.add_ShaclValidatorServicer_to_server(
         ShaclValidator(shacl_shape), server
-    
     )
-    address = f"0.0.0.0:{grpc_port}"    
+    address = f"0.0.0.0:{grpc_port}"
     server.add_insecure_port(address)
     server.start()
     logger.info(f"gRPC server started on {address}")
     server.wait_for_termination()
 
 
-def serve_http(shacl_shape: Graph, port: int):
-    """Start HTTP server using FastAPI."""
-    app = FastAPI(title="SHACL Validation HTTP API")
+async def validate_http(request: Request):
+    """HTTP handler for SHACL validation."""
+    try:
+        data = await request.json()
+        jsonld_data = data.get("jsonld")
+        if not jsonld_data:
+            return JSONResponse({"detail": "Missing 'jsonld' field"}, status_code=400)
 
-    @app.post("/validate")
-    async def validate_http(request: dict):
-        try:
-            jsonld_data = request.get("jsonld")
-            if not jsonld_data:
-                raise HTTPException(status_code=400, detail="Missing 'jsonld' field")
-            graph = Graph()
-            graph.parse(data=jsonld_data, format="json-ld")
-            conforms, _, text = validate_graph(graph, shacl_shape=shacl_shape)
-            return {"valid": conforms, "message": text}
-        except Exception as e:
-            logger.exception("Validation failed")
-            raise HTTPException(status_code=500, detail=str(e))
+        shacl_shape = request.app.state.shacl_shape
+        graph = Graph()
+        graph.parse(data=jsonld_data, format="json-ld")
+        conforms, _, text = validate_graph(graph, shacl_shape=shacl_shape)
+        return JSONResponse({"valid": conforms, "message": text})
+    except Exception as e:
+        logger.exception("Validation failed")
+        return JSONResponse({"detail": str(e)}, status_code=500)
+
+
+def serve_http(shacl_shape: Graph, port: int):
+    """Start HTTP server using Starlette."""
+    app = Starlette(
+        debug=False,
+        routes=[
+            Route("/validate", validate_http, methods=["POST"]),
+        ],
+    )
+    app.state.shacl_shape = shacl_shape
 
     logger.info(f"HTTP server started on 0.0.0.0:{port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
 
 
-def serve(shacl_shape: Graph, grpc_port: str, http_port: int):
+def serve(shacl_shape: Graph, grpc_port: int, http_port: int):
     """Launch both gRPC and HTTP servers."""
-    grpc_thread = threading.Thread(target=serve_grpc, args=(shacl_shape, grpc_port), daemon=True)
+    grpc_thread = threading.Thread(
+        target=serve_grpc, args=(shacl_shape, grpc_port), daemon=True
+    )
     grpc_thread.start()
 
     # Run HTTP server in the main thread
