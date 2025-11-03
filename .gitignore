@@ -44,3 +44,7 @@ __pycache__/
 
 .env
 .env.development
+
+.terraform/
+
+*.tfstate*
