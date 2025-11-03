@@ -28,8 +28,10 @@ resource "google_cloud_run_v2_service" "shacl_service" {
       resources {
         limits = {
           cpu    = "1"
-          memory = "256Mi"
+          memory = "128Mi"
         }
+        # Determines whether CPU is only allocated during requests
+        cpu_idle = true
       }
     }
   }
@@ -43,5 +45,6 @@ resource "google_cloud_run_v2_service" "shacl_service" {
   traffic {
     # all traffic should go to the latest version
     percent = 100
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
   }
 }
