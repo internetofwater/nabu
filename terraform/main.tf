@@ -4,14 +4,14 @@
 # A terraform file to deploy the shacl validation server
 
 provider "google" {
-  project = "geoconnex-us"
+  project = var.project
   region  = "us"
 }
 
 resource "google_cloud_run_v2_service" "shacl_service" {
   name = "shacl-validation-grpc-server"
   # same region as the other services
-  location = "us-central1"
+  location = var.region
   # allow this service to be deleted and redeployed if needed
   deletion_protection = false
   # allow unauthenticated traffic
@@ -21,7 +21,7 @@ resource "google_cloud_run_v2_service" "shacl_service" {
     containers {
       image = "docker.io/internetofwater/shacl_validator_grpc_py:latest"
       ports {
-        container_port = 50051
+        container_port = 8000
       }
       # start the shacl validation server  
       args = ["serve"]
