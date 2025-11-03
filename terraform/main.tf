@@ -48,3 +48,13 @@ resource "google_cloud_run_v2_service" "shacl_service" {
     type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
   }
 }
+
+# Make the cloud run service public to the internet
+resource "google_cloud_run_service_iam_binding" "shacl_service" {
+  location = google_cloud_run_v2_service.shacl_service.location
+  service  = google_cloud_run_v2_service.shacl_service.name
+  role     = "roles/run.invoker"
+  members = [
+    "allUsers"
+  ]
+}
