@@ -7,7 +7,7 @@ from pathlib import Path
 from rdflib import Graph
 from lib import validate_jsonld
 
-test_data_dir = Path(__file__).parent.parent / "testdata"
+test_data_dir = Path(__file__).parent.parent.parent / "testdata"
 
 shacl_graph = Graph().parse( test_data_dir.parent / "shapes" / "geoconnex.ttl")
 

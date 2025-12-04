@@ -17,14 +17,14 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware import Middleware
 import uvicorn
 
+from mainstems import get_mainstem, initialize_duckdb
 from shacl_validator_pb2 import JsoldValidationRequest, ValidationReply
 import shacl_validator_pb2_grpc
 from grpc import ServicerContext
 from lib import validate_graph
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 MAX_MESSAGE_SIZE = 32 * 1024 * 1024  # 32 MB
 
@@ -92,6 +92,7 @@ def serve_http(shacl_shape: Graph, port: int):
         routes=[
             Route("/validate", validate_http, methods=["POST"]),
             Route("/shape", get_shape, methods=["GET"]),
+            Route("/mainstem", get_mainstem, methods=["GET"]),
         ],
         middleware=[
             Middleware(
@@ -102,6 +103,8 @@ def serve_http(shacl_shape: Graph, port: int):
             ),  # Allows all headers
         ],
     )
+    app.add_event_handler("startup", initialize_duckdb)
+
     app.state.shacl_shape = shacl_shape
 
     logger.info(
