@@ -31,6 +31,7 @@ require (
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
+	github.com/go-spatial/geom v0.1.0 // indirect
 	github.com/minio/crc64nvme v1.0.2 // indirect
 	github.com/moby/go-archive v0.1.0 // indirect
 	github.com/moby/sys/atomicwriter v0.1.0 // indirect
