@@ -9,9 +9,9 @@ protoc:
 
 	shacl_validator/shacl_validator_grpc_py/.venv/bin/python -m grpc_tools.protoc \
 		--proto_path=shacl_validator \
-		--python_out=shacl_validator/shacl_validator_grpc_py \
-		--grpc_python_out=shacl_validator/shacl_validator_grpc_py \
-		--pyi_out=shacl_validator/shacl_validator_grpc_py \
+		--python_out=shacl_validator/shacl_validator_grpc_py/src \
+		--grpc_python_out=shacl_validator/shacl_validator_grpc_py/src \
+		--pyi_out=shacl_validator/shacl_validator_grpc_py/src \
 		shacl_validator/shacl_validator.proto
 
 	protoc \
