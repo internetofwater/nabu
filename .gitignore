@@ -52,3 +52,7 @@ __pycache__/
 *.gpkg
 
 .oras/
+
+*.parquet
+
+*.fgb
