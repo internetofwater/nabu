@@ -1,29 +1,23 @@
 # Copyright 2025 Lincoln Institute of Land Policy
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import logging
 import os
-from pathlib import Path
 import duckdb
-import pandas as pd
-
 from starlette.responses import JSONResponse
 from starlette.requests import Request
 
 logger = logging.getLogger("uvicorn.error")
 
 
+CATCHMENTS_FILE = os.environ.get(
+    "CATCHMENTS_FILE",
+    "gcs://national-hydrologic-geospatial-fabric-reference-hydrofabric/reference_catchments_and_flowlines.fgb",
+)
+
 
 async def initialize_duckdb():
-    CATCHMENTS_FILE = os.environ.get(
-        "CATCHMENTS_FILE",
-        str(
-            Path(__file__).parent.parent.parent
-            / "data"
-            / "shacl_validator/data/reference_catchments_and_flowslines.fgb"
-        ),
-    )
-
     if (
         not os.path.exists(CATCHMENTS_FILE)
         and not CATCHMENTS_FILE.startswith("gcs://")
@@ -40,74 +34,67 @@ async def initialize_duckdb():
     con.execute("INSTALL spatial;")
     con.execute("LOAD spatial;")
 
+
 async def get_mainstem(request: Request):
     """Given a point, return the Geoconnex mainstem associated with it"""
-    if "lon" not in request.query_params or "lat" not in request.query_params:
-        return JSONResponse(
-            {"error": "Missing 'lon'/'lat' query parameters"}, status_code=400
-    )
+    isPoint = "point" in request.query_params
+    isBbox = "bbox" in request.query_params
 
-    try:
-        lon = float(request.query_params["lon"])
-        lat = float(request.query_params["lat"])
-    except (ValueError, TypeError):
-        return JSONResponse(
-            {"error": "Invalid 'lon'/'lat' query parameters"},
-            status_code=400,
-        )
+    minx: float
+    miny: float
+    maxx: float
+    maxy: float
+
+    match isPoint, isBbox:
+        case True, True:
+            return JSONResponse(
+                {
+                    "error": "You cannot specify both a point and a bounding box to filter by"
+                },
+                status_code=400,
+            )
+        case False, False:
+            return JSONResponse(
+                {
+                    "error": "You must specify either a point or a bounding box to filter by"
+                },
+                status_code=400,
+            )
+        case True, False:
+            points = request.query_params["point"].split(",")
+            if len(points) != 2:
+                return JSONResponse(
+                    {"error": "Point must be specified as [longitude, latitude]"},
+                    status_code=400,
+                )
+            minx = float(points[0])
+            miny = float(points[1])
+            maxx = minx
+            maxy = miny
+        case False, True:
+            points = request.query_params["bbox"].split(",")
+            if len(points) != 4:
+                return JSONResponse(
+                    {"error": "Bbox must be specified as [minx, miny, maxx, maxy]"},
+                    status_code=400,
+                )
+            minx = float(points[0])
+            miny = float(points[1])
+            maxx = float(points[2])
+            maxy = float(points[3])
 
     # Query for the catchment containing the point
-    catchment_query = f"""
-    SELECT featureid 
-    FROM catchments
-    WHERE ST_Intersects(geom, ST_Point({lon}, {lat}))
-    LIMIT 1
-    """
-    catchment_result = con.execute(catchment_query).fetchone()
-    if not catchment_result:
-        return JSONResponse(
-            {"error": "No catchment found for this point"}, status_code=404
+    query = f"""SELECT *
+    FROM ST_Read(
+        '{CATCHMENTS_FILE}',
+        spatial_filter_box = ST_MakeBox2D(
+            ST_Point({minx}, {miny}),
+            ST_Point({maxx}, {maxy})
         )
+    )"""
 
-    feature_id = int(catchment_result[0])
+    df= con.execute(query).df()
+    df["geom"] = df["geom"].astype(str)
 
-    # Query flowline for that catchment
-    flowline_query = f"""
-    SELECT "TerminalPa" AS terminal_path
-    FROM flowlines
-    WHERE COMID = {feature_id}
-    LIMIT 1
-    """
-    flowline_result = con.execute(flowline_query).fetchone()
-    if not flowline_result:
-        return JSONResponse(
-            {"error": "No flowline found for this catchment"}, status_code=404
-        )
-
-    terminal_path_id = int(flowline_result[0])
-
-    # Lookup mainstem
-    mainstem_query = f"""
-    SELECT ref_mainstem_id FROM mainstem_lookup
-    WHERE lp_mainstem = {terminal_path_id}
-    LIMIT 1
-    """
-    mainstem_result = con.execute(mainstem_query).fetchone()
-    if not mainstem_result:
-        return JSONResponse(
-            {"error": "No Geoconnex mainstem found for this flowline"}, status_code=404
-        )
-
-    mainstem_id = int(mainstem_result[0])
-    mainstem_url = (
-        f"https://reference.geoconnex.us/collections/mainstems/items/{mainstem_id}"
-    )
-
-    return JSONResponse(
-        {
-            "reference_mainstem_id": mainstem_id,
-            "mainstem_url": mainstem_url,
-            "catchment_id": feature_id,
-            "terminal_flowline_id": terminal_path_id,
-        }
-    )
+    json_data = df.to_json(orient="records", default_handler=str)
+    return JSONResponse(content=json.loads(json_data))
