@@ -15,10 +15,23 @@ logger = logging.getLogger("uvicorn.error")
 
 
 async def initialize_duckdb():
-    GPKG_FILE = os.environ.get("MAINSTEM_GPKG_FILE", str(Path(__file__).parent.parent.parent / "data" / "merged.gpkg"))
+    CATCHMENTS_FILE = os.environ.get(
+        "CATCHMENTS_FILE",
+        str(
+            Path(__file__).parent.parent.parent
+            / "data"
+            / "shacl_validator/data/reference_catchments_and_flowslines.fgb"
+        ),
+    )
 
-    if not os.path.exists(GPKG_FILE):
-        logger.warning(f"GPKG file not found at {GPKG_FILE}; skipping duckdb initialization")
+    if (
+        not os.path.exists(CATCHMENTS_FILE)
+        and not CATCHMENTS_FILE.startswith("gcs://")
+        and not CATCHMENTS_FILE.startswith("s3://")
+    ):
+        logger.warning(
+            f"Catchments file not found at {CATCHMENTS_FILE}; skipping duckdb initialization"
+        )
         return
 
     logger.info("Creating DuckDB connection")
@@ -26,28 +39,6 @@ async def initialize_duckdb():
     con = duckdb.connect(database=":memory:")
     con.execute("INSTALL spatial;")
     con.execute("LOAD spatial;")
-
-    logger.info("Loading catchments into DuckDB")
-    con.execute(f"""
-    CREATE TABLE catchments AS 
-    SELECT * FROM st_read('{GPKG_FILE}', layer='reference_catchments')
-    """)
-    logger.info("Creating spatial index")
-    con.execute("""
-    CREATE INDEX catchments_geom_idx ON catchments USING rtree(geom);
-    """)
-    logger.info("Loading flowlines into DuckDB")
-    con.execute(f"""
-    CREATE TABLE flowlines AS 
-    SELECT * FROM st_read('{GPKG_FILE}', layer='flowlines')
-    """)
-
-    mainstem_lookup = pd.read_csv(
-        "https://github.com/internetofwater/ref_rivers/releases/download/v2.1/mainstem_lookup.csv"
-    )
-    mainstem_lookup["lp_mainstem"] = mainstem_lookup["lp_mainstem"].astype(int)
-    mainstem_lookup["ref_mainstem_id"] = mainstem_lookup["ref_mainstem_id"].astype(int)
-    con.register("mainstem_lookup", mainstem_lookup)
 
 async def get_mainstem(request: Request):
     """Given a point, return the Geoconnex mainstem associated with it"""
