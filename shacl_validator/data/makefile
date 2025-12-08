@@ -17,3 +17,6 @@ backup_mainstem_flatgeobuf:
 		--password "$$GITHUB_TOKEN" \
 		--annotation 'org.opencontainers.image.source=https://github.com/internetofwater/nabu' \
 		--annotation 'org.opencontainers.image.description=The flatgeobuf files containing all the data from the Reference Hydrofabric here: https://www.sciencebase.gov/catalog/item/61295190d34e40dd9c06bcd7'
+
+apply_cors:
+	gsutil cors set cors.json gs://national-hydrologic-geospatial-fabric-reference-hydrofabric
