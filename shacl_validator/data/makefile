@@ -7,12 +7,12 @@ generate_flatgeobuf:
 	uv run join.py
 
 pull_mainstem_flatgeobuf:
-	oras pull ghcr.io/internetofwater/reference_catchments_and_flowslines:latest
+	oras pull ghcr.io/internetofwater/reference_catchments_and_flowlines:latest
 
 backup_mainstem_flatgeobuf:
 	@echo -n "Enter your GitHub token: "; \
 	read GITHUB_TOKEN; \
-	oras push ghcr.io/internetofwater/reference_catchments_and_flowslines:latest reference_catchments_and_flowslines.fgb:application/octet-stream \
+	oras push ghcr.io/internetofwater/reference_catchments_and_flowlines:latest reference_catchments_and_flowlines.fgb:application/octet-stream \
 		--username internetofwater \
 		--password "$$GITHUB_TOKEN" \
 		--annotation 'org.opencontainers.image.source=https://github.com/internetofwater/nabu' \
