@@ -45,12 +45,20 @@ mainstem_lookup = pd.read_csv(
 mainstem_lookup = mainstem_lookup.add_prefix("Mainstem_Metadata_")
 
 final = catchments_with_associated_flowline.merge(
-    mainstem_lookup, left_on="Flowline_TerminalPa", right_on="Mainstem_Metadata_lp_mainstem", how="left"
+    mainstem_lookup,
+    # LevelPathI == The LevelPath identifier. This groups together a set of flowlines that form a single mainstem path.
+    # All lines with the same LevelPathI form one continuous routed path (e.g., the entire main stem of a river).
+    left_on="Flowline_LevelPathI",
+    right_on="Mainstem_Metadata_lp_mainstem",
+    how="left",
 )
 
-final["geoconnex_url"] = (
-    "https://reference.geoconnex.us/collections/mainstems/items/"
-    + final["Mainstem_Metadata_ref_mainstem_id"].astype("Int64").astype(str)
+final["geoconnex_url"] = final["Mainstem_Metadata_ref_mainstem_id"].apply(
+    lambda x: (
+        f"https://reference.geoconnex.us/collections/mainstems/items/{int(x)}"
+        if pd.notnull(x)
+        else None
+    )
 )
 
 # We  drop the flowline geometry since it isn't needed in the final
