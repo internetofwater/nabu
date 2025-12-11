@@ -1,0 +1,48 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "objectid": 1943765,
+                "gridcode": 2648262,
+                "featureid": 17844620,
+                "sourcefc": "NHDFlowline",
+                "areasqkm": 8.351345,
+                "shape_length": 0.167034160648712,
+                "shape_area": 0.000841187320938634
+            },
+            "id": 1943765,
+            "geometry": null
+        }
+    ],
+    "numberMatched": 1,
+    "numberReturned": 1,
+    "links": [
+        {
+            "type": "application/geo+json",
+            "rel": "self",
+            "title": "This document as GeoJSON",
+            "href": "https://labs-beta.waterdata.usgs.gov:443/api/fabric/pygeoapi/collections/catchmentsp/items?f=json&skipGeometry=true&bbox=-106.7366,36.5948,-106.7366,36.5948"
+        },
+        {
+            "rel": "alternate",
+            "type": "application/ld+json",
+            "title": "This document as RDF (JSON-LD)",
+            "href": "https://labs-beta.waterdata.usgs.gov:443/api/fabric/pygeoapi/collections/catchmentsp/items?f=jsonld&skipGeometry=true&bbox=-106.7366,36.5948,-106.7366,36.5948"
+        },
+        {
+            "type": "text/html",
+            "rel": "alternate",
+            "title": "This document as HTML",
+            "href": "https://labs-beta.waterdata.usgs.gov:443/api/fabric/pygeoapi/collections/catchmentsp/items?f=html&skipGeometry=true&bbox=-106.7366,36.5948,-106.7366,36.5948"
+        },
+        {
+            "type": "application/json",
+            "title": "NHDPlusV2 Catchmentsp Features",
+            "rel": "collection",
+            "href": "https://labs-beta.waterdata.usgs.gov:443/api/fabric/pygeoapi/collections/catchmentsp"
+        }
+    ],
+    "timeStamp": "2025-10-29T16:13:15.056159Z"
+}
