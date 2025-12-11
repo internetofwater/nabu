@@ -18,7 +18,7 @@ import (
 )
 
 // A service that returns the mainstem for a given point
-// by using live USGS APIs
+// by using live USGS NLDI APIs
 type USGSMainstemService struct {
 	httpClient *http.Client
 }
