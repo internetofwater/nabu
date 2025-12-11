@@ -1,20 +1,12 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use core::panic;
-use regex::Regex;
-use std::{
-    collections::HashMap,
-    env,
-    fmt::format,
-    io::{BufRead, Read},
-    sync::Arc,
-};
+use std::{collections::HashMap, io::BufRead, sync::Arc};
 
 use oxttl::NQuadsParser;
 
 use argh::FromArgs;
-use arrow_array::{self, ArrayRef, Int32Array, RecordBatch, StringArray, builder::StringBuilder};
+use arrow_array::{self, ArrayRef, RecordBatch, builder::StringBuilder};
 use geo_types::Geometry;
 use geoarrow_array::{GeoArrowArray, builder::GeometryBuilder};
 use geoarrow_schema::GeometryType;
@@ -23,7 +15,7 @@ use wkt::TryFromWkt;
 use arrow_schema::{DataType::Utf8, Field, Schema, SchemaBuilder};
 use geoarrow_schema::GeoArrowType;
 use geoparquet::writer::{GeoParquetRecordBatchEncoder, GeoParquetWriterOptionsBuilder};
-use parquet::{arrow::ArrowWriter, format};
+use parquet::arrow::ArrowWriter;
 
 const GEOMETRY_COLUMN_NAME: &str = "geometry";
 
@@ -100,7 +92,6 @@ fn read_triples_into_arrays<R: BufRead>(
                     .strip_suffix('"')
                     .ok_or(format!("Invalid WKT string: {}", object_string))?;
 
-
                 println!("Parsed WKT: {}", part.to_string());
 
                 let geometry = Geometry::try_from_wkt_str(&part.to_string())?;
@@ -121,9 +112,12 @@ fn read_triples_into_arrays<R: BufRead>(
         let verified_geometry = match geometry {
             Ok(geometry) => geometry,
             Err(_) => {
-                println!("Could not find geometry for skolemization id: {}", skolemization_id);
+                println!(
+                    "Could not find geometry for skolemization id: {}",
+                    skolemization_id
+                );
                 continue;
-            },
+            }
         };
         geometry_builder.push_geometry(Some(&verified_geometry))?;
         string_builder.append_value(&pid);
