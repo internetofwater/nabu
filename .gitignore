@@ -56,3 +56,5 @@ __pycache__/
 *.parquet
 
 *.fgb
+
+.DS_Store
