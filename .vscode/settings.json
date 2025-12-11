@@ -18,5 +18,5 @@
     "python.defaultInterpreterPath": "${workspaceFolder}/shacl_validator/shacl_validator_grpc_py/.venv/bin/python",
     // since our rust project is nested more than one folder we have to explicitly call it out
     // so that rust-analyzer can find it
-    "rust-analyzer.linkedProjects": ["${workspaceFolder}/shacl_validator/shacl_validator_grpc_rs/Cargo.toml"]
+    "rust-analyzer.linkedProjects": ["${workspaceFolder}/shacl_validator/shacl_validator_grpc_rs/Cargo.toml", "${workspaceFolder}/triples_to_geoparquet/Cargo.toml"]
 }

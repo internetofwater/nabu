@@ -48,3 +48,13 @@ __pycache__/
 .terraform/
 
 *.tfstate*
+
+*.gpkg
+
+.oras/
+
+*.parquet
+
+*.fgb
+
+.DS_Store

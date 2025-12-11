@@ -4,6 +4,7 @@
 """Integration test for SHACL validation service via HTTP and gRPC."""
 
 import json
+import os
 from pathlib import Path
 import threading
 import time
@@ -20,7 +21,7 @@ from server import serve_grpc, serve_http  # import from your server module
 def shacl_shape():
     """Provide a minimal SHACL shape for testing."""
     shape = Graph()
-    valid_data = Path(__file__).parent.parent / "shapes" / "geoconnex.ttl"
+    valid_data = Path(__file__).parent.parent.parent / "shapes" / "geoconnex.ttl"
     shape.parse(
         data=valid_data.read_text(),
         format="ttl",
@@ -44,8 +45,9 @@ def start_servers(shacl_shape):
     )
     http_thread.start()
 
-    # Give servers a moment to start
-    time.sleep(2)
+    # skip initialization of duckdb
+    os.environ["MAINSTEM_GPKG_FILE"] = ""
+    time.sleep(2) # TODO in the future switch this to a threading event
     yield grpc_port, http_port
 
 

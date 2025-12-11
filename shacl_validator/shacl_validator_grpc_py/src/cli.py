@@ -40,7 +40,7 @@ def main():
         type=str,
         default=str(
             (
-                Path(__file__).parent.parent / "shapes" / "geoconnex.ttl"
+                Path(__file__).parent.parent.parent / "shapes" / "geoconnex.ttl"
             ).absolute()
         ),
         help="Path to the shacl file to use for validation",
