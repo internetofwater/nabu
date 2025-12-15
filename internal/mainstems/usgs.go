@@ -11,9 +11,8 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/go-spatial/geom"
-	wktEncoder "github.com/go-spatial/geom/encoding/wkt"
 	"github.com/internetofwater/nabu/internal/common"
+	geom "github.com/peterstace/simplefeatures/geom"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -139,20 +138,16 @@ func (r USGSMainstemService) getGeoconnexURIFromComid(comid string) (geoconnexUR
 }
 
 func (r USGSMainstemService) GetMainstemForWkt(wkt string) (MainstemQueryResponse, error) {
-	geometry, err := wktEncoder.DecodeString(wkt)
+	geometry, err := geom.UnmarshalWKT(wkt)
 	if err != nil {
 		return MainstemQueryResponse{}, err
 	}
-	switch geometry.(type) {
-	case geom.Point:
-		point := geometry.(*geom.Point)
-		return r.getMainstemForPoint(point.X(), point.Y())
-	case geom.Polygon:
-		_ = geometry.(*geom.Polygon)
-		// ??
+	point := geometry.Centroid()
+	coordinates, isNonEmpty := point.Coordinates()
+	if !isNonEmpty {
+		return MainstemQueryResponse{}, fmt.Errorf("got an empty centroid result for WKT: %s", wkt)
 	}
-
-	return MainstemQueryResponse{}, nil
+	return r.getMainstemForPoint(coordinates.X, coordinates.Y)
 }
 
 func (r USGSMainstemService) getMainstemForPoint(longitude float64, latitude float64) (MainstemQueryResponse, error) {

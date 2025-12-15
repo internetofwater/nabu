@@ -21,8 +21,6 @@ type MainstemQueryResponse struct {
 
 // A mainstem service resolves geometry to the associated mainstem
 type MainstemService interface {
-	// Given a point, return the uri of the associated mainstem
-	getMainstemForPoint(longitude float64, latitude float64) (MainstemQueryResponse, error)
 	// Given a wkt geometry return the uri of the associated mainstem
 	GetMainstemForWkt(wkt string) (MainstemQueryResponse, error)
 }
