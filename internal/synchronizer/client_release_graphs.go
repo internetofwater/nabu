@@ -34,8 +34,13 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 
 	log.Infof("Generating nq from %d objects with prefix %s", len(objects), prefix)
 
+	// Create a context that can be cancelled
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var wg sync.WaitGroup
-	errChan := make(chan error, 1)
+	errOnce := sync.Once{}
+	var firstErr error = nil
 
 	mainstemService, err := mainstems.NewS3FlatgeobufMainstemService(mainstemFile)
 	if err != nil {
@@ -49,21 +54,34 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 		go func(obj minio.ObjectInfo) {
 			defer wg.Done()
 
+			// Check if context is cancelled before doing work
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			retrievedObject, err := synchronizer.S3Client.Client.GetObject(
-				context.Background(),
+				ctx,
 				synchronizer.S3Client.DefaultBucket,
 				obj.Key,
 				minio.GetObjectOptions{},
 			)
 			if err != nil {
-				errChan <- err
+				errOnce.Do(func() {
+					firstErr = err
+					cancel() // Cancel context on first error
+				})
 				return
 			}
 			defer func() { _ = retrievedObject.Close() }()
 
 			rawBytes, err := io.ReadAll(retrievedObject)
 			if err != nil {
-				errChan <- err
+				errOnce.Do(func() {
+					firstErr = err
+					cancel()
+				})
 				return
 			}
 
@@ -71,16 +89,14 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 			if strings.HasSuffix(obj.Key, ".nq") {
 				nq = string(rawBytes)
 			} else {
-
-				// we want to put the mainstem info in the nq file
-				// we put it here and not directly after crawling since that
-				// would cause the JSON-LD's hash to not match the upstream hash.
-				// having it later allows the data to get in the graph but not mess with caching the crawl
 				var finalJsonLd []byte
 				if mainstemFile != "" {
 					finalJsonLd, err = enricher.AddMainstemInfo(rawBytes)
 					if err != nil {
-						errChan <- err
+						errOnce.Do(func() {
+							firstErr = err
+							cancel()
+						})
 						return
 					}
 				} else {
@@ -89,7 +105,10 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 
 				nq, err = common.JsonldToNQ(string(finalJsonLd), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 				if err != nil {
-					errChan <- err
+					errOnce.Do(func() {
+						firstErr = err
+						cancel()
+					})
 					return
 				}
 			}
@@ -101,41 +120,47 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 				singleFileNquad, err = common.Skolemization(nq)
 				if err != nil {
 					log.Errorf("Skolemization error: %s", err)
-					errChan <- err
+					errOnce.Do(func() {
+						firstErr = err
+						cancel()
+					})
 					return
 				}
 			}
 
 			graphURN, err := common.MakeURN(obj.Key)
 			if err != nil {
-				errChan <- err
+				errOnce.Do(func() {
+					firstErr = err
+					cancel()
+				})
 				return
 			}
 
 			csnq, err := common.NtToNq(singleFileNquad, graphURN)
 			if err != nil {
 				log.Errorf("error converting object '%s' with urn '%s' to nq: %s", obj.Key, graphURN, err)
-				errChan <- err
+				errOnce.Do(func() {
+					firstErr = err
+					cancel()
+				})
 				return
 			}
 
-			// Send to channel for concurrent streaming
-			nqChan <- csnq
+			// Send to channel, respecting context cancellation
+			select {
+			case <-ctx.Done():
+				return
+			case nqChan <- csnq:
+			}
 		}(object)
 	}
 
 	// Wait for all goroutines to complete
-	go func() {
-		wg.Wait()
-		close(errChan)
-	}()
+	wg.Wait()
+	close(nqChan)
 
-	// Return the first error encountered
-	if err := <-errChan; err != nil {
-		return err
-	}
-
-	return nil
+	return firstErr
 }
 
 // Generate an nq file from all objects in s3 with a specific prefix
@@ -168,12 +193,12 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix, co
 
 	const maximumNqFilesToProcessAtOnce = 30
 
-	nqChan := make(chan string, maximumNqFilesToProcessAtOnce) // Buffered channel for limiting concurrency
+	nqChan := make(chan string, maximumNqFilesToProcessAtOnce)
 	errChan := make(chan error, 1)
 
 	// Start processing NQ data concurrently
 	go func() {
-		defer close(nqChan)
+		// Don't close nqChan here - streamNqFromPrefix will close it
 		errChan <- synchronizer.streamNqFromPrefix(prefix, nqChan, mainstemFile)
 	}()
 
