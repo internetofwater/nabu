@@ -1,0 +1,63 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "fid": 24741,
+                "id": "1608053",
+                "uri": "https://geoconnex.us/ref/mainstems/1608053",
+                "featuretype": "['https://www.opengis.net/def/schema/hy_features/hyf/HY_FlowPath', 'https://www.opengis.net/def/schema/hy_features/hyf/HY_WaterBody']",
+                "downstream_mainstem_id": "https://geoconnex.us/ref/mainstems/1606230",
+                "encompassing_mainstem_basins": "['https://geoconnex.us/ref/mainstems/1606230']",
+                "name_at_outlet": "Rio Chama",
+                "name_at_outlet_gnis_id": 923661,
+                "head_nhdpv2_comid": "https://geoconnex.us/nhdplusv2/comid/24706958",
+                "outlet_nhdpv2_comid": "https://geoconnex.us/nhdplusv2/comid/17863698",
+                "head_nhdpv2huc12": "https://geoconnex.us/nhdplusv2/huc12/130201020201",
+                "outlet_nhdpv2huc12": "https://geoconnex.us/nhdplusv2/huc12/130201021604",
+                "lengthkm": 210.8,
+                "outlet_drainagearea_sqkm": 7991.9,
+                "head_rf1id": 40527,
+                "outlet_rf1id": 62296,
+                "head_nhdpv1_comid": 24706958,
+                "outlet_nhdpv1_comid": 17863698,
+                "head_2020huc12": "130201020201",
+                "outlet_2020huc12": "130201021604",
+                "superseded": false,
+                "new_mainstemid": ""
+            },
+            "id": "1608053",
+            "geometry": null
+        }
+    ],
+    "numberMatched": 1,
+    "numberReturned": 1,
+    "links": [
+        {
+            "type": "application/geo+json",
+            "rel": "self",
+            "title": "This document as GeoJSON",
+            "href": "https://reference.geoconnex.us/collections/mainstems/items?f=json&skipGeometry=true&head_nhdpv2_comid=https%3A%2F%2Fgeoconnex.us%2Fnhdplusv2%2Fcomid%2F24706958"
+        },
+        {
+            "rel": "alternate",
+            "type": "application/ld+json",
+            "title": "This document as RDF (JSON-LD)",
+            "href": "https://reference.geoconnex.us/collections/mainstems/items?f=jsonld&skipGeometry=true&head_nhdpv2_comid=https%3A%2F%2Fgeoconnex.us%2Fnhdplusv2%2Fcomid%2F24706958"
+        },
+        {
+            "type": "text/html",
+            "rel": "alternate",
+            "title": "This document as HTML",
+            "href": "https://reference.geoconnex.us/collections/mainstems/items?f=html&skipGeometry=true&head_nhdpv2_comid=https%3A%2F%2Fgeoconnex.us%2Fnhdplusv2%2Fcomid%2F24706958"
+        },
+        {
+            "type": "application/json",
+            "title": "Reference Mainstems",
+            "rel": "collection",
+            "href": "https://reference.geoconnex.us/collections/mainstems"
+        }
+    ],
+    "timeStamp": "2025-10-29T16:15:00.254817Z"
+}

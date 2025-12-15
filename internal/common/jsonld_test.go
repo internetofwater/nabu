@@ -4,7 +4,11 @@
 package common
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/piprate/json-gold/ld"
@@ -90,5 +94,111 @@ func TestSelfieExample(t *testing.T) {
 	nq, err := JsonldToNQ(jsonld, processor, options)
 	require.NoError(t, err)
 	require.NotEmpty(t, nq)
+
+}
+
+func TestAddJsonldContextToEmptyJsonld(t *testing.T) {
+	var jsonld = make(map[string]any)
+	_, err := AddKeyToJsonLDContext(jsonld, "hyf", "https://www.opengis.net/def/schema/hy_features/hyf/")
+	require.Error(t, err)
+
+	jsonld["@context"] = map[string]any{"TEST": "https://www.opengis.net/def/schema/hy_features/hyf/"}
+	_, err = AddKeyToJsonLDContext(jsonld, "hyf", "https://www.opengis.net/def/schema/hy_features/hyf/")
+	require.NoError(t, err)
+
+	jsonld["@context"] = map[string]string{"TEST": "https://www.opengis.net/def/schema/hy_features/hyf/"}
+	newJsonld, err := AddKeyToJsonLDContext(jsonld, "hyf", "https://www.opengis.net/def/schema/hy_features/hyf/")
+	require.NoError(t, err)
+	require.Equal(t, newJsonld["@context"].(map[string]string)["hyf"], "https://www.opengis.net/def/schema/hy_features/hyf/")
+}
+
+func TestAddJsonldContextToPartialJsonld(t *testing.T) {
+	var jsonld = `{
+		"@context": {
+			"TEST": "https://www.w3.org/ns/ldp#"
+		},
+		"foo": "bar"
+	}`
+	var serializedJson map[string]any
+	err := json.Unmarshal([]byte(jsonld), &serializedJson)
+	require.NoError(t, err)
+
+	newJsonld, err := AddKeyToJsonLDContext(serializedJson, "hyf", "https://www.opengis.net/def/schema/hy_features/hyf/")
+	require.NoError(t, err)
+	require.Equal(t, newJsonld["@context"].(map[string]any)["hyf"], "https://www.opengis.net/def/schema/hy_features/hyf/")
+	require.Equal(t, newJsonld["foo"], "bar")
+}
+
+func TestAddJsonldContextToJsonldFile(t *testing.T) {
+	file, err := os.Open("testdata/mainstem1.jsonld")
+	require.NoError(t, err)
+
+	var jsonld map[string]any
+	err = json.NewDecoder(file).Decode(&jsonld)
+	require.NoError(t, err)
+
+	resultJsonld, err := AddKeyToJsonLDContext(jsonld, "TEST", "https://www.opengis.net/def/schema/hy_features/hyf/")
+	require.NoError(t, err)
+
+	context, ok := resultJsonld["@context"].([]any)
+	require.True(t, ok)
+
+	require.Equal(t, context[2].(map[string]string)["TEST"], "https://www.opengis.net/def/schema/hy_features/hyf/")
+}
+
+func TestCatchBadValueForContext(t *testing.T) {
+	var jsonld = make(map[string]any)
+	jsonld["@context"] = 0xDEADBEEF
+	_, err := AddKeyToJsonLDContext(jsonld, "hyf", "https://www.opengis.net/def/schema/hy_features/hyf/")
+	require.Error(t, err)
+}
+
+func TestAgainstAllValidJsonldInShaclTests(t *testing.T) {
+
+	path := "../../shacl_validator/testdata/valid/"
+
+	dir, err := os.ReadDir(path)
+	require.NoError(t, err)
+
+	for _, file := range dir {
+		if file.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(file.Name(), ".jsonld") {
+			continue
+		}
+		f, err := os.Open(filepath.Join(path, file.Name()))
+		require.NoError(t, err)
+		var jsonld map[string]any
+		err = json.NewDecoder(f).Decode(&jsonld)
+		require.NoError(t, err)
+		_, err = AddKeyToJsonLDContext(jsonld, "hyf", "https://www.opengis.net/def/schema/hy_features/hyf/")
+		require.NoError(t, err)
+	}
+
+}
+
+func TestGetGeometryFromAllValidJsonldInShaclTests(t *testing.T) {
+
+	path := "testdata/conformant_jsonld/"
+
+	dir, err := os.ReadDir(path)
+	require.NoError(t, err)
+
+	for _, file := range dir {
+		if file.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(file.Name(), ".jsonld") {
+			continue
+		}
+		f, err := os.Open(filepath.Join(path, file.Name()))
+		require.NoError(t, err)
+		var jsonld map[string]any
+		err = json.NewDecoder(f).Decode(&jsonld)
+		require.NoError(t, err)
+		_, ok := GetWktFromJsonld(jsonld)
+		require.True(t, ok, fmt.Errorf("%s failed to find geometry", file.Name()))
+	}
 
 }

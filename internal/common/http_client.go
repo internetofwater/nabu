@@ -60,7 +60,7 @@ func (m *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			}, nil
 		} else {
 			mockedContent, err := os.Open(associatedMock.File)
-			if mockedContent == nil {
+			if mockedContent == nil || err != nil {
 				return nil, err
 			}
 			return &http.Response{
@@ -80,6 +80,8 @@ func (m *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return m.transport.RoundTrip(req)
 }
 
+// NewMockedClient returns an http client with mocked responses
+// if strictMode is true, all http requests that are not mocked will return an error
 func NewMockedClient(strictMode bool, urlToMock map[string]MockResponse) *http.Client {
 
 	newLongLivedHttpTransport := newLongLivedHttpTransport()
