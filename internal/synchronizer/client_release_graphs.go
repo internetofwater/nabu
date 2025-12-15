@@ -7,10 +7,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 
 	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/mainstems"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 	"github.com/minio/minio-go/v7"
 
@@ -21,7 +23,7 @@ import (
 // convert all objects in s3 with a specific prefix to nq format and stream them to a shared channel
 // this allows the caller to mimic concatenating many nq files in parallel without needing to have
 // the nq file ever be written to disk
-func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, nqChan chan<- string) error {
+func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, nqChan chan<- string, mainstemFile string) error {
 	objects, err := synchronizer.S3Client.ObjectList(context.Background(), prefix)
 	if err != nil {
 		return err
@@ -34,6 +36,12 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 
 	var wg sync.WaitGroup
 	errChan := make(chan error, 1)
+
+	mainstemService, err := mainstems.NewS3FlatgeobufMainstemService(mainstemFile)
+	if err != nil {
+		return err
+	}
+	enricher := mainstems.NewJsonldEnricher(mainstemService)
 
 	for _, object := range objects {
 		wg.Add(1)
@@ -63,7 +71,23 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 			if strings.HasSuffix(obj.Key, ".nq") {
 				nq = string(rawBytes)
 			} else {
-				nq, err = common.JsonldToNQ(string(rawBytes), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+
+				// we want to put the mainstem info in the nq file
+				// we put it here and not directly after crawling since that
+				// would cause the JSON-LD's hash to not match the upstream hash.
+				// having it later allows the data to get in the graph but not mess with caching the crawl
+				var finalJsonLd []byte
+				if mainstemFile != "" {
+					finalJsonLd, err = enricher.AddMainstemInfo(rawBytes)
+					if err != nil {
+						errChan <- err
+						return
+					}
+				} else {
+					finalJsonLd = rawBytes
+				}
+
+				nq, err = common.JsonldToNQ(string(finalJsonLd), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 				if err != nil {
 					errChan <- err
 					return
@@ -118,7 +142,17 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 // this is accomplished by streaming the conversion of nq and uploading
 // to minio concurrently. We used a buffered channel to limit the
 // concurrency of the conversion process
-func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix, compressGraphWithGzip bool) error {
+func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix, compressGraphWithGzip bool, mainstemFile string) error {
+	if mainstemFile == "" {
+		log.Warn("There was no provided mainstem file, so no mainstem info will be added to the nquad release")
+	} else if !strings.HasPrefix(mainstemFile, "gcs://") && !strings.HasPrefix(mainstemFile, "s3://") {
+		if _, err := os.Stat(mainstemFile); err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("mainstem file was specified to be at %s does not exist locally", mainstemFile)
+			}
+			return fmt.Errorf("failed to stat mainstem file %s: %w", mainstemFile, err)
+		}
+	}
 
 	if prefix == "" {
 		return fmt.Errorf("prefix is empty; you must specify a prefix to generate a release graph from")
@@ -140,7 +174,7 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix, co
 	// Start processing NQ data concurrently
 	go func() {
 		defer close(nqChan)
-		errChan <- synchronizer.streamNqFromPrefix(prefix, nqChan)
+		errChan <- synchronizer.streamNqFromPrefix(prefix, nqChan, mainstemFile)
 	}()
 
 	pipeReader, pipeWriter := io.Pipe()

@@ -26,6 +26,7 @@ type MainstemService interface {
 }
 
 // A jsonld enricher adds extra information to jsonld
+// such as the associated mainstem
 type JsonldEnricher struct {
 	service MainstemService
 }

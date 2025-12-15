@@ -32,7 +32,8 @@ type UploadCmd struct{}
 type SyncCmd struct{}
 type TestCmd struct{}
 type ReleaseCmd struct {
-	Compress bool `arg:"--compress" help:"compress the output graph with gzip to reduce size; the associated hash will be the hash of the gzip'd data" default:"false"`
+	Compress             bool   `arg:"--compress" help:"compress the output graph with gzip to reduce size; the associated hash will be the hash of the gzip'd data" default:"false"`
+	MainstemMetadataFile string `arg:"--mainstem-metadata" help:"path to a mainstem file, either local or in s3/gcs, that will be used to add metadata to the release graph" default:""`
 }
 type ClearCmd struct{}
 type PullCmd struct {
@@ -176,7 +177,11 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 	case n.args.Object != nil:
 		return nil, synchronizerClient.UploadNqFileToTriplestore(n.args.Object.Object)
 	case n.args.Release != nil:
-		return nil, synchronizerClient.GenerateNqRelease(cfgStruct.Prefix, n.args.Release.Compress)
+		return nil, synchronizerClient.GenerateNqRelease(
+			cfgStruct.Prefix,
+			n.args.Release.Compress,
+			n.args.Release.MainstemMetadataFile,
+		)
 	case n.args.Upload != nil:
 		return nil, synchronizerClient.SyncTriplestoreGraphs(ctx, cfgStruct.Prefix, false)
 	case n.args.Sync != nil:
