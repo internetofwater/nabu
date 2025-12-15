@@ -48,7 +48,8 @@ func (j *JsonldEnricher) AddMainstemInfo(jsonld []byte) (newJsonld []byte, err e
 	wkt, ok := common.GetWktFromJsonld(serializedJson)
 	if !ok {
 		// if there is no geometry, there is no way to attach a mainstem
-		// and thus we can just return the original jsonld
+		// and thus we can just return the original jsonld without any error
+		// since some jsonld may not have a geometry (i.e. from provenance data)
 		return jsonld, nil
 	}
 
