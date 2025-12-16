@@ -31,36 +31,31 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 	if len(objects) == 0 {
 		return fmt.Errorf("no objects found with prefix %s so no nq file will be created", prefix)
 	}
-
 	log.Infof("Generating nq from %d objects with prefix %s", len(objects), prefix)
-
-	// Create a context that can be cancelled
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	var wg sync.WaitGroup
-	errOnce := sync.Once{}
-	var firstErr error = nil
 
 	mainstemService, err := mainstems.NewS3FlatgeobufMainstemService(mainstemFile)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = mainstemService.Close()
+		if err != nil {
+			log.Error(err)
+		}
+	}()
 	enricher := mainstems.NewJsonldEnricher(mainstemService)
 
+	// Create errgroup with context
+	g, ctx := errgroup.WithContext(context.Background())
+
+	// Limit concurrent workers
+	g.SetLimit(10) // Adjust based on your needs
+
+	var mainstemMutex sync.Mutex
+
 	for _, object := range objects {
-		wg.Add(1)
-
-		go func(obj minio.ObjectInfo) {
-			defer wg.Done()
-
-			// Check if context is cancelled before doing work
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
+		obj := object // capture loop variable
+		g.Go(func() error {
 			retrievedObject, err := synchronizer.S3Client.Client.GetObject(
 				ctx,
 				synchronizer.S3Client.DefaultBucket,
@@ -68,21 +63,13 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 				minio.GetObjectOptions{},
 			)
 			if err != nil {
-				errOnce.Do(func() {
-					firstErr = err
-					cancel() // Cancel context on first error
-				})
-				return
+				return err
 			}
 			defer func() { _ = retrievedObject.Close() }()
 
 			rawBytes, err := io.ReadAll(retrievedObject)
 			if err != nil {
-				errOnce.Do(func() {
-					firstErr = err
-					cancel()
-				})
-				return
+				return err
 			}
 
 			var nq string
@@ -91,25 +78,21 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 			} else {
 				var finalJsonLd []byte
 				if mainstemFile != "" {
+					mainstemMutex.Lock()
 					finalJsonLd, err = enricher.AddMainstemInfo(rawBytes)
+					mainstemMutex.Unlock()
 					if err != nil {
-						errOnce.Do(func() {
-							firstErr = err
-							cancel()
-						})
-						return
+						return err
 					}
 				} else {
 					finalJsonLd = rawBytes
 				}
-
 				nq, err = common.JsonldToNQ(string(finalJsonLd), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 				if err != nil {
-					errOnce.Do(func() {
-						firstErr = err
-						cancel()
-					})
-					return
+					return err
+				}
+				if len(nq) == 0 {
+					return fmt.Errorf("jsonld to nq conversion returned empty string for object %s with data %s", obj.Key, string(finalJsonLd))
 				}
 			}
 
@@ -120,47 +103,35 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 				singleFileNquad, err = common.Skolemization(nq)
 				if err != nil {
 					log.Errorf("Skolemization error: %s", err)
-					errOnce.Do(func() {
-						firstErr = err
-						cancel()
-					})
-					return
+					return err
 				}
 			}
 
 			graphURN, err := common.MakeURN(obj.Key)
 			if err != nil {
-				errOnce.Do(func() {
-					firstErr = err
-					cancel()
-				})
-				return
+				return err
 			}
 
 			csnq, err := common.NtToNq(singleFileNquad, graphURN)
 			if err != nil {
 				log.Errorf("error converting object '%s' with urn '%s' to nq: %s", obj.Key, graphURN, err)
-				errOnce.Do(func() {
-					firstErr = err
-					cancel()
-				})
-				return
+				return err
 			}
 
 			// Send to channel, respecting context cancellation
 			select {
 			case <-ctx.Done():
-				return
+				return ctx.Err()
 			case nqChan <- csnq:
+				return nil
 			}
-		}(object)
+		})
 	}
 
-	// Wait for all goroutines to complete
-	wg.Wait()
+	// Wait for all goroutines and get first error
+	err = g.Wait()
 	close(nqChan)
-
-	return firstErr
+	return err
 }
 
 // Generate an nq file from all objects in s3 with a specific prefix
@@ -241,17 +212,18 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix, co
 	if err != nil {
 		return err
 	}
-	if objInfo.Size == 0 {
-		return fmt.Errorf("empty nq file for %s when uploading to s3", releaseNqName)
-	}
 
-	// Check for errors from the processing goroutine
+	// Check for errors from the processing goroutine BEFORE checking if file is empty
 	if err := <-errChan; err != nil {
 		return err
 	}
 
 	if err := writerProcess.Wait(); err != nil {
 		return err
+	}
+
+	if objInfo.Size == 0 {
+		return fmt.Errorf("empty nq file for %s when uploading to s3", releaseNqName)
 	}
 
 	dataWasStreamed := objInfo.Size == -1

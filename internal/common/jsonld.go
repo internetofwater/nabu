@@ -123,6 +123,7 @@ func AddKeyToJsonLDContext(jsonld map[string]any, key, value string) (newJsonld 
 	return nil, fmt.Errorf("JSON-LD had type %s for @context field and could not be modified", reflect.TypeOf(context))
 }
 
+// Get the wkt geometry from the
 func GetWktFromJsonld(jsonld map[string]any) (wkt string, hasGeometry bool) {
 	schema_geo, ok := jsonld["gsp:hasGeometry"].(map[string]any)
 	if ok {
