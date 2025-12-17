@@ -45,6 +45,7 @@ require (
 	github.com/duckdb/duckdb-go/mapping v0.0.27 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/gogama/flatgeobuf v1.0.0 // indirect
 	github.com/google/flatbuffers v25.9.23+incompatible // indirect
 	github.com/minio/crc64nvme v1.0.2 // indirect
 	github.com/moby/go-archive v0.1.0 // indirect

@@ -4,93 +4,89 @@
 package mainstems
 
 import (
-	"database/sql"
+	"bytes"
 	"fmt"
+	"os"
 
-	_ "github.com/duckdb/duckdb-go/v2"
-	log "github.com/sirupsen/logrus"
+	"github.com/gogama/flatgeobuf/flatgeobuf"
+	"github.com/gogama/flatgeobuf/packedrtree"
+	geom "github.com/peterstace/simplefeatures/geom"
 )
 
 type S3FlatgeobufMainstemService struct {
-	duckdb *sql.DB
-	// the flatgeobuf URI can be either
-	// a local path like ./data.fgb or
-	// a remote object storage like
-	// gcs://national-hydrologic-geospatial-fabric-reference-hydrofabric/reference_catchments_and_flowlines.fgb
+	// the flatgeobuf URI must be a local
+	// path; remote is not yet supported
 	mainstemFlatgeobufURI string
 }
 
 var _ MainstemService = S3FlatgeobufMainstemService{}
 
 func NewS3FlatgeobufMainstemService(mainstemFlatgeobufURI string) (S3FlatgeobufMainstemService, error) {
-	db, err := sql.Open("duckdb", "")
-	if err != nil {
-		return S3FlatgeobufMainstemService{}, err
-	}
-	_, err = db.Exec("INSTALL spatial; LOAD spatial;")
-	if err != nil {
-		return S3FlatgeobufMainstemService{}, err
-	}
-	return S3FlatgeobufMainstemService{duckdb: db, mainstemFlatgeobufURI: mainstemFlatgeobufURI}, nil
+	return S3FlatgeobufMainstemService{mainstemFlatgeobufURI: mainstemFlatgeobufURI}, nil
 }
 
-func (s S3FlatgeobufMainstemService) Close() error {
-	return s.duckdb.Close()
-}
 func (s S3FlatgeobufMainstemService) GetMainstemForWkt(wkt string) (MainstemQueryResponse, error) {
-	// We first query the centroid of the geometry
-	// so that we are guaranteed to only get one
-	// catchment and thus only one maistem; otherwise
-	// there could be multiple overlapping and thus
-	// ambiguity
-	centroidQuery := `
-    SELECT
-        ST_X(ST_Centroid(g)) AS center_x,
-        ST_Y(ST_Centroid(g)) AS center_y
-    FROM (
-        SELECT ST_GeomFromText(CAST(? AS VARCHAR)) AS g
-    )
-	`
-	row := s.duckdb.QueryRow(centroidQuery, wkt)
-	if row.Err() != nil {
-		return MainstemQueryResponse{}, row.Err()
-	}
-	var center_x, center_y float64
-	if err := row.Scan(&center_x, &center_y); err != nil {
-		return MainstemQueryResponse{}, fmt.Errorf("centroid query failed: %w", err)
-	}
 
-	// flatgeobuf requires opening with a bbox in duckdb
-	// in order to subset the data; by using the same
-	// value for min and max we get a specific point
-	// and a guarantee of no overlaps
-	mainstemSQL := `
-    SELECT geoconnex_url
-		FROM ST_Read(
-			?,
-			spatial_filter_box = ST_MakeBox2D(
-				ST_Point(?, ?),
-				ST_Point(?, ?)
-			)
-		)
-	`
-	result := s.duckdb.QueryRow(mainstemSQL, s.mainstemFlatgeobufURI, center_x, center_y, center_x, center_y)
-	if result.Err() != nil {
-		return MainstemQueryResponse{}, fmt.Errorf("mainstem query failed: %w", result.Err())
-	}
-	var mainstemURI sql.NullString
-	if err := result.Scan(&mainstemURI); err != nil {
+	geometry, err := geom.UnmarshalWKT(wkt)
+	if err != nil {
 		return MainstemQueryResponse{}, err
 	}
-	if mainstemURI.Valid && mainstemURI.String != "" {
-		return MainstemQueryResponse{
-			foundAssociatedMainstem: true,
-			mainstemURI:             mainstemURI.String,
-		}, nil
+	point := geometry.Centroid()
+	coordinates, isNonEmpty := point.Coordinates()
+	if !isNonEmpty {
+		return MainstemQueryResponse{}, fmt.Errorf("got an empty centroid result for WKT: %s", wkt)
 	}
-	log.Warnf("no mainstem found for %s: %s", wkt, mainstemURI.String)
-	return MainstemQueryResponse{
-		foundAssociatedMainstem: false,
-		mainstemURI:             "",
-	}, nil
+
+	bbox := packedrtree.Box{
+		XMin: coordinates.X,
+		YMin: coordinates.Y,
+		XMax: coordinates.X,
+		YMax: coordinates.Y,
+	}
+
+	file, err := os.Open(s.mainstemFlatgeobufURI)
+	if err != nil {
+		return MainstemQueryResponse{}, fmt.Errorf("error when opening flatgeobuf %v", err)
+	}
+
+	fileReader := flatgeobuf.NewFileReader(file)
+
+	_, err = fileReader.Header()
+	if err != nil {
+		return MainstemQueryResponse{}, fmt.Errorf("error when reading header from flatgeobuf %v", err)
+	}
+
+	features, err := fileReader.IndexSearch(bbox)
+	if err != nil {
+		return MainstemQueryResponse{}, fmt.Errorf("error when running index search on flatgeobuf %v", err)
+	}
+
+	if len(features) == 0 {
+		return MainstemQueryResponse{mainstemURI: "", foundAssociatedMainstem: false}, nil
+	}
+
+	if len(features) > 1 {
+		return MainstemQueryResponse{}, fmt.Errorf("got more than one mainstem result for WKT: %s", wkt)
+	}
+
+	propsBuf := features[0].PropertiesBytes()
+	propsReader := flatgeobuf.NewPropReader(bytes.NewReader(propsBuf))
+
+	propsVals, err := propsReader.ReadSchema(&features[0])
+
+	if err != nil {
+		return MainstemQueryResponse{}, fmt.Errorf("error when reading properties from flatgeobuf %v", err)
+	}
+
+	result := flatgeobuf.FeatureString(&features[0], &features[0])
+	fmt.Print(result)
+
+	for _, prop := range propsVals {
+		if prop.String() == "geoconnex_url" {
+			return MainstemQueryResponse{mainstemURI: prop.Value.(string), foundAssociatedMainstem: true}, nil
+		}
+	}
+
+	// property not present
+	return MainstemQueryResponse{mainstemURI: "", foundAssociatedMainstem: false}, nil
 }
