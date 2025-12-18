@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/mainstems"
@@ -33,6 +34,13 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 	}
 	log.Infof("Generating nq from %d objects with prefix %s", len(objects), prefix)
 
+	addMainstemInfo := mainstemFile != ""
+	if addMainstemInfo {
+		log.Infof("Adding mainstem info from %s", mainstemFile)
+	} else {
+		log.Info("Not adding mainstem info to nquads since no mainstem file was provided")
+	}
+
 	mainstemService, err := mainstems.NewS3FlatgeobufMainstemService(mainstemFile)
 	if err != nil {
 		return err
@@ -44,6 +52,8 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 
 	// Limit concurrent workers
 	g.SetLimit(10) // Adjust based on your needs
+
+	mainstemsAdded := atomic.Int32{}
 
 	var mainstemMutex sync.Mutex
 
@@ -73,8 +83,12 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 				var finalJsonLd []byte
 				if mainstemFile != "" {
 					mainstemMutex.Lock()
-					finalJsonLd, err = enricher.AddMainstemInfo(rawBytes)
+					var foundMainstem bool
+					finalJsonLd, foundMainstem, err = enricher.AddMainstemInfo(rawBytes)
 					mainstemMutex.Unlock()
+					if foundMainstem {
+						mainstemsAdded.Add(1)
+					}
 					if err != nil {
 						return err
 					}
@@ -125,6 +139,10 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 	// Wait for all goroutines and get first error
 	err = g.Wait()
 	close(nqChan)
+	// only log if we actually attempted to add mainstem info
+	if addMainstemInfo {
+		log.Infof("Found and added mainstems to %d/%d JSON-LD objects for prefix %s", mainstemsAdded.Load(), len(objects), prefix)
+	}
 	return err
 }
 
