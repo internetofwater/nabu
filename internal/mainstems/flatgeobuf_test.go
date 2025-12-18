@@ -23,4 +23,18 @@ func TestPointInFlatgeobuf(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, response.mainstemURI)
 	require.False(t, response.foundAssociatedMainstem)
+
+}
+
+func TestPointThatCausedMultipleResults(t *testing.T) {
+	const fgb = "./testdata/colorado_subset.fgb"
+
+	service, err := NewS3FlatgeobufMainstemService(fgb)
+	require.NoError(t, err)
+
+	response, err := service.GetMainstemForWkt("POINT (-108.00852774278917 37.2266879422167)")
+	require.NoError(t, err)
+	require.Empty(t, response.mainstemURI)
+	require.False(t, response.foundAssociatedMainstem)
+
 }

@@ -9,3 +9,11 @@ target/
 node_modules/
 dist/
 coverage.out
+*.gpkg
+*.parquet
+
+*.fgb
+.venv/
+.oras/
+__pycache__
+dist/
