@@ -5,6 +5,7 @@ package mainstems
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	_ "github.com/duckdb/duckdb-go/v2"
@@ -63,6 +64,9 @@ func (s S3FlatgeobufMainstemService) GetMainstemForWkt(wkt string) (MainstemQuer
 	}
 	var mainstemURI sql.NullString
 	if err := result.Scan(&mainstemURI); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return MainstemQueryResponse{foundAssociatedMainstem: false, mainstemURI: ""}, nil
+		}
 		return MainstemQueryResponse{}, fmt.Errorf("failed to get sql result for query at %s, %v", wkt, err)
 	}
 	if mainstemURI.Valid && mainstemURI.String != "" {
