@@ -15,8 +15,11 @@ COPY . .
 ARG TARGETOS TARGETARCH
 
 ARG DUCKDB_VERSION=1.4.2
-RUN wget -nv https://github.com/duckdb/duckdb/releases/download/${DUCKDB_VERSION}/libduckdb-linux-${TARGETARCH}.zip -O libduckdb.zip; \
-    unzip libduckdb.zip -d /tmp/libduckdb
+RUN wget https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/libduckdb-${TARGETOS}-${TARGETARCH}.zip \
+    && unzip libduckdb-linux-amd64.zip -d libduckdb \
+    && mv libduckdb/duckdb.* /usr/local/include \
+    && mv libduckdb/libduckdb.so /usr/local/lib \
+    && rm -rf libduckd *.zip
 
 RUN CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH go mod tidy && \
     go build -o nabu ./cmd/nabu
