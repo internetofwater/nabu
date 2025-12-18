@@ -5,9 +5,12 @@ FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS go-builder
 
 WORKDIR /app
 
-# Required for DuckDB + CGO
+# Toolchains needed for CGO + DuckDB cross-compilation
 RUN apt-get update && apt-get install -y \
     build-essential \
+    gcc-aarch64-linux-gnu \
+    g++-aarch64-linux-gnu \
+    libc6-dev-arm64-cross \
     ca-certificates \
     git \
     && rm -rf /var/lib/apt/lists/*
@@ -17,9 +20,18 @@ RUN go mod download
 
 COPY . .
 
-ARG TARGETOS TARGETARCH
+ARG TARGETOS
+ARG TARGETARCH
 
-RUN CGO_ENABLED=1 \
+# Select correct compiler for CGO
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+    export CC=aarch64-linux-gnu-gcc; \
+    export CXX=aarch64-linux-gnu-g++; \
+    else \
+    export CC=gcc; \
+    export CXX=g++; \
+    fi && \
+    CGO_ENABLED=1 \
     GOOS=$TARGETOS \
     GOARCH=$TARGETARCH \
     go build \
