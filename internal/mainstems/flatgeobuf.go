@@ -59,7 +59,7 @@ func (s S3FlatgeobufMainstemService) GetMainstemForWkt(wkt string) (MainstemQuer
 	`
 	result := s.duckdb.QueryRow(mainstemSQL, s.mainstemFlatgeobufURI, coordinates.X, coordinates.Y, coordinates.X, coordinates.Y)
 	if result.Err() != nil {
-		return MainstemQueryResponse{}, fmt.Errorf("mainstem query failed: %w", result.Err())
+		return MainstemQueryResponse{}, fmt.Errorf("mainstem query failed for %s: %w", wkt, result.Err())
 	}
 	var mainstemURI sql.NullString
 	if err := result.Scan(&mainstemURI); err != nil {
