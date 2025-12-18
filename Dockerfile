@@ -16,7 +16,7 @@ ARG TARGETOS TARGETARCH
 
 ARG DUCKDB_VERSION=1.4.2
 RUN wget https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/libduckdb-${TARGETOS}-${TARGETARCH}.zip \
-    && unzip libduckdb-linux-amd64.zip -d libduckdb \
+    && unzip libduckdb-${TARGETOS}-${TARGETARCH}.zip -d libduckdb \
     && mv libduckdb/duckdb.* /usr/local/include \
     && mv libduckdb/libduckdb.so /usr/local/lib \
     && rm -rf libduckd *.zip
