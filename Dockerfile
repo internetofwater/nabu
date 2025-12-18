@@ -5,9 +5,12 @@ FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS go-builder
 
 WORKDIR /app
 
-# Explicitly download these files before the build so they can be cached
-COPY go.mod .
-COPY go.sum .
+RUN apk add --no-cache \
+    build-base \
+    linux-headers \
+    git
+
+COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
