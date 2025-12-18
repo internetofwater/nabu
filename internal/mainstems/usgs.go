@@ -4,14 +4,10 @@
 package mainstems
 
 import (
-	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"html/template"
 	"net/http"
 
-	"github.com/internetofwater/nabu/internal/common"
 	geom "github.com/peterstace/simplefeatures/geom"
 	log "github.com/sirupsen/logrus"
 )
@@ -169,59 +165,4 @@ func (r USGSMainstemService) getMainstemForPoint(longitude float64, latitude flo
 		mainstemURI:             mainstem,
 		foundAssociatedMainstem: mainstem != "",
 	}, nil
-}
-
-func (r USGSMainstemService) AddMainstemToJsonLD(jsonldMap map[string]any, mainstemURI string) (map[string]any, error) {
-	if mainstemURI == "" {
-		return nil, errors.New("mainstem URI is empty")
-	}
-
-	if _, ok := jsonldMap["hyf:referencedPosition"]; ok {
-		// Mainstem already present
-		return jsonldMap, nil
-	}
-
-	jsonldMap, err := common.AddKeyToJsonLDContext(jsonldMap,
-		"hyf", "https://www.opengis.net/def/schema/hy_features/hyf/",
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Template with mainstem URI placeholder
-	const referencedPositionTemplate = `
-	{
-		"hyf:referencedPosition": [
-			{
-				"hyf:HY_IndirectPosition": {
-					"hyf:distanceDescription": {
-						"hyf:HY_DistanceDescription": "upstream"
-					},
-					"hyf:linearElement": {"@id": "{{.MainstemURI}}"}
-				}
-			}
-		]
-	}`
-
-	tmpl, err := template.New("referencedPosition").Parse(referencedPositionTemplate)
-	if err != nil {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, map[string]string{
-		"MainstemURI": mainstemURI,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var referencedPosition any
-	err = json.Unmarshal(buf.Bytes(), &referencedPosition)
-	if err != nil {
-		return nil, err
-	}
-
-	jsonldMap["hyf:referencedPosition"] = referencedPosition.(map[string]any)["hyf:referencedPosition"]
-	return jsonldMap, nil
 }

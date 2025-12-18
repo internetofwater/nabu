@@ -6,9 +6,11 @@ package common
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/knakk/rdf"
+	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -101,4 +103,33 @@ func QuadsToTripleWithCtx(nquads string) (NamedGraph, error) {
 	}
 
 	return NamedGraph{GraphURI: graphName, Triples: tb.String()}, err
+}
+
+// Given an object'sn name and its bytes, convert it to the named graph
+func AnyRdfDataToNamedGraph(objectName, objBytes string, jsonldProcessor *ld.JsonLdProcessor, jsonldOptions *ld.JsonLdOptions) (NamedGraph, error) {
+	graphResourceIdentifier, err := MakeURN(objectName)
+	if err != nil {
+		return NamedGraph{}, err
+	}
+
+	if strings.HasSuffix(objectName, ".jsonld") {
+		nTriples, err := JsonldToNQ(string(objBytes), jsonldProcessor, jsonldOptions)
+		if err != nil {
+			log.Errorf("JSONLD to NQ conversion error: %s", err)
+			return NamedGraph{}, err
+		}
+		if nTriples == "" {
+			return NamedGraph{}, fmt.Errorf("JSONLD to NQ conversion returned empty string for object %s with data %s", objectName, string(objBytes))
+		}
+
+		return NamedGraph{GraphURI: graphResourceIdentifier, Triples: nTriples}, nil
+	} else if strings.HasSuffix(objectName, ".nq") {
+		graph, err := QuadsToTripleWithCtx(string(objBytes))
+		if err != nil {
+			return NamedGraph{}, fmt.Errorf("nq to NTCtx error: %s when converting object %s with data %s", err, objectName, string(objBytes))
+		}
+		return NamedGraph{GraphURI: graphResourceIdentifier, Triples: graph.Triples}, nil
+	} else {
+		return NamedGraph{}, fmt.Errorf("object %s is not a jsonld or nq file and thus cannot be converted to a named graph", objectName)
+	}
 }

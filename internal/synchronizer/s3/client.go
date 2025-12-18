@@ -234,31 +234,7 @@ func (m *MinioClientWrapper) GetObjectAndConvertToGraph(objectName S3Prefix, jso
 		log.Warnf("Object %s is empty", objectName)
 	}
 
-	graphResourceIdentifier, err := common.MakeURN(objectName)
-	if err != nil {
-		return common.NamedGraph{}, err
-	}
-
-	if strings.HasSuffix(objectName, ".jsonld") {
-		nTriples, err := common.JsonldToNQ(string(objBytes), jsonldProcessor, jsonldOptions)
-		if err != nil {
-			log.Errorf("JSONLD to NQ conversion error: %s", err)
-			return common.NamedGraph{}, err
-		}
-		if nTriples == "" {
-			return common.NamedGraph{}, fmt.Errorf("JSONLD to NQ conversion returned empty string for object %s with data %s", objectName, string(objBytes))
-		}
-
-		return common.NamedGraph{GraphURI: graphResourceIdentifier, Triples: nTriples}, nil
-	} else if strings.HasSuffix(objectName, ".nq") {
-		graph, err := common.QuadsToTripleWithCtx(string(objBytes))
-		if err != nil {
-			return common.NamedGraph{}, fmt.Errorf("nq to NTCtx error: %s when converting object %s with data %s", err, objectName, string(objBytes))
-		}
-		return common.NamedGraph{GraphURI: graphResourceIdentifier, Triples: graph.Triples}, nil
-	} else {
-		return common.NamedGraph{}, fmt.Errorf("object %s is not a jsonld or nq file and thus cannot be converted to a named graph", objectName)
-	}
+	return common.AnyRdfDataToNamedGraph(objectName, string(objBytes), jsonldProcessor, jsonldOptions)
 }
 
 // Upload a local file to the bucket at the specified remote path
