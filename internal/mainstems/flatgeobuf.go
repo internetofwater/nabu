@@ -172,7 +172,9 @@ func (s S3FlatgeobufMainstemService) GetMainstemForWkt(wkt string) (MainstemQuer
 	}
 	defer func() {
 		err = file.Close()
-		log.Error(err)
+		if err != nil {
+			log.Error(err)
+		}
 	}()
 
 	filereader := flatgeobuf.NewFileReader(file)
