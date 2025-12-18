@@ -37,12 +37,6 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 	if err != nil {
 		return err
 	}
-	defer func() {
-		err = mainstemService.Close()
-		if err != nil {
-			log.Error(err)
-		}
-	}()
 	enricher := mainstems.NewJsonldEnricher(mainstemService)
 
 	// Create errgroup with context
