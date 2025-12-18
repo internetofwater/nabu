@@ -1,23 +1,30 @@
 # Copyright 2025 Lincoln Institute of Land Policy
 # SPDX-License-Identifier: Apache-2.0
 
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS go-builder
+FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS go-builder
 
 WORKDIR /app
 
-# Explicitly download these files before the build so they can be cached
-COPY go.mod .
-COPY go.sum .
+# Required for DuckDB + CGO
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    ca-certificates \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
-ENV CGO_ENABLED=0
-
 ARG TARGETOS TARGETARCH
 
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go mod tidy && \
-    go build -o nabu ./cmd/nabu
+RUN CGO_ENABLED=1 \
+    GOOS=$TARGETOS \
+    GOARCH=$TARGETARCH \
+    go build \
+    -tags=duckdb_use_bundled \
+    -o nabu ./cmd/nabu
 
 
 FROM debian:bookworm-slim
