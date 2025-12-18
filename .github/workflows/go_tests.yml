@@ -4,12 +4,11 @@
 name: Nabu Go Tests
 
 on:
-  workflow_dispatch: # Allows manual triggering of the workflow
+  workflow_dispatch:
   push:
 
 concurrency:
-  group:
-    ${{ github.workflow }}-${{ github.ref_name }}-${{github.event.pull_request.number || github.sha }}
+  group: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -17,9 +16,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: "Checkout GitHub Action"
+      - name: Checkout GitHub Action
         uses: actions/checkout@v4
-        id: checkout
+
+      - name: Install GDAL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin libgdal-dev
+          gdalinfo --version
+
       - name: Nabu Tests
         uses: ./
         with:
