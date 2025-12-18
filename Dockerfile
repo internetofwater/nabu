@@ -17,10 +17,12 @@ ARG TARGETOS TARGETARCH
 ARG DUCKDB_VERSION=1.4.2
 RUN wget https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/libduckdb-${TARGETOS}-${TARGETARCH}.zip \
     && unzip libduckdb-${TARGETOS}-${TARGETARCH}.zip \
+    && mkdir -p /usr/local/include /usr/local/lib \
     && cp duckdb.h /usr/local/include/duckdb.h \
     && cp duckdb.hpp /usr/local/include/duckdb.hpp \
     && cp libduckdb.so /usr/local/lib/libduckdb.so \
     && rm -f libduckdb-${TARGETOS}-${TARGETARCH}.zip
+
 
 
 RUN CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH go mod tidy && \
