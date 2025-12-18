@@ -26,15 +26,21 @@ func TestPointInFlatgeobuf(t *testing.T) {
 
 }
 
-func TestPointThatCausedMultipleResults(t *testing.T) {
+func TestEdgeCases(t *testing.T) {
 	const fgb = "./testdata/colorado_subset.fgb"
 
 	service, err := NewS3FlatgeobufMainstemService(fgb)
 	require.NoError(t, err)
 
-	response, err := service.GetMainstemForWkt("POINT (-108.00852774278917 37.2266879422167)")
+	const insideDatasetButNullValue = "POINT(-108.00852774278917 37.2266879422167)"
+	response, err := service.GetMainstemForWkt(insideDatasetButNullValue)
 	require.NoError(t, err)
 	require.Empty(t, response.mainstemURI)
 	require.False(t, response.foundAssociatedMainstem)
 
+	const regionOutsideOfDataset = "POINT(-107.74580000048866 36.958399999924836)"
+	response, err = service.GetMainstemForWkt(regionOutsideOfDataset)
+	require.NoError(t, err)
+	require.Empty(t, response.mainstemURI)
+	require.False(t, response.foundAssociatedMainstem)
 }
