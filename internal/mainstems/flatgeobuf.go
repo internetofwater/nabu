@@ -10,7 +10,6 @@ import (
 
 	_ "github.com/duckdb/duckdb-go/v2"
 	geom "github.com/peterstace/simplefeatures/geom"
-	log "github.com/sirupsen/logrus"
 )
 
 type S3FlatgeobufMainstemService struct {
@@ -75,7 +74,6 @@ func (s S3FlatgeobufMainstemService) GetMainstemForWkt(wkt string) (MainstemQuer
 			mainstemURI:             mainstemURI.String,
 		}, nil
 	}
-	log.Warnf("no mainstem found for %s: %s", wkt, mainstemURI.String)
 	return MainstemQueryResponse{
 		foundAssociatedMainstem: false,
 		mainstemURI:             "",
