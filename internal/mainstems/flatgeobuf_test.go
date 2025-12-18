@@ -19,7 +19,7 @@ func TestPointInFlatgeobuf(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "https://reference.geoconnex.us/collections/mainstems/items/2290857", response.mainstemURI)
 
-	response, err = service.GetMainstemForWkt("POINT(-180 170)")
+	response, err = service.GetMainstemForWkt("POINT(-180 -170)")
 	require.NoError(t, err)
 	require.Empty(t, response.mainstemURI)
 	require.False(t, response.foundAssociatedMainstem)

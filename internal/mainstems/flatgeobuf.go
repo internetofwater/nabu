@@ -63,7 +63,7 @@ func (s S3FlatgeobufMainstemService) GetMainstemForWkt(wkt string) (MainstemQuer
 	}
 	var mainstemURI sql.NullString
 	if err := result.Scan(&mainstemURI); err != nil {
-		return MainstemQueryResponse{}, err
+		return MainstemQueryResponse{}, fmt.Errorf("failed to get sql result for query at %s, %v", wkt, err)
 	}
 	if mainstemURI.Valid && mainstemURI.String != "" {
 		return MainstemQueryResponse{
