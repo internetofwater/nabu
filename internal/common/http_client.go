@@ -139,8 +139,12 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			_ = resp.Body.Close()
 			log.Errorf("got a 404 from %s", req.URL.String())
 			return resp, nil
+		} else if resp.StatusCode == http.StatusTooManyRequests {
+			// if we get a 429, don't retry since the server is rate limiting us
+			// and our retry logic is not sufficient and must be tweaked in some way
+			log.Warnf("got a 429 from %s, not retrying since the server appears to be rate limiting", req.URL.String())
+			return resp, nil
 		} else if resp.StatusCode >= 500 {
-			log.Warnf("retrying after server error %d from %s (attempt %d)", resp.StatusCode, req.URL.String(), i+1)
 			_ = resp.Body.Close()
 			time.Sleep(time.Duration(i+1) * t.Backoff)
 			continue
@@ -148,8 +152,10 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		return resp, nil
 	}
-
-	return nil, &MaxRetryError{Err: fmt.Errorf("failed to get a successful response from %s after %d retries: %v", req.URL.String(), t.Retries, lastErr)}
+	message := fmt.Errorf("failed to get a successful response from %s after %d retries: %v", req.URL.String(), t.Retries, lastErr)
+	// log this early so that we can see it during the run if needed
+	log.Error(message.Error())
+	return nil, &MaxRetryError{Err: message}
 }
 
 // An http transport optimized for long-lived connections

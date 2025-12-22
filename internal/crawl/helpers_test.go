@@ -107,3 +107,20 @@ func TestGetJsonLdFromHTML(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestSitemapStatusTracker(t *testing.T) {
+
+	tracker := NewSitemapStatusTracker(2)
+	require.False(t, tracker.AppearsDown())
+	tracker.AddSiteFailure()
+	require.False(t, tracker.AppearsDown())
+	tracker.AddSiteFailure()
+	require.True(t, tracker.AppearsDown())
+	tracker.AddSiteSuccess()
+	require.False(t, tracker.AppearsDown())
+
+	tracker2 := NewSitemapStatusTracker(0)
+	require.False(t, tracker2.AppearsDown())
+	tracker2.AddSiteFailure()
+	require.False(t, tracker2.AppearsDown())
+}

@@ -75,16 +75,23 @@ type SitemapHarvestConfig struct {
 	// the config for grpc requests
 	grpcClient *protoBuild.ShaclValidatorClient
 	// the grpc connection itself for connecting with the shacl validator
-	grpcConn                  *grpc.ClientConn
-	jsonLdProc                *ld.JsonLdProcessor
-	jsonLdOpt                 *ld.JsonLdOptions
+	grpcConn   *grpc.ClientConn
+	jsonLdProc *ld.JsonLdProcessor
+	jsonLdOpt  *ld.JsonLdOptions
+	// before downloading a site, send a head request to the server
+	// to get its hash and if it already exists in storage, skip it
 	checkExistenceBeforeCrawl *atomic.Bool
 	storageDestination        storage.CrawlStorage
 	exitOnShaclFailure        bool
-	maxShaclErrorsToStore     int
+	// shacl errors can be quite verbose and often very duplicative;
+	// this is the maximum of them to store in the crawl report
+	maxShaclErrorsToStore int
 	// cleanup any jsonld in the last dir in the path
 	// that wasn't found during the sitemap crawl
 	cleanupOutdatedJsonld bool
+	// the number of failed sites in a row before we exit
+	// and assume the sitemap is down
+	failedSitesToAssumeSitemapDown int
 }
 
 // Make a new SiteHarvestConfig with all the clients and config
@@ -144,8 +151,10 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAdd
 		exitOnShaclFailure:        exitOnShaclFailure,
 		cleanupOutdatedJsonld:     cleanupOutdatedJsonld,
 		workers:                   sitemap.workers,
-		// currently hard coded. will be configurable in the future
+		// currently hard coded. could be configurable in the future
 		maxShaclErrorsToStore: 20,
+		// currently hard coded. could be configurable in the future
+		failedSitesToAssumeSitemapDown: 20,
 	}, nil
 }
 
@@ -171,7 +180,8 @@ func urlToStoragePath(sitemapId string, url url_info.URL) (string, error) {
 	return fmt.Sprintf("summoned/%s/%s.jsonld", sitemapId, url.Base64Loc), nil
 }
 
-// Harvest all the URLs in the given sitemap
+// Harvest all the URLs in the given sitemap and return the associated metadata as well as a list
+// of sites that were cleaned up after harvesting
 func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, []string, error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", s.sitemapId))
 	defer span.End()
@@ -189,6 +199,8 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 
 	start := time.Now()
 	log.Infof("Harvesting sitemap %s with %d urls", s.sitemapId, len(s.URL))
+
+	sitemapStatusTracker := NewSitemapStatusTracker(config.failedSitesToAssumeSitemapDown)
 
 	successfulSitesMu := sync.Mutex{}
 	// includes both sites that were download
@@ -223,6 +235,12 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 			sitesInSitemap.Add(path)
 		}
 		group.Go(func() error {
+			if sitemapStatusTracker.AppearsDown() {
+				return &SitemapAppearsDownError{
+					message: fmt.Sprintf("Returning early since %d failures were detected without a single successful harvest; the sitemap is assumed to be down or had a change in the underlying API", config.failedSitesToAssumeSitemapDown),
+				}
+			}
+
 			result_metadata, err := harvestOnePID(ctx, s.sitemapId, url, config)
 			if err != nil {
 				if !errors.Is(err, context.Canceled) {
@@ -237,7 +255,11 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 				s.errorMu.Lock()
 				s.nonFatalErrors = append(s.nonFatalErrors, result_metadata.nonFatalError)
 				s.errorMu.Unlock()
+				sitemapStatusTracker.AddSiteFailure()
+			} else {
+				sitemapStatusTracker.AddSiteSuccess()
 			}
+
 			if !result_metadata.warning.IsNil() {
 				shaclFailuresSoFar := sitesWithShaclFailures.Load()
 				if shaclFailuresSoFar < int32(config.maxShaclErrorsToStore) {
@@ -278,23 +300,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 			return nil
 		})
 	}
-	if err = group.Wait(); err != nil {
-		return pkg.SitemapCrawlStats{}, nil, err
-	}
-
-	cleanupChannel := []string{}
-	if config.cleanupOutdatedJsonld {
-		log.Info("Cleaning up outdated JSON-LD files in summoned/" + s.sitemapId)
-		cleanedUpFiles, err := storage.CleanupFiles("summoned/"+s.sitemapId, sitesInSitemap, s.storageDestination)
-		if err != nil {
-			log.Error(err)
-		} else {
-			log.Infof("Cleaned up %d outdated JSON-LD files in summoned/%s", len(cleanedUpFiles), s.sitemapId)
-		}
-		cleanupChannel = cleanedUpFiles
-	} else {
-		log.Warnf("Skipping old JSON-LD cleanups. It is possible %s will contain outdated JSON-LD files", "summoned/"+s.sitemapId)
-	}
+	err = group.Wait()
 
 	stats := pkg.SitemapCrawlStats{
 		SitemapSourceLink: s.sitemapUrl,
@@ -308,6 +314,26 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 		},
 		CrawlFailures: s.nonFatalErrors,
 	}
+
+	if err != nil {
+		// we still return the stats if there is a failure
+		// so that a caller can decide what to log
+		return stats, nil, err
+	}
+
+	cleanedUpFiles := []string{}
+	if config.cleanupOutdatedJsonld {
+		log.Info("Cleaning up outdated JSON-LD files in summoned/" + s.sitemapId)
+		cleanedUpFiles, err = storage.CleanupFiles("summoned/"+s.sitemapId, sitesInSitemap, s.storageDestination)
+		if err != nil {
+			log.Error(err)
+		} else {
+			log.Infof("Cleaned up %d outdated JSON-LD files in summoned/%s", len(cleanedUpFiles), s.sitemapId)
+		}
+	} else {
+		log.Warnf("Skipping old JSON-LD cleanups. It is possible %s will contain outdated JSON-LD files", "summoned/"+s.sitemapId)
+	}
+
 	asJson, err := stats.ToJsonIoReader()
 	if err != nil {
 		return pkg.SitemapCrawlStats{}, nil, err
@@ -321,7 +347,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 
 	log.Infof("Sitemap %s had %d harvested urls, %d non fatal crawl errors, and %d shacl issues", s.sitemapId, stats.SuccessfulSites, len(stats.CrawlFailures), stats.WarningStats.TotalShaclFailures)
 
-	return stats, cleanupChannel, err
+	return stats, cleanedUpFiles, err
 }
 
 // Given a sitemap url, return a Sitemap object
