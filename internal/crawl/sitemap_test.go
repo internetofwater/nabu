@@ -345,3 +345,56 @@ func TestErrorGroupCtxCancelling(t *testing.T) {
 
 	require.Less(t, time.Since(start), 2*time.Second, "test took too long, context wasn't cancelled promptly")
 }
+
+func TestHarvestSitemapThatIsDown(t *testing.T) {
+
+	mockedClient := common.NewMockedClient(
+		true,
+		map[string]common.MockResponse{
+			"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {
+				StatusCode: 200,
+				File:       "testdata/sitemap.xml",
+			},
+			"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C": {
+				StatusCode:  500,
+				File:        "testdata/reference_feature.jsonld",
+				ContentType: "application/ld+json",
+			},
+			"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2": {
+				StatusCode:  500,
+				File:        "testdata/reference_feature_2.jsonld",
+				ContentType: "application/ld+json",
+			},
+			"https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A": {
+				StatusCode:  500,
+				File:        "testdata/reference_feature_3.jsonld",
+				ContentType: "application/ld+json",
+			},
+			"https://geoconnex.us/robots.txt": {
+				StatusCode:  200,
+				File:        "testdata/geoconnex_robots.txt",
+				ContentType: "application/text/plain",
+			},
+		})
+
+	storage, err := storage.NewLocalTempFSCrawlStorage()
+	require.NoError(t, err)
+	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
+	require.NoError(t, err)
+
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, true)
+	require.NoError(t, err)
+
+	config.failedSitesToAssumeSitemapDown = 1
+
+	stats, _, err := sitemap.
+		Harvest(context.Background(), &config)
+	var downErr *SitemapAppearsDownError
+	require.ErrorAs(t, err, &downErr)
+
+	// Although there are three sites in the sitemap
+	// we should have only seen one failure before exiting
+	require.Len(t, stats.CrawlFailures, 1)
+	require.Equal(t, stats.SuccessfulSites, 0)
+	require.Equal(t, stats.SitesInSitemap, 3)
+}

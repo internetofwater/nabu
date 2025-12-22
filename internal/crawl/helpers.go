@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 
 	"golang.org/x/net/html"
 
@@ -96,4 +97,58 @@ func getScriptTags(n *html.Node) []*html.Node {
 	}
 	traverser(n)
 	return scripts
+}
+
+// A helper for tracking the status of a sitemap
+// if we find that the sitemap has failed more than
+// the threshold without a single success, then
+// we heuristically assume the sitemap is down
+// and can use this info to decide whether to crawl further
+type SitemapStatusTracker struct {
+	failures              atomic.Int32
+	foundSuccessful       atomic.Bool
+	maxFailuresBeforeDown int
+}
+
+// Create a new SitemapStatusTracker
+func NewSitemapStatusTracker(maxFailures int) *SitemapStatusTracker {
+	return &SitemapStatusTracker{
+		maxFailuresBeforeDown: maxFailures,
+	}
+}
+
+func (s *SitemapStatusTracker) AddSiteFailure() {
+	s.failures.Add(1)
+}
+
+func (s *SitemapStatusTracker) AddSiteSuccess() {
+	s.foundSuccessful.Store(true)
+}
+
+type SitemapAppearsDownError struct {
+	message string
+}
+
+func (s SitemapAppearsDownError) Error() string {
+	return s.message
+}
+
+var _ error = SitemapAppearsDownError{}
+
+func (s *SitemapStatusTracker) AppearsDown() bool {
+	// if the threshold is 0, then we never assume the sitemap is down
+	// since we have no threshold to compare against
+	if s.maxFailuresBeforeDown == 0 {
+		return false
+	}
+
+	// if we found a site that is successful
+	// that means the sitemap as a whole cannot be down
+	if s.foundSuccessful.Load() {
+		return false
+	}
+
+	// if we've failed more than the threshold, then
+	// we heuristically assume the sitemap is down
+	return s.failures.Load() >= int32(s.maxFailuresBeforeDown)
 }

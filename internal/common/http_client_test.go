@@ -69,6 +69,26 @@ func TestNoRetryOn404(t *testing.T) {
 	require.Equal(t, int32(1), callCount, "404 should not be retried")
 }
 
+func TestNoRetryOnTooManyRequests(t *testing.T) {
+	var callCount int32 = 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&callCount, 1)
+		http.Error(w, "too many requests", http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	client := NewCrawlerClient()
+
+	req, err := http.NewRequest("GET", server.URL, nil)
+	require.NoError(t, err)
+
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
+	require.Equal(t, int32(1), callCount, "429 should not be retried")
+}
+
 func TestMockWithString(t *testing.T) {
 
 	mock := NewMockedClient(
