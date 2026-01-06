@@ -379,10 +379,17 @@ func TestHarvestSitemapThatIsDown(t *testing.T) {
 
 	storage, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
+
+	const preexisting_file = "test_file_that_shouldnt_be_removed"
+	err = storage.StoreWithoutServersideHash(preexisting_file, bytes.NewReader([]byte("dummy_data")))
+	require.NoError(t, err)
+
+	require.NoError(t, err)
 	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
 	require.NoError(t, err)
 
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, true)
+	const cleanupOldJsonld = true
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, cleanupOldJsonld)
 	require.NoError(t, err)
 
 	config.failedSitesToAssumeSitemapDown = 1
@@ -397,4 +404,8 @@ func TestHarvestSitemapThatIsDown(t *testing.T) {
 	require.Len(t, stats.CrawlFailures, 1)
 	require.Equal(t, stats.SuccessfulSites, 0)
 	require.Equal(t, stats.SitesInSitemap, 3)
+
+	exists, err := storage.Exists(preexisting_file)
+	require.NoError(t, err)
+	require.True(t, exists, "The preexisting file should not have been removed; cleanup only runs after successful harvest and the sitemap was down; prompting an early exit")
 }
