@@ -106,6 +106,27 @@ func TestGetJsonLdFromHTML(t *testing.T) {
 		_, err = GetJsonLDFromHTML(data)
 		require.Error(t, err)
 	})
+
+	t.Run("usgs jsonld", func(t *testing.T) {
+		data, err := os.ReadFile("testdata/usgs_monitoring_location_351715080252401.html")
+		require.NoError(t, err)
+		jsonld, err := GetJsonLDFromHTML(data)
+		require.NoError(t, err)
+		require.JSONEq(t, jsonld, `{
+	"@context": ["https://opengeospatial.github.io/ELFIE/json-ld/hyf.jsonld"],
+	"@id": "http://waterdataui-production.wma.chs.usgs.gov/monitoring-location/USGS-351715080252401/",
+	"@type": "http://www.opengeospatial.org/standards/waterml2/hy_features/HY_HydroLocation",
+	"name": "ST-159",
+	"description": "Discover water data collected at monitoring location USGS-351715080252401, located in North Carolina and find additional nearby monitoring locations.",
+	"sameAs": "https://waterdata.usgs.gov/nwis/inventory/?site_no=351715080252401",
+	"HY_HydroLocationType": "hydrometricStation",
+	"geo": {
+		"@type": "schema:GeoCoordinates",
+		"latitude": "35.287642898996",
+		"longitude": "-80.4231199054094"
+	}
+}`)
+	})
 }
 
 func TestSitemapStatusTracker(t *testing.T) {

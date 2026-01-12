@@ -145,6 +145,7 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			log.Warnf("got a 429 from %s, not retrying since the server appears to be rate limiting", req.URL.String())
 			return resp, nil
 		} else if resp.StatusCode >= 500 {
+			log.Warnf("got a %d from %s, retrying (attempt %d)", resp.StatusCode, req.URL.String(), i)
 			_ = resp.Body.Close()
 			time.Sleep(time.Duration(i+1) * t.Backoff)
 			continue

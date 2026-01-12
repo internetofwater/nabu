@@ -39,6 +39,9 @@ func getJSONLD(resp *http.Response, url url_info.URL, body []byte) ([]byte, erro
 			log.Errorf("failed to parse jsonld within the html for %s", url.Loc)
 			return nil, pkg.UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: err.Error()}
 		}
+		if jsonldString == "" || jsonldString == "{}" {
+			log.Errorf("empty jsonld string '%s' found within the html for %s", jsonldString, url.Loc)
+		}
 		return []byte(jsonldString), nil
 	}
 	errormsg := fmt.Sprintf("got wrong file type %s for %s", mime, url.Loc)
