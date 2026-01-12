@@ -99,7 +99,7 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 		return result_metadata, fmt.Errorf("failed to create http request for %s: %w", url.Loc, err)
 	}
 	req.Header.Set("User-Agent", common.HarvestAgent)
-	req.Header.Set("Accept", "application/ld+json")
+	req.Header.Set("Accept", "application/ld+json;q=1.0, text/html;q=0.8")
 
 	resp, err := config.httpClient.Do(req)
 	if err != nil {
@@ -126,6 +126,14 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 	rawbytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return result_metadata, fmt.Errorf("failed to read response body for %s: %w", url.Loc, err)
+	}
+
+	if len(rawbytes) <= 2 {
+		// if the server is not providing content, this is a sign that something is wrong, and thus
+		// we exit early with a fatal error
+		errormsg := fmt.Errorf("got response with no content '%s' for %s", string(rawbytes), url.Loc)
+		log.Error(errormsg)
+		return result_metadata, errormsg
 	}
 
 	jsonld, err := getJSONLD(resp, url, rawbytes)
