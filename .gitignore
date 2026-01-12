@@ -58,3 +58,5 @@ __pycache__/
 *.fgb
 
 .DS_Store
+
+shacl_validator/data/reference_catchments_and_flowlines.fgb.zip

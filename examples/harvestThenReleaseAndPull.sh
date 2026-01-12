@@ -13,7 +13,8 @@ cd ../
 
 time go run "$(pwd)/cmd/nabu" release \
   --prefix summoned/wwdh_usace_usace_access_to_water__0 \
-  --mainstem-metadata "$(cd .. && pwd)/nabu/shacl_validator/data/reference_catchments_and_flowlines.fgb"
+  --mainstem-metadata "$(cd .. && pwd)/nabu/shacl_validator/data/reference_catchments_and_flowlines.fgb" \
+  --log-level DEBUG
 
 mkdir -p /tmp/pull
 
