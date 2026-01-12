@@ -56,5 +56,29 @@
                 "${workspaceFolder}/shacl_validator/data/reference_catchments_and_flowlines.fgb"
             ]
         },
+        {
+            "name": "Debug Nabu USGS crawl",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/nabu",
+            "args": [
+                "harvest",
+                "--log-level",
+                "DEBUG",
+                "--sitemap-index",
+                "https://geoconnex.us/sitemap.xml",
+                "--concurrent-sitemaps",
+                "1",
+                "--sitemap-workers",
+                "1",
+                "--use-otel",
+                "--source",
+                "usgs_monitoring-location_nwisgw_nwisgw__7",
+                "--to-disk",
+                "--log-level",
+                "TRACE"
+            ]
+        }
     ]
 }
