@@ -67,7 +67,7 @@ def main():
         "--validate_shacl", help="Validate all jsonld items before generating csv", action="store_true", default=False
     )
     generate_geoconnex_csv_subparser.add_argument(
-        "--shacl_file", type=str, help="Path to the shacl file to use for validation", required=False, default=str((Path(__file__).parent.parent / "shapes" / "geoconnex.ttl").absolute())
+        "--shacl_file", type=str, help="Path to the shacl file to use for validation", required=False, default=str((Path(__file__).parent.parent.parent / "shapes" / "geoconnex.ttl").absolute())
     )
     generate_geoconnex_csv_subparser.add_argument(
         "--description", type=str, help="Description for the geoconnex csv", default="", required=True 
@@ -80,6 +80,9 @@ def main():
     )
     generate_geoconnex_csv_subparser.add_argument(
         "--output_path", type=str, help="Where to save the geoconnex csv", default="~/geoconnex.csv"
+    )
+    generate_geoconnex_csv_subparser.add_argument(
+        "--stdout", help="Print the geoconnex csv to stdout", action="store_true", default=False
     )
 
     args = parser.parse_args()
@@ -98,7 +101,8 @@ def main():
                 shacl_shape=args.shacl_file,
                 check_shacl=args.validate_shacl,
                 geoconnex_namespace=args.geoconnex_namespace,
-                output_path=args.output_path
+                output_path=args.output_path,
+                print_to_stdout=args.stdout
             )
         )
     else:

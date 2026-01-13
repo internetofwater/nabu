@@ -18,6 +18,7 @@ class GeoconnexCSVConfig:
     description: str
     geoconnex_namespace: str
     output_path: str
+    print_to_stdout: bool
 
 
 def generate_geoconnex_csv(config: GeoconnexCSVConfig):
@@ -58,7 +59,6 @@ def generate_geoconnex_csv(config: GeoconnexCSVConfig):
         csv_rows.append(
             [f"https://geoconnex.us/{config.geoconnex_namespace}/{feature_id}", feature_url, config.contact_email, config.description]
         )
-        break
 
     assert config.output_path, "output_path must be set"
     output_path = Path(config.output_path).expanduser().resolve()
@@ -67,5 +67,9 @@ def generate_geoconnex_csv(config: GeoconnexCSVConfig):
         writer = csv.writer(f)
         writer.writerow(csv_header_row)
         writer.writerows(csv_rows)
+
+        if config.print_to_stdout:
+            with open(output_path.resolve().absolute(), "r", encoding="utf-8") as f:
+                print(f.read())
 
     print(f"CSV written to {output_path.absolute()}")
