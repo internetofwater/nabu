@@ -534,9 +534,10 @@ func (suite *S3ClientSuite) TestGetMD5HashServerside() {
 	md5String := fmt.Sprintf("%x", md5.Sum(data))
 	err := suite.minioContainer.ClientWrapper.StoreWithHash(prefix+"test", bytes.NewReader(data), len(data))
 	suite.Require().NoError(err)
-	hash, err := suite.minioContainer.ClientWrapper.GetHash(prefix + "test")
+	hash, exists, err := suite.minioContainer.ClientWrapper.GetHash(prefix + "test")
 	suite.Require().NoError(err)
 	suite.Require().Equal(md5String, hash)
+	suite.Require().True(exists)
 
 	suite.T().Run("catches bad hash from multipart upload", func(t *testing.T) {
 		const undefinedSize = -1
@@ -544,8 +545,9 @@ func (suite *S3ClientSuite) TestGetMD5HashServerside() {
 		err := suite.minioContainer.ClientWrapper.StoreWithHash(prefix+"testNoHash", bytes.NewReader(data), undefinedSize)
 		suite.Require().NoError(err)
 
-		_, err = suite.minioContainer.ClientWrapper.GetHash(prefix + "testNoHash")
+		_, file_exists, err := suite.minioContainer.ClientWrapper.GetHash(prefix + "testNoHash")
 		suite.Require().Error(err)
+		suite.Require().True(file_exists)
 	})
 
 }

@@ -58,7 +58,7 @@ type CrawlStorage interface {
 	// IsEmptyDir returns true if the directory is empty
 	IsEmptyDir(ObjectPath) (bool, error)
 	// Get the hash of the file
-	GetHash(ObjectPath) (Md5Hash, error)
+	GetHash(ObjectPath) (hash Md5Hash, file_exists bool, err error)
 }
 
 // Given a storage path, iterate through it and remove any files that aren't in sitesToKeep

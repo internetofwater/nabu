@@ -40,6 +40,6 @@ func (DiscardCrawlStorage) IsEmptyDir(ObjectPath) (bool, error) {
 	return true, nil
 }
 
-func (DiscardCrawlStorage) GetHash(string) (Md5Hash, error) {
-	return "", nil
+func (DiscardCrawlStorage) GetHash(string) (Md5Hash, bool, error) {
+	return "", false, nil
 }

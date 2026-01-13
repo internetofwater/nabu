@@ -96,11 +96,20 @@ func (hc *hashChecker) CheckIfAlreadyExists(url url_info.URL, sitemapId string) 
 		ServerProvidedHash: true,
 	}
 
-	expectedLocationInStorage = "summoned/" + sitemapId + "/" + remoteHash + ".jsonld"
-	storageHash, err := hc.storage.GetHash(expectedLocationInStorage)
+	// the location in storage is the base64 encoded URL with .jsonld extension
+	expectedLocationInStorage = "summoned/" + sitemapId + "/" + url.Base64Loc + ".jsonld"
+	storageHash, file_exists, err := hc.storage.GetHash(expectedLocationInStorage)
 	if err != nil {
 		return hashCheckMetadata, err
 	}
+	if !file_exists {
+		log.Tracef("%s does not exist in %s", expectedLocationInStorage, "storage")
+		return HashCheckResult{
+			ServerProvidedHash: true,
+			FileAlreadyExists:  false,
+		}, nil
+	}
+
 	if storageHash == remoteHash {
 		log.Tracef("skipping %s because it already exists in %s", url.Loc, expectedLocationInStorage)
 		hashCheckMetadata.PathInStorage = expectedLocationInStorage

@@ -165,15 +165,19 @@ func (m *MinioClientWrapper) ObjectList(ctx context.Context, prefix S3Prefix) ([
 }
 
 // Get the hash of the file using ETag header metadata
-func (m MinioClientWrapper) GetHash(objectName S3Prefix) (storage.Md5Hash, error) {
+func (m MinioClientWrapper) GetHash(objectName S3Prefix) (storage.Md5Hash, bool, error) {
 	result, err := m.Client.StatObject(context.Background(), m.DefaultBucket, objectName, minio.GetObjectOptions{})
+	if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+		return "", false, nil
+	}
+
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if strings.Contains(result.ETag, "-") {
-		return "", fmt.Errorf("object %s contains - signifying that the data came from a multipart upload and thus the hash is not of the raw content", objectName)
+		return "", true, fmt.Errorf("object %s contains - signifying that the data came from a multipart upload and thus the hash is not of the raw content", objectName)
 	}
-	return result.ETag, nil
+	return result.ETag, true, nil
 }
 
 // Return the number of objects that match a given prefix within the

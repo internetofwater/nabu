@@ -115,6 +115,6 @@ func (l *LocalTempFSCrawlStorage) IsEmptyDir(dir ObjectPath) (bool, error) {
 	return len(files) == 0, nil
 }
 
-func (l *LocalTempFSCrawlStorage) GetHash(object string) (Md5Hash, error) {
-	return "", nil
+func (l *LocalTempFSCrawlStorage) GetHash(object string) (Md5Hash, bool, error) {
+	return "", true, nil
 }
