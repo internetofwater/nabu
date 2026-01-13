@@ -69,7 +69,7 @@ def generate_geoconnex_csv(config: GeoconnexCSVConfig):
         writer.writerows(csv_rows)
 
         if config.print_to_stdout:
-            print(csv_header_row)
-            print(csv_rows)
-            
+            with open(output_path.resolve().absolute(), "r", encoding="utf-8") as f:
+                print(f.read())
+
     print(f"CSV written to {output_path.absolute()}")
