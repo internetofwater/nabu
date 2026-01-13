@@ -18,6 +18,7 @@ class GeoconnexCSVConfig:
     description: str
     geoconnex_namespace: str
     output_path: str
+    print_to_stdout: bool
 
 
 def generate_geoconnex_csv(config: GeoconnexCSVConfig):
@@ -67,4 +68,8 @@ def generate_geoconnex_csv(config: GeoconnexCSVConfig):
         writer.writerow(csv_header_row)
         writer.writerows(csv_rows)
 
+        if config.print_to_stdout:
+            print(csv_header_row)
+            print(csv_rows)
+            
     print(f"CSV written to {output_path.absolute()}")

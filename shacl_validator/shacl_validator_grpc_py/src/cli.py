@@ -81,6 +81,9 @@ def main():
     generate_geoconnex_csv_subparser.add_argument(
         "--output_path", type=str, help="Where to save the geoconnex csv", default="~/geoconnex.csv"
     )
+    generate_geoconnex_csv_subparser.add_argument(
+        "--stdout", help="Print the geoconnex csv to stdout", action="store_true", default=False
+    )
 
     args = parser.parse_args()
     graph = Graph().parse(args.shacl_file)
@@ -98,7 +101,8 @@ def main():
                 shacl_shape=args.shacl_file,
                 check_shacl=args.validate_shacl,
                 geoconnex_namespace=args.geoconnex_namespace,
-                output_path=args.output_path
+                output_path=args.output_path,
+                print_to_stdout=args.stdout
             )
         )
     else:
