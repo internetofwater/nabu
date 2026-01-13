@@ -6,7 +6,7 @@ runRust:
 	docker run --rm -it -v /tmp:/tmp shacl_validator_grpc_rs
 
 buildPython:
-	docker build . --file Dockerfile_py
+	docker build . --file Dockerfile_py --tag shacl_validator_grpc_py
 
 runPython:
 	docker build . --file Dockerfile_py --tag shacl_validator_grpc_py && \

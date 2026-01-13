@@ -14,7 +14,7 @@ ENV UV_PYTHON_DOWNLOADS=0
 # we want to keep this seem path consistent
 WORKDIR /app/service
 COPY shacl_validator_grpc_py /app/service
-COPY ../shapes /app/shapes
+COPY shapes /app/service/shapes
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=shacl_validator_grpc_py/uv.lock,target=/app/service/uv.lock \
@@ -31,6 +31,8 @@ FROM python:3.12-slim-bookworm
 
 # Copy the application from the builder
 COPY --from=builder --chown=app:app /app /app
+
+RUN test -f /app/service/shapes/geoconnex.ttl
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/service/.venv/bin:$PATH"
