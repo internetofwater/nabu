@@ -58,7 +58,6 @@ def generate_geoconnex_csv(config: GeoconnexCSVConfig):
         csv_rows.append(
             [f"https://geoconnex.us/{config.geoconnex_namespace}/{feature_id}", feature_url, config.contact_email, config.description]
         )
-        break
 
     assert config.output_path, "output_path must be set"
     output_path = Path(config.output_path).expanduser().resolve()
