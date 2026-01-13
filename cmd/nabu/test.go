@@ -29,9 +29,13 @@ func Test(ctx context.Context, client *synchronizer.SynchronizerClient) error {
 		return err
 	}
 
-	md5Hash, err := client.S3Client.GetHash("test")
+	md5Hash, exists, err := client.S3Client.GetHash("test")
 	if err != nil {
 		return fmt.Errorf("failed to get hash: %w", err)
+	}
+
+	if !exists {
+		return fmt.Errorf("the file does not exist")
 	}
 
 	calculatedHash := md5.Sum(testData)

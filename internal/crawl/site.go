@@ -88,6 +88,7 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 		}
 		result_metadata.serverHadHash = result.ServerProvidedHash
 		result_metadata.pathInStorage = result.PathInStorage
+		log.Tracef("%s already exists result: %+v", url.Loc, result)
 		if result.FileAlreadyExists {
 			return result_metadata, nil
 		}
