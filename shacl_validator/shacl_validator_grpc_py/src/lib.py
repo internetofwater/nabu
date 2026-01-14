@@ -8,6 +8,7 @@ import requests
 
 SCHEMA = "https://schema.org/"
 
+LOGGER = logging.getLogger(__name__)
 
 def validate_graph(data_graph: Graph, shacl_shape: Graph):
         place_iri = URIRef(SCHEMA + "Place")
@@ -38,7 +39,6 @@ def validate_jsonld_from_url(url: str, shacl_shape: Graph, watch: bool):
             except Exception as text:
                 if lastPrint != str(text):
                     logging.error(f"{text}")
-                    print(response.text, flush=True, end="\n\n")
                 lastPrint = str(text)
                 continue
             conforms, _, text = validate_jsonld(jsonld, shacl_shape)

@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 from rdflib import Graph
 import requests
 import csv
 from lib import validate_jsonld
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class GeoconnexCSVConfig:
@@ -22,22 +24,23 @@ class GeoconnexCSVConfig:
 
 
 def generate_geoconnex_csv(config: GeoconnexCSVConfig):
-    print(f"Fetching {config.oaf_items_endpoint}")
+    logger.info(f"Fetching {config.oaf_items_endpoint}")
     collection_resp = requests.get(
         config.oaf_items_endpoint, headers={"Accept": "application/json"}
     )
     collection_resp.raise_for_status()
     collection = collection_resp.json()
 
-    csv_header_row = ["id", "target", "creator", "description"]
+    geoconnex_csv_header_row = ["id", "target", "creator", "description"]
     csv_rows = []
 
     if config.check_shacl:
-        print(f"Validating against {config.shacl_shape}")
+        logger.info(f"Validating against {config.shacl_shape}")
     else:
-        print("Skipping SHACL validation")
+        logger.warning("Skipping SHACL validation")
 
-    for feature in collection["features"]:
+    # sort by the id so the csv is consistent
+    for feature in sorted(collection["features"], key=lambda f: f["id"]):
         feature_id = feature["id"]
         feature_url = f"{config.oaf_items_endpoint}/{feature_id}"
         jsonld_url = f"{feature_url}?f=jsonld"
@@ -54,7 +57,7 @@ def generate_geoconnex_csv(config: GeoconnexCSVConfig):
             if not conforms:
                 raise Exception(f"SHACL Validation failed for {jsonld_url}: \n{text}")
             
-            print(f"SHACL Validation passed for {jsonld_url}")
+            logger.info(f"SHACL Validation passed for {jsonld_url}")
 
         csv_rows.append(
             [f"https://geoconnex.us/{config.geoconnex_namespace}/{feature_id}", feature_url, config.contact_email, config.description]
@@ -65,11 +68,11 @@ def generate_geoconnex_csv(config: GeoconnexCSVConfig):
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path.resolve().absolute(), "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(csv_header_row)
+        writer.writerow(geoconnex_csv_header_row)
         writer.writerows(csv_rows)
 
         if config.print_to_stdout:
             with open(output_path.resolve().absolute(), "r", encoding="utf-8") as f:
                 print(f.read())
 
-    print(f"CSV written to {output_path.absolute()}")
+    logger.info(f"CSV written to {output_path.absolute()}")
