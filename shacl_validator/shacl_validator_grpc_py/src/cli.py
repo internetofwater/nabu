@@ -16,6 +16,12 @@ from server import serve
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def get_default_shacl_shape():
+    containerPath = Path("/app/service/shapes/geoconnex.ttl").absolute()
+    if containerPath.exists():
+        return str(containerPath.absolute())
+    return str((Path(__file__).parent.parent.parent / "shapes" / "geoconnex.ttl").absolute())
+
 def main():
     """Main entry point for the server."""
     parser = argparse.ArgumentParser(description="SHACL Validation gRPC Server")
@@ -38,11 +44,7 @@ def main():
     server_subparser.add_argument(
         "--shacl_file",
         type=str,
-        default=str(
-            (
-                Path(__file__).parent.parent.parent / "shapes" / "geoconnex.ttl"
-            ).absolute()
-        ),
+        default=get_default_shacl_shape(),
         help="Path to the shacl file to use for validation",
     )
 
@@ -58,6 +60,7 @@ def main():
     check_url_subparser = subparsers.add_parser("check_url", help="Check jsonld from a single url")
     check_url_subparser.add_argument("--url", type=str, help="URL to check", required=True)
     check_url_subparser.add_argument("--watch", action="store_true", help="Loop checking the url", default=False)
+    check_url_subparser.add_argument("--shacl_file", type=str, help="Path to the shacl file to use for validation", required=False, default=get_default_shacl_shape())
 
     generate_geoconnex_csv_subparser = subparsers.add_parser("generate_geoconnex_csv", help="Generate geoconnex csv from a collection")
     generate_geoconnex_csv_subparser.add_argument(
@@ -67,7 +70,7 @@ def main():
         "--validate_shacl", help="Validate all jsonld items before generating csv", action="store_true", default=False
     )
     generate_geoconnex_csv_subparser.add_argument(
-        "--shacl_file", type=str, help="Path to the shacl file to use for validation", required=False, default=str((Path(__file__).parent.parent.parent / "shapes" / "geoconnex.ttl").absolute())
+        "--shacl_file", type=str, help="Path to the shacl file to use for validation", required=False, default=get_default_shacl_shape()
     )
     generate_geoconnex_csv_subparser.add_argument(
         "--description", type=str, help="Description for the geoconnex csv", default="", required=True 
@@ -93,6 +96,9 @@ def main():
     elif args.command == "check_url":
         validate_jsonld_from_url(args.url, watch=args.watch, shacl_shape=graph)
     elif args.command == "generate_geoconnex_csv":
+        if args.stdout:
+            # ensure that logging doesn't print to stdout and interfers with the geoconnex csv
+            logger.setLevel(logging.WARNING)
         generate_geoconnex_csv(
             GeoconnexCSVConfig(
                 oaf_items_endpoint=args.oaf_items_endpoint,
