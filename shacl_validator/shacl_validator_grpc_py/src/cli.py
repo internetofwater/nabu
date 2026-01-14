@@ -44,11 +44,7 @@ def main():
     server_subparser.add_argument(
         "--shacl_file",
         type=str,
-        default=str(
-            (
-                Path(__file__).parent.parent.parent / "shapes" / "geoconnex.ttl"
-            ).absolute()
-        ),
+        default=get_default_shacl_shape(),
         help="Path to the shacl file to use for validation",
     )
 
@@ -64,6 +60,7 @@ def main():
     check_url_subparser = subparsers.add_parser("check_url", help="Check jsonld from a single url")
     check_url_subparser.add_argument("--url", type=str, help="URL to check", required=True)
     check_url_subparser.add_argument("--watch", action="store_true", help="Loop checking the url", default=False)
+    check_url_subparser.add_argument("--shacl_file", type=str, help="Path to the shacl file to use for validation", required=False, default=get_default_shacl_shape())
 
     generate_geoconnex_csv_subparser = subparsers.add_parser("generate_geoconnex_csv", help="Generate geoconnex csv from a collection")
     generate_geoconnex_csv_subparser.add_argument(
