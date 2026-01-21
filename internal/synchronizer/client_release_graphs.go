@@ -151,9 +151,13 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 // to minio concurrently. We used a buffered channel to limit the
 // concurrency of the conversion process
 func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix, compressGraphWithGzip bool, mainstemFile string) error {
+
+	remote_file := strings.HasPrefix(mainstemFile, "gcs://") && strings.HasPrefix(mainstemFile, "s3://") && strings.HasPrefix(mainstemFile, "http://") && strings.HasPrefix(mainstemFile, "https://")
+
 	if mainstemFile == "" {
 		log.Warn("There was no provided mainstem file, so no mainstem info will be added to the nquad release")
-	} else if !strings.HasPrefix(mainstemFile, "gcs://") && !strings.HasPrefix(mainstemFile, "s3://") {
+		// only check for existence if the mainstem file is not remote and could be local
+	} else if !remote_file {
 		if _, err := os.Stat(mainstemFile); err != nil {
 			if os.IsNotExist(err) {
 				return fmt.Errorf("mainstem file was specified to be at %s does not exist locally", mainstemFile)
