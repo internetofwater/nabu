@@ -152,7 +152,7 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 // concurrency of the conversion process
 func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix, compressGraphWithGzip bool, mainstemFile string) error {
 
-	remote_file := strings.HasPrefix(mainstemFile, "gcs://") && strings.HasPrefix(mainstemFile, "s3://") && strings.HasPrefix(mainstemFile, "http://") && strings.HasPrefix(mainstemFile, "https://")
+	remote_file := strings.HasPrefix(mainstemFile, "gcs://") || strings.HasPrefix(mainstemFile, "s3://") || strings.HasPrefix(mainstemFile, "http://") || strings.HasPrefix(mainstemFile, "https://")
 
 	if mainstemFile == "" {
 		log.Warn("There was no provided mainstem file, so no mainstem info will be added to the nquad release")
