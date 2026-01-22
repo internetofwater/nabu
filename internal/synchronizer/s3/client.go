@@ -201,7 +201,7 @@ func (m *MinioClientWrapper) NumberOfMatchingObjects(prefixes []S3Prefix) (int, 
 func (m *MinioClientWrapper) GetObjectAsBytes(objectName S3Prefix) ([]byte, error) {
 	fileObject, err := m.Client.GetObject(context.Background(), m.DefaultBucket, objectName, minio.GetObjectOptions{})
 	if err != nil {
-		log.Info(err)
+		log.Errorf("Error getting object as bytes: %v", err)
 		return nil, err
 	}
 	defer func() { _ = fileObject.Close() }()
@@ -403,7 +403,7 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 		return err
 	}
 
-	log.Debugf("Downloading all objects in parallel with prefix %s to %s", prefix, outputDir)
+	log.Infof("Downloading all objects in parallel with prefix %s to %s", prefix, outputDir)
 
 	objChan := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
 	var eg errgroup.Group
@@ -451,10 +451,10 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 				return err
 			}
 			if isPresent {
-				log.Infof("File %s already exists locally, skipping download", fileName)
+				log.Warnf("File %s already exists locally, skipping download", fileName)
 				return nil
 			}
-			log.Debugf("Downloading %s of size %0.5fMB", obj.Key, megabytes)
+			log.Infof("Downloading %s of size %0.5fMB", obj.Key, megabytes)
 			ob, err := m.Client.GetObject(ctx, m.DefaultBucket, obj.Key, minio.GetObjectOptions{})
 			if err != nil {
 				return err
@@ -482,9 +482,7 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 				return err
 			}
 
-			// print the pulled files to stdout; this way external programs like oras can consume the output
-			// and know which files were downloaded
-			fmt.Println(fullLocalPath)
+			log.Infof("Downloaded %s to %s", obj.Key, fullLocalPath)
 
 			cumulativeDownloadedFiles.Add(1)
 			mu.Lock()
@@ -496,7 +494,9 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 	if err := eg.Wait(); err != nil {
 		return err
 	}
+	log.Infof("Finished Downloading %d files to %s with total size: %0.5fMB", cumulativeDownloadedFiles.Load(), outputDir, cumulativeDownloadedMegabytes)
 
+	log.Info("Pulling bytesums for hash checks")
 	// pull all bytesums after all files have been downloaded; otherwise if we were
 	// to do it in parallel with the file download it would have a race condition
 	// in which we are updating the local hashes while simultaneously checking whether
@@ -504,8 +504,7 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 	if err := m.pullAllByteSums(ctx, prefix, outputDir); err != nil {
 		return err
 	}
-
-	log.Infof("Downloaded %d files to %s with total size: %0.5fMB", cumulativeDownloadedFiles.Load(), outputDir, cumulativeDownloadedMegabytes)
+	log.Info("Finished downloading all bytesums")
 
 	return nil
 }
