@@ -375,6 +375,27 @@ func (suite *S3ClientSuite) TestPull() {
 		}
 	})
 
+	suite.T().Run("concat to a single file fails with gzipped data since gzip cannot be naively concatenated", func(t *testing.T) {
+		tmpFile, err := os.CreateTemp("", "pull-gzip")
+
+		const gzipped_prefix = "pull_test_with_gzip/"
+
+		for i := range 10 {
+			dataPoint := fmt.Sprintf("test data %d", i)
+			data = append(data, dataPoint)
+			err := suite.minioContainer.ClientWrapper.StoreWithoutServersideHash(fmt.Sprintf("%s%d.gz", gzipped_prefix, i), bytes.NewReader([]byte(dataPoint)))
+			suite.Require().NoError(err)
+		}
+
+		suite.Require().NoError(err)
+		defer func() {
+			err = os.Remove(tmpFile.Name())
+			suite.Require().NoError(err)
+		}()
+		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), gzipped_prefix, tmpFile.Name(), "")
+		suite.Require().Error(err)
+	})
+
 	suite.T().Run("pull separate files to a dir", func(t *testing.T) {
 		tmpDir, err := os.MkdirTemp("", "pull-dir-*")
 		tmpDir = tmpDir + "/"
