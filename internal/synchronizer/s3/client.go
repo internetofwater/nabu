@@ -434,7 +434,7 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 		if strings.HasSuffix(obj.Key, ".gz") {
 			foundCompressed.Store(true)
 		} else if foundCompressed.Load() && !strings.HasSuffix(obj.Key, ".gz") {
-			log.Warnf("Found both compressed and uncompressed files in bucket at prefix %s. You should generally not store both since it can mistakenly duplicate unnecessary data", prefix)
+			log.Errorf("Found both compressed and uncompressed files in bucket at prefix %s. You should generally not store both since it can mistakenly duplicate unnecessary data", prefix)
 		}
 
 		eg.Go(func() error {
@@ -560,6 +560,9 @@ func (m MinioClientWrapper) PullAndConcat(ctx context.Context, prefix S3Prefix, 
 		if strings.HasSuffix(obj.Key, "prov.nq") {
 			// skip adding prov graphs into the concatenated file
 			continue
+		}
+		if strings.HasSuffix(obj.Key, ".gz") {
+			return fmt.Errorf("cannot concat compressed files; found %s", obj.Key)
 		}
 
 		downloadProcess.Go(func() error {
