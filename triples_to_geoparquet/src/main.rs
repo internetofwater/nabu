@@ -19,6 +19,10 @@ use parquet::arrow::ArrowWriter;
 
 const GEOMETRY_COLUMN_NAME: &str = "geometry";
 
+#[cfg(test)]
+mod tests;
+
+
 pub fn new_parquet_creator(
     schema: &Schema,
     file_name: &str,
