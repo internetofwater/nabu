@@ -1,0 +1,2639 @@
+{
+    "@context": {
+      "@vocab": "https://schema.org/", 
+      "xsd": "https://www.w3.org/TR/xmlschema-2/#",
+      "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+      "dc": "http://purl.org/dc/terms/",
+      "dcat": "https://www.w3.org/ns/dcat#",
+      "freq": "http://purl.org/cld/freq/",
+      "qudt": "http://qudt.org/schema/qudt/",
+      "qudt-units": "http://qudt.org/vocab/unit/",
+      "qudt-quantkinds": "http://qudt.org/vocab/quantitykind/",
+      "gsp": "http://www.opengis.net/ont/geosparql#",
+      "locType": "http://vocabulary.odm2.org/sitetype",
+      "odm2var":"http://vocabulary.odm2.org/variablename/",
+      "odm2varType": "http://vocabulary.odm2.org/variabletype/",
+      "hyf": "https://www.opengis.net/def/schema/hy_features/hyf/",
+      "skos": "https://www.opengis.net/def/schema/hy_features/hyf/HY_HydroLocationType",
+      "ssn": "http://www.w3.org/ns/ssn/",
+      "ssn-system": "http://www.w3.org/ns/ssn/systems/"
+    },
+    "@id": "https://geoconnex.us/iow/wqp/USGS-06296120",
+    "@type": [
+      "hyf:HY_HydrometricFeature",
+      "hyf:HY_HydroLocation"
+    ],
+      "hyf:HydroLocationType": "Stream",
+    
+    "identifier": {
+      "@type": "PropertyValue",
+      "propertyID": "WQP Site identifier",
+      "value": "USGS-06296120"
+    },
+      "name": "Yellowstone River near Miles City MT",
+    "provider": {
+      "url": "https://www.waterqualitydata.us/beta/",
+      "@type": "GovernmentOrganization",
+      "name": "USGS Montana Water Science Center"
+    },
+      "geo": {"@type":"schema:GeoCoordinates","schema:longitude":-105.8955602,"schema:latitude":46.3980582},
+    
+      "gsp:hasGeometry": {
+        "@type": "http://www.opengis.net/ont/sf#Point", 
+        "gsp:asWKT": {"@type":"http://www.opengis.net/ont/geosparql#wktLiteral","@value":"POINT (-105.8955602 46.3980582)"},
+        "gsp:crs": {
+          "@id": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+        }
+      },
+    "hyf:containingCatchment": [
+      {
+        "@id": "https://geoconnex.us/ref/hu08/10100001"
+      }
+    ],
+    "gsp:sfWithin": [{ "@id": "https://geoconnex.us/ref/counties/30017" },{ "@id": "https://geoconnex.us/ref/states/30" }],
+    "subjectOf": [
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Selenium at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Selenium",
+              "description": "Selenium in micrograms per liter",
+              "propertyID": "154310",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/154310",
+              "unitText": "micrograms per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Selenium Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Selenium&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Vanadium at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Vanadium",
+              "description": "Vanadium in milligrams per kilogram",
+              "propertyID": "150193",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150193",
+              "unitText": "milligrams per kilogram",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Vanadium Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1981-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Vanadium&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Aluminum at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Aluminum",
+              "description": "Aluminum in Unknown",
+              "propertyID": "149476",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149476",
+              "unitText": "Unknown",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Aluminum Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1978-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Aluminum&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Chromium at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Chromium",
+              "description": "Chromium in parts per billion",
+              "propertyID": "150060",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150060",
+              "unitText": "parts per billion",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Chromium Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Chromium&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Iron at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Iron",
+              "description": "Iron in percent",
+              "propertyID": "149559",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149559",
+              "unitText": "percent",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Iron Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Iron&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Organic carbon at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Organic carbon",
+              "description": "Organic carbon in milligrams per liter",
+              "propertyID": "701250",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/701250",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Organic carbon Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Organic carbon&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Sodium, percent total cations at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Sodium, percent total cations",
+              "description": "Sodium, percent total cations in percent",
+              "propertyID": "1646660",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1646660",
+              "unitText": "percent",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Sodium, percent total cations Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Sodium, percent total cations&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Temperature, air at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Temperature, air",
+              "description": "Temperature, air in degrees Celsius",
+              "propertyID": "1645712",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1645712",
+              "unitText": "degrees Celsius",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Temperature, air Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Temperature, air&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Hardness, Ca, Mg at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Hardness, Ca, Mg",
+              "description": "Hardness, Ca, Mg in milligrams per liter as calcium carbonate",
+              "propertyID": "1640416",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1640416",
+              "unitText": "milligrams per liter as calcium carbonate",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Hardness, Ca, Mg Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Hardness, Ca, Mg&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Wind velocity at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Wind velocity",
+              "description": "Wind velocity in meters per second",
+              "propertyID": "1647411",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1647411",
+              "unitText": "meters per second",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Wind velocity Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1983-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Wind velocity&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Phytoplankton at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Phytoplankton",
+              "description": "Phytoplankton in number per milliliter",
+              "propertyID": "764332",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/764332",
+              "unitText": "number per milliliter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Phytoplankton Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1977-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Phytoplankton&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Suspended Sediment Discharge at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Suspended Sediment Discharge",
+              "description": "Suspended Sediment Discharge in tons per day",
+              "propertyID": "17164591",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/17164591",
+              "unitText": "tons per day",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Suspended Sediment Discharge Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1981-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Suspended Sediment Discharge&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Chloride at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Chloride",
+              "description": "Chloride in milligrams per liter",
+              "propertyID": "205955",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/205955",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Chloride Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Chloride&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Chemical oxygen demand, (high level) at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Chemical oxygen demand, (high level)",
+              "description": "Chemical oxygen demand, (high level) in milligrams per liter",
+              "propertyID": "1641653",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1641653",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Chemical oxygen demand, (high level) Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1979-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Chemical oxygen demand, (high level)&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Calcium at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Calcium",
+              "description": "Calcium in milligrams per liter",
+              "propertyID": "150268",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150268",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Calcium Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Calcium&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Oxygen at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Oxygen",
+              "description": "Oxygen in milligrams per liter",
+              "propertyID": "154302",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/154302",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Oxygen Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Oxygen&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Oil and Grease at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Oil and Grease",
+              "description": "Oil and Grease in code (no unit)",
+              "propertyID": "749655",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/749655",
+              "unitText": "code (no unit)",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Oil and Grease Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1978-01-01T00:00:00Z/1978-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Oil and Grease&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Potassium-40 at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Potassium-40",
+              "description": "Potassium-40 in picocuries per liter",
+              "propertyID": "192690",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/192690",
+              "unitText": "picocuries per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Potassium-40 Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1980-01-01T00:00:00Z/1981-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Potassium-40&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Orthophosphate at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Orthophosphate",
+              "description": "Orthophosphate in milligrams per liter as phosphate",
+              "propertyID": "194464",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/194464",
+              "unitText": "milligrams per liter as phosphate",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Orthophosphate Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1971-01-01T00:00:00Z/1975-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Orthophosphate&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Barometric pressure at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Barometric pressure",
+              "description": "Barometric pressure in millimeters of mercury",
+              "propertyID": "1641265",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1641265",
+              "unitText": "millimeters of mercury",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Barometric pressure Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1982-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Barometric pressure&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Total dissolved solids at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Total dissolved solids",
+              "description": "Total dissolved solids in milligrams per liter",
+              "propertyID": "1642222",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1642222",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Total dissolved solids Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Total dissolved solids&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Inorganic nitrogen (nitrate and nitrite) at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Inorganic nitrogen (nitrate and nitrite)",
+              "description": "Inorganic nitrogen (nitrate and nitrite) in milligrams per liter as nitrogen",
+              "propertyID": "701177",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/701177",
+              "unitText": "milligrams per liter as nitrogen",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Inorganic nitrogen (nitrate and nitrite) Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1971-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Inorganic nitrogen (nitrate and nitrite)&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Chlorophyll a, uncorrected for pheophytin at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Chlorophyll a, uncorrected for pheophytin",
+              "description": "Chlorophyll a, uncorrected for pheophytin in micrograms per liter",
+              "propertyID": "47076",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/47076",
+              "unitText": "micrograms per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Chlorophyll a, uncorrected for pheophytin Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1976-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Chlorophyll a, uncorrected for pheophytin&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Biochemical oxygen demand, standard conditions at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Biochemical oxygen demand, standard conditions",
+              "description": "Biochemical oxygen demand, standard conditions in Unknown",
+              "propertyID": "1640606",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1640606",
+              "unitText": "Unknown",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Biochemical oxygen demand, standard conditions Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1977-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Biochemical oxygen demand, standard conditions&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Nickel at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Nickel",
+              "description": "Nickel in parts per million",
+              "propertyID": "149674",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149674",
+              "unitText": "parts per million",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Nickel Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Nickel&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Ammonia and ammonium at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Ammonia and ammonium",
+              "description": "Ammonia and ammonium in Unknown",
+              "propertyID": "966655",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/966655",
+              "unitText": "Unknown",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Ammonia and ammonium Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Ammonia and ammonium&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Zinc at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Zinc",
+              "description": "Zinc in Unknown",
+              "propertyID": "150235",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150235",
+              "unitText": "Unknown",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Zinc Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Zinc&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Mercury at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Mercury",
+              "description": "Mercury in Unknown",
+              "propertyID": "149633",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149633",
+              "unitText": "Unknown",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Mercury Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Mercury&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Temperature, water at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Temperature, water",
+              "description": "Temperature, water in degrees Celsius",
+              "propertyID": "1645597",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1645597",
+              "unitText": "degrees Celsius",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Temperature, water Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Temperature, water&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Lithium at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Lithium",
+              "description": "Lithium in micrograms per liter",
+              "propertyID": "149591",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149591",
+              "unitText": "micrograms per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Lithium Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1981-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Lithium&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Arsenic at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Arsenic",
+              "description": "Arsenic in parts per million",
+              "propertyID": "149989",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149989",
+              "unitText": "parts per million",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Arsenic Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Arsenic&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Cadmium at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Cadmium",
+              "description": "Cadmium in micrograms per liter",
+              "propertyID": "150029",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150029",
+              "unitText": "micrograms per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Cadmium Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Cadmium&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Stream flow, instantaneous at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Stream flow, instantaneous",
+              "description": "Stream flow, instantaneous in cubic feet per second",
+              "propertyID": "1645415",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1645415",
+              "unitText": "cubic feet per second",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Stream flow, instantaneous Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1973-01-01T00:00:00Z/1981-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Stream flow, instantaneous&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Bicarbonate at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Bicarbonate",
+              "description": "Bicarbonate in milligrams per liter",
+              "propertyID": "4788",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/4788",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Bicarbonate Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1978-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Bicarbonate&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Molybdenum at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Molybdenum",
+              "description": "Molybdenum in parts per billion",
+              "propertyID": "149641",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149641",
+              "unitText": "parts per billion",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Molybdenum Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1981-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Molybdenum&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Kjeldahl nitrogen at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Kjeldahl nitrogen",
+              "description": "Kjeldahl nitrogen in milligrams per liter",
+              "propertyID": "17148461",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/17148461",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Kjeldahl nitrogen Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Kjeldahl nitrogen&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Magnesium at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Magnesium",
+              "description": "Magnesium in percent",
+              "propertyID": "149617",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149617",
+              "unitText": "percent",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Magnesium Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Magnesium&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Strontium at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Strontium",
+              "description": "Strontium in micrograms per liter",
+              "propertyID": "149864",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149864",
+              "unitText": "micrograms per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Strontium Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1981-01-01T00:00:00Z/1981-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Strontium&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Hardness, non-carbonate at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Hardness, non-carbonate",
+              "description": "Hardness, non-carbonate in milligrams per liter as calcium carbonate",
+              "propertyID": "1640432",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1640432",
+              "unitText": "milligrams per liter as calcium carbonate",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Hardness, non-carbonate Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1982-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Hardness, non-carbonate&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Count at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Count",
+              "description": "Count in count (no unit)",
+              "propertyID": "524680852",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/524680852",
+              "unitText": "count (no unit)",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Count Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1977-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Count&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Biomass, periphyton at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Biomass, periphyton",
+              "description": "Biomass, periphyton in milligrams per square meter",
+              "propertyID": "1647825",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1647825",
+              "unitText": "milligrams per square meter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Biomass, periphyton Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1978-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Biomass, periphyton&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Alkalinity at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Alkalinity",
+              "description": "Alkalinity in milligrams per liter as calcium carbonate",
+              "propertyID": "1640192",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1640192",
+              "unitText": "milligrams per liter as calcium carbonate",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Alkalinity Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Alkalinity&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Chlorophyll a at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Chlorophyll a",
+              "description": "Chlorophyll a in micrograms per liter",
+              "propertyID": "47076",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/47076",
+              "unitText": "micrograms per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Chlorophyll a Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1977-01-01T00:00:00Z/1978-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Chlorophyll a&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Carbonate at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Carbonate",
+              "description": "Carbonate in milligrams per liter",
+              "propertyID": "119396",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/119396",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Carbonate Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1978-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Carbonate&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Suspended Sediment Concentration (SSC) at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Suspended Sediment Concentration (SSC)",
+              "description": "Suspended Sediment Concentration (SSC) in milligrams per liter",
+              "propertyID": "17164666",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/17164666",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Suspended Sediment Concentration (SSC) Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Suspended Sediment Concentration (SSC)&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Color at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Color",
+              "description": "Color in platinum-cobalt units",
+              "propertyID": "1640283",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1640283",
+              "unitText": "platinum-cobalt units",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Color Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1970-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Color&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Total suspended solids at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Total suspended solids",
+              "description": "Total suspended solids in milligrams per liter",
+              "propertyID": "1642818",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1642818",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Total suspended solids Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1979-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Total suspended solids&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Cobalt at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Cobalt",
+              "description": "Cobalt in milligrams per liter",
+              "propertyID": "150078",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150078",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Cobalt Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1981-01-01T00:00:00Z/1981-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Cobalt&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Specific conductance at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Specific conductance",
+              "description": "Specific conductance in microsiemens per centimeter",
+              "propertyID": "1646694",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1646694",
+              "unitText": "microsiemens per centimeter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Specific conductance Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Specific conductance&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Fecal Streptococcus Group Bacteria at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Fecal Streptococcus Group Bacteria",
+              "description": "Fecal Streptococcus Group Bacteria in number per 100 milliliters",
+              "propertyID": "763862",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/763862",
+              "unitText": "number per 100 milliliters",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Fecal Streptococcus Group Bacteria Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1976-01-01T00:00:00Z/1981-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Fecal Streptococcus Group Bacteria&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Stream flow at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Stream flow",
+              "description": "Stream flow in cubic feet per second",
+              "propertyID": "524681703",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/524681703",
+              "unitText": "cubic feet per second",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Stream flow Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Stream flow&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Turbidity at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Turbidity",
+              "description": "Turbidity in Jackson turbidity units",
+              "propertyID": "1640507",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1640507",
+              "unitText": "Jackson turbidity units",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Turbidity Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1979-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Turbidity&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Biomass/chlorophyll ratio at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Biomass/chlorophyll ratio",
+              "description": "Biomass/chlorophyll ratio in Unknown",
+              "propertyID": "1641323",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1641323",
+              "unitText": "Unknown",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Biomass/chlorophyll ratio Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1977-01-01T00:00:00Z/1978-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Biomass/chlorophyll ratio&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Fecal Coliform at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Fecal Coliform",
+              "description": "Fecal Coliform in Unknown",
+              "propertyID": "764316",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/764316",
+              "unitText": "Unknown",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Fecal Coliform Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1981-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Fecal Coliform&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Phosphate-phosphorus at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Phosphate-phosphorus",
+              "description": "Phosphate-phosphorus in milligrams per liter",
+              "propertyID": "17294695",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/17294695",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Phosphate-phosphorus Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1971-01-01T00:00:00Z/1979-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Phosphate-phosphorus&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Lead at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Lead",
+              "description": "Lead in micrograms per liter",
+              "propertyID": "149583",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149583",
+              "unitText": "micrograms per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Lead Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Lead&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Carbon dioxide at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Carbon dioxide",
+              "description": "Carbon dioxide in milligrams per liter",
+              "propertyID": "33548",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/33548",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Carbon dioxide Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Carbon dioxide&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Sodium at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Sodium",
+              "description": "Sodium in milligrams per liter",
+              "propertyID": "149856",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149856",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Sodium Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Sodium&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Beryllium at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Beryllium",
+              "description": "Beryllium in parts per million",
+              "propertyID": "150003",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150003",
+              "unitText": "parts per million",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Beryllium Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Beryllium&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Organic Nitrogen at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Organic Nitrogen",
+              "description": "Organic Nitrogen in milligrams per liter",
+              "propertyID": "17297623",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/17297623",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Organic Nitrogen Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Organic Nitrogen&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Silica at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Silica",
+              "description": "Silica in milligrams per liter",
+              "propertyID": "151977",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/151977",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Silica Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Silica&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Manganese at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Manganese",
+              "description": "Manganese in micrograms per liter",
+              "propertyID": "149625",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149625",
+              "unitText": "micrograms per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Manganese Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1971-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Manganese&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Fluoride at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Fluoride",
+              "description": "Fluoride in milligrams per liter",
+              "propertyID": "206706",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/206706",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Fluoride Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Fluoride&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Copper at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Copper",
+              "description": "Copper in Unknown",
+              "propertyID": "150086",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150086",
+              "unitText": "Unknown",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Copper Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Copper&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Nitrogen, mixed forms (NH3), (NH4), organic, (NO2) and (NO3) at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Nitrogen, mixed forms (NH3), (NH4), organic, (NO2) and (NO3)",
+              "description": "Nitrogen, mixed forms (NH3), (NH4), organic, (NO2) and (NO3) in milligrams per liter",
+              "propertyID": "52450988",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/52450988",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Nitrogen, mixed forms (NH3), (NH4), organic, (NO2) and (NO3) Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Nitrogen, mixed forms (NH3), (NH4), organic, (NO2) and (NO3)&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Sulfate at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Sulfate",
+              "description": "Sulfate in milligrams per liter",
+              "propertyID": "197301",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/197301",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Sulfate Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Sulfate&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Barium at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Barium",
+              "description": "Barium in micrograms per liter",
+              "propertyID": "149997",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149997",
+              "unitText": "micrograms per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Barium Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1981-01-01T00:00:00Z/1981-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Barium&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Chlorophyll b at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Chlorophyll b",
+              "description": "Chlorophyll b in micrograms per liter",
+              "propertyID": "49890",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/49890",
+              "unitText": "micrograms per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Chlorophyll b Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1975-01-01T00:00:00Z/1978-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Chlorophyll b&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Nitrate at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Nitrate",
+              "description": "Nitrate in milligrams per liter as nitrogen",
+              "propertyID": "197186",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/197186",
+              "unitText": "milligrams per liter as nitrogen",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Nitrate Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1970-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Nitrate&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Boron at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Boron",
+              "description": "Boron in Unknown",
+              "propertyID": "150011",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/150011",
+              "unitText": "Unknown",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Boron Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Boron&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "pH at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "pH",
+              "description": "pH in Unknown",
+              "propertyID": "17028275",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/17028275",
+              "unitText": "Unknown",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "pH Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=pH&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Cloud cover at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Cloud cover",
+              "description": "Cloud cover in percent",
+              "propertyID": "1648047",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/1648047",
+              "unitText": "percent",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Cloud cover Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1983-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Cloud cover&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Potassium at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Potassium",
+              "description": "Potassium in milligrams per liter",
+              "propertyID": "149740",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/149740",
+              "unitText": "milligrams per liter",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Potassium Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1968-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Potassium&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Phosphorus at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Phosphorus",
+              "description": "Phosphorus in parts per billion",
+              "propertyID": "153049",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/153049",
+              "unitText": "parts per billion",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Phosphorus Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1970-01-01T00:00:00Z/1984-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Phosphorus&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Sodium plus potassium at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Sodium plus potassium",
+              "description": "Sodium plus potassium in milligrams per liter as sodium",
+              "propertyID": "967331",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/967331",
+              "unitText": "milligrams per liter as sodium",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Sodium plus potassium Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1979-01-01T00:00:00Z/1980-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Sodium plus potassium&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          },
+          {
+            "@type": "Dataset",
+            "name": "USGS-06296120",
+            "description": "Total Coliform at USGS-06296120",
+            "provider": {
+                "url": "https://www.waterqualitydata.us/beta/",
+                "@type": "GovernmentOrganization",
+                "name": "USGS Montana Water Science Center"
+            },"variableMeasured": {
+              "@type": "PropertyValue",
+              "name": "Total Coliform",
+              "description": "Total Coliform in Unknown",
+              "propertyID": "761700",
+              "url": "https://cdxapps.epa.gov/oms-substance-registry-services/substance-details/761700",
+              "unitText": "Unknown",
+              "measurementTechnique": "observation",
+              "measurementMethod": {
+                "name": "Total Coliform Measurements",
+                "publisher": "USGS Montana Water Science Center"
+              }
+            },
+            "temporalCoverage": "1974-01-01T00:00:00Z/1979-12-31T00:00:00Z",
+            "distribution": [
+              {
+                "@type": "DataDownload",
+                "name": "Water Quality Portal",
+                "contentUrl": "https://www.waterqualitydata.us/wqx3/Result/search?siteid=USGS-06296120&characteristicName=Total Coliform&mimeType=csv&dataProfile=fullPhysChem",
+                "encodingFormat": [
+                  "text/comma-separated-values"
+                ],
+                "dc:conformsTo": "https://www.waterqualitydata.us/beta/webservices_documentation/"
+              }
+            ]
+          }]
+}
