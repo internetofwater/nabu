@@ -6,9 +6,11 @@ package common
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 )
 
@@ -72,4 +74,58 @@ func TestSkolemize(t *testing.T) {
 		require.Contains(t, output, hashResult)
 	})
 
+}
+
+func TestE2ESkolemizeJsonld(t *testing.T) {
+	ctxMaps := map[string]string{
+		"https://schema.org/": "./assets/schemaorg-current-https.jsonld",
+	}
+
+	processor, options, err := NewJsonldProcessor(true, ctxMaps)
+	require.NoError(t, err)
+	loader := options.DocumentLoader
+	require.IsType(t, &ld.CachingDocumentLoader{}, loader)
+	require.NotNil(t, processor)
+
+	testJsonld, err := os.ReadFile("testdata/gage_jsonld.jsonld")
+	require.NoError(t, err)
+	nq, err := JsonldToNQ(string(testJsonld), processor, options)
+	require.NoError(t, err)
+	require.NotEmpty(t, nq)
+	skolemized, err := Skolemization(nq)
+	require.NoError(t, err)
+	require.NotEmpty(t, skolemized)
+
+	// find a line with schema.org/longitude
+	lines := strings.Split(skolemized, "\n")
+	var longitudeLine string
+	var latitudeLine string
+	for _, line := range lines {
+		if strings.Contains(line, "schema.org/longitude") {
+			longitudeLine = line
+		}
+		if strings.Contains(line, "schema.org/latitude") {
+			latitudeLine = line
+		}
+	}
+	require.NotEmpty(t, longitudeLine)
+	require.NotEmpty(t, latitudeLine)
+	require.NotContains(t, longitudeLine, "_:")
+	require.NotContains(t, latitudeLine, "_:")
+
+	// lat/long contains E since the canonical representation uses scientific notation
+	require.Contains(t, longitudeLine, "-1.091283306E2")
+	require.Contains(t, latitudeLine, "3.712195E1")
+
+	// wkt line
+	var wktLine string
+	for _, line := range lines {
+		if strings.Contains(line, "POINT") {
+			wktLine = line
+		}
+	}
+	require.NotEmpty(t, wktLine)
+	require.NotContains(t, wktLine, "_:")
+
+	require.Contains(t, wktLine, "POINT (-109.1283306 37.12195)", "The WKT representation should be the same data as the lat/long values")
 }

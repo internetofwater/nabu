@@ -1,0 +1,72 @@
+{
+    "@context": [
+        {
+            "schema": "https://schema.org/",
+            "skos": "http://www.w3.org/2004/02/skos/core#",
+            "hyf": "https://www.opengis.net/def/schema/hy_features/hyf/",
+            "gsp": "http://www.opengis.net/ont/geosparql#",
+            "name": "schema:name",
+            "sameAs": "schema:sameAs",
+            "subjectOf": {
+                "@id": "schema:subjectOf",
+                "@type": "@id"
+            },
+            "provider": {
+                "@id": "schema:provider",
+                "@type": "@id"
+            },
+            "related": "skos:related",
+            "description": "schema:description",
+            "geo": "schema:geo",
+            "image": {
+                "@id": "schema:image",
+                "@type": "@id"
+            }
+        }
+    ],
+    "@id": "https://pids.geoconnex.dev/ref/gages/1186471",
+    "@type": [
+        "https://www.opengis.net/def/schema/hy_features/hyf/HY_HydrometricFeature",
+        "https://www.opengis.net/def/schema/hy_features/hyf/HY_HydroLocation"
+    ],
+    "name": "TSITAH WASH NEAR ANETH, UT",
+    "description": "USGS NWIS Stream/River/Lake Site 370719109074201: TSITAH WASH NEAR ANETH, UT",
+    "provider": "https://waterdata.usgs.gov",
+    "hyf:referencedPosition": [
+        {
+            "hyf:HY_IndirectPosition": {
+                "hyf:distanceExpression": {
+                    "hyf:HY_DistanceFromReferent": {
+                        "hyf:interpolative": 57.1368
+                    }
+                },
+                "hyf:distanceDescription": {
+                    "hyf:HY_DistanceDescription": "upstream"
+                },
+                "hyf:linearElement": {
+                    "@id": "https://geoconnex.us/nhdplusv2/reachcode/14080201000028"
+                }
+            }
+        },
+        {
+            "hyf:HY_IndirectPosition": {
+                "hyf:linearElement": {
+                    "@id": "https://geoconnex.us/ref/mainstems/52303"
+                }
+            }
+        }
+    ],
+    "hyf:HY_HydroLocationType": "hydrometricStation",
+    "geo": {
+        "@type": "schema:GeoCoordinates",
+        "schema:longitude": -109.1283306,
+        "schema:latitude": 37.12195
+    },
+    "gsp:hasGeometry": {
+        "@type": "http://www.opengis.net/ont/sf#Point",
+        "gsp:asWKT": {
+            "@type": "http://www.opengis.net/ont/geosparql#wktLiteral",
+            "@value": "POINT (-109.1283306 37.12195)"
+        }
+    }
+}
