@@ -1,23 +1,34 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{collections::HashMap, io::BufRead, sync::Arc};
+use std::{collections::HashMap, fs::File, io::{BufRead, Read}, sync::Arc};
 
+use flate2::read::GzDecoder;
+use oxrdf::Term;
 use oxttl::NQuadsParser;
 
 use argh::FromArgs;
 use arrow_array::{self, ArrayRef, RecordBatch, builder::StringBuilder};
-use geo_types::Geometry;
+use geo_types::{Geometry, Point};
 use geoarrow_array::{GeoArrowArray, builder::GeometryBuilder};
 use geoarrow_schema::GeometryType;
-use wkt::TryFromWkt;
+use wkt::{ToWkt, TryFromWkt};
 
 use arrow_schema::{DataType::Utf8, Field, Schema, SchemaBuilder};
 use geoarrow_schema::GeoArrowType;
 use geoparquet::writer::{GeoParquetRecordBatchEncoder, GeoParquetWriterOptionsBuilder};
 use parquet::arrow::ArrowWriter;
 
+use std::io::{BufReader};
+use std::path::Path;
+
+
 const GEOMETRY_COLUMN_NAME: &str = "geometry";
+
+const UKNOWN_POINT_COORD: f64 = -1.0;
+
+#[cfg(test)]
+mod tests;
 
 pub fn new_parquet_creator(
     schema: &Schema,
@@ -50,14 +61,104 @@ fn generate_schema() -> Schema {
     schema_builder.finish()
 }
 
+/// Check if two geometries are equal with some tolerance (for floating point errors, etc)
+fn generally_equal(geom1: &Geometry, geom2: &Point) -> bool {
+    match geom1 {
+        Geometry::Point(point) => {
+            let x_equal = (geom2.x() - point.x()).abs() < 0.001;
+            let y_equal = (geom2.y() - point.y()).abs() < 0.001;
+            x_equal && y_equal
+        }
+        _ => false
+    }
+}
+
+fn f64_from_triple_term(data: &Term) -> Result<f64, Box<dyn std::error::Error>> {
+    let binding = data.to_string();
+
+    let literal = binding.split("^^").next().unwrap().trim_matches('"');
+
+    let mut parts = literal.split('E');
+    let base: f64 = parts.next().unwrap().parse()?;
+
+    match parts.next() {
+        Some(exp_str) => {
+            let exp: i32 = exp_str.parse()?;
+            Ok(base * 10_f64.powi(exp))
+        }
+        None => Ok(base),
+    }
+}
+
+/// Given info for both the geosparql and schema geo representations of a geometry,
+/// combine them into a single canonical representation for each pid and return
+/// the associated hashmap
+pub fn combine_geometry_representations(
+    pid_to_geosparql_skolemization_id: HashMap<String, String>,
+    geosparql_skolemization_id_to_geometry: HashMap<String, Geometry>,
+    pid_to_schema_geo_skolemization_id: HashMap<String, String>,
+    schema_geo_skolemization_id_to_geometry: HashMap<String, Point>,
+) -> Result<HashMap<String, Geometry>, Box<dyn std::error::Error>> {
+    let mut pid_to_canonical_geometry: HashMap<String, Geometry> = HashMap::new();
+
+    // first we go through and get all the geosparql geometry;
+    // this is the ideal canonical representation since wkt is more flexible
+    // than just a point
+    for (pid, geosparql_skolemization_id) in pid_to_geosparql_skolemization_id {
+        match geosparql_skolemization_id_to_geometry.get(&geosparql_skolemization_id) {
+            Some(geometry) => {
+                pid_to_canonical_geometry.insert(pid, geometry.clone());
+            }
+            None => {
+                return Err(format!(
+                    "Could not find geometry for geosparql skolemization id {} for pid {}",
+                    geosparql_skolemization_id, pid
+                )
+                .into());
+            }
+        }
+    }
+
+    // next we go through and get all the schema geo geometries
+    for (pid, schema_geo_skolemization_id) in pid_to_schema_geo_skolemization_id {
+        match schema_geo_skolemization_id_to_geometry.get(&schema_geo_skolemization_id) {
+            Some(point_geometry) => {
+                if let Some(gsp_geometry) = pid_to_canonical_geometry.get(&pid) {
+                    println!("Canonical gsp geo {}, {}", pid, gsp_geometry.to_wkt());
+                    if !generally_equal(gsp_geometry, point_geometry) {
+                        return Err(format!(
+                                "pid {} with geosparql geometry '{}' does not match schema geo skolemization id {} with schema geo point geometry '{}'",
+                                pid, gsp_geometry.to_wkt(), schema_geo_skolemization_id, point_geometry.to_wkt()
+                            ).into());
+                    }
+                } 
+                pid_to_canonical_geometry.insert(pid, Geometry::Point(point_geometry.clone()));
+            }
+            None => {
+                return Err(format!(
+                    "No geometry for schema geo skolemization id {} for pid {}",
+                    schema_geo_skolemization_id, pid
+                )
+                .into());
+            }
+        }
+    }
+
+    Ok(pid_to_canonical_geometry)
+}
+
 fn read_triples_into_arrays<R: BufRead>(
     triples_reader: R,
 ) -> Result<Vec<ArrayRef>, Box<dyn std::error::Error>> {
     let mut string_builder = StringBuilder::new();
     let mut geometry_builder = GeometryBuilder::new(GeometryType::default());
 
-    let mut skolemization_id_to_geometry: HashMap<String, Geometry> = HashMap::new();
-    let mut pid_to_skolemization_id: HashMap<String, String> = HashMap::new();
+    // there are two ways to encode geometries in nquads: either as WKT or as a schema.org latitude/longitude pair
+    let mut pid_to_geoparql_skolemization_id: HashMap<String, String> = HashMap::new();
+    let mut geosparql_skolemization_id_to_geometry: HashMap<String, Geometry> = HashMap::new();
+
+    let mut pid_to_schema_geo_skolemization_id: HashMap<String, String> = HashMap::new();
+    let mut schema_geo_skolemization_id_to_geometry: HashMap<String, Point> = HashMap::new();
 
     let parser = NQuadsParser::new();
     let parsed_quads = parser.for_reader(triples_reader);
@@ -68,15 +169,67 @@ fn read_triples_into_arrays<R: BufRead>(
         let predicate = quad.predicate;
         let object = quad.object;
 
-        let predicate_str = predicate.as_ref();
-        match predicate_str.to_string().as_str() {
+        let predicate_str = predicate.to_string();
+        match predicate_str.clone().as_str() {
             "<http://www.opengis.net/ont/geosparql#hasGeometry>" => {
                 println!("Found geometry: {}", object.to_owned().to_string());
-                pid_to_skolemization_id.insert(
+                pid_to_geoparql_skolemization_id.insert(
                     subject.to_owned().to_string(),
                     object.to_owned().to_string(),
                 );
             }
+            "<https://schema.org/geo>" => {
+                println!("Found geometry: {}", object.to_owned().to_string());
+                pid_to_schema_geo_skolemization_id.insert(
+                    subject.to_owned().to_string(),
+                    object.to_owned().to_string(),
+                );
+            }
+
+            point_coord_type @ ("<https://schema.org/longitude>"
+            | "<https://schema.org/latitude>") => {
+                match schema_geo_skolemization_id_to_geometry.get(&subject.to_owned().to_string()) {
+                    Some(existing_val) => match (existing_val.x(), existing_val.y()) {
+                        (UKNOWN_POINT_COORD, UKNOWN_POINT_COORD) => {
+                            return Err("Found a point with unknown coords for both x/y; this is a sign that something went wrong on our end during construction".into());
+                        }
+                        (UKNOWN_POINT_COORD, y) => {
+                            schema_geo_skolemization_id_to_geometry.insert(
+                                subject.to_string(),
+                                Point::new(f64_from_triple_term(&object)?, y),
+                            );
+                        }
+                        (x, UKNOWN_POINT_COORD) => {
+                            schema_geo_skolemization_id_to_geometry.insert(
+                                subject.to_string(),
+                                Point::new(x, f64_from_triple_term(&object)?),
+                            );
+                        }
+                        (_, _) => {
+                            return Err("Found a point with known coords for both x/y; this is a sign that something is defined multiple times in the triples or went wrong on our end during construction".into());
+                        }
+                    },
+                    None => {
+                        match point_coord_type {
+                            "<https://schema.org/latitude>" => {
+                                schema_geo_skolemization_id_to_geometry.insert(
+                                    subject.to_string(),
+                                    Point::new(UKNOWN_POINT_COORD, f64_from_triple_term(&object)?),
+                                );
+                            }
+                            "<https://schema.org/longitude>" => {
+                                schema_geo_skolemization_id_to_geometry.insert(
+                                    subject.to_owned().to_string(),
+                                    Point::new(f64_from_triple_term(&object)?, UKNOWN_POINT_COORD),
+                                );
+                            }
+                            // skip other predicates unrelated to schema geo
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
             "<http://www.opengis.net/ont/geosparql#asWKT>" => {
                 println!("Found WKT: {}", object.to_owned().to_string());
                 let object_string = object.to_owned().to_string();
@@ -95,31 +248,22 @@ fn read_triples_into_arrays<R: BufRead>(
                 println!("Parsed WKT: {}", part.to_string());
 
                 let geometry = Geometry::try_from_wkt_str(&part.to_string())?;
-
-                skolemization_id_to_geometry.insert(subject.to_owned().to_string(), geometry);
+                geosparql_skolemization_id_to_geometry
+                    .insert(subject.to_owned().to_string(), geometry);
             }
-            _ => (),
+            &_ => {}
         }
     }
 
-    for (pid, skolemization_id) in pid_to_skolemization_id {
-        let geometry = skolemization_id_to_geometry
-            .get(&skolemization_id)
-            .ok_or(format!(
-                "Could not find geometry for skolemization id: {}",
-                skolemization_id
-            ));
-        let verified_geometry = match geometry {
-            Ok(geometry) => geometry,
-            Err(_) => {
-                println!(
-                    "Could not find geometry for skolemization id: {}",
-                    skolemization_id
-                );
-                continue;
-            }
-        };
-        geometry_builder.push_geometry(Some(&verified_geometry))?;
+    let pid_to_geometry = combine_geometry_representations(
+        pid_to_geoparql_skolemization_id,
+        geosparql_skolemization_id_to_geometry,
+        pid_to_schema_geo_skolemization_id,
+        schema_geo_skolemization_id_to_geometry,
+    )?;
+
+    for (pid, geometry) in pid_to_geometry {
+        geometry_builder.push_geometry(Some(&geometry))?;
         string_builder.append_value(&pid);
     }
 
@@ -147,14 +291,25 @@ struct TriplesToGeoparquetArgs {
 fn main() {
     let args: TriplesToGeoparquetArgs = argh::from_env();
 
-    let triples_file = std::fs::File::open(&args.triples).unwrap();
-    let triples_reader = std::io::BufReader::new(triples_file);
+    let file = File::open(&args.triples).unwrap();
+
+    let reader: Box<dyn Read> = if Path::new(&args.triples)
+        .extension()
+        .and_then(|e| e.to_str())
+        == Some("gz")
+    {
+        Box::new(GzDecoder::new(file))
+    } else {
+        Box::new(file)
+    };
+
+    let buf_reader = BufReader::new(reader);
 
     let schema = generate_schema();
 
     let (mut gpq_encoder, mut parquet_writer) = new_parquet_creator(&schema, &args.output);
 
-    let arrays = match read_triples_into_arrays(triples_reader) {
+    let arrays = match read_triples_into_arrays(buf_reader) {
         Ok(arrays) => arrays,
         Err(err) => {
             println!("{}", err);
