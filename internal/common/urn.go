@@ -114,7 +114,7 @@ func Skolemization(nq string) (string, error) {
 		// file, consistent iris will allow for a consistent
 		// bytesum hash of the entire file
 		hashOfAllTriplesWithTheSameBlankNode := fmt.Sprintf("%x", hash.Sum(nil))
-		iri := fmt.Sprintf("<https://iow.io/nqhash/%s>", hashOfAllTriplesWithTheSameBlankNode)
+		iri := fmt.Sprintf("<https://docs.geoconnex.us/nqhash/%s>", hashOfAllTriplesWithTheSameBlankNode)
 
 		blankNodeToIRI[blankNode] = iri
 	}
