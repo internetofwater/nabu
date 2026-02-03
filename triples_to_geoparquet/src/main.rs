@@ -1,8 +1,9 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{collections::HashMap, io::BufRead, sync::Arc};
+use std::{collections::HashMap, fs::File, io::{BufRead, Read}, sync::Arc};
 
+use flate2::read::GzDecoder;
 use oxrdf::Term;
 use oxttl::NQuadsParser;
 
@@ -17,6 +18,10 @@ use arrow_schema::{DataType::Utf8, Field, Schema, SchemaBuilder};
 use geoarrow_schema::GeoArrowType;
 use geoparquet::writer::{GeoParquetRecordBatchEncoder, GeoParquetWriterOptionsBuilder};
 use parquet::arrow::ArrowWriter;
+
+use std::io::{BufReader};
+use std::path::Path;
+
 
 const GEOMETRY_COLUMN_NAME: &str = "geometry";
 
@@ -286,14 +291,25 @@ struct TriplesToGeoparquetArgs {
 fn main() {
     let args: TriplesToGeoparquetArgs = argh::from_env();
 
-    let triples_file = std::fs::File::open(&args.triples).unwrap();
-    let triples_reader = std::io::BufReader::new(triples_file);
+    let file = File::open(&args.triples).unwrap();
+
+    let reader: Box<dyn Read> = if Path::new(&args.triples)
+        .extension()
+        .and_then(|e| e.to_str())
+        == Some("gz")
+    {
+        Box::new(GzDecoder::new(file))
+    } else {
+        Box::new(file)
+    };
+
+    let buf_reader = BufReader::new(reader);
 
     let schema = generate_schema();
 
     let (mut gpq_encoder, mut parquet_writer) = new_parquet_creator(&schema, &args.output);
 
-    let arrays = match read_triples_into_arrays(triples_reader) {
+    let arrays = match read_triples_into_arrays(buf_reader) {
         Ok(arrays) => arrays,
         Err(err) => {
             println!("{}", err);
