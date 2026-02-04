@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"runtime/trace"
 	"strings"
-	"time"
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/common/projectpath"
@@ -130,16 +130,16 @@ func setupLogging(logLevel string, logAsJson bool) error {
 }
 
 func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport pkg.SitemapIndexCrawlStats, err error) {
+	if n.args.WaitForDebugger {
+		log.Debug("Wait for debugger to attach...")
+		runtime.Breakpoint()
+		log.Debug("Attached to debugger, continuing...")
+	}
+
 	defer trace.Stop()
 
 	if err := setupLogging(n.args.LogLevel, n.args.LogAsJson); err != nil {
 		log.Fatal(err)
-	}
-
-	if n.args.WaitForDebugger {
-		log.Debug("Sleeping to allow for time for debugger to attach")
-		time.Sleep(3 * time.Second)
-		log.Debug("Finished sleeping")
 	}
 
 	if n.args.UseOtel || n.args.OtelEndpoint != "" {

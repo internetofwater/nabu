@@ -44,6 +44,10 @@ type Sitemap struct {
 	// / or the final .xml
 	sitemapId string `xml:"-"`
 
+	// Whether or not this sitemap is a bulk sitemap
+	// and contains links to docker for running container operations instead of individual pids
+	isBulkSitemap bool `xml:"-"`
+
 	// Strategy used for storing crawled data
 	// - explicitly ignores xml marshaling
 	// since this is not an xml field but rather
@@ -103,13 +107,18 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAdd
 		return SitemapHarvestConfig{}, fmt.Errorf("no workers set for sitemap %s", sitemap.sitemapId)
 	}
 
-	firstUrl := sitemap.URL[0]
-	robotstxt, err := newRobots(httpClient, firstUrl.Loc)
-	if err != nil {
-		return SitemapHarvestConfig{}, err
-	}
-	if !robotstxt.Test(common.HarvestAgent) {
-		return SitemapHarvestConfig{}, fmt.Errorf("robots.txt does not allow us to crawl %s", firstUrl.Loc)
+	var robotsTxt *robotstxt.Group
+	// don't check robots.txt for bulk sitemaps
+	// since they point to docker images and not individual web pages to crawl
+	if !sitemap.isBulkSitemap {
+		firstUrl := sitemap.URL[0]
+		robotsTxt, err := newRobots(httpClient, firstUrl.Loc)
+		if err != nil {
+			return SitemapHarvestConfig{}, err
+		}
+		if !robotsTxt.Test(common.HarvestAgent) {
+			return SitemapHarvestConfig{}, fmt.Errorf("robots.txt does not allow us to crawl %s", firstUrl.Loc)
+		}
 	}
 
 	var conn *grpc.ClientConn
@@ -140,7 +149,7 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAdd
 	checkJsonldExistsBeforeDownloading.Store(true)
 
 	return SitemapHarvestConfig{
-		robots:                    robotstxt,
+		robots:                    robotsTxt,
 		httpClient:                httpClient,
 		grpcClient:                &grpcClient,
 		grpcConn:                  conn,
@@ -180,15 +189,23 @@ func urlToStoragePath(sitemapId string, url url_info.URL) (string, error) {
 	return fmt.Sprintf("summoned/%s/%s.jsonld", sitemapId, url.Base64Loc), nil
 }
 
-// Harvest all the URLs in the given sitemap and return the associated metadata as well as a list
-// of sites that were cleaned up after harvesting
 func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, []string, error) {
-	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", s.sitemapId))
-	defer span.End()
-
 	if err := s.ensureValid(config.workers); err != nil {
 		return pkg.SitemapCrawlStats{}, nil, err
 	}
+
+	if s.isBulkSitemap {
+		return s.HarvestBulkSitemap(ctx, config)
+	} else {
+		return s.HarvestPIDsSitemap(ctx, config)
+	}
+}
+
+// Harvest all the URLs in the given sitemap and return the associated metadata as well as a list
+// of sites that were cleaned up after harvesting
+func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, []string, error) {
+	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", s.sitemapId))
+	defer span.End()
 
 	group, ctx := errgroup.WithContext(ctx)
 	group.SetLimit(config.workers)
