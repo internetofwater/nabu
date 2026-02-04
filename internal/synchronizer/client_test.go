@@ -242,14 +242,14 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 	require.NoError(t, err)
 
 	t.Run("error is thrown with bad mainstem info", func(t *testing.T) {
-		err = suite.client.GenerateNqRelease("orgs/"+source, false, "THIS_FILE_DOESNT_EXIST.txt")
+		err = suite.client.GenerateNqRelease(context.Background(), "orgs/"+source, false, "THIS_FILE_DOESNT_EXIST.txt")
 		require.Error(t, err)
 		require.ErrorContains(t, err, "does not exist locally")
 	})
 
 	t.Run("generate nq release for orgs", func(t *testing.T) {
 
-		err = suite.client.GenerateNqRelease("orgs/"+source, false, "")
+		err = suite.client.GenerateNqRelease(context.Background(), "orgs/"+source, false, "")
 		require.NoError(t, err)
 		const orgsPath = "graphs/latest/" + source + "_organizations.nq"
 		objs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{orgsPath})
@@ -267,7 +267,7 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 	})
 
 	t.Run("generate nq release for summoned", func(t *testing.T) {
-		err := suite.client.GenerateNqRelease("summoned/"+source, false, "")
+		err := suite.client.GenerateNqRelease(context.Background(), "summoned/"+source, false, "")
 		require.NoError(t, err)
 		const summonedPath = "graphs/latest/" + source + "_release.nq"
 		objs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{summonedPath})
@@ -287,7 +287,7 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 		})
 
 		t.Run("compressed version of release graph", func(t *testing.T) {
-			err = suite.client.GenerateNqRelease("summoned/"+source, true, "")
+			err = suite.client.GenerateNqRelease(context.Background(), "summoned/"+source, true, "")
 			require.NoError(t, err)
 			const compressedReleaseGraph = "graphs/latest/" + source + "_release.nq.gz"
 			zippedContent, err := suite.client.S3Client.GetObjectAsBytes(compressedReleaseGraph)

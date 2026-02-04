@@ -14,6 +14,7 @@ import (
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/mainstems"
+	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 	"github.com/minio/minio-go/v7"
 
@@ -24,8 +25,11 @@ import (
 // convert all objects in s3 with a specific prefix to nq format and stream them to a shared channel
 // this allows the caller to mimic concatenating many nq files in parallel without needing to have
 // the nq file ever be written to disk
-func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, nqChan chan<- string, mainstemFile string) error {
-	objects, err := synchronizer.S3Client.ObjectList(context.Background(), prefix)
+func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, prefix s3.S3Prefix, nqChan chan<- string, mainstemFile string) error {
+	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("stream_nq_from_prefix_%s", prefix))
+	defer span.End()
+
+	objects, err := synchronizer.S3Client.ObjectList(ctx, prefix)
 	if err != nil {
 		return err
 	}
@@ -48,18 +52,24 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 	enricher := mainstems.NewJsonldEnricher(mainstemService)
 
 	// Create errgroup with context
-	g, ctx := errgroup.WithContext(context.Background())
+	g, ctx := errgroup.WithContext(ctx)
 
 	// Limit concurrent workers
-	g.SetLimit(10) // Adjust based on your needs
+	g.SetLimit(20) // Adjust based on your needs
 
 	mainstemsAdded := atomic.Int32{}
 
 	var mainstemMutex sync.Mutex
 
-	for _, object := range objects {
+	for i, object := range objects {
+		if object.Err != nil {
+			log.Errorf("got error %v when streaming nquad from prefix for object %s", object.Err, object.Key)
+			return object.Err
+		}
 		obj := object // capture loop variable
 		g.Go(func() error {
+			_, subspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("convert_%s_to_nq", obj.Key))
+			defer subspan.End()
 			retrievedObject, err := synchronizer.S3Client.Client.GetObject(
 				ctx,
 				synchronizer.S3Client.DefaultBucket,
@@ -82,22 +92,25 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 			} else {
 				var finalJsonLd []byte
 				if mainstemFile != "" {
+					subspan.AddEvent("waiting on mutex")
 					mainstemMutex.Lock()
+					subspan.AddEvent("acquired mutex")
 					var foundMainstem bool
 					finalJsonLd, foundMainstem, err = enricher.AddMainstemInfo(rawBytes)
+					subspan.AddEvent("finished adding mainstem info")
 					mainstemMutex.Unlock()
 					if foundMainstem {
 						mainstemsAdded.Add(1)
 					}
 					if err != nil {
-						return err
+						return fmt.Errorf("error adding mainstem info to object %s: %w", obj.Key, err)
 					}
 				} else {
 					finalJsonLd = rawBytes
 				}
 				nq, err = common.JsonldToNQ(string(finalJsonLd), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 				if err != nil {
-					return err
+					return fmt.Errorf("error converting jsonld to nq for object %s: %w", obj.Key, err)
 				}
 				if len(nq) == 0 {
 					return fmt.Errorf("jsonld to nq conversion returned empty string for object %s with data %s", obj.Key, string(finalJsonLd))
@@ -126,6 +139,10 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 				return err
 			}
 
+			if i != 0 && i%1000 == 0 {
+				log.Infof("Processed %d/%d objects for prefix %s", i, len(objects), prefix)
+			}
+
 			// Send to channel, respecting context cancellation
 			select {
 			case <-ctx.Done():
@@ -150,7 +167,9 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(prefix s3.S3Prefix, n
 // this is accomplished by streaming the conversion of nq and uploading
 // to minio concurrently. We used a buffered channel to limit the
 // concurrency of the conversion process
-func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix, compressGraphWithGzip bool, mainstemFile string) error {
+func (synchronizer *SynchronizerClient) GenerateNqRelease(ctx context.Context, prefix s3.S3Prefix, compressGraphWithGzip bool, mainstemFile string) error {
+	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("nq_release_graph_%s", prefix))
+	defer span.End()
 
 	remote_file := strings.HasPrefix(mainstemFile, "gcs://") || strings.HasPrefix(mainstemFile, "s3://") || strings.HasPrefix(mainstemFile, "http://") || strings.HasPrefix(mainstemFile, "https://")
 
@@ -186,7 +205,7 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(prefix s3.S3Prefix, co
 	// Start processing NQ data concurrently
 	go func() {
 		// Don't close nqChan here - streamNqFromPrefix will close it
-		errChan <- synchronizer.streamNqFromPrefix(prefix, nqChan, mainstemFile)
+		errChan <- synchronizer.streamNqFromPrefix(ctx, prefix, nqChan, mainstemFile)
 	}()
 
 	pipeReader, pipeWriter := io.Pipe()
