@@ -38,7 +38,12 @@ class ShaclValidator(shacl_validator_pb2_grpc.ShaclValidatorServicer):
     ) -> ValidationReply:
         jsonld = Graph()
         jsonld.parse(data=request.jsonld, format="json-ld")
-        conforms, _, text = validate_graph(jsonld, shacl_shape=self.shacl_shape)
+        try:
+            conforms, _, text = validate_graph(jsonld, shacl_shape=self.shacl_shape)
+        except KeyError as e:
+            # https://github.com/RDFLib/pySHACL/issues/314 handle weird race condition error which raises a key error
+            logger.error(f"Failed when validating due to error '{e}' with data: {request.jsonld}")
+            conforms, text = False, f"Failed when validating due to internal SHACL library error '{e}'"
         return ValidationReply(valid=conforms, message=text)
 
 
