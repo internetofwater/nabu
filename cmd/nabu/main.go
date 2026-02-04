@@ -66,7 +66,7 @@ type NabuArgs struct {
 	UseOtel           bool              `arg:"--use-otel"`
 	OtelEndpoint      string            `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
 	LogAsJson         bool              `arg:"--log-as-json" help:"Log in json format"`
-	waitForDebugger   bool              `arg:"--wait-for-debugger" help:"wait for a few seconds before starting to allow time for a debugger to attach"`
+	WaitForDebugger   bool              `arg:"--wait-for-debugger" help:"wait for a few seconds before starting to allow time for a debugger to attach"`
 }
 
 // ToStructuredConfig converts the args to a structured config
@@ -136,7 +136,7 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 		log.Fatal(err)
 	}
 
-	if n.args.waitForDebugger {
+	if n.args.WaitForDebugger {
 		log.Debug("Sleeping to allow for time for debugger to attach")
 		time.Sleep(3 * time.Second)
 		log.Debug("Finished sleeping")
