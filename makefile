@@ -70,3 +70,6 @@ checkMaxTcpConnectionsPerProcess:
 tools:
 	go install gotest.tools/gotestsum@latest
 	sudo apt install -y protobuf-compiler
+
+build_for_debug:
+	go build -gcflags="all=-N -l" -o nabu ./cmd/nabu

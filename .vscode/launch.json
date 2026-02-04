@@ -1,6 +1,15 @@
 {
     "configurations": [
         {
+            // requires the go binary to be compiled with proper debug support'
+            // see the makefile in the root for such a compilation method
+            "name": "Attach to Go Binary",
+            "type": "go",
+            "request": "attach",
+            "mode": "local",
+            "processId": "nabu"
+        },
+        {
             "name": "Debug Shacl Validation",
             "type": "go",
             "request": "launch",

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime/trace"
 	"strings"
+	"time"
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/common/projectpath"
@@ -132,6 +133,12 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 
 	if err := setupLogging(n.args.LogLevel, n.args.LogAsJson); err != nil {
 		log.Fatal(err)
+	}
+
+	if n.args.LogLevel == "DEBUG" {
+		log.Debug("Sleeping to allow for time for debugger to attach")
+		time.Sleep(3 * time.Second)
+		log.Debug("Finished sleeping")
 	}
 
 	if n.args.UseOtel || n.args.OtelEndpoint != "" {
