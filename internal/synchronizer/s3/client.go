@@ -145,6 +145,8 @@ func (m *MinioClientWrapper) ObjectList(ctx context.Context, prefix S3Prefix) ([
 	objectCh := m.Client.ListObjects(ctx, m.DefaultBucket,
 		minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
 
+	totalObjectsListed := atomic.Int32{}
+
 	for object := range objectCh {
 		if object.Err != nil {
 			log.Error(object.Err)
@@ -154,8 +156,12 @@ func (m *MinioClientWrapper) ObjectList(ctx context.Context, prefix S3Prefix) ([
 			mu.Lock()
 			objectInfo = append(objectInfo, object)
 			mu.Unlock()
+			totalObjectsListed.Add(1)
 			return nil
 		})
+		if totalObjectsListed.Load()%1000 == 0 {
+			log.Debugf("Listed %d objects so far with prefix %s", totalObjectsListed.Load(), prefix)
+		}
 	}
 
 	if err := eg.Wait(); err != nil {
