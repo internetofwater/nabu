@@ -178,6 +178,7 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 		return nil, synchronizerClient.UploadNqFileToTriplestore(n.args.Object.Object)
 	case n.args.Release != nil:
 		return nil, synchronizerClient.GenerateNqRelease(
+			ctx,
 			cfgStruct.Prefix,
 			n.args.Release.Compress,
 			n.args.Release.MainstemMetadataFile,
