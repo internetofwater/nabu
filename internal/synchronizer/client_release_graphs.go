@@ -29,11 +29,15 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, 
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("stream_nq_from_prefix_%s", prefix))
 	defer span.End()
 
+	defer close(nqChan) // close channel when done
+
+	log.Infof("Listing all objects in %s", prefix)
 	objects, err := synchronizer.S3Client.ObjectList(ctx, prefix)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list objects with prefix %s when streaming nq: %w", prefix, err)
 	}
 	if len(objects) == 0 {
+		log.Warnf("No objects found with prefix %s", prefix)
 		return fmt.Errorf("no objects found with prefix %s so no nq file will be created", prefix)
 	}
 	log.Infof("Generating nq from %d objects with prefix %s", len(objects), prefix)
@@ -155,7 +159,6 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, 
 
 	// Wait for all goroutines and get first error
 	err = g.Wait()
-	close(nqChan)
 	// only log if we actually attempted to add mainstem info
 	if addMainstemInfo {
 		log.Infof("Found and added mainstems to %d/%d JSON-LD objects for prefix %s", mainstemsAdded.Load(), len(objects), prefix)
@@ -205,7 +208,11 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(ctx context.Context, p
 	// Start processing NQ data concurrently
 	go func() {
 		// Don't close nqChan here - streamNqFromPrefix will close it
-		errChan <- synchronizer.streamNqFromPrefix(ctx, prefix, nqChan, mainstemFile)
+		streamErr := synchronizer.streamNqFromPrefix(ctx, prefix, nqChan, mainstemFile)
+		if streamErr != nil {
+			log.Errorf("error streaming nq from prefix %s: %v", prefix, streamErr)
+		}
+		errChan <- streamErr
 	}()
 
 	pipeReader, pipeWriter := io.Pipe()
@@ -220,7 +227,7 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(ctx context.Context, p
 		}
 
 		if _, err := synchronizer.S3Client.Client.PutObject(
-			context.Background(),
+			ctx,
 			synchronizer.syncBucketName,
 			fmt.Sprintf("graphs/latest/%s.bytesum", releaseNqName),
 			strings.NewReader(hash),
@@ -237,7 +244,7 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(ctx context.Context, p
 	releaseNqPath := fmt.Sprintf("graphs/latest/%s", releaseNqName)
 	// stream the nq data to s3
 	objInfo, err := synchronizer.S3Client.Client.PutObject(
-		context.Background(),
+		ctx,
 		synchronizer.syncBucketName,
 		releaseNqPath,
 		pipeReader,
