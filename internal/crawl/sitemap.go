@@ -26,7 +26,6 @@ import (
 
 	"github.com/internetofwater/nabu/internal/crawl/url_info"
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
-	"github.com/piprate/json-gold/ld"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -79,14 +78,14 @@ type SitemapHarvestConfig struct {
 	// the config for grpc requests
 	grpcClient *protoBuild.ShaclValidatorClient
 	// the grpc connection itself for connecting with the shacl validator
-	grpcConn   *grpc.ClientConn
-	jsonLdProc *ld.JsonLdProcessor
-	jsonLdOpt  *ld.JsonLdOptions
+	grpcConn *grpc.ClientConn
 	// before downloading a site, send a head request to the server
 	// to get its hash and if it already exists in storage, skip it
 	checkExistenceBeforeCrawl *atomic.Bool
-	storageDestination        storage.CrawlStorage
-	exitOnShaclFailure        bool
+	// the destination to store the crawled data
+	storageDestination storage.CrawlStorage
+	// exit immediately if a shacl validation fails
+	exitOnShaclFailure bool
 	// shacl errors can be quite verbose and often very duplicative;
 	// this is the maximum of them to store in the crawl report
 	maxShaclErrorsToStore int
@@ -140,11 +139,6 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAdd
 		grpcClient = nil
 	}
 
-	JsonLdProc, JsonLdOpts, err := common.NewJsonldProcessor(true, make(map[string]string))
-	if err != nil {
-		return SitemapHarvestConfig{}, fmt.Errorf("failed to create JSON-LD processor: %w", err)
-	}
-
 	checkJsonldExistsBeforeDownloading := atomic.Bool{}
 	checkJsonldExistsBeforeDownloading.Store(true)
 
@@ -153,8 +147,6 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAdd
 		httpClient:                httpClient,
 		grpcClient:                &grpcClient,
 		grpcConn:                  conn,
-		jsonLdProc:                JsonLdProc,
-		jsonLdOpt:                 JsonLdOpts,
 		storageDestination:        sitemap.storageDestination,
 		checkExistenceBeforeCrawl: &checkJsonldExistsBeforeDownloading,
 		exitOnShaclFailure:        exitOnShaclFailure,

@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -19,11 +21,13 @@ import (
 	"github.com/moby/moby/pkg/stdcopy"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/pkg"
 	"golang.org/x/sync/errgroup"
 )
 
+// HarvestBulkSitemap processes a bulk sitemap by pulling and running Docker images specified as sitemap URLs.
 func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, []string, error) {
 
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_bulk_harvest_%s", s.sitemapId))
@@ -37,6 +41,18 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		return pkg.SitemapCrawlStats{}, []string{}, err
 	}
 	defer func() { _ = dockerClient.Close() }()
+
+	stats := pkg.SitemapCrawlStats{
+		SitesInSitemap:    len(s.URL),
+		SitemapSourceLink: s.sitemapUrl,
+	}
+	start := time.Now()
+
+	var warningStats []pkg.ShaclInfo
+	var warningMu = sync.Mutex{}
+
+	foundJsonldPathInStorage := make(storage.Set)
+	foundJsonldPathMu := sync.Mutex{}
 
 	for _, url := range s.URL {
 		group.Go(func() error {
@@ -109,6 +125,35 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 					return fmt.Errorf("error unmarshaling line from container logs: %w", err)
 				}
 
+				if config.grpcClient != nil && *config.grpcClient != nil {
+					err = validate_shacl(ctx, *config.grpcClient, url.Loc, string(line))
+					if err != nil {
+						if shaclErr, ok := err.(ShaclValidationFailureError); ok {
+
+							warningMu.Lock()
+							warningStats = append(warningStats, pkg.ShaclInfo{
+								ShaclStatus:            pkg.ShaclInvalid,
+								ShaclValidationMessage: shaclErr.ShaclErrorMessage,
+								Url:                    url.Loc,
+							})
+							warningMu.Unlock()
+
+							// we don't always return here because it is non fatal
+							// and not all integrations may be compliant with our shacl shapes yet;
+							// For the time being, it is better to harvest and then have the integrator fix it
+							// after the fact; in the future there could be a strict
+							// validation mode wherein we fail fast upon shacl non-compliance
+							// however, we do allow a flag to exit and strictly fail
+							if config.exitOnShaclFailure {
+								log.Errorf("Returning early on shacl failure for %s with message %s", url.Loc, shaclErr.ShaclErrorMessage)
+								return fmt.Errorf("exiting early for %s with shacl failure %s", url.Loc, shaclErr.ShaclErrorMessage)
+							}
+						} else {
+							return fmt.Errorf("failed to communicate with shacl validation service when harvesting %s: %w", url.Loc, err)
+						}
+					}
+				}
+
 				idStr, ok := jsonObj["@id"].(string)
 				if !ok {
 					return fmt.Errorf("missing or invalid @id in JSON-LD: %s", string(line))
@@ -116,8 +161,14 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 				encodedId := base64.StdEncoding.EncodeToString([]byte(idStr))
 
+				path := "summoned/" + s.sitemapId + "/" + encodedId + ".jsonld"
+
+				foundJsonldPathMu.Lock()
+				foundJsonldPathInStorage.Add(path)
+				foundJsonldPathMu.Unlock()
+
 				if err := config.storageDestination.StoreWithHash(
-					"summoned/"+encodedId+".jsonld",
+					path,
 					bytes.NewReader(line),
 					len(line),
 				); err != nil {
@@ -144,5 +195,14 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		})
 	}
 
-	return pkg.SitemapCrawlStats{}, []string{}, group.Wait()
+	err = group.Wait()
+
+	stats.WarningStats = pkg.WarningReport{
+		TotalShaclFailures: len(warningStats),
+		ShaclWarnings:      warningStats,
+	}
+	stats.SecondsToComplete = time.Since(start).Seconds()
+	stats.SuccessfulSites = len(foundJsonldPathInStorage)
+
+	return stats, []string{}, err
 }
