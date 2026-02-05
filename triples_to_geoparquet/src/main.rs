@@ -4,6 +4,7 @@
 use std::{collections::HashMap, fs::{self, File}, io::{BufRead, Read}, sync::Arc};
 
 use flate2::read::GzDecoder;
+use log::{debug, error, info};
 use oxrdf::Term;
 use oxttl::NQuadsParser;
 
@@ -21,7 +22,6 @@ use parquet::arrow::ArrowWriter;
 
 use std::io::{BufReader};
 use std::path::Path;
-
 
 const GEOMETRY_COLUMN_NAME: &str = "geometry";
 
@@ -124,7 +124,7 @@ pub fn combine_geometry_representations(
         match schema_geo_skolemization_id_to_geometry.get(&schema_geo_skolemization_id) {
             Some(point_geometry) => {
                 if let Some(gsp_geometry) = pid_to_canonical_geometry.get(&pid) {
-                    println!("Canonical gsp geo {}, {}", pid, gsp_geometry.to_wkt());
+                    debug!("Canonical gsp geo {}, {}", pid, gsp_geometry.to_wkt());
                     if !generally_equal(gsp_geometry, point_geometry) {
                         return Err(format!(
                                 "pid {} with geosparql geometry '{}' does not match schema geo skolemization id {} with schema geo point geometry '{}'",
@@ -172,14 +172,14 @@ fn read_triples_into_arrays<R: BufRead>(
         let predicate_str = predicate.to_string();
         match predicate_str.clone().as_str() {
             "<http://www.opengis.net/ont/geosparql#hasGeometry>" => {
-                println!("Found geometry: {}", object.to_owned().to_string());
+                debug!("Found geometry: {}", object.to_owned().to_string());
                 pid_to_geoparql_skolemization_id.insert(
                     subject.to_owned().to_string(),
                     object.to_owned().to_string(),
                 );
             }
             "<https://schema.org/geo>" => {
-                println!("Found geometry: {}", object.to_owned().to_string());
+                debug!("Found geometry: {}", object.to_owned().to_string());
                 pid_to_schema_geo_skolemization_id.insert(
                     subject.to_owned().to_string(),
                     object.to_owned().to_string(),
@@ -231,7 +231,7 @@ fn read_triples_into_arrays<R: BufRead>(
             }
 
             "<http://www.opengis.net/ont/geosparql#asWKT>" => {
-                println!("Found WKT: {}", object.to_owned().to_string());
+                debug!("Found WKT: {}", object.to_owned().to_string());
                 let object_string = object.to_owned().to_string();
 
                 let part = object_string
@@ -245,7 +245,7 @@ fn read_triples_into_arrays<R: BufRead>(
                     .strip_suffix('"')
                     .ok_or(format!("Invalid WKT string: {}", object_string))?;
 
-                println!("Parsed WKT: {}", part.to_string());
+                debug!("Parsed WKT: {}", part.to_string());
 
                 let geometry = Geometry::try_from_wkt_str(&part.to_string())?;
                 geosparql_skolemization_id_to_geometry
@@ -286,6 +286,10 @@ struct TriplesToGeoparquetArgs {
     /// the output geoparquet file
     #[argh(option)]
     output: String,
+
+    /// log level
+    #[argh(option, default = "log::Level::Info")]
+    log_level: log::Level,
 }
 
 
@@ -302,6 +306,10 @@ fn open_triples_reader(path: &Path) -> Box<dyn Read> {
 fn main() {
     let args: TriplesToGeoparquetArgs = argh::from_env();
 
+    env_logger::Builder::new()
+        .filter_level(args.log_level.to_level_filter())
+        .init();
+
     let schema = generate_schema();
     let triples_path = Path::new(&args.triples);
 
@@ -310,13 +318,14 @@ fn main() {
 
     // Helper to process a single file and append to writer
     let mut process_file = |path: &Path| {
+        info!("Processing {}", path.display());
         let reader = open_triples_reader(path);
         let buf_reader = BufReader::new(reader);
 
         let arrays = match read_triples_into_arrays(buf_reader) {
             Ok(arrays) => arrays,
             Err(err) => {
-                println!("Error reading {}: {}", path.display(), err);
+                error!("Error reading {}: {}", path.display(), err);
                 return;
             }
         };
@@ -339,7 +348,7 @@ fn main() {
             }
         }
         if !found_data {
-            println!("No data found in directory '{}'", triples_path.display());
+            error!("No data found in directory '{}'", triples_path.display());
             return
         }
     } else {
@@ -351,4 +360,6 @@ fn main() {
     let kv_metadata = gpq_encoder.into_keyvalue().unwrap();
     parquet_writer.append_key_value_metadata(kv_metadata);
     parquet_writer.finish().unwrap();
+
+    info!("Parquet file written to {}", args.output);
 }
