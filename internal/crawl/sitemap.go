@@ -21,12 +21,9 @@ import (
 	"github.com/internetofwater/nabu/pkg"
 	log "github.com/sirupsen/logrus"
 	"github.com/temoto/robotstxt"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/internetofwater/nabu/internal/crawl/url_info"
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
-	"github.com/piprate/json-gold/ld"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -78,15 +75,13 @@ type SitemapHarvestConfig struct {
 	httpClient *http.Client
 	// the config for grpc requests
 	grpcClient *protoBuild.ShaclValidatorClient
-	// the grpc connection itself for connecting with the shacl validator
-	grpcConn   *grpc.ClientConn
-	jsonLdProc *ld.JsonLdProcessor
-	jsonLdOpt  *ld.JsonLdOptions
 	// before downloading a site, send a head request to the server
 	// to get its hash and if it already exists in storage, skip it
 	checkExistenceBeforeCrawl *atomic.Bool
-	storageDestination        storage.CrawlStorage
-	exitOnShaclFailure        bool
+	// the destination to store the crawled data
+	storageDestination storage.CrawlStorage
+	// exit immediately if a shacl validation fails
+	exitOnShaclFailure bool
 	// shacl errors can be quite verbose and often very duplicative;
 	// this is the maximum of them to store in the crawl report
 	maxShaclErrorsToStore int
@@ -101,7 +96,7 @@ type SitemapHarvestConfig struct {
 // Make a new SiteHarvestConfig with all the clients and config
 // initialized and ready to crawl a sitemap
 // this config is shared across all goroutines and thus must be thread safe
-func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAddress string, exitOnShaclFailure bool, cleanupOutdatedJsonld bool) (SitemapHarvestConfig, error) {
+func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclGRPCClient protoBuild.ShaclValidatorClient, exitOnShaclFailure bool, cleanupOutdatedJsonld bool) (SitemapHarvestConfig, error) {
 
 	if sitemap.workers < 1 {
 		return SitemapHarvestConfig{}, fmt.Errorf("no workers set for sitemap %s", sitemap.sitemapId)
@@ -121,40 +116,13 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclAdd
 		}
 	}
 
-	var conn *grpc.ClientConn
-	var grpcClient protoBuild.ShaclValidatorClient
-	// shacl validation is optional
-	if shaclAddress != "" {
-		// 32 megabytes is the current upperbound of the jsonld documents we will validate
-		// beyond that is a sign that the document may be too large or incorrectly formatted
-		thirtyTwoMB := 32 * 1024 * 1024
-		conn, err := grpc.NewClient(shaclAddress,
-			grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithMaxHeaderListSize(uint32(thirtyTwoMB)),
-		)
-		if err != nil {
-			return SitemapHarvestConfig{}, fmt.Errorf("failed to connect to gRPC server: %w", err)
-		}
-		grpcClient = protoBuild.NewShaclValidatorClient(conn)
-	} else {
-		conn = nil
-		grpcClient = nil
-	}
-
-	JsonLdProc, JsonLdOpts, err := common.NewJsonldProcessor(true, make(map[string]string))
-	if err != nil {
-		return SitemapHarvestConfig{}, fmt.Errorf("failed to create JSON-LD processor: %w", err)
-	}
-
 	checkJsonldExistsBeforeDownloading := atomic.Bool{}
 	checkJsonldExistsBeforeDownloading.Store(true)
 
 	return SitemapHarvestConfig{
 		robots:                    robotsTxt,
 		httpClient:                httpClient,
-		grpcClient:                &grpcClient,
-		grpcConn:                  conn,
-		jsonLdProc:                JsonLdProc,
-		jsonLdOpt:                 JsonLdOpts,
+		grpcClient:                &shaclGRPCClient,
 		storageDestination:        sitemap.storageDestination,
 		checkExistenceBeforeCrawl: &checkJsonldExistsBeforeDownloading,
 		exitOnShaclFailure:        exitOnShaclFailure,
@@ -209,10 +177,6 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 
 	group, ctx := errgroup.WithContext(ctx)
 	group.SetLimit(config.workers)
-
-	if config.grpcConn != nil {
-		defer func() { _ = config.grpcConn.Close() }()
-	}
 
 	start := time.Now()
 	log.Infof("Harvesting sitemap %s with %d urls", s.sitemapId, len(s.URL))

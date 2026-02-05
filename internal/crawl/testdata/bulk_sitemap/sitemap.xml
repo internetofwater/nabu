@@ -6,7 +6,7 @@
 
 <ns0:urlset xmlns:ns0="http://www.sitemaps.org/schemas/sitemap/0.9">
 <url>
-    <loc>simple_bulk_test_container</loc>
+    <loc>internetofwater/gnis_bulk_container:latest</loc>
     <lastmod>2025-02-05T16:39:34Z</lastmod>
 </url>
 </ns0:urlset>

@@ -58,7 +58,7 @@ impl ShaclValidator for Validator {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let validator = Validator::default();
 
-    let path = "0.0.0.0:50051";
+    let path = "0.0.0.0:50052";
     let tcp_listener = tokio::net::TcpListener::bind(path).await.unwrap();
     let tcp_stream = tokio_stream::wrappers::TcpListenerStream::new(tcp_listener);
 

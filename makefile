@@ -53,7 +53,7 @@ test:
 	gotestsum --max-fails 1 && \
 	cd shacl_validator/shacl_validator_grpc_rs && cargo test && \
 	cd ../shacl_validator_grpc_py && uv run pytest && \
-	cd ../triples_to_geoparquet && cargo test
+	cd ../../triples_to_geoparquet && cargo test
 
 lint:
 	golangci-lint run

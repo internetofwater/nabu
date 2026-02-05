@@ -3,7 +3,10 @@
 
 FROM busybox
 
-# This is a very simple docker container that does nothing but output jsonld to stdout.
-# it is used to mock the output of a bulk sitemap container
+COPY ./data.txt /data.txt
 
-CMD ["echo", "{ \"@context\":[{ \"schema\":\"https://schema.org/\",\"gsp\":\"http://www.opengis.net/ont/geosparql#\",\"type\":\"@type\"}],\"type\":\"schema:Place\",\"@id\":\"https://api.wwdh.internetofwater.app/collections/noaa-rfc/items/AFPU1\",\"schema:name\":\"American Fork - American Fork  Nr  Up Pwrplnt  Abv\",\"gsp:hasGeometry\":{\"@type\":\"http://www.opengis.net/ont/sf#Point\",\"gsp:asWKT\":{\"@type\":\"http://www.opengis.net/ont/geosparql#wktLiteral\",\"@value\":\"POINT (-111.681389 40.447778)\"}},\"schema:geo\":{\"@type\":\"schema:GeoCoordinates\",\"schema:longitude\":-111.681389,\"schema:latitude\":40.447778},\"schema:subjectOf\":[{\"@type\":\"schema:Dataset\",\"schema:name\":\"American Fork - American Fork  Nr  Up Pwrplnt  Abv\",\"schema:description\":\"A ensemble streamflow forecast prediction for Amer\"}] }"]
+#####
+# This container represents the simple possible output of a bulk sitemap docker container
+# it just outputs contents of the text file to stdout and then exits. each line in stdout
+# represents a separate JSON-LD document
+CMD ["cat", "/data.txt"]
