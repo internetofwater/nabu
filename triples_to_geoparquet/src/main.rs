@@ -1,7 +1,7 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{collections::HashMap, fs::File, io::{BufRead, Read}, sync::Arc};
+use std::{collections::HashMap, fs::{self, File}, io::{BufRead, Read}, sync::Arc};
 
 use flate2::read::GzDecoder;
 use oxrdf::Term;
@@ -279,7 +279,7 @@ fn read_triples_into_arrays<R: BufRead>(
 #[derive(FromArgs)]
 /// Convert triples to geoparquet
 struct TriplesToGeoparquetArgs {
-    /// the input triples that will be converted to geoparquet
+    /// either a file or directory of triples which can optionally be gzipped
     #[argh(option, short = 'i')]
     triples: String,
 
@@ -288,42 +288,66 @@ struct TriplesToGeoparquetArgs {
     output: String,
 }
 
-fn main() {
-    let args: TriplesToGeoparquetArgs = argh::from_env();
 
-    let file = File::open(&args.triples).unwrap();
+fn open_triples_reader(path: &Path) -> Box<dyn Read> {
+    let file = File::open(path).unwrap();
 
-    let reader: Box<dyn Read> = if Path::new(&args.triples)
-        .extension()
-        .and_then(|e| e.to_str())
-        == Some("gz")
-    {
+    if path.extension().and_then(|e| e.to_str()) == Some("gz") {
         Box::new(GzDecoder::new(file))
     } else {
         Box::new(file)
-    };
+    }
+}
 
-    let buf_reader = BufReader::new(reader);
+fn main() {
+    let args: TriplesToGeoparquetArgs = argh::from_env();
 
     let schema = generate_schema();
+    let triples_path = Path::new(&args.triples);
 
+    // ONE parquet writer for everything
     let (mut gpq_encoder, mut parquet_writer) = new_parquet_creator(&schema, &args.output);
 
-    let arrays = match read_triples_into_arrays(buf_reader) {
-        Ok(arrays) => arrays,
-        Err(err) => {
-            println!("{}", err);
-            return;
-        }
-    };
+    // Helper to process a single file and append to writer
+    let mut process_file = |path: &Path| {
+        let reader = open_triples_reader(path);
+        let buf_reader = BufReader::new(reader);
 
-    let batch = RecordBatch::try_new(Arc::new(schema), arrays).unwrap();
+        let arrays = match read_triples_into_arrays(buf_reader) {
+            Ok(arrays) => arrays,
+            Err(err) => {
+                println!("Error reading {}: {}", path.display(), err);
+                return;
+            }
+        };
 
-    for batch in [batch] {
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), arrays).unwrap();
+
         let encoded_batch = gpq_encoder.encode_record_batch(&batch).unwrap();
         parquet_writer.write(&encoded_batch).unwrap();
+    };
+
+    if triples_path.is_dir() {
+        // concatenate all files in directory
+        let mut found_data = false;
+        for entry in fs::read_dir(triples_path).unwrap() {
+            let path = entry.unwrap().path();
+            let ends_with_gz_or_nq = path.extension().and_then(|e| e.to_str()) == Some("gz") || path.extension().and_then(|e| e.to_str()) == Some("nq");
+            if path.is_file() && ends_with_gz_or_nq {
+                process_file(&path);
+                found_data = true;
+            }
+        }
+        if !found_data {
+            println!("No data found in directory '{}'", triples_path.display());
+            return
+        }
+    } else {
+        // single file
+        process_file(triples_path);
     }
 
+    // finalize once
     let kv_metadata = gpq_encoder.into_keyvalue().unwrap();
     parquet_writer.append_key_value_metadata(kv_metadata);
     parquet_writer.finish().unwrap();
