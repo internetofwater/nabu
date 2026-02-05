@@ -38,3 +38,9 @@ func TestNewShaclGrpcClientFromAddr(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, client)
 }
+
+func TestNewShaclGrpcClientFromBlankAddr(t *testing.T) {
+	client, err := NewShaclGrpcClientFromAddr("")
+	require.NoError(t, err)
+	require.Nil(t, client)
+}
