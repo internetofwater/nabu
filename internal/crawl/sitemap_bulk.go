@@ -32,7 +32,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	group, ctx := errgroup.WithContext(ctx)
 	group.SetLimit(config.workers)
 
-	dockerClient, err := client.NewClientWithOpts()
+	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
 		return pkg.SitemapCrawlStats{}, []string{}, err
 	}
