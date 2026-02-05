@@ -47,6 +47,13 @@ func validate_shacl(ctx context.Context, grpcClient protoBuild.ShaclValidatorCli
 
 // Given an address, return the gRPC client for SHACL validation
 func NewShaclGrpcClientFromAddr(shaclAddress string) (protoBuild.ShaclValidatorClient, error) {
+	// if the default string is provided, i.e. "" that means that the struct that
+	// created it was also empty, so we skip creating the client
+	if shaclAddress == "" {
+		log.Warn("empty address passed to shacl client constructor. Skipping...")
+		return nil, nil
+	}
+
 	// 32 megabytes is the current upperbound of the jsonld documents we will validate
 	// beyond that is a sign that the document may be too large or incorrectly formatted
 	thirtyTwoMB := 32 * 1024 * 1024
