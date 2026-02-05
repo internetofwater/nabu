@@ -13,6 +13,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
@@ -42,17 +43,15 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	}
 	defer func() { _ = dockerClient.Close() }()
 
-	stats := pkg.SitemapCrawlStats{
-		SitesInSitemap:    len(s.URL),
-		SitemapSourceLink: s.sitemapUrl,
-	}
 	start := time.Now()
 
 	var warningStats []pkg.ShaclInfo
 	var warningMu = sync.Mutex{}
 
-	foundJsonldPathInStorage := make(storage.Set)
-	foundJsonldPathMu := sync.Mutex{}
+	validJsonldDocs := make(storage.Set)
+	validJsonldDocsMu := sync.Mutex{}
+
+	numNewlineSeparateJSONLDDocs := atomic.Int32{}
 
 	for _, url := range s.URL {
 		group.Go(func() error {
@@ -117,13 +116,26 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			for scanner.Scan() {
 				line := scanner.Bytes()
 				if len(bytes.TrimSpace(line)) == 0 {
+					log.Warn("found a line with no data. Skipping...")
 					continue
 				}
+
+				numNewlineSeparateJSONLDDocs.Add(1)
 
 				var jsonObj map[string]any
 				if err := json.Unmarshal(line, &jsonObj); err != nil {
 					return fmt.Errorf("error unmarshaling line from container logs: %w", err)
 				}
+
+				idStr, ok := jsonObj["@id"].(string)
+				if !ok {
+					log.Errorf("missing or invalid @id in JSON-LD for %s", string(line))
+					// this is a fatal error since there is no way to data the error to a specific identifier
+					// without an id; thus we return a fatal error
+					return fmt.Errorf("missing or invalid @id in JSON-LD: %s", string(line))
+				}
+
+				encodedId := base64.StdEncoding.EncodeToString([]byte(idStr))
 
 				if config.grpcClient != nil && *config.grpcClient != nil {
 					err = validate_shacl(ctx, *config.grpcClient, url.Loc, string(line))
@@ -154,18 +166,11 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 					}
 				}
 
-				idStr, ok := jsonObj["@id"].(string)
-				if !ok {
-					return fmt.Errorf("missing or invalid @id in JSON-LD: %s", string(line))
-				}
-
-				encodedId := base64.StdEncoding.EncodeToString([]byte(idStr))
-
 				path := "summoned/" + s.sitemapId + "/" + encodedId + ".jsonld"
 
-				foundJsonldPathMu.Lock()
-				foundJsonldPathInStorage.Add(path)
-				foundJsonldPathMu.Unlock()
+				validJsonldDocsMu.Lock()
+				validJsonldDocs.Add(path)
+				validJsonldDocsMu.Unlock()
 
 				if err := config.storageDestination.StoreWithHash(
 					path,
@@ -196,13 +201,19 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	}
 
 	err = group.Wait()
-
-	stats.WarningStats = pkg.WarningReport{
-		TotalShaclFailures: len(warningStats),
-		ShaclWarnings:      warningStats,
+	stats := pkg.SitemapCrawlStats{
+		SitemapSourceLink: s.sitemapUrl,
+		WarningStats: pkg.WarningReport{
+			TotalShaclFailures: len(warningStats),
+			ShaclWarnings:      warningStats,
+		},
+		SecondsToComplete: time.Since(start).Seconds(),
+		SuccessfulSites:   len(validJsonldDocs),
+		SitesInSitemap:    int(numNewlineSeparateJSONLDDocs.Load()),
+		// since bulk sitemaps are run via docker images,
+		// we don't have the ability to propagate per-site crawl errors
+		CrawlFailures: []pkg.UrlCrawlError{},
 	}
-	stats.SecondsToComplete = time.Since(start).Seconds()
-	stats.SuccessfulSites = len(foundJsonldPathInStorage)
 
 	return stats, []string{}, err
 }

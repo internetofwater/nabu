@@ -63,7 +63,7 @@ func TestBulkSitemap(t *testing.T) {
 		Harvest(context.Background(), &config)
 	require.NoError(t, err)
 
-	require.Equal(t, 1, stats.SuccessfulSites)
+	require.Equal(t, 2, stats.SitesInSitemap)
 	hasFiles, err := storage.ListDir("/")
 	require.NoError(t, err)
 	require.Greater(t, len(hasFiles), 0)
