@@ -56,7 +56,7 @@ func TestNamesAreBase64(t *testing.T) {
 	require.NoError(t, err)
 	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
 	require.NoError(t, err)
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, false)
 	require.NoError(t, err)
 
 	_, _, err = sitemap.
@@ -111,7 +111,7 @@ func TestHarvestSitemap(t *testing.T) {
 	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, &storage.DiscardCrawlStorage{}, "test")
 	require.NoError(t, err)
 
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, false)
 	require.NoError(t, err)
 
 	results, _, err := sitemap.
@@ -159,7 +159,7 @@ func TestHarvestTwiceOverridesFile(t *testing.T) {
 	require.NoError(t, err)
 	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
 	require.NoError(t, err)
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, false)
 	require.NoError(t, err)
 
 	_, _, err = sitemap.
@@ -248,7 +248,7 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
 	require.NoError(t, err)
 
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, true)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, true)
 	require.NoError(t, err)
 
 	// store three files in the storage that are not part of the sitemap
@@ -305,7 +305,7 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 	sitemap, err = NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
 	require.NoError(t, err)
 
-	config, err = NewSitemapHarvestConfig(mockedClientWithErrors, sitemap, "", false, true)
+	config, err = NewSitemapHarvestConfig(mockedClientWithErrors, sitemap, nil, false, true)
 	require.NoError(t, err)
 
 	stats, cleanedUpFiles, err = sitemap.
@@ -389,7 +389,7 @@ func TestHarvestSitemapThatIsDown(t *testing.T) {
 	require.NoError(t, err)
 
 	const cleanupOldJsonld = true
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, cleanupOldJsonld)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, cleanupOldJsonld)
 	require.NoError(t, err)
 
 	config.failedSitesToAssumeSitemapDown = 1

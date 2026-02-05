@@ -170,7 +170,12 @@ func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.Si
 				close(errChan)
 			}()
 
-			config, err := NewSitemapHarvestConfig(client, sitemap, i.shaclAddress, i.exitOnShaclFailure, i.outdatedJsonldCleanupEnabled)
+			shaclGRPCClient, err := NewShaclGrpcClientFromAddr(i.shaclAddress)
+			if err != nil {
+				return err
+			}
+
+			config, err := NewSitemapHarvestConfig(client, sitemap, shaclGRPCClient, i.exitOnShaclFailure, i.outdatedJsonldCleanupEnabled)
 			if err != nil {
 				return err
 			}
@@ -230,7 +235,12 @@ func (i Index) HarvestSitemap(ctx context.Context, client *http.Client, sitemapI
 			return pkg.SitemapCrawlStats{}, err
 		}
 
-		config, err := NewSitemapHarvestConfig(client, sitemap, i.shaclAddress, i.exitOnShaclFailure, i.outdatedJsonldCleanupEnabled)
+		shaclGRPCClient, err := NewShaclGrpcClientFromAddr(i.shaclAddress)
+		if err != nil {
+			return pkg.SitemapCrawlStats{}, err
+		}
+
+		config, err := NewSitemapHarvestConfig(client, sitemap, shaclGRPCClient, i.exitOnShaclFailure, i.outdatedJsonldCleanupEnabled)
 
 		if err != nil {
 			return pkg.SitemapCrawlStats{}, err

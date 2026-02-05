@@ -31,6 +31,10 @@ import (
 // HarvestBulkSitemap processes a bulk sitemap by pulling and running Docker images specified as sitemap URLs.
 func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, []string, error) {
 
+	if config.cleanupOutdatedJsonld {
+		log.Warn("cleanup outdated jsonld not supported currently for bulk sitemaps")
+	}
+
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_bulk_harvest_%s", s.sitemapId))
 	defer span.End()
 
@@ -72,7 +76,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 					return err
 				}
 			}
-			resp, err := dockerClient.ContainerCreate(
+			creationResp, err := dockerClient.ContainerCreate(
 				ctx,
 				&container.Config{Image: docker_image_name},
 				nil, nil, nil,
@@ -82,13 +86,13 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				return err
 			}
 
-			if err = dockerClient.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+			if err = dockerClient.ContainerStart(ctx, creationResp.ID, container.StartOptions{}); err != nil {
 				return err
 			}
 
-			waitResponseChan, errChan := dockerClient.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+			waitResponseChan, errChan := dockerClient.ContainerWait(ctx, creationResp.ID, container.WaitConditionNotRunning)
 
-			logReader, err := dockerClient.ContainerLogs(ctx, resp.ID, container.LogsOptions{
+			logReader, err := dockerClient.ContainerLogs(ctx, creationResp.ID, container.LogsOptions{
 				ShowStdout: true,
 				ShowStderr: false,
 				Follow:     true,
@@ -158,6 +162,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 							// however, we do allow a flag to exit and strictly fail
 							if config.exitOnShaclFailure {
 								log.Errorf("Returning early on shacl failure for %s with message %s", url.Loc, shaclErr.ShaclErrorMessage)
+								numNewlineSeparateJSONLDDocs.Store(0) // reset count since we are exiting early and thus we have no way of knowing the actual count of sites
 								return fmt.Errorf("exiting early for %s with shacl failure %s", url.Loc, shaclErr.ShaclErrorMessage)
 							}
 						} else {
@@ -190,9 +195,13 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				if err != nil {
 					return err
 				}
-			case resp := <-waitResponseChan:
-				if resp.StatusCode != 0 {
-					return fmt.Errorf("container exited with status %d", resp.StatusCode)
+			case exitResp := <-waitResponseChan:
+				err = dockerClient.ContainerRemove(ctx, creationResp.ID, container.RemoveOptions{Force: true})
+				if err != nil {
+					log.Errorf("failed to remove container %s: %v", creationResp.ID, err)
+				}
+				if exitResp.StatusCode != 0 {
+					return fmt.Errorf("container exited with status %d", exitResp.StatusCode)
 				}
 			}
 

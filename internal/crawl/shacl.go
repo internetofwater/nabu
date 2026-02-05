@@ -12,6 +12,8 @@ import (
 	"github.com/internetofwater/nabu/pkg"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/codes"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type ShaclValidationFailureError struct {
@@ -41,4 +43,19 @@ func validate_shacl(ctx context.Context, grpcClient protoBuild.ShaclValidatorCli
 	} else {
 		return nil
 	}
+}
+
+// Given an address, return the gRPC client for SHACL validation
+func NewShaclGrpcClientFromAddr(shaclAddress string) (protoBuild.ShaclValidatorClient, error) {
+	// 32 megabytes is the current upperbound of the jsonld documents we will validate
+	// beyond that is a sign that the document may be too large or incorrectly formatted
+	thirtyTwoMB := 32 * 1024 * 1024
+	conn, err := grpc.NewClient(shaclAddress,
+		grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithMaxHeaderListSize(uint32(thirtyTwoMB)),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to gRPC server: %w", err)
+	}
+	grpcClient := protoBuild.NewShaclValidatorClient(conn)
+	return grpcClient, nil
 }

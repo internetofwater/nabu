@@ -223,9 +223,13 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 
 		url := url_info.NewUrlFromString(dummy_domain)
 		sitemap := Sitemap{URL: []url_info.URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}
+
+		grpc_client, err := NewShaclGrpcClientFromAddr("0.0.0.0:50052")
+		require.NoError(t, err)
+
 		conf, err := NewSitemapHarvestConfig(mockedClient,
 			&sitemap,
-			"0.0.0.0:50052", false, false)
+			grpc_client, false, false)
 		require.NoError(t, err)
 		_, err = harvestOnePID(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
@@ -245,7 +249,11 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 				ContentType: "application/text/plain",
 			},
 		})
-		conf, err := NewSitemapHarvestConfig(mockedClient, &Sitemap{URL: []url_info.URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, "0.0.0.0:50051", false, false)
+
+		grpc_client, err := NewShaclGrpcClientFromAddr("0.0.0.0:50052")
+		require.NoError(t, err)
+
+		conf, err := NewSitemapHarvestConfig(mockedClient, &Sitemap{URL: []url_info.URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, grpc_client, false, false)
 
 		require.NoError(t, err)
 		report, err := harvestOnePID(context.Background(), "DUMMY_SITEMAP", url, &conf)
@@ -268,7 +276,10 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 			},
 		})
 
-		conf, err := NewSitemapHarvestConfig(mockedClient, &Sitemap{URL: []url_info.URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, "0.0.0.0:50051", false, false)
+		grpc_client, err := NewShaclGrpcClientFromAddr("0.0.0.0:50052")
+		require.NoError(t, err)
+
+		conf, err := NewSitemapHarvestConfig(mockedClient, &Sitemap{URL: []url_info.URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, grpc_client, false, false)
 		require.NoError(t, err)
 		report, err := harvestOnePID(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)
@@ -291,7 +302,10 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 			},
 		})
 
-		conf, err := NewSitemapHarvestConfig(mockedClient, &Sitemap{URL: []url_info.URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, "0.0.0.0:50051", true, true)
+		grpc_client, err := NewShaclGrpcClientFromAddr("0.0.0.0:50052")
+		require.NoError(t, err)
+
+		conf, err := NewSitemapHarvestConfig(mockedClient, &Sitemap{URL: []url_info.URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}, grpc_client, true, true)
 		require.NoError(t, err)
 		_, err = harvestOnePID(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.Error(t, err)

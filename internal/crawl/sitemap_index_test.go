@@ -128,7 +128,7 @@ func TestHarvestSitemapIndex(t *testing.T) {
 	sitemap, err := NewSitemap(context.Background(), mockedClient, sitemapUrls.GetUrlList()[0], 1, container.ClientWrapper, "test")
 	require.NoError(t, err)
 
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, "", false, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, false)
 	require.NoError(t, err)
 	_, _, errs := sitemap.Harvest(context.Background(), &config)
 	require.NoError(t, errs)
