@@ -225,7 +225,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 		sitemap := Sitemap{URL: []url_info.URL{url}, storageDestination: &storage.DiscardCrawlStorage{}, workers: 10}
 		conf, err := NewSitemapHarvestConfig(mockedClient,
 			&sitemap,
-			"0.0.0.0:50051", false, false)
+			"0.0.0.0:50052", false, false)
 		require.NoError(t, err)
 		_, err = harvestOnePID(context.Background(), "DUMMY_SITEMAP", url, &conf)
 		require.NoError(t, err)

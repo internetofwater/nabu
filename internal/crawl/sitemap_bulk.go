@@ -10,10 +10,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+	"strings"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/moby/moby/pkg/stdcopy"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/pkg"
@@ -37,26 +41,27 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	for _, url := range s.URL {
 		group.Go(func() error {
 
-			// reader, err := dockerClient.ImagePull(ctx, url.Loc, image.PullOptions{})
-			// if err != nil {
-			// 	return err
-			// }
-			// defer func() { _ = reader.Close() }()
+			docker_image_name := url.Loc
 
-			// read the output to completion to ensure the image is pulled
-			// _, err = io.ReadAll(reader)
-			if err != nil {
-				return err
+			if strings.Contains(docker_image_name, "/") {
+
+				reader, err := dockerClient.ImagePull(ctx, docker_image_name, image.PullOptions{})
+				if err != nil {
+					return err
+				}
+				defer func() { _ = reader.Close() }()
+
+				// read the output to completion to ensure the image is pulled
+				_, err = io.ReadAll(reader)
+				if err != nil {
+					return err
+				}
 			}
 			resp, err := dockerClient.ContainerCreate(
 				ctx,
-				&container.Config{
-					Image: url.Loc,
-				},
-				nil,
-				nil,
-				nil,
-				url.Loc, // optional container name
+				&container.Config{Image: docker_image_name},
+				nil, nil, nil,
+				"", // don't reuse image name as container name
 			)
 			if err != nil {
 				return err
@@ -66,9 +71,9 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				return err
 			}
 
-			waitResponseChan, errChan := dockerClient.ContainerWait(ctx, url.Loc, container.WaitConditionNotRunning)
+			waitResponseChan, errChan := dockerClient.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 
-			logReader, err := dockerClient.ContainerLogs(ctx, url.Loc, container.LogsOptions{
+			logReader, err := dockerClient.ContainerLogs(ctx, resp.ID, container.LogsOptions{
 				ShowStdout: true,
 				ShowStderr: false,
 				Follow:     true,
@@ -76,17 +81,22 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			if err != nil {
 				return err
 			}
+			defer func() { _ = logReader.Close() }()
 
-			// create buffers for stdout/stderr
-			var stdoutBuf, stderrBuf bytes.Buffer
+			piperReader, piperWriter := io.Pipe()
 
-			// demultiplex the stream
-			_, err = stdcopy.StdCopy(&stdoutBuf, &stderrBuf, logReader)
-			if err != nil {
-				return fmt.Errorf("demuxing container logs: %w", err)
-			}
+			// demux Docker stream → pipe (runs concurrently)
+			go func() {
+				_, err = stdcopy.StdCopy(piperWriter, io.Discard, logReader)
+				if err != nil {
+					log.Errorf("error demuxing docker logs: %v", err)
+				}
+				_ = piperWriter.Close()
+			}()
 
-			scanner := bufio.NewScanner(logReader)
+			scanner := bufio.NewScanner(piperReader)
+
+			scanner.Buffer(make([]byte, 1024*64), 1024*1024*10) // 10 MB lines
 
 			for scanner.Scan() {
 				line := scanner.Bytes()
@@ -94,25 +104,18 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 					continue
 				}
 
-				// serialize the line as json
 				var jsonObj map[string]any
 				if err := json.Unmarshal(line, &jsonObj); err != nil {
 					return fmt.Errorf("error unmarshaling line from container logs: %w", err)
 				}
 
-				id := jsonObj["@id"]
-				if id == nil {
-					return fmt.Errorf("missing @id field in JSON-LD document: %s", string(line))
-				}
-
-				idStr, ok := id.(string)
+				idStr, ok := jsonObj["@id"].(string)
 				if !ok {
-					return fmt.Errorf("invalid @id field type in JSON-LD document: %T", id)
+					return fmt.Errorf("missing or invalid @id in JSON-LD: %s", string(line))
 				}
 
 				encodedId := base64.StdEncoding.EncodeToString([]byte(idStr))
 
-				// each line is one JSON-LD document
 				if err := config.storageDestination.StoreWithHash(
 					"summoned/"+encodedId+".jsonld",
 					bytes.NewReader(line),
@@ -133,9 +136,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				}
 			case resp := <-waitResponseChan:
 				if resp.StatusCode != 0 {
-					return fmt.Errorf("container %s exited with status code %d", url.Loc, resp.StatusCode)
-				} else if resp.Error != nil {
-					return fmt.Errorf("container %s exited with error: %s", url.Loc, resp.Error.Message)
+					return fmt.Errorf("container exited with status %d", resp.StatusCode)
 				}
 			}
 
