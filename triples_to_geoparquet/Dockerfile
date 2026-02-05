@@ -18,3 +18,9 @@ RUN cargo build --release || true
 COPY . .
 
 RUN cargo build --release
+
+FROM debian:bookworm-slim AS final
+
+COPY --from=rust-builder /app/target/release/triples_to_geoparquet /usr/local/bin/triples_to_geoparquet
+
+ENTRYPOINT [ "/usr/local/bin/triples_to_geoparquet" ]
