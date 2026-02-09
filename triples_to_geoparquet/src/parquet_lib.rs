@@ -1,12 +1,8 @@
 // Copyright 2026 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use argh::FromArgs;
-use arrow_array::{self, ArrayRef, RecordBatch, builder::StringBuilder};
-use geo_types::{Geometry, Point};
-use geoarrow_array::{GeoArrowArray, builder::GeometryBuilder};
+use arrow_array::{self};
 use geoarrow_schema::GeometryType;
-use wkt::{ToWkt, TryFromWkt};
 
 use arrow_schema::{DataType::Utf8, Field, Schema, SchemaBuilder};
 use geoarrow_schema::GeoArrowType;

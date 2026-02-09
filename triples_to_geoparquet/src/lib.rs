@@ -1,31 +1,10 @@
 // Copyright 2026 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{
-    collections::HashMap,
-    fs::{self, File},
-    io::{BufRead, Read},
-    sync::Arc,
-};
+use std::io::BufRead;
 
-use flate2::read::GzDecoder;
-use log::{debug, error, info};
-use oxttl::NQuadsParser;
-
-use argh::FromArgs;
-use arrow_array::{self, ArrayRef, RecordBatch, builder::StringBuilder};
+use arrow_array::{self};
 use geo_types::{Geometry, Point};
-use geoarrow_array::{GeoArrowArray, builder::GeometryBuilder};
-use geoarrow_schema::GeometryType;
-use wkt::{ToWkt, TryFromWkt};
-
-use arrow_schema::{DataType::Utf8, Field, Schema, SchemaBuilder};
-use geoarrow_schema::GeoArrowType;
-use geoparquet::writer::{GeoParquetRecordBatchEncoder, GeoParquetWriterOptionsBuilder};
-use parquet::arrow::ArrowWriter;
-
-use std::io::BufReader;
-use std::path::Path;
 
 pub mod parquet_lib;
 

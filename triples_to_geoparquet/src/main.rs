@@ -23,11 +23,6 @@ use triples_to_geoparquet::{
 };
 use wkt::{ToWkt, TryFromWkt};
 
-use arrow_schema::{DataType::Utf8, Field, Schema, SchemaBuilder};
-use geoarrow_schema::GeoArrowType;
-use geoparquet::writer::{GeoParquetRecordBatchEncoder, GeoParquetWriterOptionsBuilder};
-use parquet::arrow::ArrowWriter;
-
 use std::io::BufReader;
 use std::path::Path;
 
