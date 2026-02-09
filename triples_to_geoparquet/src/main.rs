@@ -109,13 +109,14 @@ fn main() {
     if triples_path.is_dir() {
         // concatenate all files in directory
         let mut found_data = false;
+
         for entry in fs::read_dir(triples_path).unwrap() {
             let path = entry.unwrap().path();
             let ends_with_gz_or_nq = path.extension().and_then(|e| e.to_str()) == Some("gz")
                 || path.extension().and_then(|e| e.to_str()) == Some("nq");
             if path.is_file() && ends_with_gz_or_nq {
-                process_file(&path);
                 found_data = true;
+                process_file(&path);
             }
         }
         if !found_data {
@@ -143,9 +144,6 @@ mod tests {
 
     #[test]
     fn test_read_triples_into_arrays() {
-        // Minimal valid N-Quads covering the logic paths:
-        // PID --hasGeometry--> skolem node
-        // skolem node --asWKT--> WKT literal
         let nquads = r#"<http://example.org/feature/1> <http://www.opengis.net/ont/geosparql#hasGeometry> _:geom1 .
         _:geom1 <http://www.opengis.net/ont/geosparql#asWKT> "POINT (1 2)"^^<http://www.opengis.net/ont/geosparql#wktLiteral> ."#;
 
@@ -168,5 +166,62 @@ mod tests {
             .expect("ID column should be a StringArray");
 
         assert_eq!(id_array.value(0), "<http://example.org/feature/1>");
+    }
+
+    #[test]
+    fn test_invalid_wkt() {
+        let nquads = r#"<http://example.org/feature/1> <http://www.opengis.net/ont/geosparql#hasGeometry> _:geom1 .
+        _:geom1 <http://www.opengis.net/ont/geosparql#asWKT> "POINT (1)"<http://www.opengis.net/ont/geosparql#wktLiteral> ."#;
+
+        let reader = Cursor::new(nquads);
+
+        let arrays = read_triples_into_arrays(reader);
+
+        assert!(arrays.is_err());
+    }
+
+    #[test]
+    fn test_triples_with_both_gsp_and_schema_geo() {
+        let nquads = r#"<http://example.org/feature/1> <http://www.opengis.net/ont/geosparql#hasGeometry> _:geom1 .
+        _:geom1 <http://www.opengis.net/ont/geosparql#asWKT> "POINT (2 1)"^^<http://www.opengis.net/ont/geosparql#wktLiteral> .
+        <http://example.org/feature/1> <https://schema.org/geo> _:schema1 .
+        _:schema1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/GeoCoordinates> .
+        _:schema1 <https://schema.org/latitude> "1.0"^^<http://www.w3.org/2001/XMLSchema#double> .
+        _:schema1 <https://schema.org/longitude> "2.0"^^<http://www.w3.org/2001/XMLSchema#double> .
+        "#;
+
+        let reader = Cursor::new(nquads);
+
+        let arrays =
+            read_triples_into_arrays(reader).expect("Expected triples to be parsed successfully");
+
+        assert_eq!(arrays.len(), 2, "Expected two columns, geometry and id");
+
+        let geometry_array = &arrays[0];
+
+        assert_eq!(geometry_array.len(), 1);
+    }
+
+    #[test]
+    fn ensure_failure_if_gsp_doesnt_match_schema_geo() {
+        let nquads = r#"<http://example.org/feature/1> <http://www.opengis.net/ont/geosparql#hasGeometry> _:geom1 .
+        _:geom1 <http://www.opengis.net/ont/geosparql#asWKT> "POINT (2 1)"^^<http://www.opengis.net/ont/geosparql#wktLiteral> .
+        <http://example.org/feature/1> <https://schema.org/geo> _:schema1 .
+        _:schema1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/GeoCoordinates> .
+        _:schema1 <https://schema.org/latitude> "9999999999.0"^^<http://www.w3.org/2001/XMLSchema#double> .
+        _:schema1 <https://schema.org/longitude> "2.0"^^<http://www.w3.org/2001/XMLSchema#double> .
+        "#;
+
+        let reader = Cursor::new(nquads);
+
+        let arrays = read_triples_into_arrays(reader);
+
+        let err_msg = arrays.unwrap_err().to_string();
+        assert_eq!(
+            err_msg.contains("does not match schema geo skolemization id"),
+            true,
+            "{}",
+            err_msg
+        );
     }
 }

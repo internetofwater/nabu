@@ -23,9 +23,7 @@ fn parse_wkt_from_triple_string(triple_node: &str) -> Result<Geometry, Box<dyn s
 
     debug!("Parsed WKT: {}", part.to_string());
 
-    let geometry = Geometry::try_from_wkt_str(&part.to_string())?;
-
-    Ok(geometry)
+    Ok(Geometry::try_from_wkt_str(&part.to_string())?)
 }
 
 pub fn read_triples_into_maps<R: BufRead>(
@@ -165,8 +163,8 @@ pub fn combine_geometry_representations(
             }
             None => {
                 return Err(format!(
-                    "Could not find geometry for geosparql skolemization id {} for pid {}",
-                    geosparql_skolemization_id, pid
+                    "Could not find geosparql geometry for pid {} with id {}",
+                    pid, geosparql_skolemization_id
                 )
                 .into());
             }
@@ -196,7 +194,7 @@ pub fn combine_geometry_representations(
                 pid_to_canonical_geometry.insert(pid, Geometry::Point(point_geometry.clone()));
             }
             None => {
-                error!(
+                debug!(
                     "No schema:geo geometry for pid {} with skolemization id {}",
                     pid, schema_geo_skolemization_id
                 )
@@ -211,7 +209,7 @@ pub fn combine_geometry_representations(
 mod tests {
     use geo_types::{Geometry, Point};
 
-    use std::{collections::HashMap};
+    use std::collections::HashMap;
 
     use crate::triples_lib::{HashMaps, combine_geometry_representations};
 
