@@ -8,19 +8,16 @@ use std::{
 };
 
 use flate2::read::GzDecoder;
-use log::{debug, error, info};
+use log::{error, info};
 
 use argh::FromArgs;
 use arrow_array::{self, ArrayRef, RecordBatch, builder::StringBuilder};
-use geo_types::{Geometry, Point};
 use geoarrow_array::{GeoArrowArray, builder::GeometryBuilder};
 use geoarrow_schema::GeometryType;
 use triples_to_geoparquet::{
-    f64_from_triple_term, generally_equal,
     parquet_lib::{generate_schema, new_parquet_creator},
     triples_lib::{combine_geometry_representations, read_triples_into_maps},
 };
-use wkt::{ToWkt, TryFromWkt};
 
 use std::io::BufReader;
 use std::path::Path;

@@ -1,22 +1,13 @@
 // Copyright 2026 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{
-    collections::HashMap,
-    fs::{self, File},
-    io::{BufRead, Read},
-    sync::Arc,
-};
+use std::{collections::HashMap, io::BufRead};
 
-use flate2::read::GzDecoder;
-use log::{debug, error, info};
+use log::debug;
 use oxttl::NQuadsParser;
 
-use argh::FromArgs;
-use arrow_array::{self, ArrayRef, RecordBatch, builder::StringBuilder};
+use arrow_array::{self};
 use geo_types::{Geometry, Point};
-use geoarrow_array::{GeoArrowArray, builder::GeometryBuilder};
-use geoarrow_schema::GeometryType;
 use wkt::{ToWkt, TryFromWkt};
 
 use crate::{f64_from_triple_term, generally_equal};
