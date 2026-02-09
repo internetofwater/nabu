@@ -1,11 +1,15 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{collections::HashMap, fs::{self, File}, io::{BufRead, Read}, sync::Arc};
+use std::{
+    collections::HashMap,
+    fs::{self, File},
+    io::{BufRead, Read},
+    sync::Arc,
+};
 
 use flate2::read::GzDecoder;
 use log::{debug, error, info};
-use oxrdf::Term;
 use oxttl::NQuadsParser;
 
 use argh::FromArgs;
@@ -13,6 +17,10 @@ use arrow_array::{self, ArrayRef, RecordBatch, builder::StringBuilder};
 use geo_types::{Geometry, Point};
 use geoarrow_array::{GeoArrowArray, builder::GeometryBuilder};
 use geoarrow_schema::GeometryType;
+use triples_to_geoparquet::{
+    f64_from_triple_term, generally_equal,
+    parquet_lib::{generate_schema, new_parquet_creator},
+};
 use wkt::{ToWkt, TryFromWkt};
 
 use arrow_schema::{DataType::Utf8, Field, Schema, SchemaBuilder};
@@ -20,75 +28,10 @@ use geoarrow_schema::GeoArrowType;
 use geoparquet::writer::{GeoParquetRecordBatchEncoder, GeoParquetWriterOptionsBuilder};
 use parquet::arrow::ArrowWriter;
 
-use std::io::{BufReader};
+use std::io::BufReader;
 use std::path::Path;
 
-const GEOMETRY_COLUMN_NAME: &str = "geometry";
-
 const UKNOWN_POINT_COORD: f64 = -1.0;
-
-#[cfg(test)]
-mod tests;
-
-pub fn new_parquet_creator(
-    schema: &Schema,
-    file_name: &str,
-) -> (GeoParquetRecordBatchEncoder, ArrowWriter<std::fs::File>) {
-    let options = GeoParquetWriterOptionsBuilder::default()
-        .set_primary_column(GEOMETRY_COLUMN_NAME.to_string())
-        .build();
-
-    let gpq_encoder = GeoParquetRecordBatchEncoder::try_new(schema, &options).unwrap();
-
-    let output_file = std::fs::File::create(file_name).unwrap();
-    let parquet_writer =
-        ArrowWriter::try_new(output_file, gpq_encoder.target_schema(), None).unwrap();
-
-    (gpq_encoder, parquet_writer)
-}
-
-fn generate_schema() -> Schema {
-    let mut schema_builder = SchemaBuilder::new();
-
-    let geoarrow_type = GeoArrowType::Geometry(GeometryType::default());
-
-    let geometry_field = geoarrow_type.to_field(GEOMETRY_COLUMN_NAME, false);
-    schema_builder.push(geometry_field);
-
-    let geoconnex_pid = Field::new("id", Utf8, false);
-    schema_builder.push(geoconnex_pid);
-
-    schema_builder.finish()
-}
-
-/// Check if two geometries are equal with some tolerance (for floating point errors, etc)
-fn generally_equal(geom1: &Geometry, geom2: &Point) -> bool {
-    match geom1 {
-        Geometry::Point(point) => {
-            let x_equal = (geom2.x() - point.x()).abs() < 0.001;
-            let y_equal = (geom2.y() - point.y()).abs() < 0.001;
-            x_equal && y_equal
-        }
-        _ => false
-    }
-}
-
-fn f64_from_triple_term(data: &Term) -> Result<f64, Box<dyn std::error::Error>> {
-    let binding = data.to_string();
-
-    let literal = binding.split("^^").next().unwrap().trim_matches('"');
-
-    let mut parts = literal.split('E');
-    let base: f64 = parts.next().unwrap().parse()?;
-
-    match parts.next() {
-        Some(exp_str) => {
-            let exp: i32 = exp_str.parse()?;
-            Ok(base * 10_f64.powi(exp))
-        }
-        None => Ok(base),
-    }
-}
 
 /// Given info for both the geosparql and schema geo representations of a geometry,
 /// combine them into a single canonical representation for each pid and return
@@ -131,7 +74,7 @@ pub fn combine_geometry_representations(
                                 pid, gsp_geometry.to_wkt(), schema_geo_skolemization_id, point_geometry.to_wkt()
                             ).into());
                     }
-                } 
+                }
                 pid_to_canonical_geometry.insert(pid, Geometry::Point(point_geometry.clone()));
             }
             None => {
@@ -196,13 +139,13 @@ fn read_triples_into_arrays<R: BufRead>(
                         (UKNOWN_POINT_COORD, y) => {
                             schema_geo_skolemization_id_to_geometry.insert(
                                 subject.to_string(),
-                                Point::new(f64_from_triple_term(&object)?, y),
+                                Point::new(f64_from_triple_term(&object.to_string())?, y),
                             );
                         }
                         (x, UKNOWN_POINT_COORD) => {
                             schema_geo_skolemization_id_to_geometry.insert(
                                 subject.to_string(),
-                                Point::new(x, f64_from_triple_term(&object)?),
+                                Point::new(x, f64_from_triple_term(&object.to_string())?),
                             );
                         }
                         (_, _) => {
@@ -214,13 +157,19 @@ fn read_triples_into_arrays<R: BufRead>(
                             "<https://schema.org/latitude>" => {
                                 schema_geo_skolemization_id_to_geometry.insert(
                                     subject.to_string(),
-                                    Point::new(UKNOWN_POINT_COORD, f64_from_triple_term(&object)?),
+                                    Point::new(
+                                        UKNOWN_POINT_COORD,
+                                        f64_from_triple_term(&object.to_string())?,
+                                    ),
                                 );
                             }
                             "<https://schema.org/longitude>" => {
                                 schema_geo_skolemization_id_to_geometry.insert(
                                     subject.to_owned().to_string(),
-                                    Point::new(f64_from_triple_term(&object)?, UKNOWN_POINT_COORD),
+                                    Point::new(
+                                        f64_from_triple_term(&object.to_string())?,
+                                        UKNOWN_POINT_COORD,
+                                    ),
                                 );
                             }
                             // skip other predicates unrelated to schema geo
@@ -292,7 +241,6 @@ struct TriplesToGeoparquetArgs {
     log_level: log::Level,
 }
 
-
 fn open_triples_reader(path: &Path) -> Box<dyn Read> {
     let file = File::open(path).unwrap();
 
@@ -341,7 +289,8 @@ fn main() {
         let mut found_data = false;
         for entry in fs::read_dir(triples_path).unwrap() {
             let path = entry.unwrap().path();
-            let ends_with_gz_or_nq = path.extension().and_then(|e| e.to_str()) == Some("gz") || path.extension().and_then(|e| e.to_str()) == Some("nq");
+            let ends_with_gz_or_nq = path.extension().and_then(|e| e.to_str()) == Some("gz")
+                || path.extension().and_then(|e| e.to_str()) == Some("nq");
             if path.is_file() && ends_with_gz_or_nq {
                 process_file(&path);
                 found_data = true;
@@ -349,7 +298,7 @@ fn main() {
         }
         if !found_data {
             error!("No data found in directory '{}'", triples_path.display());
-            return
+            return;
         }
     } else {
         // single file
