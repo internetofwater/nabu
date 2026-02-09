@@ -3,7 +3,6 @@
 
 use std::io::BufRead;
 
-use arrow_array::{self};
 use geo_types::{Geometry, Point};
 
 pub mod parquet_lib;

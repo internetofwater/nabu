@@ -1,7 +1,6 @@
 // Copyright 2026 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use arrow_array::{self};
 use geoarrow_schema::GeometryType;
 
 use arrow_schema::{DataType::Utf8, Field, Schema, SchemaBuilder};
