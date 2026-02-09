@@ -6,7 +6,6 @@ use std::{collections::HashMap, io::BufRead};
 use log::debug;
 use oxttl::NQuadsParser;
 
-use arrow_array::{self};
 use geo_types::{Geometry, Point};
 use wkt::{ToWkt, TryFromWkt};
 

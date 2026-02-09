@@ -10,6 +10,8 @@ use parquet::arrow::ArrowWriter;
 
 const GEOMETRY_COLUMN_NAME: &str = "geometry";
 
+/// Given an arrow schema and the output file name, generate the writer and encoder
+/// for creating a geoparquet file
 pub fn new_parquet_creator(
     schema: &Schema,
     file_name: &str,
@@ -27,6 +29,9 @@ pub fn new_parquet_creator(
     (gpq_encoder, parquet_writer)
 }
 
+/// Generate a schema for the geoconnex geoparquet file
+/// which contains the following columns: 
+/// id, geometry
 pub fn generate_schema() -> Schema {
     let mut schema_builder = SchemaBuilder::new();
 

@@ -1507,7 +1507,6 @@ dependencies = [
  "oxrdf",
  "oxttl",
  "parquet",
- "regex",
  "wkt",
 ]
 

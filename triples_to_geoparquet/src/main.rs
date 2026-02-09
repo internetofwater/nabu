@@ -22,6 +22,7 @@ use triples_to_geoparquet::{
 use std::io::BufReader;
 use std::path::Path;
 
+/// Given a reader of triples, read them into arrow arrays
 fn read_triples_into_arrays<R: BufRead>(
     triples_reader: R,
 ) -> Result<Vec<ArrayRef>, Box<dyn std::error::Error>> {
