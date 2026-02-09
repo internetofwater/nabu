@@ -1,0 +1,32 @@
+<https://geoconnex.us/ref/gages/1054687> <http://www.opengis.net/ont/geosparql#hasGeometry> _:b0 .
+<https://geoconnex.us/ref/gages/1054687> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.opengis.net/def/schema/hy_features/hyf/HY_HydroLocation> .
+<https://geoconnex.us/ref/gages/1054687> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.opengis.net/def/schema/hy_features/hyf/HY_HydrometricFeature> .
+<https://geoconnex.us/ref/gages/1054687> <https://schema.org/description> "USGS NWIS Stream/River/Lake Site USGS-03424850: HICKMAN CREEK AT CARTHAGE JUNCTION, TENN" .
+<https://geoconnex.us/ref/gages/1054687> <https://schema.org/geo> _:b1 .
+<https://geoconnex.us/ref/gages/1054687> <https://schema.org/name> "HICKMAN CREEK AT CARTHAGE JUNCTION, TENN" .
+<https://geoconnex.us/ref/gages/1054687> <https://schema.org/provider> "https://waterdata.usgs.gov" .
+<https://geoconnex.us/ref/gages/1054687> <https://schema.org/subjectOf> _:b2 .
+<https://geoconnex.us/ref/gages/1054687> <https://www.opengis.net/def/schema/hy_features/hyf/HY_HydroLocationType> "hydrometricStation" .
+<https://geoconnex.us/ref/gages/1054687> <https://www.opengis.net/def/schema/hy_features/hyf/referencedPosition> _:b4 .
+<https://geoconnex.us/ref/gages/1054687> <https://www.opengis.net/def/schema/hy_features/hyf/referencedPosition> _:b9 .
+_:b0 <http://www.opengis.net/ont/geosparql#asWKT> "POINT (-85.90943150660475 36.16727723636822)"^^<http://www.opengis.net/ont/geosparql#wktLiteral> .
+_:b0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.opengis.net/ont/sf#Point> .
+_:b1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <schema:GeoCoordinates> .
+_:b1 <schema:latitude> "3.616727723636822E1"^^<http://www.w3.org/2001/XMLSchema#double> .
+_:b1 <schema:longitude> "-8.590943150660475E1"^^<http://www.w3.org/2001/XMLSchema#double> .
+_:b10 <https://www.opengis.net/def/schema/hy_features/hyf/linearElement> <https://geoconnex.us/ref/mainstems/489048> .
+_:b2 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/Dataset> .
+_:b2 <https://schema.org/name> "USGS NWIS Stream/River/Lake Site USGS-03424850: HICKMAN CREEK AT CARTHAGE JUNCTION, TENN" .
+_:b2 <https://schema.org/provider> _:b3 .
+_:b2 <https://schema.org/url> "https://waterdata.usgs.gov/monitoring-location/USGS-03424850" .
+_:b3 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/GovernmentOrganization> .
+_:b3 <https://schema.org/name> "USGS" .
+_:b3 <https://schema.org/url> "https://waterdata.usgs.gov" .
+_:b4 <https://www.opengis.net/def/schema/hy_features/hyf/HY_IndirectPosition> _:b5 .
+_:b5 <https://www.opengis.net/def/schema/hy_features/hyf/distanceDescription> _:b6 .
+_:b5 <https://www.opengis.net/def/schema/hy_features/hyf/distanceExpression> _:b7 .
+_:b5 <https://www.opengis.net/def/schema/hy_features/hyf/linearElement> <https://geoconnex.us/nhdplusv2/reachcode/05130108000006> .
+_:b6 <https://www.opengis.net/def/schema/hy_features/hyf/HY_DistanceDescription> "upstream" .
+_:b7 <https://www.opengis.net/def/schema/hy_features/hyf/HY_DistanceFromReferent> _:b8 .
+_:b8 <https://www.opengis.net/def/schema/hy_features/hyf/interpolative> "3.97942E1"^^<http://www.w3.org/2001/XMLSchema#double> .
+_:b9 <https://www.opengis.net/def/schema/hy_features/hyf/HY_IndirectPosition> _:b10 .
