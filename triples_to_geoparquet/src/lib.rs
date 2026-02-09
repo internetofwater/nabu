@@ -40,14 +40,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn simple() {
+    fn test_simple() {
         let data = "\"1.0\"^^<http://www.w3.org/2001/XMLSchema#double>";
         assert_eq!(f64_from_triple_term(data).unwrap(), 1.0);
     }
 
     #[test]
-    fn exponent() {
+    fn test_exponent() {
         let data = "\"1.0E1\"^^<http://www.w3.org/2001/XMLSchema#double>";
         assert_eq!(f64_from_triple_term(data).unwrap(), 10.0);
+    }
+
+    #[test]
+    fn test_generally_equal() {
+        let geom1 = Geometry::Point(Point::new(1.0, 2.0));
+        let geom2 = Point::new(1.0, 2.0);
+        assert!(generally_equal(&geom1, &geom2));
+
+        let geom1 = Geometry::Point(Point::new(1.0, 2.0));
+        let geom2 = Point::new(1.0, 2.00001);
+        assert!(generally_equal(&geom1, &geom2));
+
+        let geom1 = Geometry::Point(Point::new(1.0, 2.0));
+        let geom2 = Point::new(1.00001, 2.0);
+        assert!(generally_equal(&geom1, &geom2));
+
+        let geom1 = Geometry::Point(Point::new(1.0, 2.0));
+        let geom2 = Point::new(1.00001, 2.00001);
+        assert!(generally_equal(&geom1, &geom2));
+
+        let geom1 = Geometry::Point(Point::new(1.0, 2.0));
+        let geom2 = Point::new(1.10, 2.00002);
+        assert!(!generally_equal(&geom1, &geom2));
     }
 }
