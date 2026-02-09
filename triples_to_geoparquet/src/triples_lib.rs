@@ -3,7 +3,7 @@
 
 use std::{collections::HashMap, io::BufRead};
 
-use log::{debug, error};
+use log::debug;
 use oxttl::NQuadsParser;
 
 use geo_types::{Geometry, Point};
@@ -48,14 +48,14 @@ pub fn read_triples_into_maps<R: BufRead>(
         let predicate_str = predicate.to_string();
         match predicate_str.clone().as_str() {
             "<http://www.opengis.net/ont/geosparql#hasGeometry>" => {
-                debug!("Found geometry: {}", object.to_owned().to_string());
+                debug!("Found gsp geometry: {}", object.to_owned().to_string());
                 pid_to_geosparql_skolemization_id.insert(
                     subject.to_owned().to_string(),
                     object.to_owned().to_string(),
                 );
             }
             "<https://schema.org/geo>" => {
-                debug!("Found geometry: {}", object.to_owned().to_string());
+                debug!("Found schema geometry: {}", object.to_owned().to_string());
                 pid_to_schema_geo_skolemization_id.insert(
                     subject.to_owned().to_string(),
                     object.to_owned().to_string(),
@@ -178,6 +178,16 @@ pub fn combine_geometry_representations(
             .get(&schema_geo_skolemization_id)
         {
             Some(point_geometry) => {
+                if point_geometry.x() == UKNOWN_POINT_COORD
+                    || point_geometry.y() == UKNOWN_POINT_COORD
+                {
+                    return Err(format!(
+                        "Found a point with unknown coords for pid {} with skolemization id {}",
+                        pid, schema_geo_skolemization_id
+                    )
+                    .into());
+                }
+
                 if let Some(gsp_geometry) = pid_to_canonical_geometry.get(&pid) {
                     debug!(
                         "Found gsp geometry for pid {}: {}",
