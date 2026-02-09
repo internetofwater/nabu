@@ -5,7 +5,7 @@ use std::{collections::HashMap, io::BufRead};
 
 use log::debug;
 use oxttl::NQuadsParser;
-
+use geo::HasDimensions;
 use geo_types::{Geometry, Point};
 use wkt::{ToWkt, TryFromWkt};
 
@@ -15,7 +15,7 @@ fn parse_wkt_from_triple_string(triple_node: &str) -> Result<Geometry, Box<dyn s
     let part = triple_node
         .splitn(2, "^^")
         .next()
-        .ok_or(format!("Invalid WKT string: {}", triple_node))?
+        .ok_or(format!("Invalid WKT string; couldn't find ^^ to split on: {}", triple_node))?
         .strip_prefix('"')
         .ok_or(format!("Invalid WKT string: {}", triple_node))?
         .strip_suffix('"')
@@ -23,8 +23,16 @@ fn parse_wkt_from_triple_string(triple_node: &str) -> Result<Geometry, Box<dyn s
 
     debug!("Parsed WKT: {}", part.to_string());
 
-    Ok(Geometry::try_from_wkt_str(&part.to_string())?)
+    let geometry = Geometry::try_from_wkt_str(&part.to_string())?;
+
+    return match geometry.is_empty() {
+        true => {
+            Err(format!("Empty WKT string: {}", triple_node).into())
+        }
+        false => Ok(geometry),
+    }
 }
+
 
 pub fn read_triples_into_maps<R: BufRead>(
     triples_reader: R,
@@ -246,5 +254,15 @@ mod tests {
 
         let result = combine_geometry_representations(maps);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_wkt() {
+        let result = crate::triples_lib::parse_wkt_from_triple_string(r#""POINT (2 1)"^^<http://www.opengis.net/ont/geosparql#wktLiteral>"#);
+        assert_eq!(result.is_ok(), true, "{:?}", result);
+
+        let result = crate::triples_lib::parse_wkt_from_triple_string(r#""POINT EMPTY"^^<http://www.opengis.net/ont/geosparql#wktLiteral>"#);
+        let err = result.unwrap_err();
+        assert_eq!(err.to_string().contains("Empty WKT string"), true, "{:?}", err);
     }
 }
