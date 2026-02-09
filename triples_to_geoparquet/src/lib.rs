@@ -1,11 +1,10 @@
 // Copyright 2026 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use std::io::BufRead;
-
 use geo_types::{Geometry, Point};
 
 pub mod parquet_lib;
+pub mod triples_lib;
 
 /// Given a triple term, return the value as a f64
 pub fn f64_from_triple_term(data: &str) -> Result<f64, Box<dyn std::error::Error>> {
