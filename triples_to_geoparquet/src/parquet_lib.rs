@@ -43,5 +43,8 @@ pub fn generate_schema() -> Schema {
     let geoconnex_pid = Field::new("id", Utf8, false);
     schema_builder.push(geoconnex_pid);
 
+    let geoconnex_sitemap = Field::new("geoconnex_sitemap", Utf8, false);
+    schema_builder.push(geoconnex_sitemap);
+
     schema_builder.finish()
 }

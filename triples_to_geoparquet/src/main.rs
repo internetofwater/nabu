@@ -24,26 +24,37 @@ use std::path::Path;
 
 /// Given a reader of triples, read them into arrow arrays
 fn read_triples_into_arrays<R: BufRead>(
-    triples_reader: R,
+    triples_reader: R, sitemap_name: &str
 ) -> Result<Vec<ArrayRef>, Box<dyn std::error::Error>> {
     let hashmaps = read_triples_into_maps(triples_reader)?;
 
     let pid_to_geometry = combine_geometry_representations(hashmaps)?;
 
-    let mut string_builder = StringBuilder::new();
+    let mut id_builder = StringBuilder::new();
     let mut geometry_builder = GeometryBuilder::new(GeometryType::default());
+    let mut sitemap_builder = StringBuilder::new();
+
+    let binding = sitemap_name.to_string();
+    let sitemap_name = binding.trim_end_matches(".gz").trim_end_matches("_release.nq");
 
     for (pid, geometry) in pid_to_geometry {
         geometry_builder.push_geometry(Some(&geometry))?;
-        string_builder.append_value(&pid);
+
+        let pid = pid.trim_matches('<').trim_matches('>');
+        id_builder.append_value(&pid);
+
+
+        sitemap_builder.append_value(sitemap_name);
     }
 
-    let string_array = string_builder.finish();
+    let string_array = id_builder.finish();
     let geometry_array = geometry_builder.finish();
+    let sitemap_array = sitemap_builder.finish();
 
     Ok(vec![
         geometry_array.to_array_ref(),
         Arc::new(string_array) as ArrayRef,
+        Arc::new(sitemap_array) as ArrayRef,
     ])
 }
 
@@ -91,7 +102,7 @@ fn main() {
         let reader = open_triples_reader(path);
         let buf_reader = BufReader::new(reader);
 
-        let arrays = match read_triples_into_arrays(buf_reader) {
+        let arrays = match read_triples_into_arrays(buf_reader, path.file_name().unwrap().to_str().unwrap()) {
             Ok(arrays) => arrays,
             Err(err) => {
                 error!("Error reading {}: {}", path.display(), err);
