@@ -24,26 +24,37 @@ use std::path::Path;
 
 /// Given a reader of triples, read them into arrow arrays
 fn read_triples_into_arrays<R: BufRead>(
-    triples_reader: R,
+    triples_reader: R, sitemap_name: &str
 ) -> Result<Vec<ArrayRef>, Box<dyn std::error::Error>> {
     let hashmaps = read_triples_into_maps(triples_reader)?;
 
     let pid_to_geometry = combine_geometry_representations(hashmaps)?;
 
-    let mut string_builder = StringBuilder::new();
+    let mut id_builder = StringBuilder::new();
     let mut geometry_builder = GeometryBuilder::new(GeometryType::default());
+    let mut sitemap_builder = StringBuilder::new();
+
+    let binding = sitemap_name.to_string();
+    let sitemap_name = binding.trim_end_matches(".gz").trim_end_matches("_release.nq");
 
     for (pid, geometry) in pid_to_geometry {
         geometry_builder.push_geometry(Some(&geometry))?;
-        string_builder.append_value(&pid);
+
+        let pid = pid.trim_matches('<').trim_matches('>');
+        id_builder.append_value(&pid);
+
+
+        sitemap_builder.append_value(sitemap_name);
     }
 
-    let string_array = string_builder.finish();
+    let string_array = id_builder.finish();
     let geometry_array = geometry_builder.finish();
+    let sitemap_array = sitemap_builder.finish();
 
     Ok(vec![
         geometry_array.to_array_ref(),
         Arc::new(string_array) as ArrayRef,
+        Arc::new(sitemap_array) as ArrayRef,
     ])
 }
 
@@ -88,11 +99,10 @@ fn main() {
 
     // Helper to process a single file and append to writer
     let mut process_file = |path: &Path| {
-        info!("Processing {}", path.display());
         let reader = open_triples_reader(path);
         let buf_reader = BufReader::new(reader);
 
-        let arrays = match read_triples_into_arrays(buf_reader) {
+        let arrays = match read_triples_into_arrays(buf_reader, path.file_name().unwrap().to_str().unwrap()) {
             Ok(arrays) => arrays,
             Err(err) => {
                 error!("Error reading {}: {}", path.display(), err);
@@ -107,14 +117,21 @@ fn main() {
     };
 
     if triples_path.is_dir() {
-        // concatenate all files in directory
         let mut found_data = false;
 
-        for entry in fs::read_dir(triples_path).unwrap() {
-            let path = entry.unwrap().path();
+        // convert files to a vector so we know what index
+        // we are for progress logging
+        let all_files: Vec<_> = fs::read_dir(triples_path)
+            .unwrap()
+            .map(|res| res.unwrap())
+            .collect();
+
+        for (index, entry) in all_files.iter().enumerate()  {
+            let path = entry.path();
             let ends_with_gz_or_nq = path.extension().and_then(|e| e.to_str()) == Some("gz")
                 || path.extension().and_then(|e| e.to_str()) == Some("nq");
             if path.is_file() && ends_with_gz_or_nq {
+                info!("Processing {}, {}/{}", path.display(), index+1, all_files.len());
                 found_data = true;
                 process_file(&path);
             }
@@ -125,6 +142,7 @@ fn main() {
         }
     } else {
         // single file
+        info!("Processing {}", triples_path.display());
         process_file(triples_path);
     }
 
@@ -133,7 +151,7 @@ fn main() {
     parquet_writer.append_key_value_metadata(kv_metadata);
     parquet_writer.finish().unwrap();
 
-    info!("Parquet file written to {}", args.output);
+    info!("Finished converting to geoparquet. File written to {}", args.output);
 }
 
 #[cfg(test)]
@@ -150,9 +168,9 @@ mod tests {
         let reader = Cursor::new(nquads);
 
         let arrays =
-            read_triples_into_arrays(reader).expect("Expected triples to be parsed successfully");
+            read_triples_into_arrays(reader, "test").expect("Expected triples to be parsed successfully");
 
-        assert_eq!(arrays.len(), 2, "Expected two columns, geometry and id");
+        assert_eq!(arrays.len(), 3, "Expected 3 columns, geometry, sitemap, and id");
 
         let geometry_array = &arrays[0];
         let id_array = &arrays[1];
@@ -165,7 +183,7 @@ mod tests {
             .downcast_ref::<arrow_array::StringArray>()
             .expect("ID column should be a StringArray");
 
-        assert_eq!(id_array.value(0), "<http://example.org/feature/1>");
+        assert_eq!(id_array.value(0), "http://example.org/feature/1");
     }
 
     #[test]
@@ -175,7 +193,7 @@ mod tests {
 
         let reader = Cursor::new(nquads);
 
-        let arrays = read_triples_into_arrays(reader);
+        let arrays = read_triples_into_arrays(reader, "test");
 
         assert!(arrays.is_err());
     }
@@ -193,9 +211,9 @@ mod tests {
         let reader = Cursor::new(nquads);
 
         let arrays =
-            read_triples_into_arrays(reader).expect("Expected triples to be parsed successfully");
+            read_triples_into_arrays(reader, "test").expect("Expected triples to be parsed successfully");
 
-        assert_eq!(arrays.len(), 2, "Expected two columns, geometry and id");
+        assert_eq!(arrays.len(), 3, "Expected 3 columns, geometry, sitemap, and id");
 
         let geometry_array = &arrays[0];
 
@@ -214,7 +232,7 @@ mod tests {
 
         let reader = Cursor::new(nquads);
 
-        let arrays = read_triples_into_arrays(reader);
+        let arrays = read_triples_into_arrays(reader, "test");
 
         let err_msg = arrays.unwrap_err().to_string();
         assert_eq!(
