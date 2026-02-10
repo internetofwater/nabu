@@ -88,7 +88,6 @@ fn main() {
 
     // Helper to process a single file and append to writer
     let mut process_file = |path: &Path| {
-        info!("Processing {}", path.display());
         let reader = open_triples_reader(path);
         let buf_reader = BufReader::new(reader);
 
@@ -107,14 +106,21 @@ fn main() {
     };
 
     if triples_path.is_dir() {
-        // concatenate all files in directory
         let mut found_data = false;
 
-        for entry in fs::read_dir(triples_path).unwrap() {
-            let path = entry.unwrap().path();
+        // convert files to a vector so we know what index
+        // we are for progress logging
+        let all_files: Vec<_> = fs::read_dir(triples_path)
+            .unwrap()
+            .map(|res| res.unwrap())
+            .collect();
+
+        for (index, entry) in all_files.iter().enumerate()  {
+            let path = entry.path();
             let ends_with_gz_or_nq = path.extension().and_then(|e| e.to_str()) == Some("gz")
                 || path.extension().and_then(|e| e.to_str()) == Some("nq");
             if path.is_file() && ends_with_gz_or_nq {
+                info!("Processing {}, {}/{}", path.display(), index+1, all_files.len());
                 found_data = true;
                 process_file(&path);
             }
@@ -125,6 +131,7 @@ fn main() {
         }
     } else {
         // single file
+        info!("Processing {}", triples_path.display());
         process_file(triples_path);
     }
 
@@ -133,7 +140,7 @@ fn main() {
     parquet_writer.append_key_value_metadata(kv_metadata);
     parquet_writer.finish().unwrap();
 
-    info!("Parquet file written to {}", args.output);
+    info!("Finished converting to geoparquet. File written to {}", args.output);
 }
 
 #[cfg(test)]
