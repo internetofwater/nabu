@@ -168,9 +168,9 @@ mod tests {
         let reader = Cursor::new(nquads);
 
         let arrays =
-            read_triples_into_arrays(reader).expect("Expected triples to be parsed successfully");
+            read_triples_into_arrays(reader, "test").expect("Expected triples to be parsed successfully");
 
-        assert_eq!(arrays.len(), 2, "Expected two columns, geometry and id");
+        assert_eq!(arrays.len(), 3, "Expected 3 columns, geometry, sitemap, and id");
 
         let geometry_array = &arrays[0];
         let id_array = &arrays[1];
@@ -183,7 +183,7 @@ mod tests {
             .downcast_ref::<arrow_array::StringArray>()
             .expect("ID column should be a StringArray");
 
-        assert_eq!(id_array.value(0), "<http://example.org/feature/1>");
+        assert_eq!(id_array.value(0), "http://example.org/feature/1");
     }
 
     #[test]
@@ -193,7 +193,7 @@ mod tests {
 
         let reader = Cursor::new(nquads);
 
-        let arrays = read_triples_into_arrays(reader);
+        let arrays = read_triples_into_arrays(reader, "test");
 
         assert!(arrays.is_err());
     }
@@ -211,9 +211,9 @@ mod tests {
         let reader = Cursor::new(nquads);
 
         let arrays =
-            read_triples_into_arrays(reader).expect("Expected triples to be parsed successfully");
+            read_triples_into_arrays(reader, "test").expect("Expected triples to be parsed successfully");
 
-        assert_eq!(arrays.len(), 2, "Expected two columns, geometry and id");
+        assert_eq!(arrays.len(), 3, "Expected 3 columns, geometry, sitemap, and id");
 
         let geometry_array = &arrays[0];
 
@@ -232,7 +232,7 @@ mod tests {
 
         let reader = Cursor::new(nquads);
 
-        let arrays = read_triples_into_arrays(reader);
+        let arrays = read_triples_into_arrays(reader, "test");
 
         let err_msg = arrays.unwrap_err().to_string();
         assert_eq!(
