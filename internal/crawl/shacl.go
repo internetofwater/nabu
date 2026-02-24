@@ -50,7 +50,7 @@ func NewShaclGrpcClientFromAddr(shaclAddress string) (protoBuild.ShaclValidatorC
 	// if the default string is provided, i.e. "" that means that the struct that
 	// created it was also empty, so we skip creating the client
 	if shaclAddress == "" {
-		log.Warn("empty address passed to shacl client constructor. Skipping...")
+		log.Warn("empty address passed to shacl client constructor. Skipping shacl validation...")
 		return nil, nil
 	}
 

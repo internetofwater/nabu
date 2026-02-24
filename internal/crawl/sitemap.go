@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -343,6 +344,11 @@ func NewSitemap(ctx context.Context, client *http.Client, sitemapURL string, wor
 		sitemapUrl:         sitemapURL,
 		nonFatalErrors:     []pkg.UrlCrawlError{},
 		warnings:           []pkg.ShaclInfo{},
+		isBulkSitemap:      strings.Contains(sitemapURL, "/bulk/"),
+	}
+
+	if serializedSitemap.isBulkSitemap {
+		log.Infof("Harvesting sitemap %s as bulk sitemap", sitemapId)
 	}
 
 	urls := make([]url_info.URL, 0)

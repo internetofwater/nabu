@@ -57,6 +57,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 	numNewlineSeparateJSONLDDocs := atomic.Int32{}
 
+	log.Debugf("starting bulk harvest for sitemap %s with %d container urls", s.sitemapUrl, len(s.URL))
 	for _, url := range s.URL {
 		group.Go(func() error {
 
@@ -64,6 +65,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 			if strings.Contains(docker_image_name, "/") {
 
+				log.Infof("Pulling docker image %s", docker_image_name)
 				reader, err := dockerClient.ImagePull(ctx, docker_image_name, image.PullOptions{})
 				if err != nil {
 					return err
@@ -85,7 +87,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			if err != nil {
 				return err
 			}
-
+			log.Infof("Created container %s for image %s", creationResp.ID, docker_image_name)
 			if err = dockerClient.ContainerStart(ctx, creationResp.ID, container.StartOptions{}); err != nil {
 				return err
 			}
@@ -126,9 +128,13 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 				numNewlineSeparateJSONLDDocs.Add(1)
 
+				if numNewlineSeparateJSONLDDocs.Load()%5000 == 0 {
+					log.Infof("processed %d jsonld documents for %s", numNewlineSeparateJSONLDDocs.Load(), url.Loc)
+				}
+
 				var jsonObj map[string]any
 				if err := json.Unmarshal(line, &jsonObj); err != nil {
-					return fmt.Errorf("error unmarshaling line from container logs: %w", err)
+					return fmt.Errorf("error unmarshaling line as JSON-LD from container logs: %w with data %s", err, string(line))
 				}
 
 				idStr, ok := jsonObj["@id"].(string)
