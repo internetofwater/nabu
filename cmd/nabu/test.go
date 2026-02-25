@@ -48,6 +48,7 @@ func Test(ctx context.Context, client *synchronizer.SynchronizerClient) error {
 	for obj := range 3 {
 		snowObjChan <- minio.SnowballObject{
 			Key:     fmt.Sprintf("test%d", obj),
+			Size:    int64(len(testData)),
 			Content: bytes.NewReader(testData),
 		}
 	}
