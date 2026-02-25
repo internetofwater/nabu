@@ -270,6 +270,10 @@ func (m MinioClientWrapper) StoreWithHash(path S3Prefix, data io.Reader, sizeInB
 	return err
 }
 
+// func (m MinioClientWrapper) StoreBulk(ctx context.Context, path S3Prefix, data io.Reader, sizeInBytes int) error {
+// 	m.Client.PutObjectsSnowball(ctx, m.DefaultBucket, minio.SnowballOptions{})
+// }
+
 func (m MinioClientWrapper) StoreWithoutServersideHash(path S3Prefix, data io.Reader) error {
 	_, err := m.Client.PutObject(context.Background(), m.DefaultBucket, path, data, -1, minio.PutObjectOptions{})
 	return err

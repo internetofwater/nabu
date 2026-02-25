@@ -140,9 +140,9 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				idStr, ok := jsonObj["@id"].(string)
 				if !ok {
 					log.Errorf("missing or invalid @id in JSON-LD for %s", string(line))
-					// this is a fatal error since there is no way to data the error to a specific identifier
+					// this is a fatal error since there is no way to associate the invalid JSON-LD to a specific identifier
 					// without an id; thus we return a fatal error
-					return fmt.Errorf("missing or invalid @id in JSON-LD: %s", string(line))
+					return fmt.Errorf("missing or invalid @id in JSON-LD at index %d for %s", numNewlineSeparateJSONLDDocs.Load(), string(line))
 				}
 
 				encodedId := base64.StdEncoding.EncodeToString([]byte(idStr))

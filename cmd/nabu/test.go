@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/internetofwater/nabu/internal/synchronizer"
+	"github.com/minio/minio-go/v7"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -41,6 +42,18 @@ func Test(ctx context.Context, client *synchronizer.SynchronizerClient) error {
 	calculatedHash := md5.Sum(testData)
 	if md5Hash != fmt.Sprintf("%x", calculatedHash) {
 		return fmt.Errorf("hashes do not match")
+	}
+
+	snowObjChan := make(chan minio.SnowballObject, 3)
+	for obj := range 3 {
+		snowObjChan <- minio.SnowballObject{
+			Key:     fmt.Sprintf("test%d", obj),
+			Content: bytes.NewReader(testData),
+		}
+	}
+	close(snowObjChan)
+	if err := client.S3Client.Client.PutObjectsSnowball(ctx, client.S3Client.DefaultBucket, minio.SnowballOptions{}, snowObjChan); err != nil {
+		return fmt.Errorf("failed to put objects with Snowball; snowball bulk uploads may not be supported: %w", err)
 	}
 
 	log.Info("Storage test passed; you should be able to use this bucket with Nabu")
