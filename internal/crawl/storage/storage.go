@@ -35,6 +35,13 @@ func (s Set) Add(key ObjectPath) {
 // A hash of a file generated from the md5 algorithm
 type Md5Hash = string
 
+// An item with associated metadata to be stored in bulk
+type BulkStorageItem struct {
+	Path       ObjectPath
+	Data       io.Reader
+	ByteLength int
+}
+
 // A storage interface that stores crawl data
 type CrawlStorage interface {
 	// Store metadata about the crawl into a named destination
@@ -59,6 +66,9 @@ type CrawlStorage interface {
 	IsEmptyDir(ObjectPath) (bool, error)
 	// Get the hash of the file
 	GetHash(ObjectPath) (hash Md5Hash, file_exists bool, err error)
+	// Store data in bulk for more efficient storage. The channel will be closed by the caller when all items have been sent.
+	// There is no ctx passed to this since anything passed to the channel is deemed to be valid JSON-LD and thus should be uploaded
+	StoreBulk(items chan BulkStorageItem) error
 }
 
 // Given a storage path, iterate through it and remove any files that aren't in sitesToKeep

@@ -25,7 +25,7 @@ var _ CrawlStorage = &LocalTempFSCrawlStorage{}
 
 // NewLocalTempFSCrawlStorage creates a new storage with a temporary base directory
 func NewLocalTempFSCrawlStorage() (*LocalTempFSCrawlStorage, error) {
-	dir, err := os.MkdirTemp("", "nabu-gleaner-")
+	dir, err := os.MkdirTemp("", "nabu-crawl-storage-*")
 	if err != nil {
 		return nil, err
 	}
@@ -117,4 +117,13 @@ func (l *LocalTempFSCrawlStorage) IsEmptyDir(dir ObjectPath) (bool, error) {
 
 func (l *LocalTempFSCrawlStorage) GetHash(object string) (Md5Hash, bool, error) {
 	return "", true, nil
+}
+
+func (l *LocalTempFSCrawlStorage) StoreBulk(items chan BulkStorageItem) error {
+	for item := range items {
+		if err := l.StoreWithHash(item.Path, item.Data, item.ByteLength); err != nil {
+			return err
+		}
+	}
+	return nil
 }

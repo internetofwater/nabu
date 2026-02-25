@@ -628,3 +628,14 @@ func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFil
 		return m.PullAndConcat(ctx, prefix, outputFileOrDir)
 	}
 }
+
+func (m MinioClientWrapper) StoreBulk(items chan storage.BulkStorageItem) error {
+	eg, _ := errgroup.WithContext(context.Background())
+	eg.SetLimit(20)
+	for item := range items {
+		eg.Go(func() error {
+			return m.StoreWithHash(item.Path, item.Data, item.ByteLength)
+		})
+	}
+	return eg.Wait()
+}
