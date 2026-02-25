@@ -73,9 +73,9 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 		group.Go(func() error {
 			_, subspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_upload_%s", s.sitemapId))
-			defer subspan.End()
 			err := config.storageDestination.StoreBulk(bulkUploadChan)
 			log.Infof("Finished uploading bulk data for %s", url.Loc)
+			subspan.End()
 			return err
 		})
 
@@ -140,7 +140,8 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			scanner := bufio.NewScanner(piperReader)
 
 			scanner.Buffer(make([]byte, 1024*64), 1024*1024*10) // 10 MB lines
-
+			_, processSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("process_bulk_jsonld_%s", s.sitemapId))
+			defer processSubspan.End()
 			for scanner.Scan() {
 				line := scanner.Bytes()
 				if len(bytes.TrimSpace(line)) == 0 {
@@ -152,16 +153,14 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 				totalDocuments := numNewlineSeparateJSONLDDocs.Load()
 
-				ctx, subspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_bulk_process_%s_%d", s.sitemapId, totalDocuments))
-				defer subspan.End()
-
 				if totalDocuments%5000 == 0 {
 					log.Infof("processed %d jsonld documents for %s", totalDocuments, url.Loc)
+					processSubspan.AddEvent(fmt.Sprintf("processed %d jsonld documents", totalDocuments))
 				}
 
-				// if totalDocuments == 10000 {
-				// 	return nil
-				// }
+				if totalDocuments == 10000 {
+					return nil
+				}
 
 				var jsonObj map[string]any
 				if err := json.Unmarshal(line, &jsonObj); err != nil {
