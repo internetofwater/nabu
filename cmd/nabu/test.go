@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"io"
 
 	"github.com/internetofwater/nabu/internal/synchronizer"
 	"github.com/minio/minio-go/v7"
@@ -44,10 +45,11 @@ func Test(ctx context.Context, client *synchronizer.SynchronizerClient) error {
 		return fmt.Errorf("hashes do not match")
 	}
 
-	snowObjChan := make(chan minio.SnowballObject, 3)
-	for obj := range 3 {
+	const snowballObjectCount = 3
+	snowObjChan := make(chan minio.SnowballObject, snowballObjectCount)
+	for obj := range snowballObjectCount {
 		snowObjChan <- minio.SnowballObject{
-			Key:     fmt.Sprintf("test%d", obj),
+			Key:     fmt.Sprintf("test_snowball_%d", obj),
 			Size:    int64(len(testData)),
 			Content: bytes.NewReader(testData),
 		}
@@ -55,6 +57,20 @@ func Test(ctx context.Context, client *synchronizer.SynchronizerClient) error {
 	close(snowObjChan)
 	if err := client.S3Client.Client.PutObjectsSnowball(ctx, client.S3Client.DefaultBucket, minio.SnowballOptions{}, snowObjChan); err != nil {
 		return fmt.Errorf("failed to put objects with Snowball; snowball bulk uploads may not be supported: %w", err)
+	}
+
+	for obj := range snowballObjectCount {
+		data, err := client.S3Client.Get(fmt.Sprintf("test_snowball_%d", obj))
+		if err != nil {
+			return fmt.Errorf("failed to get object: %w", err)
+		}
+		dataAsString, err := io.ReadAll(data)
+		if err != nil {
+			return fmt.Errorf("failed to read object data: %w", err)
+		}
+		if !bytes.Equal(dataAsString, testData) {
+			return fmt.Errorf("data does not match")
+		}
 	}
 
 	log.Info("Storage test passed; you should be able to use this bucket with Nabu")
