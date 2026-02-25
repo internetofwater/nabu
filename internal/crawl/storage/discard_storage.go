@@ -3,7 +3,9 @@
 
 package storage
 
-import "io"
+import (
+	"io"
+)
 
 var _ CrawlStorage = DiscardCrawlStorage{}
 
@@ -42,4 +44,8 @@ func (DiscardCrawlStorage) IsEmptyDir(ObjectPath) (bool, error) {
 
 func (DiscardCrawlStorage) GetHash(string) (Md5Hash, bool, error) {
 	return "", false, nil
+}
+
+func (DiscardCrawlStorage) StoreBulk(items chan BulkStorageItem) error {
+	return nil
 }

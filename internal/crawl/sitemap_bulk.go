@@ -31,15 +31,16 @@ import (
 // HarvestBulkSitemap processes a bulk sitemap by pulling and running Docker images specified as sitemap URLs.
 func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, []string, error) {
 
+	if config.workers != 1 {
+		log.Warn("Bulk sitemaps do not allow for specifying workers, using default worker count")
+	}
+
 	if config.cleanupOutdatedJsonld {
 		log.Warn("cleanup outdated jsonld not supported currently for bulk sitemaps")
 	}
 
-	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_bulk_harvest_%s", s.sitemapId))
+	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_harvest_%s", s.sitemapId))
 	defer span.End()
-
-	group, ctx := errgroup.WithContext(ctx)
-	group.SetLimit(config.workers)
 
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -58,8 +59,29 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	numNewlineSeparateJSONLDDocs := atomic.Int32{}
 
 	log.Debugf("starting bulk harvest for sitemap %s with %d container urls", s.sitemapUrl, len(s.URL))
+
+	var errGroupError error = nil
 	for _, url := range s.URL {
+
+		// by using an error group we can make it so that if any of the container processing fails, we can immediately stop the entire harvest and return an error
+		// it is easier to keep in sync compared to channels
+		group, ctx := errgroup.WithContext(ctx)
+		group.SetLimit(2)
+
+		// channel for bulk storage
+		bulkUploadChan := make(chan storage.BulkStorageItem, 1000)
+
 		group.Go(func() error {
+			_, subspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_upload_%s", s.sitemapId))
+			err := config.storageDestination.StoreBulk(bulkUploadChan)
+			log.Infof("Finished uploading bulk data for %s", url.Loc)
+			subspan.End()
+			return err
+		})
+
+		group.Go(func() error {
+
+			defer close(bulkUploadChan)
 
 			docker_image_name := url.Loc
 
@@ -118,7 +140,8 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			scanner := bufio.NewScanner(piperReader)
 
 			scanner.Buffer(make([]byte, 1024*64), 1024*1024*10) // 10 MB lines
-
+			_, processSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("process_bulk_jsonld_%s", s.sitemapId))
+			defer processSubspan.End()
 			for scanner.Scan() {
 				line := scanner.Bytes()
 				if len(bytes.TrimSpace(line)) == 0 {
@@ -128,8 +151,15 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 				numNewlineSeparateJSONLDDocs.Add(1)
 
-				if numNewlineSeparateJSONLDDocs.Load()%5000 == 0 {
-					log.Infof("processed %d jsonld documents for %s", numNewlineSeparateJSONLDDocs.Load(), url.Loc)
+				totalDocuments := numNewlineSeparateJSONLDDocs.Load()
+
+				if totalDocuments%5000 == 0 {
+					log.Infof("processed %d jsonld documents for %s", totalDocuments, url.Loc)
+					processSubspan.AddEvent(fmt.Sprintf("processed %d jsonld documents", totalDocuments))
+				}
+
+				if totalDocuments == 10000 {
+					return nil
 				}
 
 				var jsonObj map[string]any
@@ -183,15 +213,14 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				validJsonldDocs.Add(path)
 				validJsonldDocsMu.Unlock()
 
-				if err := config.storageDestination.StoreWithHash(
-					path,
-					bytes.NewReader(line),
-					len(line),
-				); err != nil {
-					return err
+				bulkUploadChan <- storage.BulkStorageItem{
+					Path:       path,
+					Data:       bytes.NewReader(line),
+					ByteLength: len(line),
 				}
 			}
 
+			log.Infof("finished reading logs for container %s", url.Loc)
 			if err := scanner.Err(); err != nil {
 				return err
 			}
@@ -210,12 +239,21 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 					return fmt.Errorf("container exited with status %d", exitResp.StatusCode)
 				}
 			}
-
 			return nil
 		})
+
+		// if any of the goroutines in the group failed, we want to return that error and stop loop
+		// from harvesting any bulk container
+		log.Info("Waiting for uploads to finish")
+		err := group.Wait()
+		span.AddEvent("finished waiting on work group")
+		if err != nil {
+			log.Errorf("error in bulk harvest for %s: %v", url.Loc, err)
+			errGroupError = err
+			break
+		}
 	}
 
-	err = group.Wait()
 	stats := pkg.SitemapCrawlStats{
 		SitemapSourceLink: s.sitemapUrl,
 		WarningStats: pkg.WarningReport{
@@ -230,5 +268,5 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		CrawlFailures: []pkg.UrlCrawlError{},
 	}
 
-	return stats, []string{}, err
+	return stats, []string{}, errGroupError
 }
