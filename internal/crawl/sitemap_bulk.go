@@ -158,10 +158,6 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 					processSubspan.AddEvent(fmt.Sprintf("processed %d jsonld documents", totalDocuments))
 				}
 
-				if totalDocuments == 10000 {
-					return nil
-				}
-
 				var jsonObj map[string]any
 				if err := json.Unmarshal(line, &jsonObj); err != nil {
 					return fmt.Errorf("error unmarshaling line as JSON-LD from container logs: %w with data %s", err, string(line))
