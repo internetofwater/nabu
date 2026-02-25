@@ -39,7 +39,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		log.Warn("cleanup outdated jsonld not supported currently for bulk sitemaps")
 	}
 
-	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_bulk_harvest_%s", s.sitemapId))
+	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_harvest_%s", s.sitemapId))
 	defer span.End()
 
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
@@ -72,8 +72,10 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		bulkUploadChan := make(chan storage.BulkStorageItem, 1000)
 
 		group.Go(func() error {
+			_, subspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_upload_%s", s.sitemapId))
 			err := config.storageDestination.StoreBulk(bulkUploadChan)
 			log.Infof("Finished uploading bulk data for %s", url.Loc)
+			subspan.End()
 			return err
 		})
 
@@ -138,7 +140,8 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			scanner := bufio.NewScanner(piperReader)
 
 			scanner.Buffer(make([]byte, 1024*64), 1024*1024*10) // 10 MB lines
-
+			_, processSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("process_bulk_jsonld_%s", s.sitemapId))
+			defer processSubspan.End()
 			for scanner.Scan() {
 				line := scanner.Bytes()
 				if len(bytes.TrimSpace(line)) == 0 {
@@ -148,8 +151,11 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 				numNewlineSeparateJSONLDDocs.Add(1)
 
-				if numNewlineSeparateJSONLDDocs.Load()%5000 == 0 {
-					log.Infof("processed %d jsonld documents for %s", numNewlineSeparateJSONLDDocs.Load(), url.Loc)
+				totalDocuments := numNewlineSeparateJSONLDDocs.Load()
+
+				if totalDocuments%5000 == 0 {
+					log.Infof("processed %d jsonld documents for %s", totalDocuments, url.Loc)
+					processSubspan.AddEvent(fmt.Sprintf("processed %d jsonld documents", totalDocuments))
 				}
 
 				var jsonObj map[string]any
@@ -234,7 +240,10 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 		// if any of the goroutines in the group failed, we want to return that error and stop loop
 		// from harvesting any bulk container
-		if err := group.Wait(); err != nil {
+		log.Info("Waiting for uploads to finish")
+		err := group.Wait()
+		span.AddEvent("finished waiting on work group")
+		if err != nil {
 			log.Errorf("error in bulk harvest for %s: %v", url.Loc, err)
 			errGroupError = err
 			break
