@@ -631,7 +631,7 @@ func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFil
 
 func (m MinioClientWrapper) StoreBulk(items chan storage.BulkStorageItem) error {
 	eg, _ := errgroup.WithContext(context.Background())
-	eg.SetLimit(20)
+	eg.SetLimit(30)
 	for item := range items {
 		eg.Go(func() error {
 			return m.StoreWithHash(item.Path, item.Data, item.ByteLength)
