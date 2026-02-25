@@ -142,83 +142,93 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			scanner.Buffer(make([]byte, 1024*64), 1024*1024*10) // 10 MB lines
 			_, processSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("process_bulk_jsonld_%s", s.sitemapId))
 			defer processSubspan.End()
+
+			scannerGroup, ctx := errgroup.WithContext(ctx)
+			scannerGroup.SetLimit(20) // ensure we only have one goroutine processing the scanner to maintain order of documents
 			for scanner.Scan() {
-				line := scanner.Bytes()
-				if len(bytes.TrimSpace(line)) == 0 {
-					log.Warn("found a line with no data. Skipping...")
-					continue
-				}
+				scannerGroup.Go(func() error {
+					line := scanner.Bytes()
+					if len(bytes.TrimSpace(line)) == 0 {
+						log.Warn("found a line with no data. Skipping...")
+						return nil
+					}
 
-				numNewlineSeparateJSONLDDocs.Add(1)
+					numNewlineSeparateJSONLDDocs.Add(1)
 
-				totalDocuments := numNewlineSeparateJSONLDDocs.Load()
+					totalDocuments := numNewlineSeparateJSONLDDocs.Load()
 
-				if totalDocuments%5000 == 0 {
-					log.Infof("processed %d jsonld documents for %s", totalDocuments, url.Loc)
-					processSubspan.AddEvent(fmt.Sprintf("processed %d jsonld documents", totalDocuments))
-				}
+					if totalDocuments%5000 == 0 {
+						log.Infof("processed %d jsonld documents for %s", totalDocuments, url.Loc)
+						processSubspan.AddEvent(fmt.Sprintf("processed %d jsonld documents", totalDocuments))
+					}
 
-				var jsonObj map[string]any
-				if err := json.Unmarshal(line, &jsonObj); err != nil {
-					return fmt.Errorf("error unmarshaling line as JSON-LD from container logs: %w with data %s", err, string(line))
-				}
+					var jsonObj map[string]any
+					if err := json.Unmarshal(line, &jsonObj); err != nil {
+						return fmt.Errorf("error unmarshaling line as JSON-LD from container logs: %w with data %s", err, string(line))
+					}
 
-				idStr, ok := jsonObj["@id"].(string)
-				if !ok {
-					log.Errorf("missing or invalid @id in JSON-LD for %s", string(line))
-					// this is a fatal error since there is no way to data the error to a specific identifier
-					// without an id; thus we return a fatal error
-					return fmt.Errorf("missing or invalid @id in JSON-LD: %s", string(line))
-				}
+					idStr, ok := jsonObj["@id"].(string)
+					if !ok {
+						log.Errorf("missing or invalid @id in JSON-LD for %s", string(line))
+						// this is a fatal error since there is no way to data the error to a specific identifier
+						// without an id; thus we return a fatal error
+						return fmt.Errorf("missing or invalid @id in JSON-LD: %s", string(line))
+					}
 
-				encodedId := base64.StdEncoding.EncodeToString([]byte(idStr))
+					encodedId := base64.StdEncoding.EncodeToString([]byte(idStr))
 
-				if config.grpcClient != nil && *config.grpcClient != nil {
-					err = validate_shacl(ctx, *config.grpcClient, url.Loc, string(line))
-					if err != nil {
-						if shaclErr, ok := err.(ShaclValidationFailureError); ok {
+					if config.grpcClient != nil && *config.grpcClient != nil {
+						err = validate_shacl(ctx, *config.grpcClient, url.Loc, string(line))
+						if err != nil {
+							if shaclErr, ok := err.(ShaclValidationFailureError); ok {
 
-							warningMu.Lock()
-							warningStats = append(warningStats, pkg.ShaclInfo{
-								ShaclStatus:            pkg.ShaclInvalid,
-								ShaclValidationMessage: shaclErr.ShaclErrorMessage,
-								Url:                    url.Loc,
-							})
-							warningMu.Unlock()
+								warningMu.Lock()
+								warningStats = append(warningStats, pkg.ShaclInfo{
+									ShaclStatus:            pkg.ShaclInvalid,
+									ShaclValidationMessage: shaclErr.ShaclErrorMessage,
+									Url:                    url.Loc,
+								})
+								warningMu.Unlock()
 
-							// we don't always return here because it is non fatal
-							// and not all integrations may be compliant with our shacl shapes yet;
-							// For the time being, it is better to harvest and then have the integrator fix it
-							// after the fact; in the future there could be a strict
-							// validation mode wherein we fail fast upon shacl non-compliance
-							// however, we do allow a flag to exit and strictly fail
-							if config.exitOnShaclFailure {
-								log.Errorf("Returning early on shacl failure for %s with message %s", url.Loc, shaclErr.ShaclErrorMessage)
-								numNewlineSeparateJSONLDDocs.Store(0) // reset count since we are exiting early and thus we have no way of knowing the actual count of sites
-								return fmt.Errorf("exiting early for %s with shacl failure %s", url.Loc, shaclErr.ShaclErrorMessage)
+								// we don't always return here because it is non fatal
+								// and not all integrations may be compliant with our shacl shapes yet;
+								// For the time being, it is better to harvest and then have the integrator fix it
+								// after the fact; in the future there could be a strict
+								// validation mode wherein we fail fast upon shacl non-compliance
+								// however, we do allow a flag to exit and strictly fail
+								if config.exitOnShaclFailure {
+									log.Errorf("Returning early on shacl failure for %s with message %s", url.Loc, shaclErr.ShaclErrorMessage)
+									numNewlineSeparateJSONLDDocs.Store(0) // reset count since we are exiting early and thus we have no way of knowing the actual count of sites
+									return fmt.Errorf("exiting early for %s with shacl failure %s", url.Loc, shaclErr.ShaclErrorMessage)
+								}
+							} else {
+								return fmt.Errorf("failed to communicate with shacl validation service when harvesting %s: %w", url.Loc, err)
 							}
-						} else {
-							return fmt.Errorf("failed to communicate with shacl validation service when harvesting %s: %w", url.Loc, err)
 						}
 					}
-				}
 
-				path := "summoned/" + s.sitemapId + "/" + encodedId + ".jsonld"
+					path := "summoned/" + s.sitemapId + "/" + encodedId + ".jsonld"
 
-				validJsonldDocsMu.Lock()
-				validJsonldDocs.Add(path)
-				validJsonldDocsMu.Unlock()
+					validJsonldDocsMu.Lock()
+					validJsonldDocs.Add(path)
+					validJsonldDocsMu.Unlock()
 
-				bulkUploadChan <- storage.BulkStorageItem{
-					Path:       path,
-					Data:       bytes.NewReader(line),
-					ByteLength: len(line),
-				}
+					bulkUploadChan <- storage.BulkStorageItem{
+						Path:       path,
+						Data:       bytes.NewReader(line),
+						ByteLength: len(line),
+					}
+
+					return nil
+				})
+			}
+			if err := scannerGroup.Wait(); err != nil {
+				return fmt.Errorf("error processing scanner lines for container %s: %w", url.Loc, err)
 			}
 
 			log.Infof("finished reading logs for container %s", url.Loc)
 			if err := scanner.Err(); err != nil {
-				return err
+				return fmt.Errorf("scanner returned error: %v", err)
 			}
 
 			select {
