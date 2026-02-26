@@ -3,7 +3,7 @@
 
 use std::{collections::HashMap, io::BufRead};
 
-use log::debug;
+use log::{debug, warn};
 use oxttl::NQuadsParser;
 
 use geo_types::{Geometry, Point};
@@ -171,6 +171,7 @@ pub fn combine_geometry_representations(
         }
     }
 
+    let mut schema_geo_and_wkt_mismatches = 0;
     // next we go through and get all the schema geo geometries
     for (pid, schema_geo_skolemization_id) in maps.pid_to_schema_geo_skolemization_id {
         match maps
@@ -195,10 +196,16 @@ pub fn combine_geometry_representations(
                         gsp_geometry.to_wkt()
                     );
                     if !generally_equal(gsp_geometry, point_geometry) {
-                        return Err(format!(
+                        schema_geo_and_wkt_mismatches += 1;
+                        if schema_geo_and_wkt_mismatches < 30 {
+                            warn!(
                                 "pid {} with geosparql geometry '{}' does not match schema geo skolemization id {} with schema geo point geometry '{}'",
                                 pid, gsp_geometry.to_wkt(), schema_geo_skolemization_id, point_geometry.to_wkt()
-                            ).into());
+                            );
+                        } else if schema_geo_and_wkt_mismatches == 30 {
+                            warn!("More than 30 mismatches between geosparql and schema geo geometries; skipping further warnings");
+                        }
+
                     }
                 }
                 pid_to_canonical_geometry.insert(pid, Geometry::Point(point_geometry.clone()));
