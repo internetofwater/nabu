@@ -209,10 +209,14 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				validJsonldDocs.Add(path)
 				validJsonldDocsMu.Unlock()
 
+				// we copy the line so we have unique ownership;
+				// otherwise without it the line has shared ownership between the scanner buffer and the
+				// bulk upload goroutine
+				lineCopy := append([]byte(nil), line...)
 				bulkUploadChan <- storage.BulkStorageItem{
 					Path:       path,
-					Data:       bytes.NewReader(line),
-					ByteLength: len(line),
+					Data:       bytes.NewReader(lineCopy),
+					ByteLength: len(lineCopy),
 				}
 			}
 
