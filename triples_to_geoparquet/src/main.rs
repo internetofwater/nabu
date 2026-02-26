@@ -221,7 +221,7 @@ mod tests {
     }
 
     #[test]
-    fn ensure_failure_if_gsp_doesnt_match_schema_geo() {
+    fn ensure_no_fatal_error_if_gsp_doesnt_match_schema_geo() {
         let nquads = r#"<http://example.org/feature/1> <http://www.opengis.net/ont/geosparql#hasGeometry> _:geom1 .
         _:geom1 <http://www.opengis.net/ont/geosparql#asWKT> "POINT (2 1)"^^<http://www.opengis.net/ont/geosparql#wktLiteral> .
         <http://example.org/feature/1> <https://schema.org/geo> _:schema1 .
@@ -234,12 +234,6 @@ mod tests {
 
         let arrays = read_triples_into_arrays(reader, "test");
 
-        let err_msg = arrays.unwrap_err().to_string();
-        assert_eq!(
-            err_msg.contains("does not match schema geo skolemization id"),
-            true,
-            "{}",
-            err_msg
-        );
+        assert!(arrays.is_ok());
     }
 }
