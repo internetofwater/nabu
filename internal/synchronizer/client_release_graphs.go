@@ -5,6 +5,8 @@ package synchronizer
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -114,7 +116,14 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, 
 				}
 				nq, err = common.JsonldToNQ(string(finalJsonLd), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 				if err != nil {
-					return fmt.Errorf("error converting jsonld to nq for object %s: %w", obj.Key, err)
+					var syntaxErr *json.SyntaxError
+					if errors.As(err, &syntaxErr) {
+						log.Errorf("JSON syntax error when parsing; this is a sign that JSON-LD document was invalid or corrupted on upload at byte offset %d: %v", syntaxErr.Offset, syntaxErr)
+						return nil
+					}
+
+					log.Error("Error when transforming JSON-LD document to interface:", err)
+					return err
 				}
 				if len(nq) == 0 {
 					return fmt.Errorf("jsonld to nq conversion returned empty string for object %s with data %s", obj.Key, string(finalJsonLd))
