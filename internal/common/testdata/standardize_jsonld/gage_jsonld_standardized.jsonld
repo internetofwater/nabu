@@ -2,9 +2,9 @@
     "@context": [
         {
             "schema": "https://schema.org/",
-            "skos": "https://www.w3.org/2004/02/skos/core",
+            "skos": "https://www.w3.org/2004/02/skos/core#",
             "hyf": "https://www.opengis.net/def/schema/hy_features/hyf/",
-            "gsp": "https://www.opengis.net/ont/geosparql",
+            "gsp": "https://www.opengis.net/ont/geosparql#",
             "name": "schema:name",
             "sameAs": "schema:sameAs",
             "subjectOf": {
