@@ -17,7 +17,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"golang.org/x/sync/errgroup"
@@ -26,7 +25,6 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -225,26 +223,6 @@ func (m *MinioClientWrapper) GetObjectAsBytes(objectName S3Prefix) ([]byte, erro
 	}
 
 	return buf, nil
-}
-
-/*
-GetObjectAndConvertToGraph returns a NamedGraph from the object in the bucket
-the graphname will be the urn representation of the object name
-
-1. nq files are converted are converted to triples and the graph name is set to the urn of the object name
-2. jsonld files are converted to nq with the graph name set to the urn of the object name
-*/
-func (m *MinioClientWrapper) GetObjectAndConvertToGraph(objectName S3Prefix, jsonldProcessor *ld.JsonLdProcessor, jsonldOptions *ld.JsonLdOptions) (common.NamedGraph, error) {
-	objBytes, err := m.GetObjectAsBytes(objectName)
-	if err != nil {
-		return common.NamedGraph{}, err
-	}
-
-	if len(objBytes) == 0 {
-		log.Warnf("Object %s is empty", objectName)
-	}
-
-	return common.AnyRdfDataToNamedGraph(objectName, string(objBytes), jsonldProcessor, jsonldOptions)
 }
 
 // Upload a local file to the bucket at the specified remote path

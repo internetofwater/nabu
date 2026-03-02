@@ -179,10 +179,6 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 	}
 
 	switch {
-	case n.args.Clear != nil:
-		return nil, synchronizerClient.GraphClient.ClearAllGraphs()
-	case n.args.Object != nil:
-		return nil, synchronizerClient.UploadNqFileToTriplestore(n.args.Object.Object)
 	case n.args.Release != nil:
 		return nil, synchronizerClient.GenerateNqRelease(
 			ctx,
@@ -190,10 +186,6 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 			n.args.Release.Compress,
 			n.args.Release.MainstemMetadataFile,
 		)
-	case n.args.Upload != nil:
-		return nil, synchronizerClient.SyncTriplestoreGraphs(ctx, cfgStruct.Prefix, false)
-	case n.args.Sync != nil:
-		return nil, synchronizerClient.SyncTriplestoreGraphs(ctx, cfgStruct.Prefix, true)
 	case n.args.Test != nil:
 		return nil, Test(ctx, synchronizerClient)
 	case n.args.Harvest != nil:
