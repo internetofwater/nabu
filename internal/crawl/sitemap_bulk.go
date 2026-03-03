@@ -19,6 +19,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
+	"github.com/moby/moby/pkg/stdcopy"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/internetofwater/nabu/internal/crawl/storage"
@@ -61,7 +62,6 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 	var errGroupError error = nil
 	for _, url := range s.URL {
-
 		// by using an error group we can make it so that if any of the container processing fails, we can immediately stop the entire harvest and return an error
 		// it is easier to keep in sync compared to channels
 		group, ctx := errgroup.WithContext(ctx)
@@ -115,16 +115,13 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				return err
 			}
 			log.Infof("Created container %s for image %s", creationResp.ID, docker_image_name)
-			if err != nil {
-				return err
-			}
-			log.Infof("Created container %s for image %s", creationResp.ID, docker_image_name)
 			if err = dockerClient.ContainerStart(ctx, creationResp.ID, container.StartOptions{}); err != nil {
 				return err
 			}
 
 			waitResponseChan, errChan := dockerClient.ContainerWait(ctx, creationResp.ID, container.WaitConditionNotRunning)
 
+			// attach to container stdout directly
 			piperReader, piperWriter := io.Pipe()
 
 			attachResp, err := dockerClient.ContainerAttach(ctx, creationResp.ID, container.AttachOptions{
@@ -137,16 +134,15 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			}
 			defer attachResp.Close()
 
-			// Copy stdout from container directly into your pipe
+			// demux the multiplexed stdout stream
 			go func() {
-				_, err := io.Copy(piperWriter, attachResp.Reader)
+				_, err := stdcopy.StdCopy(piperWriter, io.Discard, attachResp.Reader)
 				if err != nil {
-					log.Errorf("error streaming container stdout: %v", err)
+					log.Errorf("error demuxing container attach stream: %v", err)
 				}
 				_ = piperWriter.Close()
 			}()
 			scanner := bufio.NewScanner(piperReader)
-
 			scanner.Buffer(make([]byte, 1024*64), 1024*1024*10) // 10 MB lines
 			_, processSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("process_bulk_jsonld_%s", s.sitemapId))
 			defer processSubspan.End()
