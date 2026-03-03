@@ -19,7 +19,6 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
-	"github.com/moby/moby/pkg/stdcopy"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/internetofwater/nabu/internal/crawl/storage"
@@ -103,9 +102,19 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			creationResp, err := dockerClient.ContainerCreate(
 				ctx,
 				&container.Config{Image: docker_image_name},
-				nil, nil, nil,
-				"", // don't reuse image name as container name
+				&container.HostConfig{
+					LogConfig: container.LogConfig{
+						Type: "none", // disable Docker disk logging
+					},
+				},
+				nil,
+				nil,
+				"",
 			)
+			if err != nil {
+				return err
+			}
+			log.Infof("Created container %s for image %s", creationResp.ID, docker_image_name)
 			if err != nil {
 				return err
 			}
@@ -116,27 +125,26 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 			waitResponseChan, errChan := dockerClient.ContainerWait(ctx, creationResp.ID, container.WaitConditionNotRunning)
 
-			logReader, err := dockerClient.ContainerLogs(ctx, creationResp.ID, container.LogsOptions{
-				ShowStdout: true,
-				ShowStderr: false,
-				Follow:     true,
+			piperReader, piperWriter := io.Pipe()
+
+			attachResp, err := dockerClient.ContainerAttach(ctx, creationResp.ID, container.AttachOptions{
+				Stream: true,
+				Stdout: true,
+				Stderr: false,
 			})
 			if err != nil {
 				return err
 			}
-			defer func() { _ = logReader.Close() }()
+			defer attachResp.Close()
 
-			piperReader, piperWriter := io.Pipe()
-
-			// demux Docker stream → pipe (runs concurrently)
+			// Copy stdout from container directly into your pipe
 			go func() {
-				_, err = stdcopy.StdCopy(piperWriter, io.Discard, logReader)
+				_, err := io.Copy(piperWriter, attachResp.Reader)
 				if err != nil {
-					log.Errorf("error demuxing docker logs: %v", err)
+					log.Errorf("error streaming container stdout: %v", err)
 				}
 				_ = piperWriter.Close()
 			}()
-
 			scanner := bufio.NewScanner(piperReader)
 
 			scanner.Buffer(make([]byte, 1024*64), 1024*1024*10) // 10 MB lines
