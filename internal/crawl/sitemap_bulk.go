@@ -62,7 +62,6 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 	var errGroupError error = nil
 	for _, url := range s.URL {
-
 		// by using an error group we can make it so that if any of the container processing fails, we can immediately stop the entire harvest and return an error
 		// it is easier to keep in sync compared to channels
 		group, ctx := errgroup.WithContext(ctx)
@@ -103,8 +102,14 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			creationResp, err := dockerClient.ContainerCreate(
 				ctx,
 				&container.Config{Image: docker_image_name},
-				nil, nil, nil,
-				"", // don't reuse image name as container name
+				&container.HostConfig{
+					LogConfig: container.LogConfig{
+						Type: "none", // disable Docker disk logging
+					},
+				},
+				nil,
+				nil,
+				"",
 			)
 			if err != nil {
 				return err
@@ -116,29 +121,28 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 			waitResponseChan, errChan := dockerClient.ContainerWait(ctx, creationResp.ID, container.WaitConditionNotRunning)
 
-			logReader, err := dockerClient.ContainerLogs(ctx, creationResp.ID, container.LogsOptions{
-				ShowStdout: true,
-				ShowStderr: false,
-				Follow:     true,
+			// attach to container stdout directly
+			piperReader, piperWriter := io.Pipe()
+
+			attachResp, err := dockerClient.ContainerAttach(ctx, creationResp.ID, container.AttachOptions{
+				Stream: true,
+				Stdout: true,
+				Stderr: false,
 			})
 			if err != nil {
 				return err
 			}
-			defer func() { _ = logReader.Close() }()
+			defer attachResp.Close()
 
-			piperReader, piperWriter := io.Pipe()
-
-			// demux Docker stream → pipe (runs concurrently)
+			// demux the multiplexed stdout stream
 			go func() {
-				_, err = stdcopy.StdCopy(piperWriter, io.Discard, logReader)
+				_, err := stdcopy.StdCopy(piperWriter, io.Discard, attachResp.Reader)
 				if err != nil {
-					log.Errorf("error demuxing docker logs: %v", err)
+					log.Errorf("error demuxing container attach stream: %v", err)
 				}
 				_ = piperWriter.Close()
 			}()
-
 			scanner := bufio.NewScanner(piperReader)
-
 			scanner.Buffer(make([]byte, 1024*64), 1024*1024*10) // 10 MB lines
 			_, processSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("process_bulk_jsonld_%s", s.sitemapId))
 			defer processSubspan.End()
