@@ -12,18 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOrphanAndMissing(t *testing.T) {
-
-	s3MockNames := []string{"a", "b", "c", "d", "e"}
-	tripleStoreMockNames := []string{"a", "b", "c", "g", "h"}
-
-	missingToAdd := findMissing(s3MockNames, tripleStoreMockNames)
-	require.Equal(t, []string{"d", "e"}, missingToAdd)
-
-	orphaned := findMissing(tripleStoreMockNames, s3MockNames)
-	require.Equal(t, []string{"g", "h"}, orphaned)
-}
-
 func TestGetTextBeforeDot(t *testing.T) {
 	res := getTextBeforeDot("test.go")
 	require.Equal(t, "test", res)
@@ -54,59 +42,6 @@ func TestMakeReleaseName(t *testing.T) {
 
 	_, err = makeReleaseNqName("orgs")
 	require.Error(t, err)
-}
-
-func TestAllocateBatches(t *testing.T) {
-	tests := []struct {
-		name       string
-		graphNames []string
-		batchSize  int
-		want       [][]string
-	}{
-		{
-			name:       "even split",
-			graphNames: []string{"a", "b", "c", "d"},
-			batchSize:  2,
-			want:       [][]string{{"a", "b"}, {"c", "d"}},
-		},
-		{
-			name:       "uneven split",
-			graphNames: []string{"a", "b", "c", "d", "e"},
-			batchSize:  2,
-			want:       [][]string{{"a", "b"}, {"c", "d"}, {"e"}},
-		},
-		{
-			name:       "batch size greater than input",
-			graphNames: []string{"a", "b"},
-			batchSize:  5,
-			want:       [][]string{{"a", "b"}},
-		},
-		{
-			name:       "batch size is 1",
-			graphNames: []string{"a", "b", "c"},
-			batchSize:  1,
-			want:       [][]string{{"a"}, {"b"}, {"c"}},
-		},
-		{
-			name:       "empty input",
-			graphNames: []string{},
-			batchSize:  3,
-			want:       [][]string{}, // Ensure this matches the return value: [][]string{}
-		},
-		{
-			name:       "batch size is 0",
-			graphNames: []string{"a", "b"},
-			batchSize:  0,
-			want:       [][]string{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := createBatches(tt.graphNames, tt.batchSize)
-			require.Equal(t, tt.want, got)
-		})
-	}
 }
 
 func compressWithDeterministicWriter(data []byte) ([]byte, error) {

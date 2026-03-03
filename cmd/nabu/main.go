@@ -44,10 +44,7 @@ type PullCmd struct {
 
 type NabuArgs struct {
 	// Subcommands that can be run
-	Clear   *ClearCmd   `arg:"subcommand:clear" help:"clear all graphs from the triplestore"`
-	Object  *ObjectCmd  `arg:"subcommand:object" help:"upload a single object to the triplestore"`
 	Release *ReleaseCmd `arg:"subcommand:release" help:"generate an nq release graph for all objects under a specific prefix"`
-	Upload  *UploadCmd  `arg:"subcommand:upload" help:"upload all objects under a specific prefix to the triplestore"`
 	Sync    *SyncCmd    `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`
 	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`
 	Harvest *HarvestCmd `arg:"subcommand:harvest" help:"harvest sitemaps and store them in the s3 bucket"`
@@ -55,7 +52,6 @@ type NabuArgs struct {
 
 	// Flags that can be set for config particular services / operations
 	config.MinioConfig
-	config.SparqlConfig
 	config.ContextConfig
 
 	// Flags that can be set which affect all operations
@@ -74,7 +70,6 @@ type NabuArgs struct {
 func (n NabuArgs) ToStructuredConfig() config.NabuConfig {
 	return config.NabuConfig{
 		Minio:             n.MinioConfig,
-		Sparql:            n.SparqlConfig,
 		Context:           n.ContextConfig,
 		PrefixToFileCache: n.PrefixToFileCache,
 		Prefix:            n.Prefix,
@@ -179,10 +174,6 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 	}
 
 	switch {
-	case n.args.Clear != nil:
-		return nil, synchronizerClient.GraphClient.ClearAllGraphs()
-	case n.args.Object != nil:
-		return nil, synchronizerClient.UploadNqFileToTriplestore(n.args.Object.Object)
 	case n.args.Release != nil:
 		return nil, synchronizerClient.GenerateNqRelease(
 			ctx,
@@ -190,10 +181,6 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 			n.args.Release.Compress,
 			n.args.Release.MainstemMetadataFile,
 		)
-	case n.args.Upload != nil:
-		return nil, synchronizerClient.SyncTriplestoreGraphs(ctx, cfgStruct.Prefix, false)
-	case n.args.Sync != nil:
-		return nil, synchronizerClient.SyncTriplestoreGraphs(ctx, cfgStruct.Prefix, true)
 	case n.args.Test != nil:
 		return nil, Test(ctx, synchronizerClient)
 	case n.args.Harvest != nil:

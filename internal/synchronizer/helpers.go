@@ -14,24 +14,7 @@ import (
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
-
-	log "github.com/sirupsen/logrus"
 )
-
-// returns the elements in `a` that aren't in `b`.
-func findMissing(a, b []string) []string {
-	mb := make(map[string]struct{}, len(b))
-	for _, x := range b {
-		mb[x] = struct{}{}
-	}
-	var diff []string
-	for _, x := range a {
-		if _, found := mb[x]; !found {
-			diff = append(diff, x)
-		}
-	}
-	return diff
-}
 
 func getTextBeforeDot(s string) string {
 	n := strings.LastIndexByte(s, '.')
@@ -66,21 +49,6 @@ func makeReleaseNqName(prefix s3.S3Prefix) (string, error) {
 		return "", fmt.Errorf("unable to form a release graph name from ambiguous prefix %s", prefix)
 	}
 	return release_nq_name, nil
-}
-
-// Given a list of graph names, split them into an array of arrays of size batchSize
-func createBatches(graphNames []s3.S3Prefix, batchSize int) [][]string {
-	if batchSize == 0 {
-		log.Warn("Got batch size of 0 so returning empty array")
-		return [][]string{}
-	}
-
-	batches := [][]string{}
-	for i := 0; i < len(graphNames); i += batchSize {
-		end := min(i+batchSize, len(graphNames))
-		batches = append(batches, graphNames[i:end])
-	}
-	return batches
 }
 
 // gzip is non deterministic; this is since it will add a

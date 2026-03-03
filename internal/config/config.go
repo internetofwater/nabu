@@ -6,20 +6,10 @@ package config
 // The top level config for all nabu operations
 type NabuConfig struct {
 	Minio             MinioConfig
-	Sparql            SparqlConfig
 	Context           ContextConfig
 	PrefixToFileCache map[string]string
 	Prefix            string
 	Trace             bool
-}
-
-// The config for sparql and graph interactions
-type SparqlConfig struct {
-	Endpoint   string `arg:"--endpoint" help:"endpoint for server for the SPARQL endpoints" default:"http://127.0.0.1:7200"`
-	Repository string `arg:"--repository" help:"the default repository to use for graphdb" default:"iow"` // the default repository to use for graphdb
-	// the number of statements to send in one batch
-	// when upserting triples
-	UpsertBatchSize int `arg:"--upsert-batch-size" default:"1"`
 }
 
 // The config for minio/s3 operations

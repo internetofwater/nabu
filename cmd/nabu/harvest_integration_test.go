@@ -14,7 +14,6 @@ import (
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/synchronizer"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
-	"github.com/internetofwater/nabu/internal/synchronizer/triplestores"
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -24,8 +23,7 @@ import (
 // Wrapper struct to store a handle to the container for all
 type NabuInterationSuite struct {
 	suite.Suite
-	minioContainer   s3.MinioContainer
-	graphdbContainer triplestores.GraphDBContainer
+	minioContainer s3.MinioContainer
 }
 
 func (s *NabuInterationSuite) TestIntegrationWithNabu() {
@@ -49,7 +47,6 @@ func (s *NabuInterationSuite) TestIntegrationWithNabu() {
 	s.Require().NoError(err)
 
 	client, err := synchronizer.NewSynchronizerClientFromClients(
-		&s.graphdbContainer.Client,
 		s.minioContainer.ClientWrapper,
 		s.minioContainer.ClientWrapper.DefaultBucket,
 		s.minioContainer.ClientWrapper.MetadataBucket,
@@ -57,15 +54,39 @@ func (s *NabuInterationSuite) TestIntegrationWithNabu() {
 
 	s.Require().NoError(err)
 
-	err = client.SyncTriplestoreGraphs(ctx, "summoned/", true)
-	s.Require().NoError(err)
-
 	const pid = "https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C"
 	encodedPid := base64.StdEncoding.EncodeToString([]byte(pid))
 	s.Require().Equal("aHR0cHM6Ly9nZW9jb25uZXgudXMvaW93L3dxcC9CUE1XUVgtMTA4NC1XUi1DQzAxQw==", encodedPid)
-	exists, err := client.GraphClient.GraphExists(context.Background(), "urn:iow:summoned:iow_wqp_stations__5:"+encodedPid+".jsonld")
+
+	summonedJsonld := "summoned/iow_wqp_stations__5" + "/" + encodedPid + ".jsonld"
+
+	jsonld_data, err := client.S3Client.GetObjectAsBytes(summonedJsonld)
 	s.Require().NoError(err)
-	s.Require().True(exists)
+	s.Require().True(len(jsonld_data) > 0, "jsonld file should not be empty")
+
+	jsonld_as_string := string(jsonld_data)
+	s.Require().Contains(jsonld_as_string, pid, "jsonld file should contain the original pid")
+
+	err = client.GenerateNqRelease(ctx, "summoned/iow_wqp_stations__5", false, "")
+	s.Require().NoError(err)
+
+	summonedPath := "graphs/latest/iow_wqp_stations__5_release.nq"
+
+	nq_data, err := client.S3Client.GetObjectAsBytes(summonedPath)
+	s.Require().NoError(err)
+	s.Require().True(len(nq_data) > 0, "nq file should not be empty")
+
+	nq_as_string := string(nq_data)
+	s.Require().Contains(nq_as_string, pid, "nq file should contain the original pid")
+	s.Require().NoError(err)
+
+	byte_sum_data, err := client.S3Client.GetObjectAsBytes(summonedPath + ".bytesum")
+	s.Require().NoError(err)
+	s.Require().True(len(byte_sum_data) > 0, "bytesum file should not be empty")
+
+	byte_sum_as_string := string(byte_sum_data)
+	s.Require().Equal(byte_sum_as_string, "408880", "bytesum file should exactly match")
+	s.Require().NoError(err)
 }
 
 func (suite *NabuInterationSuite) SetupSuite() {
@@ -94,10 +115,6 @@ func (suite *NabuInterationSuite) SetupSuite() {
 
 	err = suite.minioContainer.ClientWrapper.SetupBuckets()
 	require.NoError(t, err)
-
-	graphdbContainer, err := triplestores.NewGraphDBContainer("iow", "./testdata/iow-config.ttl")
-	suite.Require().NoError(err)
-	suite.graphdbContainer = graphdbContainer
 }
 
 func (s *NabuInterationSuite) TearDownSuite() {

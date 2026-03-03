@@ -116,6 +116,7 @@ func (i Index) GetUrlList() []string {
 }
 
 func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.SitemapIndexCrawlStats, error) {
+
 	if i.concurrentSitemaps < 1 {
 		return pkg.SitemapIndexCrawlStats{}, fmt.Errorf("concurrent sitemap limit is set less than 1")
 	}

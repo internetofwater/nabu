@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/internetofwater/nabu/internal/common"
@@ -25,17 +24,6 @@ func TestDefaultArgs(t *testing.T) {
 	defaultRunner := NewNabuRunner([]string{"test"})
 	require.Equal(t, "127.0.0.1", defaultRunner.args.Address)
 	require.Equal(t, 9000, defaultRunner.args.Port)
-	require.Equal(t, 1, defaultRunner.args.UpsertBatchSize)
-}
-
-func TestSubcommand(t *testing.T) {
-	// Test the subcommand args to make sure that the subcommand is set properly
-	defaultRunner := NewNabuRunner([]string{"object", "test", "--address", "DUMMY"})
-	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{})
-	_, err := defaultRunner.Run(context.Background(), mockedClient)
-	require.ErrorContains(t, err, "dial tcp: lookup")
-	subCommandErr := strings.Contains(err.Error(), "subcommand 'object' requires a positional argument")
-	require.False(t, subCommandErr)
 }
 
 // Wrapper struct to store a handle to the container for all

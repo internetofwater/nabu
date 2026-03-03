@@ -297,25 +297,6 @@ func (suite *S3ClientSuite) TestHashMatch() {
 	suite.Require().True(matchesWithLocal)
 }
 
-func (suite *S3ClientSuite) TestGetObjectAsNamedGraph() {
-	// put a jsonld file into the bucket
-	t := suite.T()
-	testfile := filepath.Join("testdata", "hu02.jsonld")
-	err := suite.minioContainer.ClientWrapper.UploadFile("testFiles/hu02.jsonld", testfile)
-	require.NoError(t, err)
-	defer func() {
-		err = suite.minioContainer.ClientWrapper.Remove("testFiles/hu02.jsonld")
-		require.NoError(t, err)
-	}()
-	// get the data in testObj2 and make sure it is the same as testObj
-	proc, opt, err := common.NewJsonldProcessor(false, nil)
-	require.NoError(t, err)
-	object, err := suite.minioContainer.ClientWrapper.GetObjectAndConvertToGraph("testFiles/hu02.jsonld", proc, opt)
-	require.NoError(t, err)
-	require.Contains(t, object.Triples, "<http://schema.org/DataDownload>")
-	require.Contains(t, object.Triples, "http://schema.org/address")
-}
-
 // Test that the minio client conforms to the crud interface so gleaner can use it
 func (suite *S3ClientSuite) TestCRUD() {
 	testBytes := bytes.NewReader([]byte("test data"))
