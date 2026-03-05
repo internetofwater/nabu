@@ -96,13 +96,24 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, 
 			if strings.HasSuffix(obj.Key, ".nq") {
 				nq = string(rawBytes)
 			} else {
+				serializedJsonldMap := make(map[string]any)
+				if err := json.Unmarshal(rawBytes, &serializedJsonldMap); err != nil {
+					log.Error("Error when parsing JSON-LD document to add mainstem info:", err)
+					return err
+				}
+
+				standardizedJsonld, err := common.StandardizeJsonldContextWithMutation(serializedJsonldMap)
+				if err != nil {
+					log.Error("Error when standardizing JSON-LD context:", err)
+					return err
+				}
 				var finalJsonLd []byte
 				if mainstemFile != "" {
 					subspan.AddEvent("waiting on mutex")
 					mainstemMutex.Lock()
 					subspan.AddEvent("acquired mutex")
 					var foundMainstem bool
-					finalJsonLd, foundMainstem, err = enricher.AddMainstemInfo(rawBytes)
+					finalJsonLd, foundMainstem, err = enricher.AddMainstemInfo(standardizedJsonld)
 					subspan.AddEvent("finished adding mainstem info")
 					mainstemMutex.Unlock()
 					if foundMainstem {
