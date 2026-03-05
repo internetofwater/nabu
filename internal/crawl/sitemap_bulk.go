@@ -104,7 +104,13 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				&container.Config{Image: docker_image_name},
 				&container.HostConfig{
 					LogConfig: container.LogConfig{
-						Type: "none", // disable Docker disk logging
+						// disable Docker disk logging
+						// this makes it so the docker daemon
+						// does not log to disk and requires
+						// something to attach to it to read the logs;
+						// this is more efficient for bulk data which would otherwise
+						// overwhelm the daemon or add overhead to log to disk
+						Type: "none",
 					},
 				},
 				nil,
