@@ -58,8 +58,9 @@ func (j *JsonldEnricher) AddMainstemInfo(jsonld []byte) (newJsonld []byte, added
 		return jsonld, false, nil
 	}
 
+	const hyfPrefix = "https://www.opengis.net/def/schema/hy_features/hyf/"
 	newJsonldAsMap, err := common.AddKeyToJsonLDContext(serializedJson,
-		"hyf", "https://www.opengis.net/def/appschema/hy_features/hyf/")
+		"hyf", hyfPrefix)
 	if err != nil {
 		return nil, false, err
 	}
