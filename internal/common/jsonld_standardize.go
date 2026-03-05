@@ -35,13 +35,16 @@ func StandardizeJsonldContextWithMutation(jsonld map[string]any) (mutatedJsonld 
 	return jsonld, nil
 }
 
-func standardizeContext(ctx any) (any, error) {
-	switch c := ctx.(type) {
+func standardizeContext(jsonldContext any) (any, error) {
+	switch c := jsonldContext.(type) {
 
 	case string:
-		return standardizeIRI(c)
+		// if the context is just a string we want to standardize it directly
+		return standardizeIRI(c), nil
 
 	case []any:
+		// if the context is an array of values without any mapping,
+		// we can recursively standardize the subset
 		for i, item := range c {
 			normalized, err := standardizeContext(item)
 			if err != nil {
@@ -50,37 +53,40 @@ func standardizeContext(ctx any) (any, error) {
 			c[i] = normalized
 		}
 		return c, nil
-
 	case map[string]any:
+		// if the context is a map, we want to standardize the value of
+		// each key in the map
 		for k, v := range c {
-			// Skip JSON-LD keywords as keys
-			if strings.HasPrefix(k, "@") {
-				continue
-			}
 
 			strVal, ok := v.(string)
 			if !ok {
 				continue
 			}
 
-			normalized, err := standardizeIRI(strVal)
-			if err != nil {
-				return nil, err
-			}
-			c[k] = normalized
+			c[k] = standardizeIRI(strVal)
 		}
 		return c, nil
 
 	default:
-		return ctx, nil
+		// TODO maybe make this an error? unclear
+		// if arbitrary other contexts should be allowed or not
+		return jsonldContext, nil
 	}
 }
 
-func standardizeIRI(iri string) (string, error) {
-	if strings.HasPrefix(iri, "http://") {
-		iri = "https://" + strings.TrimPrefix(iri, "http://")
-		return iri, nil
+func standardizeIRI(iri string) string {
+
+	if strings.Contains(iri, "http://schema.org") {
+		return "https://schema.org/"
 	}
 
-	return iri, nil
+	if strings.Contains(iri, "http://www.opengeospatial.org/standards/waterml2/hy_features") {
+		return "https://www.opengis.net/def/schema/hy_features/hyf/"
+	}
+
+	if strings.Contains(iri, "https://www.opengis.net/def/appschema/hy_features/hyf") {
+		return "https://www.opengis.net/def/schema/hy_features/hyf/"
+	}
+
+	return iri
 }

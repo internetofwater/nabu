@@ -1,6 +1,7 @@
 {
     "@context": [
         {
+            "@vocab": "https://schema.org/",
             "schema": "https://schema.org/",
             "skos": "http://www.w3.org/2004/02/skos/core#",
             "hyf": "https://www.opengis.net/def/schema/hy_features/hyf/",
