@@ -6,7 +6,7 @@ toolchain go1.24.3
 
 require (
 	github.com/alexflint/go-arg v1.5.1
-	github.com/duckdb/duckdb-go/v2 v2.10500.0
+	github.com/duckdb/duckdb-go/v2 v2.5.4
 	github.com/knakk/rdf v0.0.0-20190304171630-8521bf4c5042
 	github.com/minio/minio-go/v7 v7.0.94
 	github.com/moby/moby v28.5.2+incompatible

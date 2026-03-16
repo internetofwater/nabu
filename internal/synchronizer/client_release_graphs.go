@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/internetofwater/nabu/internal/common"
@@ -64,6 +65,8 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, 
 
 	mainstemsAdded := atomic.Int32{}
 
+	var mainstemMutex sync.Mutex
+
 	for i, object := range objects {
 		if object.Err != nil {
 			log.Errorf("got error %v when streaming nquad from prefix for object %s", object.Err, object.Key)
@@ -108,7 +111,9 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, 
 				if mainstemFile != "" {
 					var foundMainstem bool
 					log.Tracef("Adding mainstems for %s", obj.Key)
+					mainstemMutex.Lock()
 					finalJsonLd, foundMainstem, err = enricher.AddMainstemInfo(ctx, standardizedJsonld)
+					mainstemMutex.Unlock()
 					if foundMainstem {
 						mainstemsAdded.Add(1)
 					}
