@@ -5,6 +5,7 @@ package mainstems
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"html/template"
@@ -26,7 +27,7 @@ type MainstemQueryResponse struct {
 // A mainstem service resolves geometry to the associated mainstem
 type MainstemService interface {
 	// Given a wkt geometry return the uri of the associated mainstem
-	GetMainstemForWkt(wkt string) (MainstemQueryResponse, error)
+	GetMainstemForWkt(ctx context.Context, wkt string) (MainstemQueryResponse, error)
 }
 
 // A jsonld enricher adds extra information to jsonld
@@ -42,7 +43,7 @@ func NewJsonldEnricher(service MainstemService) *JsonldEnricher {
 }
 
 // Given a jsonld, add mainstem information to it
-func (j *JsonldEnricher) AddMainstemInfo(serializedJsonLd map[string]any) (newJsonld []byte, addedMainstem bool, err error) {
+func (j *JsonldEnricher) AddMainstemInfo(ctx context.Context, serializedJsonLd map[string]any) (newJsonld []byte, addedMainstem bool, err error) {
 
 	wkt, ok := common.GetWktFromJsonld(serializedJsonLd)
 	if !ok {
@@ -61,7 +62,7 @@ func (j *JsonldEnricher) AddMainstemInfo(serializedJsonLd map[string]any) (newJs
 		return nil, false, err
 	}
 
-	mainstemResponse, err := j.service.GetMainstemForWkt(wkt)
+	mainstemResponse, err := j.service.GetMainstemForWkt(ctx, wkt)
 	if err != nil {
 		return nil, false, err
 	}

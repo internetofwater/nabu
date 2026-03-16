@@ -4,11 +4,13 @@
 package mainstems
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 
 	_ "github.com/duckdb/duckdb-go/v2"
+	"github.com/internetofwater/nabu/internal/opentelemetry"
 	geom "github.com/peterstace/simplefeatures/geom"
 )
 
@@ -32,7 +34,10 @@ func NewS3FlatgeobufMainstemService(mainstemFlatgeobufURI string) (S3FlatgeobufM
 	return S3FlatgeobufMainstemService{duckdb: db, mainstemFlatgeobufURI: mainstemFlatgeobufURI}, nil
 }
 
-func (s S3FlatgeobufMainstemService) GetMainstemForWkt(wkt string) (MainstemQueryResponse, error) {
+func (s S3FlatgeobufMainstemService) GetMainstemForWkt(ctx context.Context, wkt string) (MainstemQueryResponse, error) {
+	_, span := opentelemetry.SubSpanFromCtxWithName(ctx, "GetMainstemForWkt")
+	defer span.End()
+
 	geometry, err := geom.UnmarshalWKT(wkt)
 	if err != nil {
 		return MainstemQueryResponse{}, err
@@ -48,14 +53,9 @@ func (s S3FlatgeobufMainstemService) GetMainstemForWkt(wkt string) (MainstemQuer
 	// value for min and max we get a specific point
 	// and a guarantee of no overlaps
 	mainstemSQL := `
-    SELECT geoconnex_url
-		FROM ST_Read(
-			?,
-			spatial_filter_box = ST_MakeBox2D(
-				ST_Point(?, ?),
-				ST_Point(?, ?)
-			)
-		)
+		SELECT geoconnex_url
+		FROM ST_Read(?)
+		WHERE geom && ST_MakeBox2D(ST_Point(?, ?), ST_Point(?, ?))
 	`
 	result := s.duckdb.QueryRow(mainstemSQL, s.mainstemFlatgeobufURI, coordinates.X, coordinates.Y, coordinates.X, coordinates.Y)
 	if result.Err() != nil {
