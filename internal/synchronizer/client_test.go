@@ -93,6 +93,18 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 		require.ErrorContains(t, err, "does not exist locally")
 	})
 
+	t.Run("mainstem info can be added", func(t *testing.T) {
+		err = suite.client.GenerateNqRelease(context.Background(), "summoned/"+source, false, "testdata/colorado_subset.fgb")
+		require.NoError(t, err)
+		const releaseGraphPath = "graphs/latest/" + source + "_release.nq"
+		data, err := suite.client.S3Client.GetObjectAsBytes(releaseGraphPath)
+		require.NoError(t, err)
+		// HAYDITCO should be associated with mainstem 36825
+		require.Contains(t, string(data), "<https://docs.geoconnex.us/nqhash/f316dbc9cd7aa3daf71f52f5a8e1b9679f0fd10c8f30f3a7891fc7c597f955a8> <https://schema.org/value> \"HAYDITCO\" <urn:iow:summoned:cdss_co_gages__0:aHR0cHM6Ly9waWRzLmdlb2Nvbm5leC5kZXYvY2Rzcy9nYWdlcy9IQVlESVRDTw==.jsonld> .")
+		require.Contains(t, string(data), "<https://docs.geoconnex.us/nqhash/8222bca6cb5c8b8714239f92b1607ae787b21b383a6aab2654069610667fee21> <https://www.opengis.net/def/schema/hy_features/hyf/linearElement> <https://geoconnex.us/ref/mainstems/36825> <urn:iow:summoned:cdss_co_gages__0:aHR0cHM6Ly9waWRzLmdlb2Nvbm5leC5kZXYvY2Rzcy9nYWdlcy9IQVlESVRDTw==.jsonld> .")
+
+	})
+
 	t.Run("generate nq release for orgs", func(t *testing.T) {
 
 		err = suite.client.GenerateNqRelease(context.Background(), "orgs/"+source, false, "")
