@@ -42,24 +42,21 @@ func NewJsonldEnricher(service MainstemService) *JsonldEnricher {
 }
 
 // Given a jsonld, add mainstem information to it
-func (j *JsonldEnricher) AddMainstemInfo(jsonld []byte) (newJsonld []byte, addedMainstem bool, err error) {
-	var serializedJson map[string]any
-	err = json.Unmarshal(jsonld, &serializedJson)
-	if err != nil {
-		return nil, false, err
-	}
+func (j *JsonldEnricher) AddMainstemInfo(serializedJsonLd map[string]any) (newJsonld []byte, addedMainstem bool, err error) {
 
-	wkt, ok := common.GetWktFromJsonld(serializedJson)
+	wkt, ok := common.GetWktFromJsonld(serializedJsonLd)
 	if !ok {
 		// if there is no geometry, there is no way to attach a mainstem
 		// and thus we can just return the original jsonld without any error
 		// since some jsonld may not have a geometry (i.e. from provenance data)
 		log.Warn("no geometry found in jsonld; skipping adding mainstem info")
-		return jsonld, false, nil
+		asBytes, err := json.Marshal(serializedJsonLd)
+		return asBytes, false, err
 	}
 
-	newJsonldAsMap, err := common.AddKeyToJsonLDContext(serializedJson,
-		"hyf", "https://www.opengis.net/def/appschema/hy_features/hyf/")
+	const hyfPrefix = "https://www.opengis.net/def/schema/hy_features/hyf/"
+	newJsonldAsMap, err := common.AddKeyToJsonLDContext(serializedJsonLd,
+		"hyf", hyfPrefix)
 	if err != nil {
 		return nil, false, err
 	}
@@ -79,11 +76,11 @@ func (j *JsonldEnricher) AddMainstemInfo(jsonld []byte) (newJsonld []byte, added
 	if err != nil {
 		return nil, false, err
 	}
-	jsonld, err = json.Marshal(newJsonldAsMap)
+	jsonldMap, err := json.Marshal(newJsonldAsMap)
 	if err != nil {
 		return nil, false, err
 	}
-	return jsonld, true, err
+	return jsonldMap, true, err
 }
 
 func AddMainstemToJsonLD(jsonldMap map[string]any, mainstemURI string) (map[string]any, error) {
