@@ -9,13 +9,13 @@ require (
 	github.com/duckdb/duckdb-go/v2 v2.5.4
 	github.com/knakk/rdf v0.0.0-20190304171630-8521bf4c5042
 	github.com/minio/minio-go/v7 v7.0.94
+	github.com/moby/moby v28.5.2+incompatible
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4
 	github.com/peterstace/simplefeatures v0.56.0
 	github.com/piprate/json-gold v0.6.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.37.0
-	github.com/tidwall/gjson v1.18.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.36.0
 	golang.org/x/sync v0.19.0
 )
@@ -31,50 +31,42 @@ require (
 require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect
-	github.com/apache/arrow-go/v18 v18.4.1 // indirect
+	github.com/apache/arrow-go/v18 v18.5.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
-	github.com/docker/cli-docs-tool v0.11.0 // indirect
-	github.com/docker/docker-credential-helpers v0.9.5 // indirect
-	github.com/duckdb/duckdb-go-bindings v0.1.24 // indirect
+	github.com/creack/pty v1.1.24 // indirect
+	github.com/duckdb/duckdb-go-bindings v0.10500.0 // indirect
 	github.com/duckdb/duckdb-go-bindings/darwin-amd64 v0.1.24 // indirect
 	github.com/duckdb/duckdb-go-bindings/darwin-arm64 v0.1.24 // indirect
+	github.com/duckdb/duckdb-go-bindings/lib/darwin-amd64 v0.10500.0 // indirect
+	github.com/duckdb/duckdb-go-bindings/lib/darwin-arm64 v0.10500.0 // indirect
+	github.com/duckdb/duckdb-go-bindings/lib/linux-amd64 v0.10500.0 // indirect
+	github.com/duckdb/duckdb-go-bindings/lib/linux-arm64 v0.10500.0 // indirect
+	github.com/duckdb/duckdb-go-bindings/lib/windows-amd64 v0.10500.0 // indirect
 	github.com/duckdb/duckdb-go-bindings/linux-amd64 v0.1.24 // indirect
 	github.com/duckdb/duckdb-go-bindings/linux-arm64 v0.1.24 // indirect
 	github.com/duckdb/duckdb-go-bindings/windows-amd64 v0.1.24 // indirect
 	github.com/duckdb/duckdb-go/arrowmapping v0.0.27 // indirect
 	github.com/duckdb/duckdb-go/mapping v0.0.27 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
-	github.com/fvbommel/sortorder v1.1.0 // indirect
-	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
-	github.com/google/flatbuffers v25.9.23+incompatible // indirect
-	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/mattn/go-runewidth v0.0.16 // indirect
+	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
+	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/minio/crc64nvme v1.0.2 // indirect
 	github.com/moby/go-archive v0.1.0 // indirect
-	github.com/moby/moby v28.5.2+incompatible // indirect
-	github.com/moby/moby/api v1.53.0 // indirect
-	github.com/moby/moby/client v0.2.2 // indirect
 	github.com/moby/sys/atomicwriter v0.1.0 // indirect
-	github.com/moby/sys/symlink v0.3.0 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
 	github.com/philhofer/fwd v1.1.3-0.20240916144458-20a13a1f6b7c // indirect
-	github.com/pierrec/lz4/v4 v4.1.22 // indirect
-	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/pierrec/lz4/v4 v4.1.25 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.25.5 // indirect
-	github.com/spf13/cobra v1.10.2 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/tinylib/msgp v1.3.0 // indirect
-	github.com/zeebo/xxh3 v1.0.2 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.40.0 // indirect
-	go.opentelemetry.io/otel/sdk/metric v1.40.0 // indirect
-	golang.org/x/exp v0.0.0-20251209150349-8475f28825e9 // indirect
-	golang.org/x/mod v0.31.0 // indirect
-	golang.org/x/telemetry v0.0.0-20251208220230-2638a1023523 // indirect
-	golang.org/x/tools v0.40.0 // indirect
+	github.com/zeebo/xxh3 v1.1.0 // indirect
+	golang.org/x/exp v0.0.0-20260112195511-716be5621a96 // indirect
+	golang.org/x/mod v0.32.0 // indirect
+	golang.org/x/telemetry v0.0.0-20260116145544-c6413dc483f5 // indirect
+	golang.org/x/tools v0.41.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 )
 
@@ -87,8 +79,7 @@ require (
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/cli v29.2.1+incompatible
-	github.com/docker/docker v28.5.2+incompatible // indirect
+	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -98,9 +89,8 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/google/uuid v1.6.0 // indirect
-	github.com/klauspost/compress v1.18.2 // indirect
+	github.com/google/uuid v1.6.0
+	github.com/klauspost/compress v1.18.3 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
@@ -118,8 +108,6 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/pquerna/cachecontrol v0.2.0 // indirect
 	github.com/temoto/robotstxt v1.1.2
-	github.com/tidwall/match v1.1.1 // indirect
-	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
 	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect

@@ -109,12 +109,10 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, 
 				}
 				var finalJsonLd []byte
 				if mainstemFile != "" {
-					subspan.AddEvent("waiting on mutex")
-					mainstemMutex.Lock()
-					subspan.AddEvent("acquired mutex")
 					var foundMainstem bool
-					finalJsonLd, foundMainstem, err = enricher.AddMainstemInfo(standardizedJsonld)
-					subspan.AddEvent("finished adding mainstem info")
+					log.Tracef("Adding mainstems for %s", obj.Key)
+					mainstemMutex.Lock()
+					finalJsonLd, foundMainstem, err = enricher.AddMainstemInfo(ctx, standardizedJsonld)
 					mainstemMutex.Unlock()
 					if foundMainstem {
 						mainstemsAdded.Add(1)

@@ -14,7 +14,8 @@ time go run ./cmd/nabu harvest --log-level DEBUG --sitemap-index https://geoconn
 time go run "$(pwd)/cmd/nabu" release \
   --prefix summoned/wwdh_usace_usace_access_to_water__0 \
   --mainstem-metadata "$(cd .. && pwd)/nabu/shacl_validator/data/reference_catchments_and_flowlines.fgb" \
-  --log-level DEBUG
+  --log-level DEBUG \
+  --use-otel
 
 mkdir -p /tmp/pull
 

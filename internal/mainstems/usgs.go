@@ -4,10 +4,12 @@
 package mainstems
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
+	"github.com/internetofwater/nabu/internal/opentelemetry"
 	geom "github.com/peterstace/simplefeatures/geom"
 	log "github.com/sirupsen/logrus"
 )
@@ -133,7 +135,9 @@ func (r USGSMainstemService) getGeoconnexURIFromComid(comid string) (geoconnexUR
 	return "", nil
 }
 
-func (r USGSMainstemService) GetMainstemForWkt(wkt string) (MainstemQueryResponse, error) {
+func (r USGSMainstemService) GetMainstemForWkt(ctx context.Context, wkt string) (MainstemQueryResponse, error) {
+	_, span := opentelemetry.SubSpanFromCtxWithName(ctx, "USGSMainstemService.GetMainstemForWkt")
+	defer span.End()
 	geometry, err := geom.UnmarshalWKT(wkt)
 	if err != nil {
 		return MainstemQueryResponse{}, err
