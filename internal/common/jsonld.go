@@ -70,7 +70,7 @@ func fileExists(filename string) bool {
 	return !info.IsDir()
 }
 
-func JsonldToNQ(jsonld string, processor *ld.JsonLdProcessor, options *ld.JsonLdOptions) (string, error) {
+func JsonldToTriples(jsonld string, processor *ld.JsonLdProcessor, options *ld.JsonLdOptions) (string, error) {
 	var deserializeInterface interface{}
 	err := json.Unmarshal([]byte(jsonld), &deserializeInterface)
 	if err != nil {

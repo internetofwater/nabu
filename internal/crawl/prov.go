@@ -33,13 +33,13 @@ func (p ProvData) toJsonLD() io.Reader {
 	return &tpl
 }
 
-func (p ProvData) toNq() (string, error) {
+func (p ProvData) toTriples() (string, error) {
 	jsonld := p.toJsonLD().(*bytes.Buffer).String()
 	processor, options, err := common.NewJsonldProcessor(false, make(map[string]string))
 	if err != nil {
 		return "", err
 	}
-	return common.JsonldToNQ(jsonld, processor, options)
+	return common.JsonldToTriples(jsonld, processor, options)
 }
 
 var provTemplate = `{

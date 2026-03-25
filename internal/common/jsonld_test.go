@@ -40,7 +40,7 @@ func TestCreateNewProcessor(t *testing.T) {
 			"born": "1940-10-09",
 			"spouse": "http://dbpedia.org/resource/Cynthia_Lennon"
 			}`
-		nq, err := JsonldToNQ(simpleJSONLDExample, processor, options)
+		nq, err := JsonldToTriples(simpleJSONLDExample, processor, options)
 		require.NoError(t, err)
 		require.NotEmpty(t, nq)
 		birthDateLine := `<http://dbpedia.org/resource/John_Lennon> <http://schema.org/birthDate> "1940-10-09"`
@@ -49,12 +49,28 @@ func TestCreateNewProcessor(t *testing.T) {
 		// read in a file as a string
 		data, err := os.ReadFile("testdata/BPMWQX-1084.jsonld")
 		require.NoError(t, err)
-		require.NoError(t, err)
-		nq, err = JsonldToNQ(string(data), processor, options)
+		nq, err = JsonldToTriples(string(data), processor, options)
 		require.NoError(t, err)
 		require.NotEmpty(t, nq)
 
 	})
+}
+
+func TestJsonldWithSpaceInType(t *testing.T) {
+	ctxMaps := map[string]string{
+		"https://schema.org/": "./assets/schemaorg-current-https.jsonld",
+	}
+
+	processor, options, err := NewJsonldProcessor(true, ctxMaps)
+	require.NoError(t, err)
+	data, err := os.ReadFile("testdata/jsonld_with_space_in_type.jsonld")
+	require.NoError(t, err)
+	triples, err := JsonldToTriples(string(data), processor, options)
+	require.NoError(t, err)
+	require.NotEmpty(t, triples)
+	require.Contains(t, triples, "Extensometer well")
+	_, err = NtToNq(triples, "urn:test")
+	require.Error(t, err, "For the time being, the nquad convererter does not support spaces in types so this should error out")
 }
 
 func TestSelfieExample(t *testing.T) {
@@ -91,7 +107,7 @@ func TestSelfieExample(t *testing.T) {
 	processor, options, err := NewJsonldProcessor(true, ctxMaps)
 
 	require.NoError(t, err)
-	nq, err := JsonldToNQ(jsonld, processor, options)
+	nq, err := JsonldToTriples(jsonld, processor, options)
 	require.NoError(t, err)
 	require.NotEmpty(t, nq)
 

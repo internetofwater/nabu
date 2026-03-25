@@ -92,9 +92,9 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, 
 				return err
 			}
 
-			var nq string
+			var triples string
 			if strings.HasSuffix(obj.Key, ".nq") {
-				nq = string(rawBytes)
+				triples = string(rawBytes)
 			} else {
 				serializedJsonldMap := make(map[string]any)
 				if err := json.Unmarshal(rawBytes, &serializedJsonldMap); err != nil {
@@ -123,7 +123,7 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, 
 				} else {
 					finalJsonLd = rawBytes
 				}
-				nq, err = common.JsonldToNQ(string(finalJsonLd), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+				triples, err = common.JsonldToTriples(string(finalJsonLd), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 				if err != nil {
 					var syntaxErr *json.SyntaxError
 					if errors.As(err, &syntaxErr) {
@@ -134,16 +134,16 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, 
 					log.Error("Error when transforming JSON-LD document to interface:", err)
 					return err
 				}
-				if len(nq) == 0 {
+				if len(triples) == 0 {
 					return fmt.Errorf("jsonld to nq conversion returned empty string for object %s with data %s", obj.Key, string(finalJsonLd))
 				}
 			}
 
-			var singleFileNquad string
+			var singleFileTriples string
 			if len(objects) == 1 {
-				singleFileNquad = nq
+				singleFileTriples = triples
 			} else {
-				singleFileNquad, err = common.Skolemization(nq)
+				singleFileTriples, err = common.Skolemization(triples)
 				if err != nil {
 					log.Errorf("Skolemization error: %s", err)
 					return err
@@ -155,7 +155,7 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, 
 				return err
 			}
 
-			csnq, err := common.NtToNq(singleFileNquad, graphURN)
+			nquad, err := common.NtToNq(singleFileTriples, graphURN)
 			if err != nil {
 				log.Errorf("error converting object '%s' with urn '%s' to nq: %s", obj.Key, graphURN, err)
 				return err
@@ -169,7 +169,7 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, 
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case nqChan <- csnq:
+			case nqChan <- nquad:
 				return nil
 			}
 		})

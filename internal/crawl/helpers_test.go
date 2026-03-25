@@ -97,7 +97,7 @@ func TestGetJsonLdFromHTML(t *testing.T) {
 
 		processor, options, err := common.NewJsonldProcessor(true, make(map[string]string))
 		require.NoError(t, err)
-		_, err = common.JsonldToNQ(jsonld, processor, options)
+		_, err = common.JsonldToTriples(jsonld, processor, options)
 		require.NoError(t, err)
 	})
 	t.Run("mislabeled jsonld script tag", func(t *testing.T) {
