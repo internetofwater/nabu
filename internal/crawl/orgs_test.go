@@ -33,7 +33,7 @@ func TestOrgsJsonld(t *testing.T) {
 }
 
 func TestOrgsNq(t *testing.T) {
-	nq, err := NewOrgsNq("https://example.com", "example")
+	nq, err := NewOrgsTriples("https://example.com", "example")
 	require.NoError(t, err)
 	const line = "<https://gleaner.io/genid/geoconnex> <https://schema.org/description> \"Persistent identifier for this organization\""
 	require.Contains(t, nq, line)

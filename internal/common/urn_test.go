@@ -89,10 +89,10 @@ func TestE2ESkolemizeJsonld(t *testing.T) {
 
 	testJsonld, err := os.ReadFile("testdata/gage_jsonld.jsonld")
 	require.NoError(t, err)
-	nq, err := JsonldToNQ(string(testJsonld), processor, options)
+	triples, err := JsonldToTriples(string(testJsonld), processor, options)
 	require.NoError(t, err)
-	require.NotEmpty(t, nq)
-	skolemized, err := Skolemization(nq)
+	require.NotEmpty(t, triples)
+	skolemized, err := Skolemization(triples)
 	require.NoError(t, err)
 	require.NotEmpty(t, skolemized)
 
