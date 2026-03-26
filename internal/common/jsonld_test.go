@@ -69,8 +69,10 @@ func TestJsonldWithSpaceInType(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, triples)
 	require.Contains(t, triples, "Extensometer well")
-	_, err = NtToNq(triples, "urn:test")
-	require.Error(t, err, "For the time being, the nquad convererter does not support spaces in types so this should error out")
+	quads, err := NtToNq(triples, "urn:test")
+	require.NoError(t, err)
+	require.NotContains(t, quads, "Extensometer well")
+	require.NotEmpty(t, quads)
 }
 
 func TestSelfieExample(t *testing.T) {
