@@ -21,9 +21,9 @@ runs:
         ref: ${{ github.head_ref }}
 
     - name: Setup Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
-        go-version: 5
+        go-version: '1.25'
     - name: Display Go version
       shell: bash
       run: go version
