@@ -1,21 +1,19 @@
 module github.com/internetofwater/nabu
 
-go 1.24.0
-
-toolchain go1.24.3
+go 1.25.0
 
 require (
 	github.com/alexflint/go-arg v1.5.1
 	github.com/duckdb/duckdb-go/v2 v2.5.4
-	github.com/knakk/rdf v0.0.0-20190304171630-8521bf4c5042
 	github.com/minio/minio-go/v7 v7.0.94
 	github.com/moby/moby v28.5.2+incompatible
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4
 	github.com/peterstace/simplefeatures v0.56.0
-	github.com/piprate/json-gold v0.6.0
+	github.com/piprate/json-gold v0.8.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.37.0
+	github.com/tggo/goRDFlib v0.1.4
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.36.0
 	golang.org/x/sync v0.19.0
 )
@@ -32,6 +30,7 @@ require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/apache/arrow-go/v18 v18.5.1 // indirect
+	github.com/cayleygraph/quad v1.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect

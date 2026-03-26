@@ -4,45 +4,40 @@
 package common
 
 import (
+	"fmt"
 	"strings"
 
-	"github.com/knakk/rdf"
 	log "github.com/sirupsen/logrus"
+	rdf "github.com/tggo/goRDFlib"
+	nq "github.com/tggo/goRDFlib/nq"
+	nt "github.com/tggo/goRDFlib/nt"
 )
 
 // Convert a string of N-Triples to N-Quads
-func NtToNq(nt, graphURN string) (string, error) {
-	dec := rdf.NewTripleDecoder(strings.NewReader(nt), rdf.NTriples)
-	triples, err := dec.DecodeAll()
+func NtToNq(ntData, graphURN string) (string, error) {
+	// Create a graph with the desired named graph identifier.
+	// This is the equivalent of setting rdf.Context(iri) in knakk/rdf.
+	graphIRI, err := rdf.NewURIRef(graphURN)
 	if err != nil {
-		log.Errorf("Error decoding triples: %v\n", err)
-		return "", err
+		return "", fmt.Errorf("invalid graph URN %q: %w", graphURN, err)
+	}
+	graph := rdf.NewGraph(rdf.WithIdentifier(graphIRI))
+
+	// Parse N-Triples into the named graph.
+	if err := nt.Parse(graph, strings.NewReader(ntData), nt.WithErrorHandler(
+		func(lineNum int, line string, err error) (fixedLine string, retry bool) {
+			log.Errorf("Failed converting triples to quads on line %d with data %s: %v", lineNum, line, err)
+			return "", false // skip this line
+		},
+	)); err != nil {
+		return "", fmt.Errorf("parsing N-Triples: %w", err)
 	}
 
-	allQuads := make([]string, len(triples))
-	for i, triple := range triples {
-		quad, err := makeQuad(triple, graphURN)
-		if err != nil {
-			return "", err
-		}
-		allQuads[i] = quad
+	// Serialize as N-Quads — the graph identifier is automatically
+	// included as the 4th element of each quad.
+	var buf strings.Builder
+	if err := nq.Serialize(graph, &buf); err != nil {
+		return "", fmt.Errorf("serializing N-Quads: %w", err)
 	}
-	return strings.Join(allQuads, ""), err
-}
-
-// makeQuad I pulled this from my ObjectEngine code in case I needed to
-// use in the ntToNQ() function to add a context to each triple in turn.
-// It may not be needed/used in this code
-func makeQuad(t rdf.Triple, c string) (string, error) {
-	newctx, err := rdf.NewIRI(c)
-	if err != nil {
-		return "", err
-	}
-
-	quad := rdf.Quad{
-		Triple: t,
-		Ctx:    rdf.Context(newctx),
-	}
-
-	return quad.Serialize(rdf.NQuads), nil
+	return buf.String(), nil
 }
