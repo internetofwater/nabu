@@ -295,6 +295,7 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 			ShaclWarnings:      s.warnings,
 		},
 		CrawlFailures: s.nonFatalErrors,
+		SitemapDown:   sitemapStatusTracker.AppearsDown(),
 	}
 
 	if err != nil {

@@ -102,6 +102,12 @@ export interface SitemapCrawlStats {
    * The number of total sites in the sitemap
    */
   SitesInSitemap: number /* int */;
+  /**
+   * Whether the sitemap appears to be down based on the crawl results
+   * An API specified in a given sitemap is assumed to be down if the first ~20 sites
+   * all failed without a single successful harvest
+   */
+  SitemapDown: boolean;
 }
 /**
  * A sitemap index is just a list of sitemaps and thus
