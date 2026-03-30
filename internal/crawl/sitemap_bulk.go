@@ -62,7 +62,6 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 	var errGroupError error = nil
 	for _, url := range s.URL {
-
 		// by using an error group we can make it so that if any of the container processing fails, we can immediately stop the entire harvest and return an error
 		// it is easier to keep in sync compared to channels
 		group, ctx := errgroup.WithContext(ctx)
@@ -103,42 +102,58 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			creationResp, err := dockerClient.ContainerCreate(
 				ctx,
 				&container.Config{Image: docker_image_name},
-				nil, nil, nil,
-				"", // don't reuse image name as container name
+				&container.HostConfig{
+					LogConfig: container.LogConfig{
+						// disable Docker disk logging
+						// this makes it so the docker daemon
+						// does not log to disk and requires
+						// something to attach to it to read the logs;
+						// this is more efficient for bulk data which would otherwise
+						// overwhelm the daemon or add overhead to log to disk
+						Type: "none",
+					},
+				},
+				nil,
+				nil,
+				// no container name is specified in order to
+				// ensure the container name is unique
+				"",
 			)
 			if err != nil {
 				return err
 			}
 			log.Infof("Created container %s for image %s", creationResp.ID, docker_image_name)
-			if err = dockerClient.ContainerStart(ctx, creationResp.ID, container.StartOptions{}); err != nil {
-				return err
-			}
 
-			waitResponseChan, errChan := dockerClient.ContainerWait(ctx, creationResp.ID, container.WaitConditionNotRunning)
-
-			logReader, err := dockerClient.ContainerLogs(ctx, creationResp.ID, container.LogsOptions{
-				ShowStdout: true,
-				ShowStderr: false,
-				Follow:     true,
+			// attach BEFORE starting; this avoids the race where the container
+			// exits and flushes stdout before we connect
+			attachResp, err := dockerClient.ContainerAttach(ctx, creationResp.ID, container.AttachOptions{
+				Stream: true,
+				Stdout: true,
+				Stderr: false,
 			})
 			if err != nil {
 				return err
 			}
-			defer func() { _ = logReader.Close() }()
+			defer attachResp.Close()
 
-			piperReader, piperWriter := io.Pipe()
+			log.Infof("Starting container %s for image %s", creationResp.ID, docker_image_name)
+			if err = dockerClient.ContainerStart(ctx, creationResp.ID, container.StartOptions{}); err != nil {
+				return err
+			}
 
-			// demux Docker stream → pipe (runs concurrently)
+			pipeReader, pipeWriter := io.Pipe()
+
+			waitResponseChan, errChan := dockerClient.ContainerWait(ctx, creationResp.ID, container.WaitConditionNotRunning)
+
+			// demux the multiplexed stdout stream
 			go func() {
-				_, err = stdcopy.StdCopy(piperWriter, io.Discard, logReader)
+				_, err := stdcopy.StdCopy(pipeWriter, io.Discard, attachResp.Reader)
 				if err != nil {
-					log.Errorf("error demuxing docker logs: %v", err)
+					log.Errorf("error demuxing container attach stream: %v", err)
 				}
-				_ = piperWriter.Close()
+				_ = pipeWriter.Close()
 			}()
-
-			scanner := bufio.NewScanner(piperReader)
-
+			scanner := bufio.NewScanner(pipeReader)
 			scanner.Buffer(make([]byte, 1024*64), 1024*1024*10) // 10 MB lines
 			_, processSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("process_bulk_jsonld_%s", s.sitemapId))
 			defer processSubspan.End()
