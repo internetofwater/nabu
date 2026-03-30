@@ -115,21 +115,17 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				},
 				nil,
 				nil,
+				// no container name is specified in order to
+				// ensure the container name is unique
 				"",
 			)
 			if err != nil {
 				return err
 			}
 			log.Infof("Created container %s for image %s", creationResp.ID, docker_image_name)
-			if err = dockerClient.ContainerStart(ctx, creationResp.ID, container.StartOptions{}); err != nil {
-				return err
-			}
 
-			waitResponseChan, errChan := dockerClient.ContainerWait(ctx, creationResp.ID, container.WaitConditionNotRunning)
-
-			// attach to container stdout directly
-			piperReader, piperWriter := io.Pipe()
-
+			// attach BEFORE starting; this avoids the race where the container
+			// exits and flushes stdout before we connect
 			attachResp, err := dockerClient.ContainerAttach(ctx, creationResp.ID, container.AttachOptions{
 				Stream: true,
 				Stdout: true,
@@ -140,15 +136,24 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			}
 			defer attachResp.Close()
 
+			log.Infof("Starting container %s for image %s", creationResp.ID, docker_image_name)
+			if err = dockerClient.ContainerStart(ctx, creationResp.ID, container.StartOptions{}); err != nil {
+				return err
+			}
+
+			pipeReader, pipeWriter := io.Pipe()
+
+			waitResponseChan, errChan := dockerClient.ContainerWait(ctx, creationResp.ID, container.WaitConditionNotRunning)
+
 			// demux the multiplexed stdout stream
 			go func() {
-				_, err := stdcopy.StdCopy(piperWriter, io.Discard, attachResp.Reader)
+				_, err := stdcopy.StdCopy(pipeWriter, io.Discard, attachResp.Reader)
 				if err != nil {
 					log.Errorf("error demuxing container attach stream: %v", err)
 				}
-				_ = piperWriter.Close()
+				_ = pipeWriter.Close()
 			}()
-			scanner := bufio.NewScanner(piperReader)
+			scanner := bufio.NewScanner(pipeReader)
 			scanner.Buffer(make([]byte, 1024*64), 1024*1024*10) // 10 MB lines
 			_, processSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("process_bulk_jsonld_%s", s.sitemapId))
 			defer processSubspan.End()
