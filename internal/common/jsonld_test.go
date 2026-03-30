@@ -40,7 +40,7 @@ func TestCreateNewProcessor(t *testing.T) {
 			"born": "1940-10-09",
 			"spouse": "http://dbpedia.org/resource/Cynthia_Lennon"
 			}`
-		nq, err := JsonldToNQ(simpleJSONLDExample, processor, options)
+		nq, err := JsonldToTriples(simpleJSONLDExample, processor, options)
 		require.NoError(t, err)
 		require.NotEmpty(t, nq)
 		birthDateLine := `<http://dbpedia.org/resource/John_Lennon> <http://schema.org/birthDate> "1940-10-09"`
@@ -49,12 +49,30 @@ func TestCreateNewProcessor(t *testing.T) {
 		// read in a file as a string
 		data, err := os.ReadFile("testdata/BPMWQX-1084.jsonld")
 		require.NoError(t, err)
-		require.NoError(t, err)
-		nq, err = JsonldToNQ(string(data), processor, options)
+		nq, err = JsonldToTriples(string(data), processor, options)
 		require.NoError(t, err)
 		require.NotEmpty(t, nq)
 
 	})
+}
+
+func TestJsonldWithSpaceInType(t *testing.T) {
+	ctxMaps := map[string]string{
+		"https://schema.org/": "./assets/schemaorg-current-https.jsonld",
+	}
+
+	processor, options, err := NewJsonldProcessor(true, ctxMaps)
+	require.NoError(t, err)
+	data, err := os.ReadFile("testdata/jsonld_with_space_in_type.jsonld")
+	require.NoError(t, err)
+	triples, err := JsonldToTriples(string(data), processor, options)
+	require.NoError(t, err)
+	require.NotEmpty(t, triples)
+	require.Contains(t, triples, "Extensometer well")
+	quads, err := NtToNq(triples, "urn:test")
+	require.NoError(t, err)
+	require.NotContains(t, quads, "Extensometer well")
+	require.NotEmpty(t, quads)
 }
 
 func TestSelfieExample(t *testing.T) {
@@ -65,21 +83,21 @@ func TestSelfieExample(t *testing.T) {
     "https://opengeospatial.github.io/ELFIE/contexts/elfie-2/hy_features.jsonld"
   ],
   "@id": "https://geoconnex.us/SELFIE/usgs/huc/huc12obs/070900020601",
-  "@type": "https://www.opengis.net/def/appschema/hy_features/hyf/HY_Catchment",
+  "@type": "www.opengis.net/def/schema/hy_features/hyf/HY_Catchment",
   "name": "Waunakee Marsh-Sixmile Creek",
   "description": "USGS Watershed Boundary Dataset Twelve Digit Hydrologic Unit Code Watershed",
   "catchmentRealization": [
     {
       "@id": "https://geoconnex.us/SELFIE/usgs/nhdplusflowline/huc12obs/070900020601",
-      "@type": "https://www.opengis.net/def/appschema/hy_features/hyf/HY_HydrographicNetwork"
+      "@type": "www.opengis.net/def/schema/hy_features/hyf/HY_HydrographicNetwork"
     },
     {
       "@id": "https://geoconnex.us/SELFIE/usgs/hucboundary/huc12obs/070900020601",
-      "@type": "https://www.opengis.net/def/appschema/hy_features/hyf/HY_CatchmentDivide"
+      "@type": "www.opengis.net/def/schema/hy_features/hyf/HY_CatchmentDivide"
     },
     {
       "@id": "https://geoconnex.us/SELFIE/usgs/hydrometricnetwork/huc12obs/070900020601",
-      "@type": "https://www.opengis.net/def/appschema/hy_features/hyf/HY_HydrometricNetwork"
+      "@type": "www.opengis.net/def/schema/hy_features/hyf/HY_HydrometricNetwork"
     }
   ]
 }`
@@ -91,7 +109,7 @@ func TestSelfieExample(t *testing.T) {
 	processor, options, err := NewJsonldProcessor(true, ctxMaps)
 
 	require.NoError(t, err)
-	nq, err := JsonldToNQ(jsonld, processor, options)
+	nq, err := JsonldToTriples(jsonld, processor, options)
 	require.NoError(t, err)
 	require.NotEmpty(t, nq)
 

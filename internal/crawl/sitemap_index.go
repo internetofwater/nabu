@@ -153,12 +153,12 @@ func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.Si
 				return err
 			}
 
-			nq, err := NewOrgsNq(part.Loc, part.Loc)
+			nq, err := NewOrgsTriples(part.Loc, part.Loc)
 			if err != nil {
 				return err
 			}
 
-			prov, err := ProvData{SOURCE: part.Loc, DATE: time.Now().Format(time.RFC3339)}.toNq()
+			prov, err := ProvData{SOURCE: part.Loc, DATE: time.Now().Format(time.RFC3339)}.toTriples()
 			if err != nil {
 				return err
 			}

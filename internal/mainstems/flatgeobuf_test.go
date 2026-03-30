@@ -4,6 +4,7 @@
 package mainstems
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,11 +16,11 @@ func TestPointInFlatgeobuf(t *testing.T) {
 	service, err := NewS3FlatgeobufMainstemService(fgb)
 	require.NoError(t, err)
 
-	response, err := service.GetMainstemForWkt("POINT(-71.0839 42.3477)")
+	response, err := service.GetMainstemForWkt(context.Background(), "POINT(-71.0839 42.3477)")
 	require.NoError(t, err)
 	require.Equal(t, "https://reference.geoconnex.us/collections/mainstems/items/2290857", response.mainstemURI)
 
-	response, err = service.GetMainstemForWkt("POINT(-180 -170)")
+	response, err = service.GetMainstemForWkt(context.Background(), "POINT(-180 -170)")
 	require.NoError(t, err)
 	require.Empty(t, response.mainstemURI)
 	require.False(t, response.foundAssociatedMainstem)
@@ -33,13 +34,13 @@ func TestEdgeCases(t *testing.T) {
 	require.NoError(t, err)
 
 	const insideDatasetButNullValue = "POINT(-108.00852774278917 37.2266879422167)"
-	response, err := service.GetMainstemForWkt(insideDatasetButNullValue)
+	response, err := service.GetMainstemForWkt(context.Background(), insideDatasetButNullValue)
 	require.NoError(t, err)
 	require.Empty(t, response.mainstemURI)
 	require.False(t, response.foundAssociatedMainstem)
 
 	const regionOutsideOfDataset = "POINT(-107.74580000048866 36.958399999924836)"
-	response, err = service.GetMainstemForWkt(regionOutsideOfDataset)
+	response, err = service.GetMainstemForWkt(context.Background(), regionOutsideOfDataset)
 	require.NoError(t, err)
 	require.Empty(t, response.mainstemURI)
 	require.False(t, response.foundAssociatedMainstem)

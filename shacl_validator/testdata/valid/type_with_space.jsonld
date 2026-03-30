@@ -1,0 +1,54 @@
+        {
+  "@context": {
+    "@vocab": "https://schema.org/",
+    "xsd": "https://www.w3.org/TR/xmlschema-2/#",
+    "freq": "http://purl.org/cld/freq/",
+    "qudt": "http://qudt.org/schema/qudt/",
+    "qudt-units": "http://qudt.org/vocab/unit/",
+    "qudt-quantkinds": "http://qudt.org/vocab/quantitykind/",
+    "gsp": "http://www.opengis.net/ont/geosparql#",
+    "locType": "http://vocabulary.odm2.org/sitetype",
+    "hyf": "https://www.opengis.net/def/schema/hy_features/hyf/"
+  },
+  "@id": "https://geoconnex.us/usgs/monitoring-location/USGS-292458094534206",
+  "@type": [
+    "Place",
+    "hyf:HY_HydrometricFeature",
+    "hyf:HY_HydroLocation",
+    "locType:Extensometer well"
+  ],
+  "hyf:HydroLocationType": "hydrometric station",
+  "identifier": {
+    "@type": "PropertyValue",
+    "propertyID": "USGS site number",
+    "value": "USGS-292458094534206"
+  },
+  "name": "KH-64-33-920 (Texas City Extensometer)",
+  "description": "Discover water data collected at monitoring location USGS-292458094534206, located in Texas and find additional nearby monitoring locations.",
+  "provider": {
+    "url": "https://waterdata.usgs.gov",
+    "@type": "GovernmentOrganization",
+    "name": "U.S. Geological Survey Water Data for the Nation"
+  },
+  "geo": {
+    "@type": "GeoCoordinates",
+    "longitude": -94.8950027777778,
+    "latitude": 29.416325,
+    "elevation": {
+      "@type": "QuantitativeValue",
+      "value": 5.87,
+      "unitCode": "NAVD88"
+    }
+  },
+  "gsp:hasGeometry": {
+    "@type": "http://www.opengis.net/ont/sf#Point",
+    "gsp:asWKT": {
+      "@type": "http://www.opengis.net/ont/geosparql#wktLiteral",
+      "@value": "POINT (-94.8950027777778 29.416325)"
+    },
+    "gsp:crs": {
+      "@id": "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+    }
+  },
+  "url": "https://waterdata.usgs.gov/monitoring-location/USGS-292458094534206/"
+}

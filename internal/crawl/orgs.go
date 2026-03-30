@@ -46,7 +46,7 @@ func newOrgsJsonLD(url, name string) (string, error) {
 }
 
 // Generate an nq file for a single organization
-func NewOrgsNq(url, name string) (string, error) {
+func NewOrgsTriples(url, name string) (string, error) {
 	jsonld, err := newOrgsJsonLD(url, name)
 	if err != nil {
 		return "", err
@@ -55,5 +55,5 @@ func NewOrgsNq(url, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return common.JsonldToNQ(jsonld, processor, options)
+	return common.JsonldToTriples(jsonld, processor, options)
 }
