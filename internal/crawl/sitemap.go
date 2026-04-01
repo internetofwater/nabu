@@ -91,7 +91,7 @@ type SitemapHarvestConfig struct {
 	cleanupOutdatedJsonld bool
 	// the number of failed sites in a row before we exit
 	// and assume the sitemap is down
-	failedSitesToAssumeSitemapDown int
+	failedSitesToAssumeDatasetDown int
 }
 
 // Make a new SiteHarvestConfig with all the clients and config
@@ -132,7 +132,7 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclGRP
 		// currently hard coded. could be configurable in the future
 		maxShaclErrorsToStore: 20,
 		// currently hard coded. could be configurable in the future
-		failedSitesToAssumeSitemapDown: 20,
+		failedSitesToAssumeDatasetDown: 20,
 	}, nil
 }
 
@@ -163,16 +163,35 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 		return pkg.SitemapCrawlStats{}, nil, err
 	}
 
+	var stats pkg.SitemapCrawlStats
+	var err error
+	var cleanedUpFilesNames []string
 	if s.isBulkSitemap {
-		return s.HarvestBulkSitemap(ctx, config)
+		stats, err = s.HarvestBulkSitemap(ctx, config)
+		// bulk doesn't do cleanup
+		cleanedUpFilesNames = []string{}
 	} else {
-		return s.HarvestPIDsSitemap(ctx, config)
+		stats, cleanedUpFilesNames, err = s.HarvestPIDsSitemap(ctx, config)
 	}
+	if err != nil {
+		log.Errorf("Error harvesting sitemap %s: %s", s.sitemapId, err)
+		return stats, cleanedUpFilesNames, err
+	}
+
+	asJson, err := stats.ToJsonIoReader()
+	if err != nil {
+		return pkg.SitemapCrawlStats{}, nil, err
+	}
+	err = s.storageDestination.StoreMetadata(fmt.Sprintf("metadata/sitemaps/%s.json", s.sitemapId), asJson)
+	if err != nil {
+		return pkg.SitemapCrawlStats{}, nil, err
+	}
+	return stats, cleanedUpFilesNames, err
 }
 
 // Harvest all the URLs in the given sitemap and return the associated metadata as well as a list
 // of sites that were cleaned up after harvesting
-func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, []string, error) {
+func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvestConfig) (crawlStats pkg.SitemapCrawlStats, cleanedUpFileNames []string, err error) {
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", s.sitemapId))
 	defer span.End()
 
@@ -182,7 +201,7 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 	start := time.Now()
 	log.Infof("Harvesting sitemap %s with %d urls", s.sitemapId, len(s.URL))
 
-	sitemapStatusTracker := NewSitemapStatusTracker(config.failedSitesToAssumeSitemapDown)
+	sitemapStatusTracker := NewSitemapStatusTracker(config.failedSitesToAssumeDatasetDown)
 
 	successfulSitesMu := sync.Mutex{}
 	// includes both sites that were download
@@ -219,7 +238,7 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 		group.Go(func() error {
 			if sitemapStatusTracker.AppearsDown() {
 				return &SitemapAppearsDownError{
-					message: fmt.Sprintf("Returning early since %d failures were detected without a single successful harvest; the sitemap is assumed to be down or had a change in the underlying API", config.failedSitesToAssumeSitemapDown),
+					message: fmt.Sprintf("Returning early since %d failures were detected without a single successful harvest; the sitemap is assumed to be down or had a change in the underlying API", config.failedSitesToAssumeDatasetDown),
 				}
 			}
 
@@ -295,7 +314,7 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 			ShaclWarnings:      s.warnings,
 		},
 		CrawlFailures: s.nonFatalErrors,
-		SitemapDown:   sitemapStatusTracker.AppearsDown(),
+		DatasetDown:   sitemapStatusTracker.AppearsDown(),
 	}
 
 	if err != nil {
@@ -315,15 +334,6 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 		}
 	} else {
 		log.Warnf("Skipping old JSON-LD cleanups. It is possible %s will contain outdated JSON-LD files", "summoned/"+s.sitemapId)
-	}
-
-	asJson, err := stats.ToJsonIoReader()
-	if err != nil {
-		return pkg.SitemapCrawlStats{}, nil, err
-	}
-	err = s.storageDestination.StoreMetadata(fmt.Sprintf("metadata/sitemaps/%s.json", s.sitemapId), asJson)
-	if err != nil {
-		return pkg.SitemapCrawlStats{}, nil, err
 	}
 
 	log.Infof("Finished crawling sitemap %s in %f seconds", s.sitemapId, stats.SecondsToComplete)

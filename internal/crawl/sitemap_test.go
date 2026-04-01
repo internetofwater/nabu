@@ -6,6 +6,7 @@ package crawl
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -108,7 +109,10 @@ func TestHarvestSitemap(t *testing.T) {
 			},
 		})
 
-	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, &storage.DiscardCrawlStorage{}, "test")
+	storage, err := storage.NewLocalTempFSCrawlStorage()
+	require.NoError(t, err)
+
+	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
 	require.NoError(t, err)
 
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, false)
@@ -119,6 +123,18 @@ func TestHarvestSitemap(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, results.SuccessfulSites, 3)
+
+	// ensure that the stats are uploaded to the storage dir
+	data, err := storage.Get("metadata/sitemaps/test.json")
+	require.NoError(t, err)
+	statsAsBytes, err := io.ReadAll(data)
+	require.NoError(t, err)
+	var statsAsJson map[string]interface{}
+	err = json.Unmarshal(statsAsBytes, &statsAsJson)
+	require.NoError(t, err)
+	require.Equal(t, statsAsJson["SitemapSourceLink"], "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml")
+	require.Equal(t, statsAsJson["SitemapName"], "test")
+	require.Equal(t, statsAsJson["DatasetDown"], false)
 }
 
 func TestHarvestTwiceOverridesFile(t *testing.T) {
@@ -392,7 +408,7 @@ func TestHarvestSitemapThatIsDown(t *testing.T) {
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, cleanupOldJsonld)
 	require.NoError(t, err)
 
-	config.failedSitesToAssumeSitemapDown = 1
+	config.failedSitesToAssumeDatasetDown = 1
 
 	stats, _, err := sitemap.
 		Harvest(context.Background(), &config)

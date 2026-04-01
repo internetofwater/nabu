@@ -29,7 +29,7 @@ import (
 )
 
 // HarvestBulkSitemap processes a bulk sitemap by pulling and running Docker images specified as sitemap URLs.
-func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, []string, error) {
+func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, error) {
 
 	if config.workers != 1 {
 		log.Warn("Bulk sitemaps do not allow for specifying workers, using default worker count")
@@ -44,7 +44,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
-		return pkg.SitemapCrawlStats{}, []string{}, err
+		return pkg.SitemapCrawlStats{}, err
 	}
 	defer func() { _ = dockerClient.Close() }()
 
@@ -283,5 +283,5 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		CrawlFailures: []pkg.UrlCrawlError{},
 	}
 
-	return stats, []string{}, errGroupError
+	return stats, errGroupError
 }
