@@ -90,10 +90,10 @@ type SitemapCrawlStats struct {
 	SuccessfulSites int
 	// The number of total sites in the sitemap
 	SitesInSitemap int
-	// Whether the sitemap appears to be down based on the crawl results
+	// Whether the datset in the sitemap appears to be down based on the crawl results
 	// An API specified in a given sitemap is assumed to be down if the first ~20 sites
 	// all failed without a single successful harvest
-	SitemapDown bool
+	DatasetDown bool
 }
 
 // Serialize the sitemap crawl stats to json
