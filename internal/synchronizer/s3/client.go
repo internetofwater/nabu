@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/internetofwater/nabu/internal/config"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
@@ -57,7 +58,6 @@ func NewMinioClientWrapper(mcfg config.MinioConfig) (*MinioClientWrapper, error)
 	}
 
 	var endpoint string
-
 	if mcfg.Port == 0 {
 		endpoint = mcfg.Address
 	} else {
@@ -67,23 +67,30 @@ func NewMinioClientWrapper(mcfg config.MinioConfig) (*MinioClientWrapper, error)
 	secretAccessKey := mcfg.Secretkey
 	useSSL := mcfg.SSL
 
-	var minioClient *minio.Client
-	var err error
+	transport, err := minio.DefaultTransport(false)
+	if err != nil {
+		return nil, err
+	}
+	// Minio client may need to be tweaked further for transport performance
+	// TODO come back to this and optimize further if needed; these values are somewhat
+	//  arbitrarily high to allow for a large number of concurrent connections which is needed for synchronizer performance, but may not be ideal in all cases
+	transport.MaxIdleConns = 2000
+	transport.MaxIdleConnsPerHost = 2000
 
-	if mcfg.Region == "" {
-		log.Debug("Minio client created with no region set")
-		minioClient, err = minio.New(endpoint,
-			&minio.Options{Creds: credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
-				Secure: useSSL,
-			})
+	var minio_options = &minio.Options{
+		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure: useSSL,
+	}
 
+	minioClient, err := minio.New(endpoint, minio_options)
+	if err != nil {
+		return nil, err
+	}
+
+	if mcfg.Region != "" {
+		minio_options.Region = mcfg.Region
 	} else {
-		region := mcfg.Region
-		minioClient, err = minio.New(endpoint,
-			&minio.Options{Creds: credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
-				Secure: useSSL,
-				Region: region,
-			})
+		log.Debug("Minio client created with no region set")
 	}
 
 	return &MinioClientWrapper{Client: minioClient, DefaultBucket: mcfg.Bucket, MetadataBucket: mcfg.MetadataBucket}, err
@@ -608,12 +615,64 @@ func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFil
 }
 
 func (m MinioClientWrapper) StoreBulk(items chan storage.BulkStorageItem) error {
-	eg, _ := errgroup.WithContext(context.Background())
-	eg.SetLimit(300)
+	eg, ctx := errgroup.WithContext(context.Background())
+
+	const maxConcurrentUploads = 300
+
+	semaphore := make(chan struct{}, maxConcurrentUploads)
+
+	var waitTimes []time.Duration
+	var waitTimesMu sync.Mutex
+
 	for item := range items {
+		enqueuedAt := time.Now()
 		eg.Go(func() error {
+			// acquire semaphore / i.e. reduce the channel buffer by 1
+			// if the buffer is empty this goroutine will block until another
+			// goroutine releases the semaphore by increasing the buffer
+			semaphore <- struct{}{}
+
+			if ctx.Err() != nil {
+				// if the context was cancelled; i.e. another
+				// goroutine cancelled the context due to an error,
+				// then we should stop processing and return immediately
+				return ctx.Err()
+			}
+
+			wait := time.Since(enqueuedAt)
+			waitTimesMu.Lock()
+			waitTimes = append(waitTimes, wait)
+			waitTimesMu.Unlock()
+
+			defer func() {
+				// release semaphore upon completion;
+				// i.e. increase the channel buffer by 1 to allow another waiting goroutine to proceed
+				<-semaphore
+			}()
+
 			return m.StoreWithHash(item.Path, item.Data, item.ByteLength)
 		})
 	}
-	return eg.Wait()
+	err := eg.Wait()
+
+	if err != nil {
+		return err
+	}
+	var maxWait time.Duration
+	var totalWait time.Duration
+	var avgWait time.Duration
+
+	for _, wait := range waitTimes {
+		if wait > maxWait {
+			maxWait = wait
+		}
+		totalWait += wait
+	}
+	if len(waitTimes) > 0 {
+		avgWait = totalWait / time.Duration(len(waitTimes))
+	}
+
+	log.Infof("Bulk upload complete with max wait of %f seconds, avg wait time of %f  seconds using max concurrency of %d", maxWait.Seconds(), avgWait.Seconds(), maxConcurrentUploads)
+
+	return nil
 }

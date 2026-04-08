@@ -554,6 +554,22 @@ func (suite *S3ClientSuite) TestGetMD5HashServerside() {
 
 }
 
+func (suite *S3ClientSuite) TestStoreBulk() {
+	const numItems = 1000
+	items := make(chan storage.BulkStorageItem, numItems)
+	dummy_data := []byte("test data")
+	for i := range numItems {
+		items <- storage.BulkStorageItem{
+			Path:       "bulk/test" + fmt.Sprint(i) + ".txt",
+			Data:       bytes.NewReader(dummy_data),
+			ByteLength: len(dummy_data),
+		}
+	}
+	close(items)
+	err := suite.minioContainer.ClientWrapper.StoreBulk(items)
+	suite.Require().NoError(err)
+}
+
 // Run the entire test suite
 func TestS3ClientSuite(t *testing.T) {
 	suite.Run(t, new(S3ClientSuite))
