@@ -9,8 +9,6 @@ COPY . .
 
 RUN cargo build --release
 
-ENTRYPOINT [ "/app/target/release/triples_to_geoparquet" ]
-
 
 FROM debian:bookworm-slim AS final
 
