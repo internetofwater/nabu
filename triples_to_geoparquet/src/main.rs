@@ -196,6 +196,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             });
         }
+
+        pool.join();
+        if pool.panic_count() > 0 {
+            error!("{} threads panicked", pool.panic_count());
+        }
     } else {
         // single file
         info!("Processing {}", triples_path.display());
