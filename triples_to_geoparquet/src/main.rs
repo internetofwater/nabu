@@ -1,12 +1,15 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
+use std::sync::mpsc::{Sender};
+use std::thread;
 use std::{
     fs::{self, File},
     io::{BufRead, Read},
-    sync::Arc,
+    sync::{self, Arc},
 };
 
+use arrow_schema::SchemaRef;
 use flate2::read::GzDecoder;
 use log::{error, info};
 
@@ -103,7 +106,32 @@ fn open_triples_reader(path: &Path) -> Box<dyn Read> {
     }
 }
 
-fn main() {
+/// Given a path to an nquad file and the associated parquet writer info, convert the file
+/// to parquet
+fn process_file(
+    path: &Path,
+    schema_ref: SchemaRef,
+    sender: Sender<RecordBatch>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let reader = open_triples_reader(path);
+    let buf_reader = BufReader::new(reader);
+
+    let arrays =
+        match read_triples_into_arrays(buf_reader, path.file_name().unwrap().to_str().unwrap()) {
+            Ok(arrays) => arrays,
+            Err(err) => {
+                let err_msg = format!("Error reading {}: {}", path.display(), err);
+                error!("{err_msg}");
+                return Err(Into::into(err_msg));
+            }
+        };
+
+    let batch = RecordBatch::try_new(schema_ref, arrays).unwrap();
+    sender.send(batch)?;
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: TriplesToGeoparquetArgs = argh::from_env();
 
     env_logger::Builder::new()
@@ -111,83 +139,77 @@ fn main() {
         .init();
 
     let schema = generate_schema();
+    let schema_ref = Arc::new(schema.clone());
     let triples_path = Path::new(&args.triples);
 
     // ONE parquet writer for everything
     let (mut gpq_encoder, mut parquet_writer) = new_parquet_creator(&schema, &args.output);
 
-    // Helper to process a single file and append to writer
-    let mut process_file = |path: &Path| {
-        let reader = open_triples_reader(path);
-        let buf_reader = BufReader::new(reader);
+    let (sender, reciever) = sync::mpsc::channel::<RecordBatch>();
 
-        let arrays =
-            match read_triples_into_arrays(buf_reader, path.file_name().unwrap().to_str().unwrap())
-            {
-                Ok(arrays) => arrays,
-                Err(err) => {
-                    error!("Error reading {}: {}", path.display(), err);
-                    return;
-                }
-            };
-
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), arrays).unwrap();
-
-        let encoded_batch = gpq_encoder.encode_record_batch(&batch).unwrap();
-        parquet_writer.write(&encoded_batch).unwrap();
-    };
+    let writer_handle = thread::spawn(move || {
+        while let Ok(batch) = reciever.recv() {
+            let encoded_batch = gpq_encoder.encode_record_batch(&batch).unwrap();
+            parquet_writer.write(&encoded_batch).unwrap();
+        }
+        let kv_metadata = gpq_encoder.into_keyvalue().unwrap();
+        parquet_writer.append_key_value_metadata(kv_metadata);
+        parquet_writer.finish().unwrap();
+    });
 
     if triples_path.is_dir() {
-        let mut found_data = false;
-
         // convert files to a vector so we know what index
         // we are for progress logging
         let all_files: Vec<_> = fs::read_dir(triples_path)
             .unwrap()
             .map(|res| res.unwrap())
+            .filter(|item| {
+                let path = item.path();
+                path.is_file()
+                    && (path.extension().and_then(|e| e.to_str()) == Some("gz")
+                        || path.extension().and_then(|e| e.to_str()) == Some("nq"))
+            })
             .collect();
 
-        for (index, entry) in all_files.iter().enumerate() {
-            let path = entry.path();
-            let ends_with_gz_or_nq = path.extension().and_then(|e| e.to_str()) == Some("gz")
-                || path.extension().and_then(|e| e.to_str()) == Some("nq");
-            if path.is_file() && ends_with_gz_or_nq {
-                info!(
-                    "Processing {}, {}/{}",
-                    path.display(),
-                    index + 1,
-                    all_files.len()
-                );
-                found_data = true;
-                process_file(&path);
-            }
+        if all_files.len() == 0 {
+            return Err(format!("No data found in directory '{}'", triples_path.display()).into());
         }
-        if !found_data {
-            error!("No data found in directory '{}'", triples_path.display());
-            return;
+
+        for (i, dir_entry) in all_files.iter().enumerate() {
+            let path = dir_entry.path();
+            info!(
+                "Processing {}, {}/{}",
+                path.to_str().unwrap(),
+                i + 1,
+                all_files.len()
+            );
+            if let Err(e) = process_file(&path, schema_ref.clone(), sender.clone()) {
+                error!("{}", e.to_string())
+            }
         }
     } else {
         // single file
         info!("Processing {}", triples_path.display());
-        process_file(triples_path);
+        if let Err(e) = process_file(&triples_path, schema_ref.clone(), sender.clone()) {
+            error!("{}", e.to_string())
+        }
     }
-
-    // finalize once
-    let kv_metadata = gpq_encoder.into_keyvalue().unwrap();
-    parquet_writer.append_key_value_metadata(kv_metadata);
-    parquet_writer.finish().unwrap();
+    // once all writers have finished, we drop the final sender
+    drop(sender);
+    // once the sender is dropped and there is no more data to send, 
+    // we block on the completion of all writes
+    writer_handle.join().unwrap();
 
     info!(
         "Finished converting to geoparquet. File written to {}",
         args.output
     );
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
-
-    use arrow_array::{Datum, cast::AsArray};
 
     use crate::read_triples_into_arrays;
 
