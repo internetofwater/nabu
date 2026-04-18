@@ -176,23 +176,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // subtract 1 since we have another writer thread
-        let thread_count = (usize::from(thread::available_parallelism().unwrap()) - 1).max(1);
+        let thread_count = (usize::from(thread::available_parallelism().unwrap()) - 1).min(8);
 
-        info!("Converting {} files using {} worker threads", all_files.len(), thread_count);
+        info!(
+            "Converting {} files using {} worker threads",
+            all_files.len(),
+            thread_count
+        );
 
         let pool = threadpool::ThreadPool::new(thread_count);
 
         for (i, dir_entry) in all_files.iter().enumerate() {
             let path = dir_entry.path();
-            info!(
-                "Processing {}, {}/{}",
-                path.to_str().unwrap(),
-                i + 1,
-                all_files.len()
-            );
             let cloned_schema_ref = schema_ref.clone();
             let cloned_sender = sender.clone();
+            let all_files_len = all_files.len();
             pool.execute(move || {
+                info!(
+                    "Processing {}, {}/{}",
+                    path.to_str().unwrap(),
+                    i + 1,
+                    all_files_len
+                );
                 if let Err(e) = process_file(&path, cloned_schema_ref, cloned_sender) {
                     error!("{}", e.to_string())
                 }
@@ -200,7 +205,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         pool.join();
-        info!("Finished converting {} files to internal array batches", all_files.len());
+        info!(
+            "Finished converting {} files to internal array batches",
+            all_files.len()
+        );
         if pool.panic_count() > 0 {
             error!("{} threads panicked", pool.panic_count());
         }
@@ -217,10 +225,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // we block on the completion of all writes
     writer_handle.join().unwrap();
 
-    info!(
-        "Finished creating geoparquet at {}",
-        args.output
-    );
+    info!("Finished creating geoparquet at {}", args.output);
     Ok(())
 }
 
