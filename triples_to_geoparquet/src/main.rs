@@ -160,7 +160,9 @@ fn process_file(
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: TriplesToGeoparquetArgs = argh::from_env();
 
-    init_logger(args.log_level.to_level_filter()).unwrap();
+     env_logger::Builder::new()
+        .filter_level(args.log_level.to_level_filter())
+        .init();
 
     let schema = generate_schema();
     let schema_ref = Arc::new(schema.clone());
@@ -200,7 +202,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // subtract 1 since we have another writer thread
-        let thread_count = (usize::from(thread::available_parallelism().unwrap()) - 1).max(1);
+        let thread_count = (usize::from(thread::available_parallelism().unwrap()) - 1).min(8);
 
         info!(
             "Converting {} files using {} worker threads",
