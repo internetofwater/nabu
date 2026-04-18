@@ -10,13 +10,12 @@ edition = "2024"
 argh = "0.1.13"
 arrow-array = { version = "56.2.0", default-features = false }
 arrow-schema = { version = "56.2.0", default-features = false }
-parquet = { version = "56.2.0", default-features = false, features = ["arrow"] }
-env_logger = "0.11.8"
-flate2 = { version = "1.1.9", default-features = false, features = ["zlib"] }
+parquet = { version = "56.2.0", default-features = false, features = [] }
+flate2 = { version = "1.1.9", default-features = false, features = ["rust_backend"] }
 geo-types = "0.7.18"
-geoarrow-array = "0.6.2"
-geoarrow-schema = "0.6.2"
-geoparquet = "0.6.2"
+geoarrow-array = { version = "0.6.2", default-features = false }
+geoarrow-schema = { version = "0.6.2", default-features = false }
+geoparquet = { version = "0.6.2", default-features = false, features = []}
 log = "0.4.29"
 oxrdf = "0.3.2"
 oxttl = "0.2.1"

@@ -25,6 +25,32 @@ use triples_to_geoparquet::{
 use std::io::BufReader;
 use std::path::Path;
 
+use log::{LevelFilter, Metadata, Record, SetLoggerError};
+
+struct SimpleLogger;
+
+impl log::Log for SimpleLogger {
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level() <= log::max_level()
+    }
+
+    fn log(&self, record: &Record) {
+        if self.enabled(record.metadata()) {
+            eprintln!("[{}] {}", record.level(), record.args());
+        }
+    }
+
+    fn flush(&self) {}
+}
+
+static LOGGER: SimpleLogger = SimpleLogger;
+
+pub fn init_logger(level: LevelFilter) -> Result<(), SetLoggerError> {
+    log::set_logger(&LOGGER)?;
+    log::set_max_level(level);
+    Ok(())
+}
+
 /// Given a reader of triples, read them into arrow arrays
 fn read_triples_into_arrays<R: BufRead>(
     triples_reader: R,
@@ -134,10 +160,8 @@ fn process_file(
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: TriplesToGeoparquetArgs = argh::from_env();
 
-    env_logger::Builder::new()
-        .filter_level(args.log_level.to_level_filter())
-        .init();
-
+    init_logger(args.log_level.to_level_filter()).unwrap();
+    
     let schema = generate_schema();
     let schema_ref = Arc::new(schema.clone());
     let triples_path = Path::new(&args.triples);
@@ -178,7 +202,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // subtract 1 since we have another writer thread
         let thread_count = (usize::from(thread::available_parallelism().unwrap()) - 1).max(1);
 
-        info!("Converting {} files using {} worker threads", all_files.len(), thread_count);
+        info!(
+            "Converting {} files using {} worker threads",
+            all_files.len(),
+            thread_count
+        );
 
         let pool = threadpool::ThreadPool::new(thread_count);
 
@@ -200,7 +228,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         pool.join();
-        info!("Finished converting {} files to internal array batches", all_files.len());
+        info!(
+            "Finished converting {} files to internal array batches",
+            all_files.len()
+        );
         if pool.panic_count() > 0 {
             error!("{} threads panicked", pool.panic_count());
         }
@@ -217,10 +248,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // we block on the completion of all writes
     writer_handle.join().unwrap();
 
-    info!(
-        "Finished creating geoparquet at {}",
-        args.output
-    );
+    info!("Finished creating geoparquet at {}", args.output);
     Ok(())
 }
 
