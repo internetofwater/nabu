@@ -178,6 +178,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // subtract 1 since we have another writer thread
         let thread_count = (usize::from(thread::available_parallelism().unwrap()) - 1).max(1);
 
+        info!("Converting {} files using {} worker threads", all_files.len(), thread_count);
+
         let pool = threadpool::ThreadPool::new(thread_count);
 
         for (i, dir_entry) in all_files.iter().enumerate() {
@@ -198,6 +200,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         pool.join();
+        info!("Finished converting {} files to internal array batches", all_files.len());
         if pool.panic_count() > 0 {
             error!("{} threads panicked", pool.panic_count());
         }
@@ -215,7 +218,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     writer_handle.join().unwrap();
 
     info!(
-        "Finished converting to geoparquet. File written to {}",
+        "Finished creating geoparquet at {}",
         args.output
     );
     Ok(())
