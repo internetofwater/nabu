@@ -1,7 +1,7 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use std::sync::mpsc::{Sender};
+use std::sync::mpsc::Sender;
 use std::thread;
 use std::{
     fs::{self, File},
@@ -175,6 +175,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Err(format!("No data found in directory '{}'", triples_path.display()).into());
         }
 
+        let pool = threadpool::ThreadPool::new(thread::available_parallelism().unwrap().into());
+
         for (i, dir_entry) in all_files.iter().enumerate() {
             let path = dir_entry.path();
             info!(
@@ -183,9 +185,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 i + 1,
                 all_files.len()
             );
-            if let Err(e) = process_file(&path, schema_ref.clone(), sender.clone()) {
-                error!("{}", e.to_string())
-            }
+            let cloned_schema_ref = schema_ref.clone();
+            let cloned_sender = sender.clone();
+            pool.execute(move || {
+                if let Err(e) = process_file(&path, cloned_schema_ref, cloned_sender) {
+                    error!("{}", e.to_string())
+                }
+            });
         }
     } else {
         // single file
@@ -196,7 +202,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     // once all writers have finished, we drop the final sender
     drop(sender);
-    // once the sender is dropped and there is no more data to send, 
+    // once the sender is dropped and there is no more data to send,
     // we block on the completion of all writes
     writer_handle.join().unwrap();
 

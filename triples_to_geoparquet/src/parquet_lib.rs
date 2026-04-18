@@ -30,8 +30,6 @@ pub fn new_parquet_creator(
 }
 
 /// Generate a schema for the geoconnex geoparquet file
-/// which contains the following columns:
-/// id, geometry
 pub fn generate_schema() -> Schema {
     let mut schema_builder = SchemaBuilder::new();
 
