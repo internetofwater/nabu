@@ -161,7 +161,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: TriplesToGeoparquetArgs = argh::from_env();
 
     init_logger(args.log_level.to_level_filter()).unwrap();
-    
+
     let schema = generate_schema();
     let schema_ref = Arc::new(schema.clone());
     let triples_path = Path::new(&args.triples);
@@ -212,15 +212,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         for (i, dir_entry) in all_files.iter().enumerate() {
             let path = dir_entry.path();
-            info!(
-                "Processing {}, {}/{}",
-                path.to_str().unwrap(),
-                i + 1,
-                all_files.len()
-            );
             let cloned_schema_ref = schema_ref.clone();
             let cloned_sender = sender.clone();
+            let all_files_len = all_files.len();
             pool.execute(move || {
+                info!(
+                    "Processing {}, {}/{}",
+                    path.to_str().unwrap(),
+                    i + 1,
+                    all_files_len
+                );
                 if let Err(e) = process_file(&path, cloned_schema_ref, cloned_sender) {
                     error!("{}", e.to_string())
                 }
