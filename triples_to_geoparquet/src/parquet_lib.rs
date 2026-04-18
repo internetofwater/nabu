@@ -46,5 +46,11 @@ pub fn generate_schema() -> Schema {
     let geoconnex_sitemap = Field::new("geoconnex_sitemap", Utf8, false);
     schema_builder.push(geoconnex_sitemap);
 
+    let feature_name = Field::new("feature_name", Utf8, true);
+    schema_builder.push(feature_name);
+
+    let feature_description = Field::new("feature_description", Utf8, true);
+    schema_builder.push(feature_description);
+
     schema_builder.finish()
 }

@@ -36,6 +36,9 @@ pub fn read_triples_into_maps<R: BufRead>(
     let mut pid_to_schema_geo_skolemization_id: HashMap<String, String> = HashMap::new();
     let mut schema_geo_skolemization_id_to_geometry: HashMap<String, Point> = HashMap::new();
 
+    let mut pid_to_schema_name: HashMap<String, String> = HashMap::new();
+    let mut pid_to_schema_description: HashMap<String, String> = HashMap::new();
+
     let parser = NQuadsParser::new();
     let parsed_quads = parser.for_reader(triples_reader);
 
@@ -120,6 +123,19 @@ pub fn read_triples_into_maps<R: BufRead>(
                 geosparql_skolemization_id_to_geometry
                     .insert(subject.to_owned().to_string(), geometry);
             }
+
+            "<https://schema.org/description>" => {
+                pid_to_schema_description.insert(
+                    subject.to_owned().to_string(),
+                    object.to_owned().to_string(),
+                );
+            }
+            "<https://schema.org/name>" => {
+                pid_to_schema_name.insert(
+                    subject.to_owned().to_string(),
+                    object.to_owned().to_string(),
+                );
+            }
             &_ => {}
         }
     }
@@ -128,6 +144,8 @@ pub fn read_triples_into_maps<R: BufRead>(
         geosparql_skolemization_id_to_geometry,
         pid_to_schema_geo_skolemization_id,
         schema_geo_skolemization_id_to_geometry,
+        pid_to_schema_description,
+        pid_to_schema_name,
     })
 }
 
@@ -138,6 +156,8 @@ pub struct HashMaps {
     pub geosparql_skolemization_id_to_geometry: HashMap<String, Geometry>,
     pub pid_to_schema_geo_skolemization_id: HashMap<String, String>,
     pub schema_geo_skolemization_id_to_geometry: HashMap<String, Point>,
+    pub pid_to_schema_description: HashMap<String, String>,
+    pub pid_to_schema_name: HashMap<String, String>,
 }
 
 const UKNOWN_POINT_COORD: f64 = -1.0;
@@ -146,20 +166,20 @@ const UKNOWN_POINT_COORD: f64 = -1.0;
 /// combine them into a single canonical representation for each pid and return
 /// the associated hashmap
 pub fn combine_geometry_representations(
-    maps: HashMaps,
+    maps: &HashMaps,
 ) -> Result<HashMap<String, Geometry>, Box<dyn std::error::Error>> {
     let mut pid_to_canonical_geometry: HashMap<String, Geometry> = HashMap::new();
 
     // first we go through and get all the geosparql geometry;
     // this is the ideal canonical representation since wkt is more flexible
     // than just a point
-    for (pid, geosparql_skolemization_id) in maps.pid_to_geosparql_skolemization_id {
+    for (pid, geosparql_skolemization_id) in &maps.pid_to_geosparql_skolemization_id {
         match maps
             .geosparql_skolemization_id_to_geometry
-            .get(&geosparql_skolemization_id)
+            .get(geosparql_skolemization_id)
         {
             Some(geometry) => {
-                pid_to_canonical_geometry.insert(pid, geometry.clone());
+                pid_to_canonical_geometry.insert(pid.to_owned(), geometry.clone());
             }
             None => {
                 return Err(format!(
@@ -173,10 +193,10 @@ pub fn combine_geometry_representations(
 
     let mut schema_geo_and_wkt_mismatches = 0;
     // next we go through and get all the schema geo geometries
-    for (pid, schema_geo_skolemization_id) in maps.pid_to_schema_geo_skolemization_id {
+    for (pid, schema_geo_skolemization_id) in &maps.pid_to_schema_geo_skolemization_id {
         match maps
             .schema_geo_skolemization_id_to_geometry
-            .get(&schema_geo_skolemization_id)
+            .get(schema_geo_skolemization_id)
         {
             Some(point_geometry) => {
                 if point_geometry.x() == UKNOWN_POINT_COORD
@@ -189,7 +209,7 @@ pub fn combine_geometry_representations(
                     .into());
                 }
 
-                if let Some(gsp_geometry) = pid_to_canonical_geometry.get(&pid) {
+                if let Some(gsp_geometry) = pid_to_canonical_geometry.get(pid) {
                     debug!(
                         "Found gsp geometry for pid {}: {}",
                         pid,
@@ -200,15 +220,19 @@ pub fn combine_geometry_representations(
                         if schema_geo_and_wkt_mismatches < 30 {
                             warn!(
                                 "pid {} with geosparql geometry '{}' does not match schema geo skolemization id {} with schema geo point geometry '{}'",
-                                pid, gsp_geometry.to_wkt(), schema_geo_skolemization_id, point_geometry.to_wkt()
+                                pid,
+                                gsp_geometry.to_wkt(),
+                                schema_geo_skolemization_id,
+                                point_geometry.to_wkt()
                             );
                         } else if schema_geo_and_wkt_mismatches == 30 {
-                            warn!("More than 30 mismatches between geosparql and schema geo geometries; skipping further warnings");
+                            warn!(
+                                "More than 30 mismatches between geosparql and schema geo geometries; skipping further warnings"
+                            );
                         }
-
                     }
                 }
-                pid_to_canonical_geometry.insert(pid, Geometry::Point(point_geometry.clone()));
+                pid_to_canonical_geometry.insert(pid.to_owned(), Geometry::Point(point_geometry.clone()));
             }
             None => {
                 debug!(
@@ -244,14 +268,19 @@ mod tests {
         let mut schema_geo_skolemization_to_geometry: HashMap<String, Point> = HashMap::new();
         schema_geo_skolemization_to_geometry.insert("2".to_string(), Point::new(1.0, 2.0));
 
+        let empty_names: HashMap<String, String> = HashMap::new();
+        let empty_descriptions: HashMap<String, String> = HashMap::new();
+
         let maps = HashMaps {
             pid_to_geosparql_skolemization_id: pids_to_gsp_skolemization,
             geosparql_skolemization_id_to_geometry: gsp_skolemization_to_geometry,
             pid_to_schema_geo_skolemization_id: pids_to_schema_geo_skolemization,
             schema_geo_skolemization_id_to_geometry: schema_geo_skolemization_to_geometry,
+            pid_to_schema_name: empty_names,
+            pid_to_schema_description: empty_descriptions,
         };
 
-        let result = combine_geometry_representations(maps);
+        let result = combine_geometry_representations(&maps);
         assert!(result.is_ok());
     }
 }

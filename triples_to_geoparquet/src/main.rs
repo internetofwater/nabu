@@ -24,37 +24,56 @@ use std::path::Path;
 
 /// Given a reader of triples, read them into arrow arrays
 fn read_triples_into_arrays<R: BufRead>(
-    triples_reader: R, sitemap_name: &str
+    triples_reader: R,
+    sitemap_name: &str,
 ) -> Result<Vec<ArrayRef>, Box<dyn std::error::Error>> {
     let hashmaps = read_triples_into_maps(triples_reader)?;
 
-    let pid_to_geometry = combine_geometry_representations(hashmaps)?;
+    let pid_to_geometry = combine_geometry_representations(&hashmaps)?;
 
     let mut id_builder = StringBuilder::new();
     let mut geometry_builder = GeometryBuilder::new(GeometryType::default());
     let mut sitemap_builder = StringBuilder::new();
+    let mut name_builder = StringBuilder::new();
+    let mut description_builder = StringBuilder::new();
 
     let binding = sitemap_name.to_string();
-    let sitemap_name = binding.trim_end_matches(".gz").trim_end_matches("_release.nq");
+    let sitemap_name = binding
+        .trim_end_matches(".gz")
+        .trim_end_matches("_release.nq");
 
     for (pid, geometry) in pid_to_geometry {
         geometry_builder.push_geometry(Some(&geometry))?;
 
-        let pid = pid.trim_matches('<').trim_matches('>');
-        id_builder.append_value(&pid);
+        let pid_without_brackets = pid.trim_matches('<').trim_matches('>');
+        id_builder.append_value(&pid_without_brackets);
 
+        match hashmaps.pid_to_schema_name.get(&pid) {
+            Some(name) => name_builder
+                .append_value(name.strip_prefix('"').unwrap().strip_suffix('"').unwrap()),
+            None => name_builder.append_null(),
+        }
+
+        match hashmaps.pid_to_schema_description.get(&pid) {
+            Some(description) => description_builder.append_value(
+                description
+                    .strip_prefix('"')
+                    .unwrap()
+                    .strip_suffix('"')
+                    .unwrap(),
+            ),
+            None => description_builder.append_null(),
+        }
 
         sitemap_builder.append_value(sitemap_name);
     }
 
-    let string_array = id_builder.finish();
-    let geometry_array = geometry_builder.finish();
-    let sitemap_array = sitemap_builder.finish();
-
     Ok(vec![
-        geometry_array.to_array_ref(),
-        Arc::new(string_array) as ArrayRef,
-        Arc::new(sitemap_array) as ArrayRef,
+        geometry_builder.finish().to_array_ref(),
+        Arc::new(id_builder.finish()) as ArrayRef,
+        Arc::new(sitemap_builder.finish()) as ArrayRef,
+        Arc::new(name_builder.finish()) as ArrayRef,
+        Arc::new(description_builder.finish()) as ArrayRef,
     ])
 }
 
@@ -102,13 +121,15 @@ fn main() {
         let reader = open_triples_reader(path);
         let buf_reader = BufReader::new(reader);
 
-        let arrays = match read_triples_into_arrays(buf_reader, path.file_name().unwrap().to_str().unwrap()) {
-            Ok(arrays) => arrays,
-            Err(err) => {
-                error!("Error reading {}: {}", path.display(), err);
-                return;
-            }
-        };
+        let arrays =
+            match read_triples_into_arrays(buf_reader, path.file_name().unwrap().to_str().unwrap())
+            {
+                Ok(arrays) => arrays,
+                Err(err) => {
+                    error!("Error reading {}: {}", path.display(), err);
+                    return;
+                }
+            };
 
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), arrays).unwrap();
 
@@ -126,12 +147,17 @@ fn main() {
             .map(|res| res.unwrap())
             .collect();
 
-        for (index, entry) in all_files.iter().enumerate()  {
+        for (index, entry) in all_files.iter().enumerate() {
             let path = entry.path();
             let ends_with_gz_or_nq = path.extension().and_then(|e| e.to_str()) == Some("gz")
                 || path.extension().and_then(|e| e.to_str()) == Some("nq");
             if path.is_file() && ends_with_gz_or_nq {
-                info!("Processing {}, {}/{}", path.display(), index+1, all_files.len());
+                info!(
+                    "Processing {}, {}/{}",
+                    path.display(),
+                    index + 1,
+                    all_files.len()
+                );
                 found_data = true;
                 process_file(&path);
             }
@@ -151,12 +177,17 @@ fn main() {
     parquet_writer.append_key_value_metadata(kv_metadata);
     parquet_writer.finish().unwrap();
 
-    info!("Finished converting to geoparquet. File written to {}", args.output);
+    info!(
+        "Finished converting to geoparquet. File written to {}",
+        args.output
+    );
 }
 
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
+
+    use arrow_array::{Datum, cast::AsArray};
 
     use crate::read_triples_into_arrays;
 
@@ -167,10 +198,14 @@ mod tests {
 
         let reader = Cursor::new(nquads);
 
-        let arrays =
-            read_triples_into_arrays(reader, "test").expect("Expected triples to be parsed successfully");
+        let arrays = read_triples_into_arrays(reader, "test")
+            .expect("Expected triples to be parsed successfully");
 
-        assert_eq!(arrays.len(), 3, "Expected 3 columns, geometry, sitemap, and id");
+        assert_eq!(
+            arrays.len(),
+            5,
+            "Expected 5 arrays (geometry, id, name, description, name)"
+        );
 
         let geometry_array = &arrays[0];
         let id_array = &arrays[1];
@@ -210,10 +245,14 @@ mod tests {
 
         let reader = Cursor::new(nquads);
 
-        let arrays =
-            read_triples_into_arrays(reader, "test").expect("Expected triples to be parsed successfully");
+        let arrays = read_triples_into_arrays(reader, "test")
+            .expect("Expected triples to be parsed successfully");
 
-        assert_eq!(arrays.len(), 3, "Expected 3 columns, geometry, sitemap, and id");
+        assert_eq!(
+            arrays.len(),
+            5,
+            "Expected 5 columns, geometry, sitemap, id, name, description"
+        );
 
         let geometry_array = &arrays[0];
 
@@ -235,5 +274,51 @@ mod tests {
         let arrays = read_triples_into_arrays(reader, "test");
 
         assert!(arrays.is_ok());
+    }
+
+    #[test]
+    fn test_triples_with_name_and_description() {
+        let nquads = r#"<http://example.org/feature/1> <http://www.opengis.net/ont/geosparql#hasGeometry> _:geom1 .
+        _:geom1 <http://www.opengis.net/ont/geosparql#asWKT> "POINT (2 1)"^^<http://www.opengis.net/ont/geosparql#wktLiteral> .
+        <http://example.org/feature/1> <https://schema.org/geo> _:schema1 .
+        _:schema1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/GeoCoordinates> .
+        _:schema1 <https://schema.org/latitude> "1.0"^^<http://www.w3.org/2001/XMLSchema#double> .
+        _:schema1 <https://schema.org/longitude> "2.0"^^<http://www.w3.org/2001/XMLSchema#double> .
+        <http://example.org/feature/1> <https://schema.org/name> "foo" .
+        <http://example.org/feature/1> <https://schema.org/description> "foo is a bar" .
+        "#;
+
+        let reader = Cursor::new(nquads);
+
+        let arrays = read_triples_into_arrays(reader, "test")
+            .expect("Expected triples to be parsed successfully");
+
+        assert_eq!(
+            arrays.len(),
+            5,
+            "Expected 5 columns, geometry, sitemap, id, name, description"
+        );
+
+        let geometry_array = &arrays[0];
+
+        assert_eq!(geometry_array.len(), 1);
+
+        let name_array = &arrays[3];
+        let description_array = &arrays[4];
+        assert_eq!(name_array.len(), 1);
+        // get the value of the name
+        let name_value = name_array
+            .as_any()
+            .downcast_ref::<arrow_array::StringArray>()
+            .unwrap()
+            .value(0);
+        assert_eq!(name_value, "foo");
+        let description_value = description_array
+            .as_any()
+            .downcast_ref::<arrow_array::StringArray>()
+            .unwrap()
+            .value(0);
+        assert_eq!(description_value, "foo is a bar");
+        assert_eq!(description_array.len(), 1);
     }
 }

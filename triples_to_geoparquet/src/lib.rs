@@ -7,11 +7,12 @@ pub mod parquet_lib;
 pub mod triples_lib;
 
 /// Given a triple term, return the value as a f64
+/// this is since many triples contain numbers in scientific notation
 pub fn f64_from_triple_term(data: &str) -> Result<f64, Box<dyn std::error::Error>> {
     let literal = data.split("^^").next().unwrap().trim_matches('"');
 
     let mut parts = literal.split('E');
-    let base: f64 = parts.next().unwrap().parse()?;
+    let base: f64 = parts.next().ok_or("Invalid triple string")?.parse()?;
 
     match parts.next() {
         Some(exp_str) => {
