@@ -25,32 +25,6 @@ use triples_to_geoparquet::{
 use std::io::BufReader;
 use std::path::Path;
 
-use log::{LevelFilter, Metadata, Record, SetLoggerError};
-
-struct SimpleLogger;
-
-impl log::Log for SimpleLogger {
-    fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= log::max_level()
-    }
-
-    fn log(&self, record: &Record) {
-        if self.enabled(record.metadata()) {
-            eprintln!("[{}] {}", record.level(), record.args());
-        }
-    }
-
-    fn flush(&self) {}
-}
-
-static LOGGER: SimpleLogger = SimpleLogger;
-
-pub fn init_logger(level: LevelFilter) -> Result<(), SetLoggerError> {
-    log::set_logger(&LOGGER)?;
-    log::set_max_level(level);
-    Ok(())
-}
-
 /// Given a reader of triples, read them into arrow arrays
 fn read_triples_into_arrays<R: BufRead>(
     triples_reader: R,
@@ -160,7 +134,7 @@ fn process_file(
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: TriplesToGeoparquetArgs = argh::from_env();
 
-     env_logger::Builder::new()
+    env_logger::Builder::new()
         .filter_level(args.log_level.to_level_filter())
         .init();
 
