@@ -175,7 +175,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Err(format!("No data found in directory '{}'", triples_path.display()).into());
         }
 
-        let pool = threadpool::ThreadPool::new(thread::available_parallelism().unwrap().into());
+        // subtract 1 since we have another writer thread
+        let thread_count = (usize::from(thread::available_parallelism().unwrap()) - 1).max(1);
+
+        let pool = threadpool::ThreadPool::new(thread_count);
 
         for (i, dir_entry) in all_files.iter().enumerate() {
             let path = dir_entry.path();
