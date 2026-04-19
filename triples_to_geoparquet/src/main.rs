@@ -94,6 +94,10 @@ struct TriplesToGeoparquetArgs {
     /// log level
     #[argh(option, default = "log::Level::Info")]
     log_level: log::Level,
+
+    /// workers
+    #[argh(option, default = "4")]
+    workers: u32,
 }
 
 fn open_triples_reader(path: &Path) -> Box<dyn Read> {
@@ -175,8 +179,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Err(format!("No data found in directory '{}'", triples_path.display()).into());
         }
 
-        // subtract 1 since we have another writer thread
-        let thread_count = (usize::from(thread::available_parallelism().unwrap()) - 1).min(8);
+        let thread_count = (args.workers).max(1) as usize;
 
         info!(
             "Converting {} files using {} worker threads",
