@@ -97,7 +97,7 @@ struct TriplesToGeoparquetArgs {
 
     /// workers
     #[argh(option, default = "4")]
-    workers: u32,
+    workers: usize,
 }
 
 fn open_triples_reader(path: &Path) -> Box<dyn Read> {
@@ -179,7 +179,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Err(format!("No data found in directory '{}'", triples_path.display()).into());
         }
 
-        let thread_count = (args.workers).max(1) as usize;
+        let thread_count = (args.workers).max(1);
 
         info!(
             "Converting {} files using {} worker threads",
