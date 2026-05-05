@@ -202,7 +202,7 @@ func TestHarvestWithShaclValidation(t *testing.T) {
 	case <-found:
 		// Proceed
 	case <-time.After(30 * time.Second):
-		t.Fatal("Timed out waiting for gRPC server to start; the server may be failing to start due to a port conflict")
+		t.Fatal("Timed out waiting for gRPC server to start; the server may be failing to start due to a port conflict on port 50052")
 	}
 
 	t.Run("valid jsonld", func(t *testing.T) {
