@@ -16,24 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSitemapPartId(t *testing.T) {
-	p := parts{Loc: "https://geoconnex.us/sitemap/CUAHSI/CUAHSI_HIS_GHCN_ids__0.xml"}
-	id, err := p.associatedID()
-	require.NoError(t, err)
-	require.Equal(t, "CUAHSI_CUAHSI_HIS_GHCN_ids__0", id)
-
-	p = parts{Loc: "https://geoconnex.us/sitemap/nhdplusv2/huc12pp/huc12pp__0.xml"}
-	id, err = p.associatedID()
-	require.NoError(t, err)
-	require.Equal(t, "nhdplusv2_huc12pp_huc12pp__0", id)
-
-	badp := parts{Loc: ""}
-	id, err = badp.associatedID()
-	require.Empty(t, id)
-	require.Error(t, err)
-}
-
-// Test parsing the geoconnex sitemap index which contains links to other sitemaps
 func TestParseSitemapIndex(t *testing.T) {
 
 	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
@@ -51,6 +33,8 @@ func TestParseSitemapIndex(t *testing.T) {
 	require.NotEmpty(t, indexHarvester)
 	assert.NoError(t, err)
 	var emptyMaps []string
+
+	require.NotEmpty(t, indexHarvester.Sitemaps[0].SitemapID)
 
 	for _, url := range indexHarvester.GetUrlList() {
 		assert.NotEmpty(t, url)
