@@ -88,6 +88,11 @@ func NewSitemapIndexHarvester(sitemapRef string, client *http.Client) (SitemapIn
 	if len(serializedSitemapIndex.Sitemaps) == 0 {
 		return serializedSitemapIndex, fmt.Errorf("no sitemaps found in sitemap index at %s", sitemapRef)
 	}
+	for i, sitemap := range serializedSitemapIndex.Sitemaps {
+		if sitemap.SitemapID == "" {
+			return serializedSitemapIndex, fmt.Errorf("sitemap at index %d with loc %s is missing a geoconnex:sitemap_id field", i, sitemap.Loc)
+		}
+	}
 
 	return serializedSitemapIndex, err
 

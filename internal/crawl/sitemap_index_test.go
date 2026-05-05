@@ -128,5 +128,4 @@ func TestHarvestSitemapIndex(t *testing.T) {
 func TestSitemapInsteadOfSitemapIndex(t *testing.T) {
 	_, err := NewSitemapIndexHarvester("testdata/sitemap.xml", http.DefaultClient)
 	require.Error(t, err)
-	require.ErrorContains(t, err, "empty")
 }

@@ -1,0 +1,76 @@
+{
+    "@context": [{
+        "@vocab": "https://schema.org/", 
+        "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+        "dc": "http://purl.org/dc/terms/",
+        "qudt": "http://qudt.org/schema/qudt/",
+        "qudt-units": "http://qudt.org/vocab/unit/",
+        "qudt-quantkinds": "http://qudt.org/vocab/quantitykind/",
+        "gsp": "http://www.opengis.net/ont/geosparql#",
+        "locType": "http://vocabulary.odm2.org/sitetype",
+        "odm2var":"http://vocabulary.odm2.org/variablename/",
+        "odm2varType": "http://vocabulary.odm2.org/variabletype/",
+        "hyf": "https://www.opengis.net/def/schema/hy_features/hyf/",
+        "skos": "https://www.opengis.net/def/schema/hy_features/hyf/HY_HydroLocationType",
+        "ssn": "http://www.w3.org/ns/ssn/",
+        "ssn-system":  "http://www.w3.org/ns/ssn/systems/"
+    }],
+    "@id": "https://pids.geoconnex.dev/cdss/gages/ENTDITCO",
+    "@type": [
+        "hyf:HY_HydrometricFeature",
+        "hyf:HY_HydroLocation",
+        "locType:stream"
+    ],
+    "hyf:HydroLocationType": "hydrometric station",
+    "identifier": {
+        "@type": "PropertyValue",
+        "propertyID": "Colorado Decision Support System Identifier",
+        "value": "ENTDITCO"
+    },
+    "name": "ENTERPRISE DITCH AT THE COLORADO-NEW MEXICO STATELINE",
+    "description": "Stream/River Site",
+    "provider": {
+        "url": "https://dwr.state.co.us",
+        "@type": "governmentAgency",
+        "name": "Colorado Decision Support System"
+    },
+    "hyf:referencedPosition": [
+        {
+           "hyf:HY_IndirectPosition": {
+                "hyf:linearElement": {"@id": "https://geoconnex.us/ref/mainstems/36825"}
+           }
+        }
+    ],"subjectOf": [{
+            "@type": "Dataset",
+            "name": "ENTERPRISE DITCH AT THE COLORADO-NEW MEXICO STATELINE",
+            "description": "ENTERPRISE DITCH AT THE COLORADO-NEW MEXICO STATELINE at ENTDITCO",
+            "url": "https://dwr.state.co.us/Tools/Stations/ENTDITCO?params=DISCHRG",
+            "provider": {
+                "url": "https://dwr.state.co.us",
+                "@type": "governmentAgency",
+                "name": "Colorado Decision Support System"
+            },
+            "variableMeasured": {
+                "@type": "PropertyValue",
+                "name": "discharge",
+                "description": "Discharge in cubic feet per second",
+                "propertyID": "https://www.wikidata.org/wiki/Q8737769",
+                "url": "https://en.wikipedia.org/wiki/Discharge_(hydrology)",
+                "unitText": "cubic feet per second",
+                "qudt:hasQuantityKind": "qudt-quantkinds:VolumeFlowRate",
+                "qudt:hasUnit": "qudt-units:FT3-PER-SEC",
+                "measurementTechnique": "location-based observation",
+                "measurementMethod": {
+                    "name": "Discharge Measurements at Gaging Stations",
+                    "publisher": "Colorado Decision Support System",
+                    "url": "https://doi.org/10.3133/tm3A8"
+                }
+            },
+            "temporalCoverage": "1991-07-25/..",
+            "ssn-system:frequency": {
+                "value": "15",
+                "unitCode": "qudt-units:Minute"
+            }
+        }],"geo": {"@type":"schema:GeoCoordinates","schema:longitude":-108.18982299999999,"schema:latitude":37.00959800000004},
+    "gsp:hasGeometry": {"@type":"http://www.opengis.net/ont/sf#Point","gsp:asWKT":{"@type":"http://www.opengis.net/ont/geosparql#wktLiteral","@value":"POINT (-108.18982299999999 37.00959800000004)"}}
+}

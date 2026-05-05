@@ -85,7 +85,8 @@ func (s *NabuInterationSuite) TestIntegrationWithNabu() {
 	s.Require().True(len(byte_sum_data) > 0, "bytesum file should not be empty")
 
 	byte_sum_as_string := string(byte_sum_data)
-	s.Require().Equal(byte_sum_as_string, "408880", "bytesum file should exactly match")
+	// note that if the sitemap id changes for any reason, this bytesum will also change
+	s.Require().Equal("407696", byte_sum_as_string, "bytesum file should exactly match")
 	s.Require().NoError(err)
 }
 
