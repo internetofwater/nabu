@@ -95,6 +95,10 @@ export interface SitemapCrawlStats {
    */
   SitemapName: string;
   /**
+   * The description of the sitemap in the sitemap index
+   */
+  SitemapDescription: string;
+  /**
    * The number of sites that were successfully crawled and stored or skipped due to a matching hash in storage
    */
   SuccessfulSites: number /* int */;

@@ -50,10 +50,9 @@ func TestBulkSitemap(t *testing.T) {
 	storage, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
 
-	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/bulk", 1, storage, "test_sitemap")
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test_sitemap", Loc: "https://geoconnex.us/sitemap/iow/bulk", BulkContainerImage: "test_bulk"})
 	require.NoError(t, err)
 
-	sitemap.isBulkSitemap = true
 	sitemap.URL[0].Loc = unique_id
 
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, &mockShaclValidatorClient{}, false, false)
@@ -115,10 +114,9 @@ func TestBulkSitemapWithStrictShaclMode(t *testing.T) {
 	storage, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
 
-	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/bulk", 1, storage, "test_sitemap")
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test_sitemap", Loc: "https://geoconnex.us/sitemap/iow/bulk", BulkContainerImage: "test_bulk"})
 	require.NoError(t, err)
 
-	sitemap.isBulkSitemap = true
 	sitemap.URL[0].Loc = unique_id
 
 	const STRICT_SHACL_MODE = true

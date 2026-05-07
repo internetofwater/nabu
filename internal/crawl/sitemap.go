@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -34,17 +33,8 @@ type Sitemap struct {
 	XMLName xml.Name       `xml:":urlset"`
 	URL     []url_info.URL `xml:":url"`
 
-	// The url to the sitemap itself
-	sitemapUrl string `xml:"-"`
-	// The unique identifier for the sitemap
-	// essentially just a serialized version of the path
-	// in the URL without the hostname, special characters,
-	// / or the final .xml
-	sitemapId string `xml:"-"`
-
-	// Whether or not this sitemap is a bulk sitemap
-	// and contains links to docker for running container operations instead of individual pids
-	isBulkSitemap bool `xml:"-"`
+	// Contains all the metadata from the sitemap index about this sitemap; this is not from the sitemap itself but rather from the sitemap index that references this sitemap
+	metadata SitemapMetadata `xml:"-"`
 
 	// Strategy used for storing crawled data
 	// - explicitly ignores xml marshaling
@@ -100,13 +90,13 @@ type SitemapHarvestConfig struct {
 func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclGRPCClient protoBuild.ShaclValidatorClient, exitOnShaclFailure bool, cleanupOutdatedJsonld bool) (SitemapHarvestConfig, error) {
 
 	if sitemap.workers < 1 {
-		return SitemapHarvestConfig{}, fmt.Errorf("no workers set for sitemap %s", sitemap.sitemapId)
+		return SitemapHarvestConfig{}, fmt.Errorf("no workers set for sitemap %s", sitemap.metadata.SitemapID)
 	}
 
 	var robotsTxt *robotstxt.Group
 	// don't check robots.txt for bulk sitemaps
 	// since they point to docker images and not individual web pages to crawl
-	if !sitemap.isBulkSitemap {
+	if !sitemap.metadata.IsBulkSitemap() {
 		firstUrl := sitemap.URL[0]
 		robotsTxt, err := newRobots(httpClient, firstUrl.Loc)
 		if err != nil {
@@ -166,7 +156,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	var stats pkg.SitemapCrawlStats
 	var err error
 	var cleanedUpFilesNames []string
-	if s.isBulkSitemap {
+	if s.metadata.IsBulkSitemap() {
 		stats, err = s.HarvestBulkSitemap(ctx, config)
 		// bulk doesn't do cleanup
 		cleanedUpFilesNames = []string{}
@@ -174,7 +164,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 		stats, cleanedUpFilesNames, err = s.HarvestPIDsSitemap(ctx, config)
 	}
 	if err != nil {
-		log.Errorf("Error harvesting sitemap %s: %s", s.sitemapId, err)
+		log.Errorf("Error harvesting sitemap %s: %s", s.metadata.SitemapID, err)
 		return stats, cleanedUpFilesNames, err
 	}
 
@@ -182,7 +172,7 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	if err != nil {
 		return pkg.SitemapCrawlStats{}, nil, err
 	}
-	err = s.storageDestination.StoreMetadata(fmt.Sprintf("metadata/sitemaps/%s.json", s.sitemapId), asJson)
+	err = s.storageDestination.StoreMetadata(fmt.Sprintf("metadata/sitemaps/%s.json", s.metadata.SitemapID), asJson)
 	if err != nil {
 		return pkg.SitemapCrawlStats{}, nil, err
 	}
@@ -192,18 +182,18 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 // Harvest all the URLs in the given sitemap and return the associated metadata as well as a list
 // of sites that were cleaned up after harvesting
 func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvestConfig) (crawlStats pkg.SitemapCrawlStats, cleanedUpFileNames []string, err error) {
-	if s.sitemapId == "" {
+	if s.metadata.SitemapID == "" {
 		return pkg.SitemapCrawlStats{}, nil, fmt.Errorf("sitemap id is required for harvesting")
 	}
 
-	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", s.sitemapId))
+	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", s.metadata.SitemapID))
 	defer span.End()
 
 	group, ctx := errgroup.WithContext(ctx)
 	group.SetLimit(config.workers)
 
 	start := time.Now()
-	log.Infof("Harvesting sitemap %s with %d urls", s.sitemapId, len(s.URL))
+	log.Infof("Harvesting sitemap %s with %d urls", s.metadata.SitemapID, len(s.URL))
 
 	sitemapStatusTracker := NewSitemapStatusTracker(config.failedSitesToAssumeDatasetDown)
 
@@ -220,13 +210,13 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 
 	sitesWithShaclFailures := atomic.Int32{}
 
-	noPreviousData, err := s.storageDestination.IsEmptyDir("summoned/" + s.sitemapId)
+	noPreviousData, err := s.storageDestination.IsEmptyDir("summoned/" + s.metadata.SitemapID)
 	if err != nil {
 		return pkg.SitemapCrawlStats{}, nil, err
 	}
 
 	if noPreviousData {
-		log.Infof("No pre-existing JSON-LD files found in %s so skipping hash checks for already harvested sites", "summoned/"+s.sitemapId)
+		log.Infof("No pre-existing JSON-LD files found in %s so skipping hash checks for already harvested sites", "summoned/"+s.metadata.SitemapID)
 		config.checkExistenceBeforeCrawl.Store(false)
 	} else {
 		config.checkExistenceBeforeCrawl.Store(true)
@@ -234,7 +224,7 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 
 	for _, url := range s.URL {
 
-		if path, err := urlToStoragePath(s.sitemapId, url); err != nil {
+		if path, err := urlToStoragePath(s.metadata.SitemapID, url); err != nil {
 			return pkg.SitemapCrawlStats{}, nil, err
 		} else {
 			sitesInSitemap.Add(path)
@@ -246,7 +236,7 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 				}
 			}
 
-			result_metadata, err := harvestOnePID(ctx, s.sitemapId, url, config)
+			result_metadata, err := harvestOnePID(ctx, s.metadata.SitemapID, url, config)
 			if err != nil {
 				if !errors.Is(err, context.Canceled) {
 					log.Error(err)
@@ -273,7 +263,7 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 					s.warnings = append(s.warnings, result_metadata.warning)
 					s.warningMu.Unlock()
 				} else if shaclFailuresSoFar == int32(config.maxShaclErrorsToStore) {
-					log.Warnf("Too many shacl errors for %s. Skipping further errors to prevent log spam", s.sitemapId)
+					log.Warnf("Too many shacl errors for %s. Skipping further errors to prevent log spam", s.metadata.SitemapID)
 				}
 				if result_metadata.warning.ShaclStatus == pkg.ShaclInvalid {
 					sitesWithShaclFailures.Store(
@@ -299,7 +289,7 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 				log.Warnf("Server didn't provide a hash on %s. Skipping hash checks going forward for harvested sites", url.Loc)
 			}
 			if math.Mod(float64(totalSitesContacted.Load()), 500) == 0 {
-				log.Infof("Harvested %d/%d sites for %s", totalSitesContacted.Load(), len(s.URL), s.sitemapId)
+				log.Infof("Harvested %d/%d sites for %s", totalSitesContacted.Load(), len(s.URL), s.metadata.SitemapID)
 			}
 
 			return nil
@@ -308,11 +298,12 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 	err = group.Wait()
 
 	stats := pkg.SitemapCrawlStats{
-		SitemapSourceLink: s.sitemapUrl,
-		SecondsToComplete: time.Since(start).Seconds(),
-		SitemapName:       s.sitemapId,
-		SuccessfulSites:   len(successfulSites),
-		SitesInSitemap:    len(s.URL),
+		SitemapSourceLink:  s.metadata.Loc,
+		SecondsToComplete:  time.Since(start).Seconds(),
+		SitemapName:        s.metadata.SitemapID,
+		SitemapDescription: s.metadata.DatasetDescription,
+		SuccessfulSites:    len(successfulSites),
+		SitesInSitemap:     len(s.URL),
 		WarningStats: pkg.WarningReport{
 			TotalShaclFailures: int(sitesWithShaclFailures.Load()),
 			ShaclWarnings:      s.warnings,
@@ -329,46 +320,50 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 
 	cleanedUpFiles := []string{}
 	if config.cleanupOutdatedJsonld {
-		log.Info("Cleaning up outdated JSON-LD files in summoned/" + s.sitemapId)
-		cleanedUpFiles, err = storage.CleanupFiles("summoned/"+s.sitemapId, sitesInSitemap, s.storageDestination)
+		log.Info("Cleaning up outdated JSON-LD files in summoned/" + s.metadata.SitemapID)
+		cleanedUpFiles, err = storage.CleanupFiles("summoned/"+s.metadata.SitemapID, sitesInSitemap, s.storageDestination)
 		if err != nil {
 			log.Error(err)
 		} else {
-			log.Infof("Cleaned up %d outdated JSON-LD files in summoned/%s", len(cleanedUpFiles), s.sitemapId)
+			log.Infof("Cleaned up %d outdated JSON-LD files in summoned/%s", len(cleanedUpFiles), s.metadata.SitemapID)
 		}
 	} else {
-		log.Warnf("Skipping old JSON-LD cleanups. It is possible %s will contain outdated JSON-LD files", "summoned/"+s.sitemapId)
+		log.Warnf("Skipping old JSON-LD cleanups. It is possible %s will contain outdated JSON-LD files", "summoned/"+s.metadata.SitemapID)
 	}
 
-	log.Infof("Finished crawling sitemap %s in %f seconds", s.sitemapId, stats.SecondsToComplete)
+	log.Infof("Finished crawling sitemap %s in %f seconds", s.metadata.SitemapID, stats.SecondsToComplete)
 
-	log.Infof("Sitemap %s had %d harvested urls, %d non fatal crawl errors, and %d shacl issues", s.sitemapId, stats.SuccessfulSites, len(stats.CrawlFailures), stats.WarningStats.TotalShaclFailures)
+	log.Infof("Sitemap %s had %d harvested urls, %d non fatal crawl errors, and %d shacl issues", s.metadata.SitemapID, stats.SuccessfulSites, len(stats.CrawlFailures), stats.WarningStats.TotalShaclFailures)
 
 	return stats, cleanedUpFiles, err
 }
 
 // Given a sitemap url, return a Sitemap object
-func NewSitemap(ctx context.Context, client *http.Client, sitemapURL string, workers int, storageDestination storage.CrawlStorage, sitemapId string) (*Sitemap, error) {
+func NewSitemap(ctx context.Context, client *http.Client, workers int, storageDestination storage.CrawlStorage, metadata SitemapMetadata) (*Sitemap, error) {
 	if workers == 0 {
-		return &Sitemap{}, fmt.Errorf("no workers set in sitemap for %s", sitemapURL)
+		return &Sitemap{}, fmt.Errorf("no workers set in sitemap for %s", metadata.Loc)
+	}
+	if metadata.SitemapID == "" {
+		return &Sitemap{}, fmt.Errorf("no sitemap id set in sitemap metadata for sitemap with loc %s", metadata.Loc)
+	}
+	if metadata.Loc == "" {
+		return &Sitemap{}, fmt.Errorf("no location set in sitemap metadata for sitemap with id %s", metadata.SitemapID)
 	}
 
 	serializedSitemap := Sitemap{workers: workers,
 		storageDestination: storageDestination,
-		sitemapId:          sitemapId,
-		sitemapUrl:         sitemapURL,
 		nonFatalErrors:     []pkg.UrlCrawlError{},
 		warnings:           []pkg.ShaclInfo{},
-		isBulkSitemap:      strings.Contains(sitemapURL, "/bulk/"),
+		metadata:           metadata,
 	}
 
-	if serializedSitemap.isBulkSitemap {
-		log.Infof("Harvesting sitemap %s as bulk sitemap", sitemapId)
+	if serializedSitemap.metadata.IsBulkSitemap() {
+		log.Infof("Harvesting sitemap %s as bulk sitemap", metadata.SitemapID)
 	}
 
 	urls := make([]url_info.URL, 0)
 
-	resp, err := client.Get(sitemapURL)
+	resp, err := client.Get(metadata.Loc)
 	if err != nil {
 		return &serializedSitemap, err
 	}

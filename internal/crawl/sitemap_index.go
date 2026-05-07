@@ -28,7 +28,7 @@ type SitemapIndex struct {
 	XMLName xml.Name `xml:"http://www.sitemaps.org/schemas/sitemap/0.9 sitemapindex"`
 	// this represents the <sitemap> elements within the sitemap index
 	// the info for all the urls in the sitemap itself is in the `Sitemap` struct
-	Sitemaps []SitemapInIndex `xml:"sitemap"`
+	Sitemaps []SitemapMetadata `xml:"sitemap"`
 
 	storageDestination           storage.CrawlStorage `xml:"-"`
 	concurrentSitemaps           int                  `xml:"-"`
@@ -40,11 +40,21 @@ type SitemapIndex struct {
 	exitOnShaclFailure           bool                 `xml:"-"`
 }
 
-// sitemap_ is a structure of <sitemap> within a <sitemapindex>
-type SitemapInIndex struct {
-	Loc       string `xml:"loc"`
-	LastMod   string `xml:"lastmod"`
-	SitemapID string `xml:"https://geoconnex.us sitemap_id"`
+// Represents the structure of <sitemap> within a <sitemapindex>
+// this is metadata info that we can pass down to the sitemap harvester to use when harvesting the sitemap
+type SitemapMetadata struct {
+	Loc                string `xml:"loc"`
+	LastMod            string `xml:"lastmod"`
+	SitemapID          string `xml:"https://geoconnex.us sitemap_id"`
+	DatasetDescription string `xml:"https://geoconnex.us dataset_description"`
+	DocumentationLink  string `xml:"https://geoconnex.us dataset_documentation_link"`
+	AddMainstems       string `xml:"https://geoconnex.us add_associated_mainstems"`
+	ContactEmail       string `xml:"https://geoconnex.us contact_email"`
+	BulkContainerImage string `xml:"https://geoconnex.us bulk_container_image"`
+}
+
+func (s SitemapMetadata) IsBulkSitemap() bool {
+	return s.BulkContainerImage != ""
 }
 
 func isUrl(str string) bool {
@@ -136,7 +146,7 @@ func (i SitemapIndex) HarvestSitemaps(ctx context.Context, client *http.Client) 
 			}
 
 			log.Infof("Parsing sitemap %s", sitemap.Loc)
-			sitemap, err := NewSitemap(ctx, client, sitemap.Loc, i.sitemapWorkers, i.storageDestination, id)
+			sitemap, err := NewSitemap(ctx, client, i.sitemapWorkers, i.storageDestination, sitemap)
 			if err != nil {
 				return err
 			}
@@ -183,15 +193,13 @@ func (i SitemapIndex) HarvestSitemap(ctx context.Context, client *http.Client, s
 
 	for _, part := range i.Sitemaps {
 
-		id := part.SitemapID
-
-		if id != sitemapIdentifier {
+		if part.SitemapID != sitemapIdentifier {
 			continue
 		}
 		ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", sitemapIdentifier))
 		defer span.End()
 
-		sitemap, err := NewSitemap(ctx, client, part.Loc, i.sitemapWorkers, i.storageDestination, id)
+		sitemap, err := NewSitemap(ctx, client, i.sitemapWorkers, i.storageDestination, part)
 		if err != nil {
 			return pkg.SitemapCrawlStats{}, err
 		}
