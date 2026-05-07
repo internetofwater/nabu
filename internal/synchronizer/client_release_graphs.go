@@ -192,7 +192,10 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(ctx context.Context, p
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("nq_release_graph_%s", prefix))
 	defer span.End()
 
-	remote_file := strings.HasPrefix(mainstemFile, "gcs://") || strings.HasPrefix(mainstemFile, "s3://") || strings.HasPrefix(mainstemFile, "http://") || strings.HasPrefix(mainstemFile, "https://")
+	remote_file := strings.HasPrefix(mainstemFile, "gcs://") ||
+		strings.HasPrefix(mainstemFile, "s3://") ||
+		strings.HasPrefix(mainstemFile, "http://") ||
+		strings.HasPrefix(mainstemFile, "https://")
 
 	if mainstemFile == "" {
 		log.Warn("There was no provided mainstem file, so no mainstem info will be added to the nquad release")
