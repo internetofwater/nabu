@@ -58,7 +58,7 @@ func (s *NabuInterationSuite) TestIntegrationWithNabu() {
 	encodedPid := base64.StdEncoding.EncodeToString([]byte(pid))
 	s.Require().Equal("aHR0cHM6Ly9nZW9jb25uZXgudXMvaW93L3dxcC9CUE1XUVgtMTA4NC1XUi1DQzAxQw==", encodedPid)
 
-	summonedJsonld := "summoned/iow_wqp_stations__5" + "/" + encodedPid + ".jsonld"
+	summonedJsonld := "summoned/iow:wqp:stations__5" + "/" + encodedPid + ".jsonld"
 
 	jsonld_data, err := client.S3Client.GetObjectAsBytes(summonedJsonld)
 	s.Require().NoError(err)
@@ -67,10 +67,10 @@ func (s *NabuInterationSuite) TestIntegrationWithNabu() {
 	jsonld_as_string := string(jsonld_data)
 	s.Require().Contains(jsonld_as_string, pid, "jsonld file should contain the original pid")
 
-	err = client.GenerateNqRelease(ctx, "summoned/iow_wqp_stations__5", false, "")
+	err = client.GenerateNqRelease(ctx, "summoned/iow:wqp:stations__5", false, "")
 	s.Require().NoError(err)
 
-	summonedPath := "graphs/latest/iow_wqp_stations__5_release.nq"
+	summonedPath := "graphs/latest/iow:wqp:stations__5_release.nq"
 
 	nq_data, err := client.S3Client.GetObjectAsBytes(summonedPath)
 	s.Require().NoError(err)
@@ -85,7 +85,8 @@ func (s *NabuInterationSuite) TestIntegrationWithNabu() {
 	s.Require().True(len(byte_sum_data) > 0, "bytesum file should not be empty")
 
 	byte_sum_as_string := string(byte_sum_data)
-	s.Require().Equal(byte_sum_as_string, "408880", "bytesum file should exactly match")
+	// note that if the sitemap id changes for any reason, this bytesum will also change
+	s.Require().Equal("407696", byte_sum_as_string, "bytesum file should exactly match")
 	s.Require().NoError(err)
 }
 

@@ -192,6 +192,10 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 // Harvest all the URLs in the given sitemap and return the associated metadata as well as a list
 // of sites that were cleaned up after harvesting
 func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvestConfig) (crawlStats pkg.SitemapCrawlStats, cleanedUpFileNames []string, err error) {
+	if s.sitemapId == "" {
+		return pkg.SitemapCrawlStats{}, nil, fmt.Errorf("sitemap id is required for harvesting")
+	}
+
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("sitemap_harvest_%s", s.sitemapId))
 	defer span.End()
 

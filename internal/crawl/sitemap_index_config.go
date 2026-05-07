@@ -9,23 +9,23 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (i Index) WithStorageDestination(storageDestination storage.CrawlStorage) Index {
+func (i SitemapIndex) WithStorageDestination(storageDestination storage.CrawlStorage) SitemapIndex {
 	i.storageDestination = storageDestination
 	return i
 }
 
-func (i Index) WithShaclValidationConfig(shaclAddress string, exitOnShaclFailure bool) Index {
+func (i SitemapIndex) WithShaclValidationConfig(shaclAddress string, exitOnShaclFailure bool) SitemapIndex {
 	i.shaclAddress = shaclAddress
 	i.exitOnShaclFailure = exitOnShaclFailure
 	return i
 }
 
-func (i Index) WithOutdatedJsonldCleanup(enabled bool) Index {
+func (i SitemapIndex) WithOutdatedJsonldCleanup(enabled bool) SitemapIndex {
 	i.outdatedJsonldCleanupEnabled = enabled
 	return i
 }
 
-func (i Index) WithConcurrencyConfig(concurrentSitemaps int, sitemapWorkers int) Index {
+func (i SitemapIndex) WithConcurrencyConfig(concurrentSitemaps int, sitemapWorkers int) SitemapIndex {
 	// Make sure concurrency is at least 1
 	// otherwise go will block indefinitely
 	if concurrentSitemaps < 1 {
@@ -42,7 +42,7 @@ func (i Index) WithConcurrencyConfig(concurrentSitemaps int, sitemapWorkers int)
 	return i
 }
 
-func (i Index) WithSpecifiedSourceFilter(sourceToHarvest string) Index {
+func (i SitemapIndex) WithSpecifiedSourceFilter(sourceToHarvest string) SitemapIndex {
 	// Set an id to filter by
 	// If a sitemap with this id is found, it will be harvested
 	// otherwise it will be skipped. If the id is an empty string
@@ -51,7 +51,7 @@ func (i Index) WithSpecifiedSourceFilter(sourceToHarvest string) Index {
 	return i
 }
 
-func (i Index) WithHeadlessChromeUrl(url string) Index {
+func (i SitemapIndex) WithHeadlessChromeUrl(url string) SitemapIndex {
 	i.headlessChromeUrl = url
 	return i
 }

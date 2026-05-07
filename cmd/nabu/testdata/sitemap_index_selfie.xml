@@ -1,11 +1,20 @@
 <?xml version='1.0' encoding='utf-8'?>
 <!--
- Copyright 2025 Lincoln Institute of Land Policy
+ Copyright 2026 Lincoln Institute of Land Policy
  SPDX-License-Identifier: Apache-2.0
 -->
 
-<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-<sitemap>
-    <loc>https://geoconnex.us/sitemap/SELFIE/SELFIE_ids__0.xml</loc>
-    <lastmod>2020-05-02T07:25:35Z</lastmod>
-</sitemap></sitemapindex>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+    xmlns:geoconnex="https://geoconnex.us">
+    <sitemap>
+        <loc>https://geoconnex.us/sitemap/SELFIE/SELFIE_ids__0.xml</loc>
+        <lastmod>2026-02-24T16:44:04Z</lastmod>
+        <geoconnex:sitemap_id>SELFIE:ids__0</geoconnex:sitemap_id>
+        <geoconnex:max_request_concurrency>5</geoconnex:max_request_concurrency>
+        <geoconnex:add_associated_mainstems>True</geoconnex:add_associated_mainstems>
+        <geoconnex:contact_email>bwebb@lincolninst.edu</geoconnex:contact_email>
+        <geoconnex:dataset_description>USGS SELFIE linked data experiment</geoconnex:dataset_description>
+        <geoconnex:dataset_has_html_landing_pages>True</geoconnex:dataset_has_html_landing_pages>
+        <geoconnex:dataset_documentation_link>https://www.ogc.org/initiatives/selfie/</geoconnex:dataset_documentation_link>
+    </sitemap>
+</sitemapindex>
