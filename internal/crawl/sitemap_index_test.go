@@ -34,11 +34,16 @@ func TestParseSitemapIndex(t *testing.T) {
 	assert.NoError(t, err)
 	var emptyMaps []string
 
+	// Ensure that the sitemap fields
 	require.NotEmpty(t, indexHarvester.Sitemaps[0].SitemapID)
+	require.NotEmpty(t, indexHarvester.Sitemaps[0].DatasetDescription)
+	require.NotEmpty(t, indexHarvester.Sitemaps[0].DocumentationLink)
+	require.NotEmpty(t, indexHarvester.Sitemaps[0].AddMainstems)
+	require.NotEmpty(t, indexHarvester.Sitemaps[0].ContactEmail)
 
 	for _, url := range indexHarvester.GetUrlList() {
 		assert.NotEmpty(t, url)
-		sitemap, err := NewSitemap(context.Background(), mockedClient, url, 1, &storage.LocalTempFSCrawlStorage{}, "test")
+		sitemap, err := NewSitemap(context.Background(), mockedClient, 1, &storage.LocalTempFSCrawlStorage{}, SitemapMetadata{SitemapID: "test", Loc: url})
 		require.NoError(t, err)
 		if len(sitemap.URL) == 0 {
 			emptyMaps = append(emptyMaps, url)
@@ -109,7 +114,7 @@ func TestHarvestSitemapIndex(t *testing.T) {
 	sitemapUrls, err := NewSitemapIndexHarvester("https://geoconnex.us/sitemap.xml", mockedClient)
 	require.NoError(t, err)
 	// just test the first for the sake of brevity
-	sitemap, err := NewSitemap(context.Background(), mockedClient, sitemapUrls.GetUrlList()[0], 1, container.ClientWrapper, "test")
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, container.ClientWrapper, SitemapMetadata{SitemapID: "test", Loc: sitemapUrls.GetUrlList()[0]})
 	require.NoError(t, err)
 
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, false)

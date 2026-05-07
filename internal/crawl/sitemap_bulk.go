@@ -39,7 +39,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		log.Warn("cleanup outdated jsonld not supported currently for bulk sitemaps")
 	}
 
-	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_harvest_%s", s.sitemapId))
+	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_harvest_%s", s.metadata.SitemapID))
 	defer span.End()
 
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
@@ -58,7 +58,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 	numNewlineSeparateJSONLDDocs := atomic.Int32{}
 
-	log.Debugf("starting bulk harvest for sitemap %s with %d container urls", s.sitemapUrl, len(s.URL))
+	log.Debugf("starting bulk harvest for sitemap %s with %d container urls", s.metadata.SitemapID, len(s.URL))
 
 	var errGroupError error = nil
 	for _, url := range s.URL {
@@ -71,7 +71,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		bulkUploadChan := make(chan storage.BulkStorageItem, 1000)
 
 		group.Go(func() error {
-			_, subspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_upload_%s", s.sitemapId))
+			_, subspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_upload_%s", s.metadata.SitemapID))
 			err := config.storageDestination.StoreBulk(bulkUploadChan)
 			log.Infof("Finished uploading bulk data for %s", url.Loc)
 			subspan.End()
@@ -155,7 +155,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			}()
 			scanner := bufio.NewScanner(pipeReader)
 			scanner.Buffer(make([]byte, 1024*64), 1024*1024*10) // 10 MB lines
-			_, processSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("process_bulk_jsonld_%s", s.sitemapId))
+			_, processSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("process_bulk_jsonld_%s", s.metadata.SitemapID))
 			defer processSubspan.End()
 			for scanner.Scan() {
 				line := scanner.Bytes()
@@ -218,7 +218,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 					}
 				}
 
-				path := "summoned/" + s.sitemapId + "/" + encodedId + ".jsonld"
+				path := "summoned/" + s.metadata.SitemapID + "/" + encodedId + ".jsonld"
 
 				validJsonldDocsMu.Lock()
 				validJsonldDocs.Add(path)
@@ -270,7 +270,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	}
 
 	stats := pkg.SitemapCrawlStats{
-		SitemapSourceLink: s.sitemapUrl,
+		SitemapSourceLink: s.metadata.Loc,
 		WarningStats: pkg.WarningReport{
 			TotalShaclFailures: len(warningStats),
 			ShaclWarnings:      warningStats,

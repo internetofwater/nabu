@@ -55,7 +55,7 @@ func TestNamesAreBase64(t *testing.T) {
 
 	storage, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
-	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", SitemapID: "test"})
 	require.NoError(t, err)
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, false)
 	require.NoError(t, err)
@@ -71,7 +71,7 @@ func TestNamesAreBase64(t *testing.T) {
 	for item := range mocks {
 		if strings.HasSuffix(item, ".jsonld") {
 			url := url_info.NewUrlFromString(item)
-			path, err := urlToStoragePath(sitemap.sitemapId, url)
+			path, err := urlToStoragePath(sitemap.metadata.SitemapID, url)
 			require.NoError(t, err)
 			require.Contains(t, storageItems, path)
 		}
@@ -112,7 +112,7 @@ func TestHarvestSitemap(t *testing.T) {
 	storage, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
 
-	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
 	require.NoError(t, err)
 
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, false)
@@ -173,7 +173,7 @@ func TestHarvestTwiceOverridesFile(t *testing.T) {
 
 	storage, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
-	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
 	require.NoError(t, err)
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, false)
 	require.NoError(t, err)
@@ -182,7 +182,7 @@ func TestHarvestTwiceOverridesFile(t *testing.T) {
 		Harvest(context.Background(), &config)
 	require.NoError(t, err)
 
-	pathInStorage, err := urlToStoragePath(sitemap.sitemapId, url_info.NewUrlFromString(urlToHarvestDifferently))
+	pathInStorage, err := urlToStoragePath(sitemap.metadata.SitemapID, url_info.NewUrlFromString(urlToHarvestDifferently))
 	require.NoError(t, err)
 	dataInStorage, err := storage.Get(pathInStorage)
 	require.NoError(t, err)
@@ -208,7 +208,7 @@ func TestHarvestTwiceOverridesFile(t *testing.T) {
 		ContentType: "application/ld+json",
 	}
 	mockClientWithReplacedContent := common.NewMockedClient(true, mocks)
-	sitemap, err = NewSitemap(context.Background(), mockClientWithReplacedContent, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
+	sitemap, err = NewSitemap(context.Background(), mockClientWithReplacedContent, 1, storage, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
 	require.NoError(t, err)
 	stats, _, err := sitemap.
 		Harvest(context.Background(), &config)
@@ -261,7 +261,7 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 
 	storage, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
-	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", SitemapID: "test"})
 	require.NoError(t, err)
 
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, true)
@@ -269,11 +269,11 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 
 	// store three files in the storage that are not part of the sitemap
 	// thus we want these to be cleaned up
-	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.sitemapId+"/testfile.txt", bytes.NewReader([]byte("dummy_data")))
+	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.metadata.SitemapID+"/testfile.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
-	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.sitemapId+"/testfile2.txt", bytes.NewReader([]byte("dummy_data")))
+	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.metadata.SitemapID+"/testfile2.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
-	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.sitemapId+"/testfile3.txt", bytes.NewReader([]byte("dummy_data")))
+	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.metadata.SitemapID+"/testfile3.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
 
 	stats, cleanedUpFiles, err := sitemap.
@@ -315,10 +315,10 @@ func TestHarvestSitemapWithCleanup(t *testing.T) {
 		})
 
 	// store a file that is not in the sitemap
-	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.sitemapId+"/dummy.txt", bytes.NewReader([]byte("dummy_data")))
+	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.metadata.SitemapID+"/dummy.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
 
-	sitemap, err = NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
+	sitemap, err = NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
 	require.NoError(t, err)
 
 	config, err = NewSitemapHarvestConfig(mockedClientWithErrors, sitemap, nil, false, true)
@@ -401,7 +401,7 @@ func TestHarvestSitemapThatIsDown(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, err)
-	sitemap, err := NewSitemap(context.Background(), mockedClient, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", 1, storage, "test")
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
 	require.NoError(t, err)
 
 	const cleanupOldJsonld = true
