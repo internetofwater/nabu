@@ -4,6 +4,7 @@
 package crawl
 
 import (
+	"bytes"
 	"context"
 	"encoding/xml"
 	"fmt"
@@ -11,24 +12,23 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"sync/atomic"
-	"time"
 
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/pkg"
 	log "github.com/sirupsen/logrus"
 
-	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	"golang.org/x/sync/errgroup"
 )
 
-// Index is a structure of <sitemapindex>
+// SitemapIndex is a structure of <sitemapindex>
 // https://geoconnex.us/sitemap.xml is an example of a sitemap index
-type Index struct {
-	XMLName  xml.Name `xml:"sitemapindex"`
-	Sitemaps []parts  `xml:"sitemap"`
+type SitemapIndex struct {
+	XMLName xml.Name `xml:"http://www.sitemaps.org/schemas/sitemap/0.9 sitemapindex"`
+	// this represents the <sitemap> elements within the sitemap index
+	// the info for all the urls in the sitemap itself is in the `Sitemap` struct
+	Sitemaps []SitemapInIndex `xml:"sitemap"`
 
 	storageDestination           storage.CrawlStorage `xml:"-"`
 	concurrentSitemaps           int                  `xml:"-"`
@@ -40,28 +40,11 @@ type Index struct {
 	exitOnShaclFailure           bool                 `xml:"-"`
 }
 
-// parts is a structure of <sitemap> in <sitemapindex>
-type parts struct {
-	Loc     string `xml:"loc"`
-	LastMod string `xml:"lastmod"`
-}
-
-// the associate id is the simplified version of the
-// sitemap id / url that is used to identify the sitemap
-// and remove the extraneous info like the hostname and final .xml
-func (p parts) associatedID() (string, error) {
-	if p.Loc == "" {
-		return "", fmt.Errorf("empty sitemap location")
-	}
-
-	url, err := url.Parse(p.Loc)
-	if err != nil {
-		return "", err
-	}
-	path := strings.TrimPrefix(url.Path, "/sitemap/")
-	removeXML := strings.TrimSuffix(path, ".xml")
-	underscoredPath := strings.ReplaceAll(removeXML, "/", "_")
-	return underscoredPath, nil
+// sitemap_ is a structure of <sitemap> within a <sitemapindex>
+type SitemapInIndex struct {
+	Loc       string `xml:"loc"`
+	LastMod   string `xml:"lastmod"`
+	SitemapID string `xml:"https://geoconnex.us sitemap_id"`
 }
 
 func isUrl(str string) bool {
@@ -69,9 +52,9 @@ func isUrl(str string) bool {
 	return err == nil && u.Scheme != "" && u.Host != ""
 }
 
-func NewSitemapIndexHarvester(sitemapRef string, client *http.Client) (Index, error) {
+func NewSitemapIndexHarvester(sitemapRef string, client *http.Client) (SitemapIndex, error) {
 
-	serializedSitemapIndex := Index{}
+	serializedSitemapIndex := SitemapIndex{}
 
 	var sitemapData io.Reader
 
@@ -92,30 +75,38 @@ func NewSitemapIndexHarvester(sitemapRef string, client *http.Client) (Index, er
 		sitemapData = sitemapFile
 	}
 
-	err := sitemap.ParseIndex(sitemapData, func(ie sitemap.IndexEntry) error {
-		part := parts{}
-		part.Loc = strings.TrimSpace(ie.GetLocation())
-		part.LastMod = ie.GetLastModified().Format(time.RFC3339)
-		serializedSitemapIndex.Sitemaps = append(serializedSitemapIndex.Sitemaps, part)
-		return nil
-	})
+	asBytes, err := io.ReadAll(sitemapData)
+	if err != nil {
+		return serializedSitemapIndex, err
+	}
+	decoder := xml.NewDecoder(bytes.NewReader(asBytes))
+
+	err = decoder.Decode(&serializedSitemapIndex)
+	if err != nil {
+		return serializedSitemapIndex, err
+	}
 	if len(serializedSitemapIndex.Sitemaps) == 0 {
-		return serializedSitemapIndex, fmt.Errorf("%s appears to be empty or an invalid sitemap index", sitemapRef)
+		return serializedSitemapIndex, fmt.Errorf("no sitemaps found in sitemap index at %s", sitemapRef)
+	}
+	for i, sitemap := range serializedSitemapIndex.Sitemaps {
+		if sitemap.SitemapID == "" {
+			return serializedSitemapIndex, fmt.Errorf("sitemap at index %d with loc %s is missing a geoconnex:sitemap_id field", i, sitemap.Loc)
+		}
 	}
 
 	return serializedSitemapIndex, err
 
 }
 
-func (i Index) GetUrlList() []string {
+func (i SitemapIndex) GetUrlList() []string {
 	result := []string{}
-	for _, part := range i.Sitemaps {
-		result = append(result, part.Loc)
+	for _, sitemap := range i.Sitemaps {
+		result = append(result, sitemap.Loc)
 	}
 	return result
 }
 
-func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.SitemapIndexCrawlStats, error) {
+func (i SitemapIndex) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.SitemapIndexCrawlStats, error) {
 
 	if i.concurrentSitemaps < 1 {
 		return pkg.SitemapIndexCrawlStats{}, fmt.Errorf("concurrent sitemap limit is set less than 1")
@@ -132,13 +123,10 @@ func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.Si
 
 	crawlStatChan := make(chan pkg.SitemapCrawlStats, len(i.Sitemaps))
 
-	for _, part := range i.Sitemaps {
-		part := part
+	for _, sitemap := range i.Sitemaps {
 		group.Go(func() error {
-			id, err := part.associatedID()
-			if err != nil {
-				return err
-			}
+
+			id := sitemap.SitemapID
 
 			if i.specificSourceToHarvest != "" && id != i.specificSourceToHarvest {
 				log.Debugf("Skipped sitemap with id %s", id)
@@ -147,30 +135,11 @@ func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.Si
 				wasFound.Store(true)
 			}
 
-			log.Infof("Parsing sitemap %s", part.Loc)
-			sitemap, err := NewSitemap(ctx, client, part.Loc, i.sitemapWorkers, i.storageDestination, id)
+			log.Infof("Parsing sitemap %s", sitemap.Loc)
+			sitemap, err := NewSitemap(ctx, client, sitemap.Loc, i.sitemapWorkers, i.storageDestination, id)
 			if err != nil {
 				return err
 			}
-
-			nq, err := NewOrgsTriples(part.Loc, part.Loc)
-			if err != nil {
-				return err
-			}
-
-			prov, err := ProvData{SOURCE: part.Loc, DATE: time.Now().Format(time.RFC3339)}.toTriples()
-			if err != nil {
-				return err
-			}
-
-			const metadataFiles = 2
-			errChan := make(chan error, metadataFiles)
-			go func() {
-				errChan <- i.storageDestination.StoreWithoutServersideHash("orgs/"+id+".nq", strings.NewReader(nq))
-				errChan <- i.storageDestination.StoreWithoutServersideHash("prov/"+id+".nq", strings.NewReader(prov))
-				close(errChan)
-			}()
-
 			shaclGRPCClient, err := NewShaclGrpcClientFromAddr(i.shaclAddress)
 			if err != nil {
 				return err
@@ -183,12 +152,6 @@ func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.Si
 
 			stats, _, harvestErr := sitemap.
 				Harvest(ctx, &config)
-
-			for err := range errChan {
-				if err != nil {
-					return err
-				}
-			}
 
 			crawlStatChan <- stats
 
@@ -216,14 +179,11 @@ func (i Index) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.Si
 }
 
 // Harvest one particular sitemap
-func (i Index) HarvestSitemap(ctx context.Context, client *http.Client, sitemapIdentifier string) (pkg.SitemapCrawlStats, error) {
+func (i SitemapIndex) HarvestSitemap(ctx context.Context, client *http.Client, sitemapIdentifier string) (pkg.SitemapCrawlStats, error) {
 
 	for _, part := range i.Sitemaps {
 
-		id, err := part.associatedID()
-		if err != nil {
-			return pkg.SitemapCrawlStats{}, err
-		}
+		id := part.SitemapID
 
 		if id != sitemapIdentifier {
 			continue

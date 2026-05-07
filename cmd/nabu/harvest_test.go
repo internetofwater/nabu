@@ -37,11 +37,6 @@ func (s *NabuHarvestSuite) TestHarvestToS3() {
 	// two jsonld objects
 	s.Require().Len(objs, 2)
 
-	orgsObjs, err := s.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"orgs/"})
-	s.Require().NoError(err)
-	// they come from the same org so should be 1
-	require.Equal(s.T(), 1, orgsObjs)
-
 	// access all the objects in the metadata bucket and make sure they exist
 	buckets, err := s.minioContainer.ClientWrapper.Client.ListBuckets(context.Background())
 	require.NoError(s.T(), err)
@@ -71,7 +66,7 @@ func (s *NabuHarvestSuite) TestHarvestToS3() {
 }
 
 func (s *NabuHarvestSuite) TestHarvestWithSourceSpecified() {
-	args := fmt.Sprintf("harvest --log-level DEBUG --sitemap-index testdata/sitemap_index.xml --source iow_wqp_stations__5 --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
+	args := fmt.Sprintf("harvest --log-level DEBUG --sitemap-index testdata/sitemap_index.xml --source iow:wqp:stations__5 --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 
 	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
 		"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {File: "testdata/stations__5.xml", StatusCode: 200},
@@ -82,10 +77,6 @@ func (s *NabuHarvestSuite) TestHarvestWithSourceSpecified() {
 
 	_, err := NewNabuRunnerFromString(args).Run(context.Background(), mockedClient)
 	s.Require().NoError(err)
-
-	orgsObjs, err := s.minioContainer.ClientWrapper.NumberOfMatchingObjects([]string{"orgs/"})
-	s.Require().NoError(err)
-	require.Equal(s.T(), 1, orgsObjs)
 }
 
 func (s *NabuHarvestSuite) TestHarvestToDisk() {
@@ -102,7 +93,7 @@ func (s *NabuHarvestSuite) TestHarvestToDisk() {
 }
 
 func (s *NabuHarvestSuite) TestBadFileType() {
-	args := "harvest --sitemap-index https://geoconnex.us/sitemap.xml --source SELFIE_SELFIE_ids__0 --log-level DEBUG --to-disk"
+	args := "harvest --sitemap-index https://geoconnex.us/sitemap.xml --source SELFIE:ids__0 --log-level DEBUG --to-disk"
 	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
 		"https://geoconnex.us/sitemap.xml":                           {File: "testdata/sitemap_index_selfie.xml", StatusCode: 200},
 		"https://geoconnex.us/sitemap/SELFIE/SELFIE_ids__0.xml":      {File: "testdata/SELFIE_ids__0.xml", StatusCode: 200},
