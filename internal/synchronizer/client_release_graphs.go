@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 
 	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/crawl"
 	"github.com/internetofwater/nabu/internal/mainstems"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
@@ -188,15 +189,30 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, 
 // this is accomplished by streaming the conversion of nq and uploading
 // to minio concurrently. We used a buffered channel to limit the
 // concurrency of the conversion process
-func (synchronizer *SynchronizerClient) GenerateNqRelease(ctx context.Context, prefix s3.S3Prefix, compressGraphWithGzip bool, mainstemFile string) error {
+func (synchronizer *SynchronizerClient) GenerateNqRelease(ctx context.Context, sitemap_metadata crawl.SitemapMetadata, compressGraphWithGzip bool, mainstemFile string) error {
+	prefix := sitemap_metadata.SitemapID
+	// for backwards compatibility, if the prefix doesn't already start with "summoned", add it since that is where the nq releases are stored in s3
+	// eventually we will just remove this and abstract away summoned as an internal concept
+	if !strings.HasPrefix(prefix, "summoned") {
+		prefix = "summoned/" + prefix
+	}
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("nq_release_graph_%s", prefix))
 	defer span.End()
 
-	remote_file := strings.HasPrefix(mainstemFile, "gcs://") || strings.HasPrefix(mainstemFile, "s3://") || strings.HasPrefix(mainstemFile, "http://") || strings.HasPrefix(mainstemFile, "https://")
+	remote_file := strings.HasPrefix(mainstemFile, "gcs://") ||
+		strings.HasPrefix(mainstemFile, "s3://") ||
+		strings.HasPrefix(mainstemFile, "http://") ||
+		strings.HasPrefix(mainstemFile, "https://")
 
-	if mainstemFile == "" {
+	if mainstemFile == "" && !sitemap_metadata.AddMainstems {
 		log.Warn("There was no provided mainstem file, so no mainstem info will be added to the nquad release")
 		// only check for existence if the mainstem file is not remote and could be local
+	} else if mainstemFile != "" && !sitemap_metadata.AddMainstems {
+		// if the mainstem file was provided but the metadata doesn't specify to add mainstems, ignore the mainstem file and don't add mainstem info
+		// this is not a warning since the mainstem file path is an internal implementation detail
+		mainstemFile = ""
+	} else if mainstemFile == "" && sitemap_metadata.AddMainstems {
+		return fmt.Errorf("requested mainstem additions for id %s but no mainstem file was provided", sitemap_metadata.SitemapID)
 	} else if !remote_file {
 		if _, err := os.Stat(mainstemFile); err != nil {
 			if os.IsNotExist(err) {

@@ -19,11 +19,11 @@ import (
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/protoBuild"
 	"github.com/internetofwater/nabu/pkg"
+	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	log "github.com/sirupsen/logrus"
 	"github.com/temoto/robotstxt"
 
 	"github.com/internetofwater/nabu/internal/crawl/url_info"
-	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	"golang.org/x/sync/errgroup"
 )
 
