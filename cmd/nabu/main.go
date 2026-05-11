@@ -16,6 +16,7 @@ import (
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/common/projectpath"
 	"github.com/internetofwater/nabu/internal/config"
+	crawl "github.com/internetofwater/nabu/internal/crawl"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/synchronizer"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
@@ -175,9 +176,18 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 
 	switch {
 	case n.args.Release != nil:
+		sitemap_index, err := crawl.NewSitemapIndex(n.args.Prefix, client)
+		if err != nil {
+			return nil, err
+		}
+		prefix_without_s3_path := strings.TrimPrefix(n.args.Prefix, "summoned/")
+		corresponding_metadata, err := sitemap_index.GetMetadataForSitemapId(prefix_without_s3_path)
+		if err != nil {
+			return nil, err
+		}
 		return nil, synchronizerClient.GenerateNqRelease(
 			ctx,
-			cfgStruct.Prefix,
+			corresponding_metadata,
 			n.args.Release.Compress,
 			n.args.Release.MainstemMetadataFile,
 		)

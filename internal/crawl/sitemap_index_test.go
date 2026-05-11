@@ -29,7 +29,7 @@ func TestParseSitemapIndex(t *testing.T) {
 		},
 	})
 
-	indexHarvester, err := NewSitemapIndexHarvester("https://geoconnex.us/sitemap.xml", mockedClient)
+	indexHarvester, err := NewSitemapIndex("https://geoconnex.us/sitemap.xml", mockedClient)
 	require.NotEmpty(t, indexHarvester)
 	assert.NoError(t, err)
 	var emptyMaps []string
@@ -67,7 +67,7 @@ func TestHarvestNonExistantSource(t *testing.T) {
 		},
 	})
 
-	indexHarvester, err := NewSitemapIndexHarvester("https://geoconnex.us/sitemap.xml", mockedClient)
+	indexHarvester, err := NewSitemapIndex("https://geoconnex.us/sitemap.xml", mockedClient)
 	assert.NoError(t, err)
 	_, err = indexHarvester.HarvestSitemap(context.Background(), mockedClient, "does_not_exist")
 	require.Error(t, err)
@@ -111,7 +111,7 @@ func TestHarvestSitemapIndex(t *testing.T) {
 	})
 
 	// get the sitemap index
-	sitemapUrls, err := NewSitemapIndexHarvester("https://geoconnex.us/sitemap.xml", mockedClient)
+	sitemapUrls, err := NewSitemapIndex("https://geoconnex.us/sitemap.xml", mockedClient)
 	require.NoError(t, err)
 	// just test the first for the sake of brevity
 	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, container.ClientWrapper, SitemapMetadata{SitemapID: "test", Loc: sitemapUrls.GetUrlList()[0]})
@@ -131,6 +131,6 @@ func TestHarvestSitemapIndex(t *testing.T) {
 }
 
 func TestSitemapInsteadOfSitemapIndex(t *testing.T) {
-	_, err := NewSitemapIndexHarvester("testdata/sitemap.xml", http.DefaultClient)
+	_, err := NewSitemapIndex("testdata/sitemap.xml", http.DefaultClient)
 	require.Error(t, err)
 }
