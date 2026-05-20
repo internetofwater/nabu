@@ -213,7 +213,19 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 								return fmt.Errorf("exiting early for %s with shacl failure %s", url.Loc, shaclErr.ShaclErrorMessage)
 							}
 						} else {
-							return fmt.Errorf("failed to communicate with shacl validation service when harvesting %s: %w", url.Loc, err)
+							// if there is an other arbitrary issue with the shacl validation service, we mark it as a failure
+							// but it is non fatal; we don't want to fail the entire bulk harvest due to an issue with the shacl validation service; thus we log the error and continue on
+							msg := fmt.Sprintf("failed to communicate with shacl validation service: %v when harvesting %s", err, url.Loc)
+							log.Error(msg)
+							errorMessage := ShaclValidationFailureError{ShaclErrorMessage: msg, Url: url.Loc}
+							errorInfo := pkg.ShaclInfo{
+								ShaclStatus:            pkg.ShaclInvalid,
+								ShaclValidationMessage: errorMessage.ShaclErrorMessage,
+								Url:                    errorMessage.Url,
+							}
+							warningMu.Lock()
+							warningStats = append(warningStats, errorInfo)
+							warningMu.Unlock()
 						}
 					}
 				}
@@ -270,7 +282,9 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	}
 
 	stats := pkg.SitemapCrawlStats{
-		SitemapSourceLink: s.metadata.Loc,
+		SitemapSourceLink:  s.metadata.Loc,
+		SitemapName:        s.metadata.SitemapID,
+		SitemapDescription: s.metadata.DatasetDescription,
 		WarningStats: pkg.WarningReport{
 			TotalShaclFailures: len(warningStats),
 			ShaclWarnings:      warningStats,
