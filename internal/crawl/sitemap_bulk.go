@@ -282,7 +282,9 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	}
 
 	stats := pkg.SitemapCrawlStats{
-		SitemapSourceLink: s.metadata.Loc,
+		SitemapSourceLink:  s.metadata.Loc,
+		SitemapName:        s.metadata.SitemapID,
+		SitemapDescription: s.metadata.DatasetDescription,
 		WarningStats: pkg.WarningReport{
 			TotalShaclFailures: len(warningStats),
 			ShaclWarnings:      warningStats,
