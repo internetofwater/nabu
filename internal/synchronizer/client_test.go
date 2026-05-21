@@ -25,7 +25,7 @@ import (
 
 // Run harvest and output the data to minio so it can be synchronized
 func NewHarvestRun(client *http.Client, minioClient *s3.MinioClientWrapper, sitemap, source string) error {
-	index, err := crawl.NewSitemapIndexHarvester(sitemap, client)
+	index, err := crawl.NewSitemapIndex(sitemap, client)
 	if err != nil {
 		return err
 	}
@@ -126,13 +126,19 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 	require.NoError(t, err)
 
 	t.Run("error is thrown with bad mainstem info", func(t *testing.T) {
-		err = suite.client.GenerateNqRelease(context.Background(), "orgs/"+source, false, "THIS_FILE_DOESNT_EXIST.txt")
+		err = suite.client.GenerateNqRelease(context.Background(), crawl.SitemapMetadata{SitemapID: "orgs/" + source, AddMainstems: true}, false, "THIS_FILE_DOESNT_EXIST.txt")
 		require.Error(t, err)
 		require.ErrorContains(t, err, "does not exist locally")
 	})
 
+	t.Run("error is thrown if requring mainstem info but no mainstem file provided", func(t *testing.T) {
+		err = suite.client.GenerateNqRelease(context.Background(), crawl.SitemapMetadata{SitemapID: "orgs/" + source, AddMainstems: true}, false, "")
+		require.Error(t, err)
+		require.ErrorContains(t, err, "but no mainstem file was provided")
+	})
+
 	t.Run("mainstem info can be added", func(t *testing.T) {
-		err = suite.client.GenerateNqRelease(context.Background(), "summoned/"+source, false, "testdata/colorado_subset.fgb")
+		err = suite.client.GenerateNqRelease(context.Background(), crawl.SitemapMetadata{SitemapID: "summoned/" + source, AddMainstems: true}, false, "testdata/colorado_subset.fgb")
 		require.NoError(t, err)
 		const releaseGraphPath = "graphs/latest/" + source + "_release.nq"
 		data, err := suite.client.S3Client.GetObjectAsBytes(releaseGraphPath)
@@ -144,7 +150,7 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 	})
 
 	t.Run("generate nq release for summoned", func(t *testing.T) {
-		err := suite.client.GenerateNqRelease(context.Background(), "summoned/"+source, false, "")
+		err := suite.client.GenerateNqRelease(context.Background(), crawl.SitemapMetadata{SitemapID: "summoned/" + source, AddMainstems: false}, false, "")
 		require.NoError(t, err)
 		const summonedPath = "graphs/latest/" + source + "_release.nq"
 		objs, err := suite.client.S3Client.NumberOfMatchingObjects([]string{summonedPath})
@@ -159,7 +165,7 @@ func (suite *SynchronizerClientSuite) TestNqRelease() {
 		require.NoError(t, err, "associated hash should exist")
 
 		t.Run("compressed version of release graph", func(t *testing.T) {
-			err = suite.client.GenerateNqRelease(context.Background(), "summoned/"+source, true, "")
+			err = suite.client.GenerateNqRelease(context.Background(), crawl.SitemapMetadata{SitemapID: "summoned/" + source, AddMainstems: false}, true, "")
 			require.NoError(t, err)
 			const compressedReleaseGraph = "graphs/latest/" + source + "_release.nq.gz"
 			zippedContent, err := suite.client.S3Client.GetObjectAsBytes(compressedReleaseGraph)

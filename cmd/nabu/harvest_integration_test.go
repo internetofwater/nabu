@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/crawl"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/synchronizer"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
@@ -67,7 +68,7 @@ func (s *NabuInterationSuite) TestIntegrationWithNabu() {
 	jsonld_as_string := string(jsonld_data)
 	s.Require().Contains(jsonld_as_string, pid, "jsonld file should contain the original pid")
 
-	err = client.GenerateNqRelease(ctx, "summoned/iow:wqp:stations__5", false, "")
+	err = client.GenerateNqRelease(ctx, crawl.SitemapMetadata{SitemapID: "summoned/iow:wqp:stations__5"}, false, "")
 	s.Require().NoError(err)
 
 	summonedPath := "graphs/latest/iow:wqp:stations__5_release.nq"
