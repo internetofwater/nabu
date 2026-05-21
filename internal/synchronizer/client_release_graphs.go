@@ -49,7 +49,7 @@ func (synchronizer *SynchronizerClient) streamNqFromPrefix(ctx context.Context, 
 	if addMainstemInfo {
 		log.Infof("Adding mainstem info from %s", mainstemFile)
 	} else {
-		log.Info("Not adding mainstem info to nquads since no mainstem file was provided")
+		log.Debug("Not adding mainstem info to nquads since no mainstem file was provided")
 	}
 
 	mainstemService, err := mainstems.NewS3FlatgeobufMainstemService(mainstemFile)
@@ -210,6 +210,7 @@ func (synchronizer *SynchronizerClient) GenerateNqRelease(ctx context.Context, s
 	} else if mainstemFile != "" && !sitemap_metadata.AddMainstems {
 		// if the mainstem file was provided but the metadata doesn't specify to add mainstems, ignore the mainstem file and don't add mainstem info
 		// this is not a warning since the mainstem file path is an internal implementation detail
+		log.Infof("Skipping adding mainstem info since %s in the sitemap index did not request mainstem associations", sitemap_metadata.SitemapID)
 		mainstemFile = ""
 	} else if mainstemFile == "" && sitemap_metadata.AddMainstems {
 		return fmt.Errorf("requested mainstem additions for id %s but no mainstem file was provided", sitemap_metadata.SitemapID)
