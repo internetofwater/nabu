@@ -185,7 +185,15 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 					return result_metadata, fmt.Errorf("exiting early for %s with shacl failure %s", url.Loc, shaclErr.ShaclErrorMessage)
 				}
 			} else {
-				return result_metadata, fmt.Errorf("failed to communicate with shacl validation service when harvesting %s: %w", url.Loc, err)
+				// if there is an other arbitrary issue with the shacl validation service, we mark it as a failure
+				// but it is non fatal; we don't want to fail the entire harvest due to an issue with the shacl validation service; thus we log the error and continue on
+				msg := fmt.Sprintf("failed to communicate with shacl validation service: %v when harvesting %s", err, url.Loc)
+				log.Error(msg)
+				result_metadata.warning = pkg.ShaclInfo{
+					ShaclStatus:            pkg.ShaclInvalid,
+					ShaclValidationMessage: msg,
+					Url:                    url.Loc,
+				}
 			}
 		}
 	}
