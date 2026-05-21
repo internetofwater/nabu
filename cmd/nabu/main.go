@@ -195,7 +195,7 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 	case n.args.Test != nil:
 		return nil, Test(ctx, synchronizerClient)
 	case n.args.Harvest != nil:
-		return Harvest(ctx, client, cfgStruct.Minio, *n.args.Harvest)
+		return Harvest(ctx, client, cfgStruct.Minio, *n.args.Harvest, n.args.SitemapIndex)
 	case n.args.Pull != nil:
 		return nil, synchronizerClient.S3Client.Pull(ctx, cfgStruct.Prefix, n.args.Pull.Output, n.args.Pull.NameFilter)
 	default:
