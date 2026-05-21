@@ -38,7 +38,7 @@ func Harvest(ctx context.Context, client *http.Client, minioConfig config.MinioC
 	if args.SitemapIndex == "" {
 		return nil, fmt.Errorf("sitemap index must be provided")
 	}
-	index, err := crawl.NewSitemapIndexHarvester(args.SitemapIndex, client)
+	index, err := crawl.NewSitemapIndex(args.SitemapIndex, client)
 	if err != nil {
 		return nil, err
 	}

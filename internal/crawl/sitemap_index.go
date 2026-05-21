@@ -48,7 +48,7 @@ type SitemapMetadata struct {
 	SitemapID          string `xml:"https://geoconnex.us sitemap_id"`
 	DatasetDescription string `xml:"https://geoconnex.us dataset_description"`
 	DocumentationLink  string `xml:"https://geoconnex.us dataset_documentation_link"`
-	AddMainstems       string `xml:"https://geoconnex.us add_associated_mainstems"`
+	AddMainstems       bool   `xml:"https://geoconnex.us add_associated_mainstems"`
 	ContactEmail       string `xml:"https://geoconnex.us contact_email"`
 	BulkContainerImage string `xml:"https://geoconnex.us bulk_container_image"`
 }
@@ -62,22 +62,22 @@ func isUrl(str string) bool {
 	return err == nil && u.Scheme != "" && u.Host != ""
 }
 
-func NewSitemapIndexHarvester(sitemapRef string, client *http.Client) (SitemapIndex, error) {
+func NewSitemapIndex(sitemapIndexURL string, client *http.Client) (SitemapIndex, error) {
 
 	serializedSitemapIndex := SitemapIndex{}
 
 	var sitemapData io.Reader
 
-	if isUrl(sitemapRef) {
+	if isUrl(sitemapIndexURL) {
 
-		res, err := client.Get(sitemapRef)
+		res, err := client.Get(sitemapIndexURL)
 		if err != nil {
 			return serializedSitemapIndex, err
 		}
 		defer func() { _ = res.Body.Close() }()
 		sitemapData = res.Body
 	} else {
-		sitemapFile, err := os.Open(sitemapRef)
+		sitemapFile, err := os.Open(sitemapIndexURL)
 		if err != nil {
 			return serializedSitemapIndex, err
 		}
@@ -96,7 +96,7 @@ func NewSitemapIndexHarvester(sitemapRef string, client *http.Client) (SitemapIn
 		return serializedSitemapIndex, err
 	}
 	if len(serializedSitemapIndex.Sitemaps) == 0 {
-		return serializedSitemapIndex, fmt.Errorf("no sitemaps found in sitemap index at %s", sitemapRef)
+		return serializedSitemapIndex, fmt.Errorf("no sitemaps found in sitemap index at %s", sitemapIndexURL)
 	}
 	for i, sitemap := range serializedSitemapIndex.Sitemaps {
 		if sitemap.SitemapID == "" {
@@ -114,6 +114,15 @@ func (i SitemapIndex) GetUrlList() []string {
 		result = append(result, sitemap.Loc)
 	}
 	return result
+}
+
+func (i SitemapIndex) GetMetadataForSitemapId(sitemapId string) (SitemapMetadata, error) {
+	for _, sitemap := range i.Sitemaps {
+		if sitemap.SitemapID == sitemapId {
+			return sitemap, nil
+		}
+	}
+	return SitemapMetadata{}, fmt.Errorf("no sitemap found with id %s", sitemapId)
 }
 
 func (i SitemapIndex) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.SitemapIndexCrawlStats, error) {
