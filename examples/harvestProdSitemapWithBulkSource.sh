@@ -8,6 +8,6 @@ cd "$(dirname "$0")" && docker compose up -d
 
 cd ../
 
-time go run ./cmd/nabu harvest --log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml  --concurrent-sitemaps 10 --sitemap-workers 100 --use-otel --source bulk_gnis_gnis__0
+time go run ./cmd/nabu harvest --log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml  --concurrent-sitemaps 10 --sitemap-workers 100 --use-otel --source bulk:gnis
 
 open http://localhost:16686

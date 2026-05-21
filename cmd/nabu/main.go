@@ -64,6 +64,7 @@ type NabuArgs struct {
 	OtelEndpoint      string            `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
 	LogAsJson         bool              `arg:"--log-as-json" help:"Log in json format"`
 	WaitForDebugger   bool              `arg:"--wait-for-debugger" help:"wait for a few seconds before starting to allow time for a debugger to attach"`
+	SitemapIndex      string            `arg:"--sitemap-index" help:"url of the sitemap index to harvest from" default:"https://geoconnex.us/sitemap.xml"`
 }
 
 // ToStructuredConfig converts the args to a structured config
@@ -176,7 +177,7 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 
 	switch {
 	case n.args.Release != nil:
-		sitemap_index, err := crawl.NewSitemapIndex(n.args.Prefix, client)
+		sitemap_index, err := crawl.NewSitemapIndex(n.args.SitemapIndex, client)
 		if err != nil {
 			return nil, err
 		}

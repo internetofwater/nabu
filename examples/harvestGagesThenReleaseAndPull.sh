@@ -9,10 +9,10 @@ cd "$(dirname "$0")" && docker compose up -d
 
 cd ../
 
-time go run ./cmd/nabu harvest --log-level DEBUG --sitemap-index https://pids.geoconnex.dev/sitemap.xml  --concurrent-sitemaps 10 --sitemap-workers 10 --use-otel --source ref_gages_gages__0
+time go run ./cmd/nabu harvest --log-level DEBUG --sitemap-index https://pids.geoconnex.dev/sitemap.xml  --concurrent-sitemaps 10 --sitemap-workers 10 --use-otel --source ref:gages
 
 time go run "$(pwd)/cmd/nabu" release \
-  --prefix summoned/ref_gages_gages__0 \
+  --prefix summoned/ref:gages \
   --mainstem-metadata "$(cd .. && pwd)/nabu/shacl_validator/data/reference_catchments_and_flowlines.fgb" \
   --log-level DEBUG \
   --use-otel
