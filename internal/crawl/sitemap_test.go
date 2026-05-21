@@ -425,3 +425,59 @@ func TestHarvestSitemapThatIsDown(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, exists, "The preexisting file should not have been removed; cleanup only runs after successful harvest and the sitemap was down; prompting an early exit")
 }
+
+func TestShaclConnectionIssueDoesntCauseFailure(t *testing.T) {
+
+	mockedClient := common.NewMockedClient(
+		true,
+		map[string]common.MockResponse{
+			"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {
+				StatusCode: 200,
+				File:       "testdata/sitemap.xml",
+			},
+			"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C": {
+				StatusCode:  200,
+				File:        "testdata/reference_feature.jsonld",
+				ContentType: "application/ld+json",
+			},
+			"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2": {
+				StatusCode:  200,
+				File:        "testdata/reference_feature_2.jsonld",
+				ContentType: "application/ld+json",
+			},
+			"https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A": {
+				StatusCode:  200,
+				File:        "testdata/reference_feature_3.jsonld",
+				ContentType: "application/ld+json",
+			},
+			"https://geoconnex.us/robots.txt": {
+				StatusCode:  200,
+				File:        "testdata/geoconnex_robots.txt",
+				ContentType: "application/text/plain",
+			},
+		})
+
+	storage, err := storage.NewLocalTempFSCrawlStorage()
+	require.NoError(t, err)
+
+	// this is intentionally a random invalid address to simulate a connection issue with the SHACL validator; we want to make sure this doesn't cause the harvest to fail since we want to be resilient to SHACL validator issues
+	badGrpcClient, err := NewShaclGrpcClientFromAddr("0.0.0.0:1020202")
+	require.NoError(t, err)
+
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
+	require.NoError(t, err)
+
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, badGrpcClient, false, false)
+	require.NoError(t, err)
+
+	stats, _, err := sitemap.
+		Harvest(context.Background(), &config)
+	require.NoError(t, err)
+
+	// Although there are three sites in the sitemap
+	// we should have only seen one failure before exiting
+	require.Len(t, stats.CrawlFailures, 0)
+	require.Equal(t, stats.SuccessfulSites, 3)
+	require.Equal(t, stats.SitesInSitemap, 3)
+	require.Equal(t, stats.WarningStats.TotalShaclFailures, 3, "All three features should have had SHACL validation failures since the SHACL client couldn't connect, but this shouldn't cause the harvest to fail")
+}
