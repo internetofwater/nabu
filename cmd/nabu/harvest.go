@@ -21,7 +21,6 @@ import (
 // Command to harvest sitemaps and store them in a specified storage destination (S3 or local disk).
 // This was previously known as "gleaner" and is now integrated into the nabu command line tool.
 type HarvestCmd struct {
-	SitemapIndex          string `arg:"--sitemap-index" help:"sitemap index to crawl"`                  // sitemap index to crawl
 	Source                string `arg:"--source" help:"source to crawl from the sitemap"`               // source to crawl from the config
 	IgnoreRobots          bool   `arg:"--ignore-robots" help:"ignore robots.txt"`                       // ignore robots.txt
 	ToDisk                bool   `arg:"--to-disk" default:"false" help:"save to disk instead of minio"` // save to disk instead of minio
@@ -34,11 +33,11 @@ type HarvestCmd struct {
 	CleanupOutdatedJsonld bool   `arg:"--cleanup-outdated-jsonld" default:"false" help:"cleanup outdated jsonld files from the bucket"`
 }
 
-func Harvest(ctx context.Context, client *http.Client, minioConfig config.MinioConfig, args HarvestCmd) ([]pkg.SitemapCrawlStats, error) {
-	if args.SitemapIndex == "" {
+func Harvest(ctx context.Context, client *http.Client, minioConfig config.MinioConfig, args HarvestCmd, sitemapIndex string) ([]pkg.SitemapCrawlStats, error) {
+	if sitemapIndex == "" {
 		return nil, fmt.Errorf("sitemap index must be provided")
 	}
-	index, err := crawl.NewSitemapIndex(args.SitemapIndex, client)
+	index, err := crawl.NewSitemapIndex(sitemapIndex, client)
 	if err != nil {
 		return nil, err
 	}
