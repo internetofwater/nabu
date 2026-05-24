@@ -40,7 +40,7 @@ func (s S3FlatgeobufMainstemService) GetMainstemForWkt(ctx context.Context, wkt 
 
 	geometry, err := geom.UnmarshalWKT(wkt)
 	if err != nil {
-		return MainstemQueryResponse{}, err
+		return MainstemQueryResponse{}, &InvalidWktError{message: fmt.Sprintf("failed to parse WKT: %v", err)}
 	}
 	point := geometry.Centroid()
 	coordinates, isNonEmpty := point.Coordinates()
