@@ -281,13 +281,17 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		}
 	}
 
+	firstTwentyWarnings := warningStats
+	if len(warningStats) > 20 {
+		firstTwentyWarnings = warningStats[:20]
+	}
 	stats := pkg.SitemapCrawlStats{
 		SitemapSourceLink:  s.metadata.Loc,
 		SitemapName:        s.metadata.SitemapID,
 		SitemapDescription: s.metadata.DatasetDescription,
 		WarningStats: pkg.WarningReport{
 			TotalShaclFailures: len(warningStats),
-			ShaclWarnings:      warningStats,
+			ShaclWarnings:      firstTwentyWarnings,
 		},
 		SecondsToComplete: time.Since(start).Seconds(),
 		SuccessfulSites:   len(validJsonldDocs),

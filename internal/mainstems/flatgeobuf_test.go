@@ -45,3 +45,16 @@ func TestEdgeCases(t *testing.T) {
 	require.Empty(t, response.mainstemURI)
 	require.False(t, response.foundAssociatedMainstem)
 }
+
+func TestInvalidWkt(t *testing.T) {
+
+	const fgb = "./testdata/colorado_subset.fgb"
+
+	service, err := NewS3FlatgeobufMainstemService(fgb)
+	require.NoError(t, err)
+	const wktWithOverlappingVertices = "POLYGON((0 0, 2 2, 2 0, 0 2, 0 0))"
+
+	_, err = service.GetMainstemForWkt(context.Background(), wktWithOverlappingVertices)
+	var invalidWktErr *InvalidWktError
+	require.ErrorAs(t, err, &invalidWktErr)
+}

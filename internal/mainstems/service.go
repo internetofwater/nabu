@@ -42,6 +42,16 @@ func NewJsonldEnricher(service MainstemService) *JsonldEnricher {
 	}
 }
 
+// An error type representing that the client
+// tried to pass an invalid WKT string to the mainstem service
+type InvalidWktError struct {
+	message string
+}
+
+func (e *InvalidWktError) Error() string {
+	return e.message
+}
+
 // Given a jsonld, add mainstem information to it
 func (j *JsonldEnricher) AddMainstemInfo(ctx context.Context, serializedJsonLd map[string]any) (newJsonld []byte, addedMainstem bool, err error) {
 
@@ -63,7 +73,13 @@ func (j *JsonldEnricher) AddMainstemInfo(ctx context.Context, serializedJsonLd m
 	}
 
 	mainstemResponse, err := j.service.GetMainstemForWkt(ctx, wkt)
-	if err != nil {
+	var e *InvalidWktError
+	if errors.As(err, &e) {
+		idValue := newJsonldAsMap["@id"]
+		log.Errorf("Invalid WKT provided to mainstem addition for jsonld with @id %s: %v", idValue, err)
+		newJson, err := json.Marshal(newJsonldAsMap)
+		return newJson, false, err
+	} else if err != nil {
 		return nil, false, err
 	}
 
