@@ -22,10 +22,9 @@ func NtToNq(ntData, graphURN string) (string, error) {
 		return "", fmt.Errorf("invalid graph URN %q: %w", graphURN, err)
 	}
 	graph := rdf.NewGraph(rdf.WithIdentifier(graphIRI))
-	const maxLineLen = 20 * 1024 * 1024 // 20MB, should be enough for any single quad
 
 	// Parse N-Triples into the named graph.
-	if err := nt.Parse(graph, strings.NewReader(ntData), nt.WithMaxLineLength(maxLineLen), nt.WithErrorHandler(
+	if err := nt.Parse(graph, strings.NewReader(ntData), nt.WithUnboundedLines(), nt.WithErrorHandler(
 		func(lineNum int, line string, err error) (fixedLine string, retry bool) {
 			log.Errorf("Failed converting triples to quads on line %d with data %s: %v", lineNum, line, err)
 			return "", false // skip this line
@@ -37,7 +36,7 @@ func NtToNq(ntData, graphURN string) (string, error) {
 	// Serialize as N-Quads — the graph identifier is automatically
 	// included as the 4th element of each quad.
 	var buf strings.Builder
-	if err := nq.Serialize(graph, &buf, nq.WithMaxLineLength(maxLineLen)); err != nil {
+	if err := nq.Serialize(graph, &buf, nq.WithUnboundedLines()); err != nil {
 		return "", fmt.Errorf("error serializing N-Quads: %w", err)
 	}
 	return buf.String(), nil
