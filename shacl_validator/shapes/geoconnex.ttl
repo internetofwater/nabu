@@ -315,8 +315,7 @@ ex:DistributionShape a sh:NodeShape ;
             [sh:class schema:GeoShape  ]
             [sh:class schema:GeoCoordinates]
         );
-        sh:minCount 1;
-        sh:message "A Place must include geometry in the schema.org format"
+        sh:message "A Place in the schema.org geo format must be a GeoShape or GeoCoordinates"
     ] ;
 
     sh:property [
