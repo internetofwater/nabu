@@ -308,17 +308,6 @@ ex:DistributionShape a sh:NodeShape ;
     ] ;
 
 
-    # schema for the geo coordinates (i.e. lat / long key val mapping)
-    sh:property [
-        sh:path schema:geo ;
-        sh:or (
-            [sh:class schema:GeoShape  ]
-            [sh:class schema:GeoCoordinates]
-        );
-        sh:minCount 1;
-        sh:message "A Place must include geometry in the schema.org format"
-    ] ;
-
     sh:property [
         sh:path hyf:containingCatchment ;
         sh:nodeKind sh:IRI ;
