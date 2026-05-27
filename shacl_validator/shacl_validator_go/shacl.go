@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/internetofwater/nabu/shacl_validator/shapes"
+	"github.com/tggo/goRDFlib/jsonld"
 	"github.com/tggo/goRDFlib/shacl"
 )
 
@@ -33,7 +34,7 @@ func (v *ShaclValidator) ValidateArbitraryJsonld(input string) (shacl.Validation
 			return shacl.ValidationReport{}, fmt.Errorf("failed to fetch URL: %s (status %d)", input, resp.StatusCode)
 		}
 
-		jsonldGraph, err := shacl.LoadJsonLD(resp.Body, "")
+		jsonldGraph, err := shacl.LoadJsonLD(resp.Body, "", jsonld.WithUnboundedLines())
 		if err != nil {
 			return shacl.ValidationReport{}, err
 		}
@@ -65,7 +66,7 @@ func NewGeoconnexShaclValidator() (ShaclValidator, error) {
 }
 
 func (v *ShaclValidator) ValidateJsonldString(data string) (shacl.ValidationReport, error) {
-	jsonld_shape, err := shacl.LoadJsonLDString(data, "")
+	jsonld_shape, err := shacl.LoadJsonLDString(data, "", jsonld.WithUnboundedLines())
 	if err != nil {
 		return shacl.ValidationReport{}, err
 	}
@@ -88,4 +89,53 @@ func (v *ShaclValidator) Validate(data *shacl.Graph) (shacl.ValidationReport, er
 	}
 
 	return shacl.Validate(data, v.shacl_shape), nil
+}
+
+func PrintValidationResult(vr shacl.ValidationResult) string {
+	var severityPrefix string
+
+	switch vr.ResultSeverity {
+	case shacl.SHViolation:
+		severityPrefix = "SHACL Violation"
+	case shacl.SHWarning:
+		severityPrefix = "SHACL Warning"
+	case shacl.SHInfo:
+		severityPrefix = "SHACL Info"
+	default:
+		severityPrefix = "SHACL Unknown"
+	}
+
+	var msgs []string
+	for _, m := range vr.ResultMessages {
+		msgs = append(msgs, fmt.Sprint(m))
+	}
+
+	parts := []string{
+		fmt.Sprintf(
+			"%s: Node=%s Path=%s Value=%s Shape=%s Constraint=%s Component=%s",
+			severityPrefix,
+			vr.FocusNode,
+			vr.ResultPath,
+			vr.Value,
+			vr.SourceShape,
+			vr.SourceConstraint,
+			vr.SourceConstraintComponent,
+		),
+	}
+
+	// messages (optional)
+	if len(msgs) > 0 {
+		parts = append(parts, fmt.Sprintf("[%s]", strings.Join(msgs, "; ")))
+	}
+
+	// details (optional)
+	if len(vr.Details) > 0 {
+		var details []string
+		for _, d := range vr.Details {
+			details = append(details, PrintValidationResult(d))
+		}
+		parts = append(parts, fmt.Sprintf("[%s]", strings.Join(details, " | ")))
+	}
+
+	return "{" + strings.Join(parts, " ") + "}"
 }
