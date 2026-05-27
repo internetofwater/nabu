@@ -209,13 +209,14 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 		}
 		if report.Conforms {
 			log.Info("Data conforms to SHACL shape")
+			return nil, nil
 		} else {
 			log.Error("Data does not conform to SHACL shape")
 			for _, result := range report.Results {
 				log.Infof("%v", result)
 			}
+			return nil, fmt.Errorf("found %d shacl validation errors", len(report.Results))
 		}
-		return nil, fmt.Errorf("shacl validation error")
 	default:
 		return nil, fmt.Errorf("unknown nabu subcommand")
 	}
