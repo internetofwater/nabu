@@ -21,7 +21,8 @@
     "@id": "https://geoconnex.us/iow/wqp/USGS-06296120",
     "@type": [
       "hyf:HY_HydrometricFeature",
-      "hyf:HY_HydroLocation"
+      "hyf:HY_HydroLocation",
+      "Place"
     ],
       "hyf:HydroLocationType": "Stream",
     
@@ -36,7 +37,7 @@
       "@type": "GovernmentOrganization",
       "name": "USGS Montana Water Science Center"
     },
-      "geo": {"@type":"schema:GeoCoordinates","schema:longitude":-105.8955602,"schema:latitude":46.3980582},
+      "geo": {"@type":"GeoCoordinates","longitude":-105.8955602,"latitude":46.3980582},
     
       "gsp:hasGeometry": {
         "@type": "http://www.opengis.net/ont/sf#Point", 

@@ -42,14 +42,18 @@ type PullCmd struct {
 	Output     string `arg:"positional"`
 	NameFilter string `arg:"--name-filter" help:"only pull objects whose names contain this string"`
 }
+type ShaclValidateCmd struct {
+	Input string `arg:"positional" help:"JSON-LD data to validate"`
+}
 
 type NabuArgs struct {
 	// Subcommands that can be run
-	Release *ReleaseCmd `arg:"subcommand:release" help:"generate an nq release graph for all objects under a specific prefix"`
-	Sync    *SyncCmd    `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`
-	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`
-	Harvest *HarvestCmd `arg:"subcommand:harvest" help:"harvest sitemaps and store them in the s3 bucket"`
-	Pull    *PullCmd    `arg:"subcommand:pull" help:"pull all objects under a specific prefix in the s3 bucket"`
+	Release *ReleaseCmd       `arg:"subcommand:release" help:"generate an nq release graph for all objects under a specific prefix"`
+	Sync    *SyncCmd          `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`
+	Test    *TestCmd          `arg:"subcommand:test" help:"test the connection to the s3 bucket"`
+	Harvest *HarvestCmd       `arg:"subcommand:harvest" help:"harvest sitemaps and store them in the s3 bucket"`
+	Pull    *PullCmd          `arg:"subcommand:pull" help:"pull all objects under a specific prefix in the s3 bucket"`
+	Shacl   *ShaclValidateCmd `arg:"subcommand:shacl" help:"validate JSON-LD data against the Geoconnex SHACL shape"`
 
 	// Flags that can be set for config particular services / operations
 	config.MinioConfig
@@ -198,6 +202,20 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 		return Harvest(ctx, client, cfgStruct.Minio, *n.args.Harvest, n.args.SitemapIndex)
 	case n.args.Pull != nil:
 		return nil, synchronizerClient.S3Client.Pull(ctx, cfgStruct.Prefix, n.args.Pull.Output, n.args.Pull.NameFilter)
+	case n.args.Shacl != nil:
+		report, err := ShaclValidate(n.args.Shacl.Input)
+		if err != nil {
+			return nil, err
+		}
+		if report.Conforms {
+			log.Info("Data conforms to SHACL shape")
+		} else {
+			log.Error("Data does not conform to SHACL shape")
+			for _, result := range report.Results {
+				log.Infof("%v", result)
+			}
+		}
+		return nil, fmt.Errorf("shacl validation error")
 	default:
 		return nil, fmt.Errorf("unknown nabu subcommand")
 	}
