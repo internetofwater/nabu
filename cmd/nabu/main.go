@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -45,7 +46,7 @@ type PullCmd struct {
 	NameFilter string `arg:"--name-filter" help:"only pull objects whose names contain this string"`
 }
 type ShaclValidateCmd struct {
-	Input      string `arg:"positional" help:"JSON-LD data to validate"`
+	Input      string `arg:"positional" help:"JSON-LD data to validate. Pass '-' to read from stdin."`
 	PrintShape bool   `arg:"--print-shape" help:"print the SHACL shape used for validation and exit"`
 }
 
@@ -211,6 +212,13 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 			fmt.Println(shapes.GeoconnexTTL)
 			return nil, nil
 		}
+		if n.args.Shacl.Input == "-" {
+			inputBytes, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return nil, fmt.Errorf("error reading from stdin: %w", err)
+			}
+			n.args.Shacl.Input = string(inputBytes)
+		}
 
 		report, err := ShaclValidate(n.args.Shacl.Input)
 		if err != nil {
@@ -222,7 +230,7 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 		} else {
 			log.Error("Data does not conform to SHACL shape")
 			for _, result := range report.Results {
-				log.Warn(shacl_validator.PrintValidationResult(result))
+				log.Error(shacl_validator.PrintValidationResult(result))
 			}
 			return nil, fmt.Errorf("found %d shacl validation errors", len(report.Results))
 		}
