@@ -21,6 +21,8 @@ import (
 	"github.com/internetofwater/nabu/internal/synchronizer"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 	"github.com/internetofwater/nabu/pkg"
+	shacl_validator "github.com/internetofwater/nabu/shacl_validator/shacl_validator_go"
+	"github.com/internetofwater/nabu/shacl_validator/shapes"
 
 	"github.com/alexflint/go-arg"
 	log "github.com/sirupsen/logrus"
@@ -43,7 +45,8 @@ type PullCmd struct {
 	NameFilter string `arg:"--name-filter" help:"only pull objects whose names contain this string"`
 }
 type ShaclValidateCmd struct {
-	Input string `arg:"positional" help:"JSON-LD data to validate"`
+	Input      string `arg:"positional" help:"JSON-LD data to validate"`
+	PrintShape bool   `arg:"--print-shape" help:"print the SHACL shape used for validation and exit"`
 }
 
 type NabuArgs struct {
@@ -203,6 +206,12 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 	case n.args.Pull != nil:
 		return nil, synchronizerClient.S3Client.Pull(ctx, cfgStruct.Prefix, n.args.Pull.Output, n.args.Pull.NameFilter)
 	case n.args.Shacl != nil:
+
+		if n.args.Shacl.PrintShape {
+			fmt.Println(shapes.GeoconnexTTL)
+			return nil, nil
+		}
+
 		report, err := ShaclValidate(n.args.Shacl.Input)
 		if err != nil {
 			return nil, err
@@ -213,7 +222,7 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 		} else {
 			log.Error("Data does not conform to SHACL shape")
 			for _, result := range report.Results {
-				log.Infof("%v", result)
+				log.Warn(shacl_validator.PrintValidationResult(result))
 			}
 			return nil, fmt.Errorf("found %d shacl validation errors", len(report.Results))
 		}
