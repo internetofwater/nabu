@@ -96,7 +96,7 @@ struct TriplesToGeoparquetArgs {
     log_level: log::Level,
 
     /// workers
-    #[argh(option, default = "4")]
+    #[argh(option, default = "2")]
     workers: usize,
 }
 
