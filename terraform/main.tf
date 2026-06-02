@@ -28,10 +28,14 @@ resource "google_cloud_run_v2_service" "shacl_service" {
       resources {
         limits = {
           cpu    = "1"
-          memory = "128Mi"
+          memory = "256Mi"
         }
         # Determines whether CPU is only allocated during requests
         cpu_idle = true
+      }
+      env {
+        name  = "CATCHMENTS_FILE"
+        value = ""
       }
     }
   }
