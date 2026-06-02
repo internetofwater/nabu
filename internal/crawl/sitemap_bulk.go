@@ -156,13 +156,19 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			reader := bufio.NewReader(pipeReader)
 			_, processSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("process_bulk_jsonld_%s", s.metadata.SitemapID))
 			defer processSubspan.End()
-			for {
+			foundEOF := false
+			for !foundEOF {
 				line, err := reader.ReadBytes('\n')
 				if err != nil {
 					if err == io.EOF {
-						break
+						// if we've reached EOF, we need to mark it as such,
+						// so we don't iterate further; we don't want to break here
+						// though since we still want to process any remaining data in the reader
+						// and then exit gracefully
+						foundEOF = true
+					} else {
+						return fmt.Errorf("error reading line from pipe in bulk sitemap harvest: %w", err)
 					}
-					return fmt.Errorf("error reading line from pipe in bulk sitemap harvest: %w", err)
 				}
 				if len(bytes.TrimSpace(line)) == 0 {
 					log.Warn("found a line with no data. Skipping...")
@@ -256,7 +262,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 			select {
 			case err := <-errChan:
-				if err != nil {
+				if err != nil && err != io.EOF {
 					return err
 				}
 			case exitResp := <-waitResponseChan:
