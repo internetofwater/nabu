@@ -73,7 +73,11 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		group.Go(func() error {
 			_, subspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_upload_%s", s.metadata.SitemapID))
 			err := config.storageDestination.StoreBulk(bulkUploadChan)
-			log.Infof("Finished uploading bulk data for %s", url.Loc)
+			if err != nil {
+				log.Infof("Finished uploading bulk data for %s", url.Loc)
+			} else {
+				log.Errorf("Error uploading bulk data for %s : %v", url.Loc, err)
+			}
 			subspan.End()
 			return err
 		})
