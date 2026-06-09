@@ -17,8 +17,8 @@ geoarrow-array = { version = "0.6.2", default-features = false }
 geoarrow-schema = { version = "0.6.2", default-features = false }
 geoparquet = { version = "0.6.2", default-features = false, features = []}
 log = "0.4.29"
+oxttl = { git = "https://github.com/oxigraph/oxigraph", rev = "de4dc5f04379109aed08bfdff587235a647fb9b5", package = "oxttl" }
 oxrdf = "0.3.2"
-oxttl = "0.2.1"
 threadpool = "1.8.1"
 wkt = "0.14.0"
 env_logger = "0.11.10"
