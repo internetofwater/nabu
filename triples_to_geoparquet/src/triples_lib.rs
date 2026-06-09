@@ -39,11 +39,24 @@ pub fn read_triples_into_maps<R: BufRead>(
     let mut pid_to_schema_name: HashMap<String, String> = HashMap::new();
     let mut pid_to_schema_description: HashMap<String, String> = HashMap::new();
 
-    let parser = NQuadsParser::new();
+    let parser = NQuadsParser::new().with_max_buffer_size(usize::MAX);
     let parsed_quads = parser.for_reader(triples_reader);
 
+    let mut total_parse_errors = 0;
+    const MAX_PARSE_ERRORS: u32 = 50;
     for quad in parsed_quads {
-        let quad = quad?;
+        if total_parse_errors > MAX_PARSE_ERRORS {
+            warn!("Too many errors when parsing quads, returning early");
+            return Err("Too many errors when parsing quads".into());
+        }
+        let quad = match quad {
+            Ok(quad) => quad,
+            Err(err) => {
+                warn!("Error parsing triple: {}", err);
+                total_parse_errors += 1;
+                continue;
+            }
+        };
         let subject = quad.subject;
         let predicate = quad.predicate;
         let object = quad.object;
