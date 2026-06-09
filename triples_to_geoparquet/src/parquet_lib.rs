@@ -1,7 +1,7 @@
 // Copyright 2026 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
-use geoarrow_schema::GeometryType;
+use geoarrow_schema::WkbType;
 
 use arrow_schema::{DataType::Utf8, Field, Schema, SchemaBuilder};
 use geoarrow_schema::GeoArrowType;
@@ -33,8 +33,7 @@ pub fn new_parquet_creator(
 pub fn generate_schema() -> Schema {
     let mut schema_builder = SchemaBuilder::new();
 
-    let geoarrow_type = GeoArrowType::Geometry(GeometryType::default());
-
+    let geoarrow_type = GeoArrowType::LargeWkb(WkbType::default());
     let geometry_field = geoarrow_type.to_field(GEOMETRY_COLUMN_NAME, false);
     schema_builder.push(geometry_field);
 

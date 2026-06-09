@@ -11,12 +11,13 @@ use std::{
 
 use arrow_schema::SchemaRef;
 use flate2::read::GzDecoder;
+use geoarrow_array::builder::WkbBuilder;
 use log::{error, info};
 
 use argh::FromArgs;
 use arrow_array::{self, ArrayRef, RecordBatch, builder::StringBuilder};
-use geoarrow_array::{GeoArrowArray, builder::GeometryBuilder};
-use geoarrow_schema::GeometryType;
+use geoarrow_array::GeoArrowArray;
+use geoarrow_schema::WkbType;
 use triples_to_geoparquet::{
     parquet_lib::{generate_schema, new_parquet_creator},
     triples_lib::{combine_geometry_representations, read_triples_into_maps},
@@ -35,7 +36,7 @@ fn read_triples_into_arrays<R: BufRead>(
     let pid_to_geometry = combine_geometry_representations(&hashmaps)?;
 
     let mut id_builder = StringBuilder::new();
-    let mut geometry_builder = GeometryBuilder::new(GeometryType::default());
+    let mut geometry_builder: WkbBuilder<i64> = WkbBuilder::new(WkbType::default());
     let mut sitemap_builder = StringBuilder::new();
     let mut name_builder = StringBuilder::new();
     let mut description_builder = StringBuilder::new();

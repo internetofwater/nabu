@@ -245,7 +245,8 @@ pub fn combine_geometry_representations(
                         }
                     }
                 }
-                pid_to_canonical_geometry.insert(pid.to_owned(), Geometry::Point(point_geometry.clone()));
+                pid_to_canonical_geometry
+                    .insert(pid.to_owned(), Geometry::Point(point_geometry.clone()));
             }
             None => {
                 debug!(

@@ -1567,6 +1567,7 @@ dependencies = [
  "oxttl",
  "parquet",
  "threadpool",
+ "wkb",
  "wkt",
 ]
 
