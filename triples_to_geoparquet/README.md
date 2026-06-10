@@ -1,0 +1,1 @@
+This program converts knowledge graph triples to geoparquet. It does this by scanning the knowledge graph for triples that have geospatial data and converting this to arrow batches. It then writes these batches to a geoparquet file.

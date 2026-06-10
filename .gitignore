@@ -60,3 +60,5 @@ __pycache__/
 .DS_Store
 
 shacl_validator/data/reference_catchments_and_flowlines.fgb.zip
+
+graphs_latest_usgs_national_geologic_map_release.nq.gz

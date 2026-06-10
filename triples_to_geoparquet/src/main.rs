@@ -1,6 +1,7 @@
 // Copyright 2025 Lincoln Institute of Land Policy
 // SPDX-License-Identifier: Apache-2.0
 
+use std::error::Error;
 use std::sync::mpsc::Sender;
 use std::thread;
 use std::{
@@ -9,6 +10,7 @@ use std::{
     sync::{self, Arc},
 };
 
+use arrow_array::builder::LargeStringBuilder;
 use arrow_schema::SchemaRef;
 use flate2::read::GzDecoder;
 use geoarrow_array::builder::WkbBuilder;
@@ -38,8 +40,8 @@ fn read_triples_into_arrays<R: BufRead>(
     let mut id_builder = StringBuilder::new();
     let mut geometry_builder: WkbBuilder<i64> = WkbBuilder::new(WkbType::default());
     let mut sitemap_builder = StringBuilder::new();
-    let mut name_builder = StringBuilder::new();
-    let mut description_builder = StringBuilder::new();
+    let mut name_builder = LargeStringBuilder::new();
+    let mut description_builder = LargeStringBuilder::new();
 
     let binding = sitemap_name.to_string();
     let sitemap_name = binding
@@ -49,35 +51,35 @@ fn read_triples_into_arrays<R: BufRead>(
     for (pid, geometry) in pid_to_geometry {
         geometry_builder.push_geometry(Some(&geometry))?;
 
-        let pid_without_brackets = pid.trim_matches('<').trim_matches('>');
-        id_builder.append_value(&pid_without_brackets);
+        // let pid_without_brackets = pid.trim_matches('<').trim_matches('>');
+        // id_builder.append_value(&pid_without_brackets);
 
-        match hashmaps.pid_to_schema_name.get(&pid) {
-            Some(name) => name_builder
-                .append_value(name.strip_prefix('"').unwrap().strip_suffix('"').unwrap()),
-            None => name_builder.append_null(),
-        }
+        // match hashmaps.pid_to_schema_name.get(&pid) {
+        //     Some(name) => name_builder
+        //         .append_value(name.strip_prefix('"').unwrap().strip_suffix('"').unwrap()),
+        //     None => name_builder.append_null(),
+        // }
 
-        match hashmaps.pid_to_schema_description.get(&pid) {
-            Some(description) => description_builder.append_value(
-                description
-                    .strip_prefix('"')
-                    .unwrap()
-                    .strip_suffix('"')
-                    .unwrap(),
-            ),
-            None => description_builder.append_null(),
-        }
+        // match hashmaps.pid_to_schema_description.get(&pid) {
+        //     Some(description) => description_builder.append_value(
+        //         description
+        //             .strip_prefix('"')
+        //             .unwrap()
+        //             .strip_suffix('"')
+        //             .unwrap(),
+        //     ),
+        //     None => description_builder.append_null(),
+        // }
 
-        sitemap_builder.append_value(sitemap_name);
+        // sitemap_builder.append_value(sitemap_name);
     }
 
     Ok(vec![
         geometry_builder.finish().to_array_ref(),
-        Arc::new(id_builder.finish()) as ArrayRef,
-        Arc::new(sitemap_builder.finish()) as ArrayRef,
-        Arc::new(name_builder.finish()) as ArrayRef,
-        Arc::new(description_builder.finish()) as ArrayRef,
+        // Arc::new(id_builder.finish()) as ArrayRef,
+        // Arc::new(sitemap_builder.finish()) as ArrayRef,
+        // Arc::new(name_builder.finish()) as ArrayRef,
+        // Arc::new(description_builder.finish()) as ArrayRef,
     ])
 }
 
@@ -154,8 +156,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let writer_handle = thread::spawn(move || {
         while let Ok(batch) = reciever.recv() {
-            let encoded_batch = gpq_encoder.encode_record_batch(&batch).unwrap();
-            parquet_writer.write(&encoded_batch).unwrap();
+            let encoded_batch = match gpq_encoder.encode_record_batch(&batch) {
+                Ok(encoded_batch) => encoded_batch,
+                Err(err) => {
+                    let err_msg = format!("Error encoding batch: {:#?}", err);
+                    let err_source = format!("Error source: {:#?}", err.source());
+                    error!("{err_msg}");
+                    error!("{err_source}");
+                    return;
+                }
+            };
+            let write_result = parquet_writer.write(&encoded_batch);
+            if let Err(err) = write_result {
+                let err_msg = format!("Error writing batch: {:#?}", err);
+                let err_source = format!("Error source: {:#?}", err.source());
+                error!("{err_msg}");
+                error!("{err_source}");
+                return;
+            }
         }
         let kv_metadata = gpq_encoder.into_keyvalue().unwrap();
         parquet_writer.append_key_value_metadata(kv_metadata);
