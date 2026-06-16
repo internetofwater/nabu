@@ -513,7 +513,7 @@ dependencies = [
 [[package]]
 name = "geoarrow-array"
 version = "0.8.0"
-source = "git+https://github.com/geoarrow/geoarrow-rs?rev=69ef14f49a7248aaaf37a1a38f8d60d2912b3bfa#69ef14f49a7248aaaf37a1a38f8d60d2912b3bfa"
+source = "git+https://github.com/C-Loftus/geoarrow-rs/?rev=48400e7eef569510908c7652a9a7ec269ce1d0be#48400e7eef569510908c7652a9a7ec269ce1d0be"
 dependencies = [
  "arrow-array",
  "arrow-buffer",
@@ -528,7 +528,7 @@ dependencies = [
 [[package]]
 name = "geoarrow-schema"
 version = "0.8.0"
-source = "git+https://github.com/geoarrow/geoarrow-rs?rev=69ef14f49a7248aaaf37a1a38f8d60d2912b3bfa#69ef14f49a7248aaaf37a1a38f8d60d2912b3bfa"
+source = "git+https://github.com/C-Loftus/geoarrow-rs/?rev=48400e7eef569510908c7652a9a7ec269ce1d0be#48400e7eef569510908c7652a9a7ec269ce1d0be"
 dependencies = [
  "arrow-schema",
  "geo-traits",
@@ -540,7 +540,7 @@ dependencies = [
 [[package]]
 name = "geoparquet"
 version = "0.8.0"
-source = "git+https://github.com/geoarrow/geoarrow-rs?rev=69ef14f49a7248aaaf37a1a38f8d60d2912b3bfa#69ef14f49a7248aaaf37a1a38f8d60d2912b3bfa"
+source = "git+https://github.com/C-Loftus/geoarrow-rs/?rev=48400e7eef569510908c7652a9a7ec269ce1d0be#48400e7eef569510908c7652a9a7ec269ce1d0be"
 dependencies = [
  "arrow-arith",
  "arrow-array",

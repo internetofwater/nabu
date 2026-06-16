@@ -14,9 +14,9 @@ parquet = { version = "58", default-features = false, features = [] }
 flate2 = { version = "1.1.9", default-features = false, features = ["rust_backend"] }
 geo-types = "0.7.18"
 # geoarrow must use the compatible arrow-rs versions; see here: https://github.com/geoarrow/geoarrow-rs/tree/main/rust#version-compatibility
-geoarrow-array = { git="https://github.com/geoarrow/geoarrow-rs", rev = "69ef14f49a7248aaaf37a1a38f8d60d2912b3bfa", default-features = false }
-geoarrow-schema = { git="https://github.com/geoarrow/geoarrow-rs", rev = "69ef14f49a7248aaaf37a1a38f8d60d2912b3bfa", default-features = false }
-geoparquet = { git="https://github.com/geoarrow/geoarrow-rs", rev = "69ef14f49a7248aaaf37a1a38f8d60d2912b3bfa", default-features = false, features = []}
+geoarrow-array = { git="https://github.com/C-Loftus/geoarrow-rs/", rev = "48400e7eef569510908c7652a9a7ec269ce1d0be", default-features = false }
+geoarrow-schema = { git="https://github.com/C-Loftus/geoarrow-rs/", rev = "48400e7eef569510908c7652a9a7ec269ce1d0be", default-features = false }
+geoparquet = { git="https://github.com/C-Loftus/geoarrow-rs/", rev = "48400e7eef569510908c7652a9a7ec269ce1d0be", default-features = false, features = []}
 log = "0.4.29"
 oxttl = { git = "https://github.com/oxigraph/oxigraph", rev = "de4dc5f04379109aed08bfdff587235a647fb9b5", package = "oxttl" }
 oxrdf = "0.3.2"
