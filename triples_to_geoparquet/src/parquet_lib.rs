@@ -18,6 +18,7 @@ pub fn new_parquet_creator(
 ) -> (GeoParquetRecordBatchEncoder, ArrowWriter<std::fs::File>) {
     let options = GeoParquetWriterOptionsBuilder::default()
         .set_primary_column(GEOMETRY_COLUMN_NAME.to_string())
+        .set_large_offsets(GEOMETRY_COLUMN_NAME.to_string())
         .build();
 
     let gpq_encoder = GeoParquetRecordBatchEncoder::try_new(schema, &options).unwrap();
