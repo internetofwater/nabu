@@ -6,10 +6,8 @@ use std::{collections::HashMap, io::BufRead};
 use log::{debug, warn};
 use oxttl::NQuadsParser;
 
-use geo_types::{Geometry, Point};
-use wkt::{ToWkt, TryFromWkt};
-
-use crate::{f64_from_triple_term, generally_equal};
+use geo_types::Geometry;
+use wkt::TryFromWkt;
 
 fn parse_wkt_from_triple_string(triple_node: &str) -> Result<Geometry, Box<dyn std::error::Error>> {
     let part = triple_node
@@ -32,9 +30,6 @@ pub fn read_triples_into_maps<R: BufRead>(
     // there are two ways to encode geometries in nquads: either as WKT or as a schema.org latitude/longitude pair
     let mut pid_to_geosparql_skolemization_id: HashMap<String, String> = HashMap::new();
     let mut geosparql_skolemization_id_to_geometry: HashMap<String, Geometry> = HashMap::new();
-
-    let mut pid_to_schema_geo_skolemization_id: HashMap<String, String> = HashMap::new();
-    let mut schema_geo_skolemization_id_to_geometry: HashMap<String, Point> = HashMap::new();
 
     let mut pid_to_schema_name: HashMap<String, String> = HashMap::new();
     let mut pid_to_schema_description: HashMap<String, String> = HashMap::new();
@@ -70,64 +65,6 @@ pub fn read_triples_into_maps<R: BufRead>(
                     object.to_owned().to_string(),
                 );
             }
-            "<https://schema.org/geo>" => {
-                debug!("Found schema geometry: {}", object.to_owned().to_string());
-                pid_to_schema_geo_skolemization_id.insert(
-                    subject.to_owned().to_string(),
-                    object.to_owned().to_string(),
-                );
-            }
-
-            point_coord_type @ ("<https://schema.org/longitude>"
-            | "<https://schema.org/latitude>") => {
-                match schema_geo_skolemization_id_to_geometry.get(&subject.to_owned().to_string()) {
-                    Some(existing_val) => match (existing_val.x(), existing_val.y()) {
-                        (UKNOWN_POINT_COORD, UKNOWN_POINT_COORD) => {
-                            return Err("Found a point with unknown coords for both x/y; this is a sign that something went wrong on our end during construction".into());
-                        }
-                        (UKNOWN_POINT_COORD, y) => {
-                            schema_geo_skolemization_id_to_geometry.insert(
-                                subject.to_string(),
-                                Point::new(f64_from_triple_term(&object.to_string())?, y),
-                            );
-                        }
-                        (x, UKNOWN_POINT_COORD) => {
-                            schema_geo_skolemization_id_to_geometry.insert(
-                                subject.to_string(),
-                                Point::new(x, f64_from_triple_term(&object.to_string())?),
-                            );
-                        }
-                        (_, _) => {
-                            return Err("Found a point with known coords for both x/y; this is a sign that something is defined multiple times in the triples or went wrong on our end during construction".into());
-                        }
-                    },
-                    None => {
-                        match point_coord_type {
-                            "<https://schema.org/latitude>" => {
-                                schema_geo_skolemization_id_to_geometry.insert(
-                                    subject.to_string(),
-                                    Point::new(
-                                        UKNOWN_POINT_COORD,
-                                        f64_from_triple_term(&object.to_string())?,
-                                    ),
-                                );
-                            }
-                            "<https://schema.org/longitude>" => {
-                                schema_geo_skolemization_id_to_geometry.insert(
-                                    subject.to_owned().to_string(),
-                                    Point::new(
-                                        f64_from_triple_term(&object.to_string())?,
-                                        UKNOWN_POINT_COORD,
-                                    ),
-                                );
-                            }
-                            // skip other predicates unrelated to schema geo
-                            _ => {}
-                        }
-                    }
-                }
-            }
-
             "<http://www.opengis.net/ont/geosparql#asWKT>" => {
                 debug!("Found WKT: {}", object.to_owned().to_string());
                 let object_string = object.to_owned().to_string();
@@ -155,8 +92,6 @@ pub fn read_triples_into_maps<R: BufRead>(
     Ok(HashMaps {
         pid_to_geosparql_skolemization_id,
         geosparql_skolemization_id_to_geometry,
-        pid_to_schema_geo_skolemization_id,
-        schema_geo_skolemization_id_to_geometry,
         pid_to_schema_description,
         pid_to_schema_name,
     })
@@ -167,13 +102,9 @@ pub fn read_triples_into_maps<R: BufRead>(
 pub struct HashMaps {
     pub pid_to_geosparql_skolemization_id: HashMap<String, String>,
     pub geosparql_skolemization_id_to_geometry: HashMap<String, Geometry>,
-    pub pid_to_schema_geo_skolemization_id: HashMap<String, String>,
-    pub schema_geo_skolemization_id_to_geometry: HashMap<String, Point>,
     pub pid_to_schema_description: HashMap<String, String>,
     pub pid_to_schema_name: HashMap<String, String>,
 }
-
-const UKNOWN_POINT_COORD: f64 = -1.0;
 
 /// Given info for both the geosparql and schema geo representations of a geometry,
 /// combine them into a single canonical representation for each pid and return
@@ -200,59 +131,6 @@ pub fn combine_geometry_representations(
                     pid, geosparql_skolemization_id
                 )
                 .into());
-            }
-        }
-    }
-
-    let mut schema_geo_and_wkt_mismatches = 0;
-    // next we go through and get all the schema geo geometries
-    for (pid, schema_geo_skolemization_id) in &maps.pid_to_schema_geo_skolemization_id {
-        match maps
-            .schema_geo_skolemization_id_to_geometry
-            .get(schema_geo_skolemization_id)
-        {
-            Some(point_geometry) => {
-                if point_geometry.x() == UKNOWN_POINT_COORD
-                    || point_geometry.y() == UKNOWN_POINT_COORD
-                {
-                    return Err(format!(
-                        "Found a point with unknown coords for pid {} with skolemization id {}",
-                        pid, schema_geo_skolemization_id
-                    )
-                    .into());
-                }
-
-                if let Some(gsp_geometry) = pid_to_canonical_geometry.get(pid) {
-                    debug!(
-                        "Found gsp geometry for pid {}: {}",
-                        pid,
-                        gsp_geometry.to_wkt()
-                    );
-                    if !generally_equal(gsp_geometry, point_geometry) {
-                        schema_geo_and_wkt_mismatches += 1;
-                        if schema_geo_and_wkt_mismatches < 30 {
-                            warn!(
-                                "pid {} with geosparql geometry '{}' does not match schema geo skolemization id {} with schema geo point geometry '{}'",
-                                pid,
-                                gsp_geometry.to_wkt(),
-                                schema_geo_skolemization_id,
-                                point_geometry.to_wkt()
-                            );
-                        } else if schema_geo_and_wkt_mismatches == 30 {
-                            warn!(
-                                "More than 30 mismatches between geosparql and schema geo geometries; skipping further warnings"
-                            );
-                        }
-                    }
-                }
-                pid_to_canonical_geometry
-                    .insert(pid.to_owned(), Geometry::Point(point_geometry.clone()));
-            }
-            None => {
-                debug!(
-                    "No schema:geo geometry for pid {} with skolemization id {}",
-                    pid, schema_geo_skolemization_id
-                )
             }
         }
     }
@@ -288,8 +166,6 @@ mod tests {
         let maps = HashMaps {
             pid_to_geosparql_skolemization_id: pids_to_gsp_skolemization,
             geosparql_skolemization_id_to_geometry: gsp_skolemization_to_geometry,
-            pid_to_schema_geo_skolemization_id: pids_to_schema_geo_skolemization,
-            schema_geo_skolemization_id_to_geometry: schema_geo_skolemization_to_geometry,
             pid_to_schema_name: empty_names,
             pid_to_schema_description: empty_descriptions,
         };
