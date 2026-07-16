@@ -15,7 +15,7 @@ use geoarrow_array::builder::WkbBuilder;
 use log::{error, info};
 
 use argh::FromArgs;
-use arrow_array::{self, ArrayRef, RecordBatch, builder::StringBuilder};
+use arrow_array::{self, builder::StringBuilder, ArrayRef, RecordBatch};
 use geoarrow_array::GeoArrowArray;
 use geoarrow_schema::WkbType;
 use triples_to_geoparquet::{
@@ -40,6 +40,7 @@ fn read_triples_into_arrays<R: BufRead>(
     let mut sitemap_builder = StringBuilder::new();
     let mut name_builder = StringBuilder::new();
     let mut description_builder = StringBuilder::new();
+    let mut mainstem_uri_builder = StringBuilder::new();
 
     let binding = sitemap_name.to_string();
     let sitemap_name = binding
@@ -69,6 +70,13 @@ fn read_triples_into_arrays<R: BufRead>(
             None => description_builder.append_null(),
         }
 
+        match hashmaps.pid_to_mainstem_uri.get(&pid) {
+            Some(mainstem_uri) => {
+                mainstem_uri_builder.append_value(mainstem_uri.trim_matches('<').trim_matches('>'))
+            }
+            None => mainstem_uri_builder.append_null(),
+        }
+
         sitemap_builder.append_value(sitemap_name);
     }
 
@@ -78,6 +86,7 @@ fn read_triples_into_arrays<R: BufRead>(
         Arc::new(sitemap_builder.finish()) as ArrayRef,
         Arc::new(name_builder.finish()) as ArrayRef,
         Arc::new(description_builder.finish()) as ArrayRef,
+        Arc::new(mainstem_uri_builder.finish()) as ArrayRef,
     ])
 }
 
@@ -251,8 +260,8 @@ mod tests {
 
         assert_eq!(
             arrays.len(),
-            5,
-            "Expected 5 arrays (geometry, id, name, description, name)"
+            6,
+            "Expected 6 arrays (geometry, id, sitemap, name, description, mainstem_uri)"
         );
 
         let geometry_array = &arrays[0];
@@ -298,8 +307,8 @@ mod tests {
 
         assert_eq!(
             arrays.len(),
-            5,
-            "Expected 5 columns, geometry, sitemap, id, name, description"
+            6,
+            "Expected 6 columns, geometry, sitemap, id, name, description, mainstem_uri"
         );
 
         let geometry_array = &arrays[0];
@@ -343,8 +352,8 @@ mod tests {
 
         assert_eq!(
             arrays.len(),
-            5,
-            "Expected 5 columns, geometry, sitemap, id, name, description"
+            6,
+            "Expected 6 columns, geometry, sitemap, id, name, description, mainstem_uri"
         );
 
         let geometry_array = &arrays[0];
@@ -368,5 +377,33 @@ mod tests {
             .value(0);
         assert_eq!(description_value, "foo is a bar");
         assert_eq!(description_array.len(), 1);
+    }
+
+    #[test]
+    fn test_triples_with_mainstem_uri() {
+        let nquads = r#"<http://example.org/feature/1> <http://www.opengis.net/ont/geosparql#hasGeometry> _:geom1 .
+        _:geom1 <http://www.opengis.net/ont/geosparql#asWKT> "POINT (2 1)"^^<http://www.opengis.net/ont/geosparql#wktLiteral> .
+        <http://example.org/feature/1> <https://www.opengis.net/def/schema/hy_features/hyf/referencedPosition> _:rp1 .
+        <http://example.org/feature/1> <https://www.opengis.net/def/schema/hy_features/hyf/referencedPosition> _:rp2 .
+        _:rp1 <https://www.opengis.net/def/schema/hy_features/hyf/HY_IndirectPosition> _:ip1 .
+        _:ip1 <https://www.opengis.net/def/schema/hy_features/hyf/linearElement> <https://geoconnex.us/nhdplusv2/reachcode/05130108000006> .
+        _:rp2 <https://www.opengis.net/def/schema/hy_features/hyf/HY_IndirectPosition> _:ip2 .
+        _:ip2 <https://www.opengis.net/def/schema/hy_features/hyf/linearElement> <https://geoconnex.us/ref/mainstems/489048> .
+        "#;
+
+        let reader = Cursor::new(nquads);
+
+        let arrays = read_triples_into_arrays(reader, "test")
+            .expect("Expected triples to be parsed successfully");
+
+        let mainstem_uri_array = arrays[5]
+            .as_any()
+            .downcast_ref::<arrow_array::StringArray>()
+            .expect("mainstem_uri column should be a StringArray");
+
+        assert_eq!(
+            mainstem_uri_array.value(0),
+            "https://geoconnex.us/ref/mainstems/489048"
+        );
     }
 }
