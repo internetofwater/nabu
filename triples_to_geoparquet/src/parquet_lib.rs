@@ -50,5 +50,8 @@ pub fn generate_schema() -> Schema {
     let feature_description = Field::new("feature_description", Utf8, true);
     schema_builder.push(feature_description);
 
+    let mainstem_uri = Field::new("mainstem_uri", Utf8, true);
+    schema_builder.push(mainstem_uri);
+
     schema_builder.finish()
 }

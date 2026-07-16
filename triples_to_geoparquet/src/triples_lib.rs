@@ -33,6 +33,10 @@ pub fn read_triples_into_maps<R: BufRead>(
 
     let mut pid_to_schema_name: HashMap<String, String> = HashMap::new();
     let mut pid_to_schema_description: HashMap<String, String> = HashMap::new();
+    let mut pid_to_referenced_position_ids: HashMap<String, Vec<String>> = HashMap::new();
+    let mut referenced_position_id_to_indirect_position_id: HashMap<String, String> =
+        HashMap::new();
+    let mut indirect_position_id_to_linear_element_uri: HashMap<String, String> = HashMap::new();
 
     let parser = NQuadsParser::new().with_max_buffer_size(usize::MAX);
     let parsed_quads = parser.for_reader(triples_reader);
@@ -86,14 +90,54 @@ pub fn read_triples_into_maps<R: BufRead>(
                     object.to_owned().to_string(),
                 );
             }
+            "<https://www.opengis.net/def/schema/hy_features/hyf/referencedPosition>" => {
+                pid_to_referenced_position_ids
+                    .entry(subject.to_owned().to_string())
+                    .or_default()
+                    .push(object.to_owned().to_string());
+            }
+            "<https://www.opengis.net/def/schema/hy_features/hyf/HY_IndirectPosition>" => {
+                referenced_position_id_to_indirect_position_id.insert(
+                    subject.to_owned().to_string(),
+                    object.to_owned().to_string(),
+                );
+            }
+            "<https://www.opengis.net/def/schema/hy_features/hyf/linearElement>" => {
+                indirect_position_id_to_linear_element_uri.insert(
+                    subject.to_owned().to_string(),
+                    object.to_owned().to_string(),
+                );
+            }
             &_ => {}
         }
     }
+
+    let mut pid_to_mainstem_uri: HashMap<String, String> = HashMap::new();
+    for (pid, referenced_position_ids) in &pid_to_referenced_position_ids {
+        for referenced_position_id in referenced_position_ids {
+            let Some(indirect_position_id) =
+                referenced_position_id_to_indirect_position_id.get(referenced_position_id)
+            else {
+                continue;
+            };
+            let Some(linear_element_uri) =
+                indirect_position_id_to_linear_element_uri.get(indirect_position_id)
+            else {
+                continue;
+            };
+            if linear_element_uri.contains("geoconnex.us/ref/mainstems/") {
+                pid_to_mainstem_uri.insert(pid.to_owned(), linear_element_uri.to_owned());
+                break;
+            }
+        }
+    }
+
     Ok(HashMaps {
         pid_to_geosparql_skolemization_id,
         geosparql_skolemization_id_to_geometry,
         pid_to_schema_description,
         pid_to_schema_name,
+        pid_to_mainstem_uri,
     })
 }
 
@@ -104,6 +148,7 @@ pub struct HashMaps {
     pub geosparql_skolemization_id_to_geometry: HashMap<String, Geometry>,
     pub pid_to_schema_description: HashMap<String, String>,
     pub pid_to_schema_name: HashMap<String, String>,
+    pub pid_to_mainstem_uri: HashMap<String, String>,
 }
 
 /// Given info for both the geosparql and schema geo representations of a geometry,
@@ -144,7 +189,7 @@ mod tests {
 
     use std::collections::HashMap;
 
-    use crate::triples_lib::{HashMaps, combine_geometry_representations};
+    use crate::triples_lib::{combine_geometry_representations, HashMaps};
 
     #[test]
     fn test_combine_geometry_representations() {
@@ -168,9 +213,30 @@ mod tests {
             geosparql_skolemization_id_to_geometry: gsp_skolemization_to_geometry,
             pid_to_schema_name: empty_names,
             pid_to_schema_description: empty_descriptions,
+            pid_to_mainstem_uri: HashMap::new(),
         };
 
         let result = combine_geometry_representations(&maps);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_read_triples_into_maps_extracts_mainstem_uri() {
+        let nquads = r#"<http://example.org/feature/1> <https://www.opengis.net/def/schema/hy_features/hyf/referencedPosition> _:rp1 .
+        <http://example.org/feature/1> <https://www.opengis.net/def/schema/hy_features/hyf/referencedPosition> _:rp2 .
+        _:rp1 <https://www.opengis.net/def/schema/hy_features/hyf/HY_IndirectPosition> _:ip1 .
+        _:ip1 <https://www.opengis.net/def/schema/hy_features/hyf/linearElement> <https://geoconnex.us/nhdplusv2/reachcode/05130108000006> .
+        _:rp2 <https://www.opengis.net/def/schema/hy_features/hyf/HY_IndirectPosition> _:ip2 .
+        _:ip2 <https://www.opengis.net/def/schema/hy_features/hyf/linearElement> <https://geoconnex.us/ref/mainstems/489048> ."#;
+
+        let maps = super::read_triples_into_maps(std::io::Cursor::new(nquads))
+            .expect("Expected triples to be parsed successfully");
+
+        assert_eq!(
+            maps.pid_to_mainstem_uri
+                .get("<http://example.org/feature/1>")
+                .unwrap(),
+            "<https://geoconnex.us/ref/mainstems/489048>"
+        );
     }
 }
