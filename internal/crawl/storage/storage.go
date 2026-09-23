@@ -71,6 +71,71 @@ type CrawlStorage interface {
 	StoreBulk(items chan BulkStorageItem) error
 }
 
+// DeletePrefix removes every object stored under pathInStorage. It is intended
+// for bulk harvests, which replace the complete contents of their destination.
+func DeletePrefix(pathInStorage string, storage CrawlStorage) (int64, error) {
+	if pathInStorage == "" {
+		return 0, fmt.Errorf("path is empty")
+	}
+	if !strings.Contains(pathInStorage, "/") {
+		return 0, fmt.Errorf("path should not be just one filename but got: %s", pathInStorage)
+	}
+	if strings.HasPrefix(pathInStorage, "/") {
+		return 0, fmt.Errorf("path should not be absolute and start with / but got %s", pathInStorage)
+	}
+
+	files, err := storage.ListDir(pathInStorage)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(files) == 0 {
+		log.Infof("Directory %s is empty; no files to clean up", pathInStorage)
+		return 0, nil
+	} else {
+		log.Infof("Deleting pre-existing files at prefix %s", pathInStorage)
+	}
+
+	var deleted atomic.Int64
+	eg, ctx := errgroup.WithContext(context.Background())
+	const maxConcurrency = 20
+	eg.SetLimit(maxConcurrency)
+
+	pathsToDelete := make([]string, 0, len(files))
+	for storedPath := range files {
+		index := strings.Index(storedPath, pathInStorage)
+		if index == -1 {
+			return 0, fmt.Errorf("unexpected path format: %s", storedPath)
+		}
+		pathsToDelete = append(pathsToDelete, storedPath[index:])
+	}
+
+	for _, relativePath := range pathsToDelete {
+		eg.Go(func() error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if err := storage.Remove(relativePath); err != nil {
+				return fmt.Errorf("deleting file %s: %w", relativePath, err)
+			}
+
+			deletedSoFar := deleted.Add(1)
+			if deletedSoFar%5000 == 0 {
+				log.Infof("Deleted %d files with prefix %s", deletedSoFar, pathInStorage)
+			}
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return deleted.Load(), err
+	}
+
+	deletedTotal := deleted.Load()
+	log.Infof("Finished cleaning up pre-existing files with prefix %s; deleted %d files", pathInStorage, deletedTotal)
+	return deletedTotal, nil
+}
+
 // Given a storage path, iterate through it and remove any files that aren't in sitesToKeep
 func CleanupFiles(pathInStorage string, sitesToKeep Set, storage CrawlStorage) ([]string, error) {
 	if pathInStorage == "" {

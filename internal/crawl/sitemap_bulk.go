@@ -42,6 +42,12 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_harvest_%s", s.metadata.SitemapID))
 	defer span.End()
 
+	bulkStoragePrefix := "summoned/" + s.metadata.SitemapID + "/"
+
+	if _, err := storage.DeletePrefix(bulkStoragePrefix, config.storageDestination); err != nil {
+		return pkg.SitemapCrawlStats{}, fmt.Errorf("failed to delete pre-existing bulk data with prefix %s: %w", bulkStoragePrefix, err)
+	}
+
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
 		return pkg.SitemapCrawlStats{}, err

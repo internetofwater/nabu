@@ -4,6 +4,7 @@
 package crawl
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"testing"
@@ -49,6 +50,8 @@ func TestBulkSitemap(t *testing.T) {
 
 	storage, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
+	err = storage.StoreWithoutServersideHash("summoned/test_sitemap/stale.jsonld", bytes.NewReader([]byte("stale")))
+	require.NoError(t, err)
 
 	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test_sitemap", Loc: "https://geoconnex.us/sitemap/iow/bulk", BulkContainerImage: "test_bulk"})
 	require.NoError(t, err)
@@ -66,6 +69,9 @@ func TestBulkSitemap(t *testing.T) {
 	hasFiles, err := storage.ListDir("/summoned/test_sitemap/")
 	require.NoError(t, err)
 	require.Equal(t, len(hasFiles), 3)
+	staleExists, err := storage.Exists("summoned/test_sitemap/stale.jsonld")
+	require.NoError(t, err)
+	require.False(t, staleExists)
 
 	reader, err := storage.Get("/summoned/test_sitemap/aHR0cHM6Ly9hcGkud3dkaC5pbnRlcm5ldG9md2F0ZXIuYXBwL2NvbGxlY3Rpb25zL25vYWEtcmZjL2l0ZW1zL0FGUFUx.jsonld")
 	require.NoError(t, err, "Failed to get the data; the id for the jsonld should be stable and consistent")
