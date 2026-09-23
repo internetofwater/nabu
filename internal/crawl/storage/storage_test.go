@@ -57,9 +57,14 @@ func TestSet(t *testing.T) {
 func TestListDir(t *testing.T) {
 	storage, err := NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
+
+	set, err := storage.ListDir("does-not-exist/")
+	require.NoError(t, err)
+	require.Empty(t, set)
+
 	err = storage.StoreWithoutServersideHash("testfile.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
-	set, err := storage.ListDir("")
+	set, err = storage.ListDir("")
 	require.NoError(t, err)
 	for item := range set {
 		isAbs := path.IsAbs(item)
