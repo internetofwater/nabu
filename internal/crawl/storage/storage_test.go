@@ -57,9 +57,14 @@ func TestSet(t *testing.T) {
 func TestListDir(t *testing.T) {
 	storage, err := NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
+
+	set, err := storage.ListDir("does-not-exist/")
+	require.NoError(t, err)
+	require.Empty(t, set)
+
 	err = storage.StoreWithoutServersideHash("testfile.txt", bytes.NewReader([]byte("dummy_data")))
 	require.NoError(t, err)
-	set, err := storage.ListDir("")
+	set, err = storage.ListDir("")
 	require.NoError(t, err)
 	for item := range set {
 		isAbs := path.IsAbs(item)
@@ -101,4 +106,39 @@ func TestCleanupOutdatedJsonld(t *testing.T) {
 	res, err = storage.Exists("summoned/sitemap2/KEEP_THIS.txt")
 	require.NoError(t, err)
 	require.True(t, res)
+}
+
+func TestDeletePrefix(t *testing.T) {
+	storage, err := NewLocalTempFSCrawlStorage()
+	require.NoError(t, err)
+
+	for _, object := range []string{
+		"summoned/sitemap1/first.jsonld",
+		"summoned/sitemap1/second.jsonld",
+		"summoned/sitemap2/keep.jsonld",
+	} {
+		err = storage.StoreWithoutServersideHash(object, bytes.NewReader([]byte("dummy_data")))
+		require.NoError(t, err)
+	}
+
+	deleted, err := DeletePrefix("summoned/sitemap1/", storage)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), deleted)
+
+	for _, object := range []string{
+		"summoned/sitemap1/first.jsonld",
+		"summoned/sitemap1/second.jsonld",
+	} {
+		exists, err := storage.Exists(object)
+		require.NoError(t, err)
+		require.False(t, exists)
+	}
+
+	exists, err := storage.Exists("summoned/sitemap2/keep.jsonld")
+	require.NoError(t, err)
+	require.True(t, exists)
+
+	deleted, err = DeletePrefix("summoned/does-not-exist/", storage)
+	require.NoError(t, err)
+	require.Zero(t, deleted)
 }

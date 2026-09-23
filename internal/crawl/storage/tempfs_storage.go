@@ -88,6 +88,9 @@ func (l *LocalTempFSCrawlStorage) ListDir(prefix string) (Set, error) {
 	dirPath := filepath.Join(l.baseDir, prefix)
 
 	entries, err := os.ReadDir(dirPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return make(Set), nil
+	}
 	if err != nil {
 		return nil, err
 	}

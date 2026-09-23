@@ -19,7 +19,7 @@ services:
       - "4317:4317"
 
   minio:
-    image: minio/minio
+    image: quay.io/minio/minio
     container_name: minio
     restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]

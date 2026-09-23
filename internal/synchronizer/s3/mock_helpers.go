@@ -69,7 +69,7 @@ func NewMinioContainerFromConfig(config MinioContainerConfig) (MinioContainer, e
 
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
-		Image: "minio/minio:latest",
+		Image: "quay.io/minio/minio:latest",
 		// expose the API with 9000 and the UI with 9001
 		ExposedPorts: []string{"9000/tcp", "9001/tcp"},
 		WaitingFor:   wait.ForHTTP("/minio/health/live").WithPort("9000"),
