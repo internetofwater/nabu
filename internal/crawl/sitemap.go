@@ -66,6 +66,9 @@ type SitemapHarvestConfig struct {
 	httpClient *http.Client
 	// the config for grpc requests
 	grpcClient *protoBuild.ShaclValidatorClient
+	// the address of the shacl validator; bulk sitemaps use it to open
+	// several connections so validation can be spread across server processes
+	shaclAddress string
 	// before downloading a site, send a head request to the server
 	// to get its hash and if it already exists in storage, skip it
 	checkExistenceBeforeCrawl *atomic.Bool

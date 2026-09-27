@@ -54,6 +54,18 @@ func NewShaclGrpcClientFromAddr(shaclAddress string) (protoBuild.ShaclValidatorC
 		return nil, nil
 	}
 
+	conn, err := newShaclGrpcConn(shaclAddress)
+	if err != nil {
+		return nil, err
+	}
+	grpcClient := protoBuild.NewShaclValidatorClient(conn)
+	return grpcClient, nil
+}
+
+// Create a separate gRPC connection to the SHACL validator.
+// Each connection is its own HTTP/2 connection, so opening several lets a
+// multi-process validator spread requests across its processes
+func newShaclGrpcConn(shaclAddress string) (*grpc.ClientConn, error) {
 	// 32 megabytes is the current upperbound of the jsonld documents we will validate
 	// beyond that is a sign that the document may be too large or incorrectly formatted
 	thirtyTwoMB := 32 * 1024 * 1024
@@ -63,6 +75,5 @@ func NewShaclGrpcClientFromAddr(shaclAddress string) (protoBuild.ShaclValidatorC
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to gRPC server: %w", err)
 	}
-	grpcClient := protoBuild.NewShaclValidatorClient(conn)
-	return grpcClient, nil
+	return conn, nil
 }

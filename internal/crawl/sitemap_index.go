@@ -168,6 +168,7 @@ func (i SitemapIndex) HarvestSitemaps(ctx context.Context, client *http.Client) 
 			if err != nil {
 				return err
 			}
+			config.shaclAddress = i.shaclAddress
 
 			stats, _, harvestErr := sitemap.
 				Harvest(ctx, &config)
@@ -223,6 +224,7 @@ func (i SitemapIndex) HarvestSitemap(ctx context.Context, client *http.Client, s
 		if err != nil {
 			return pkg.SitemapCrawlStats{}, err
 		}
+		config.shaclAddress = i.shaclAddress
 
 		stats, _, err := sitemap.
 			Harvest(ctx, &config)

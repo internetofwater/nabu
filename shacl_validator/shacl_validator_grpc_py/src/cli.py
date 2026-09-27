@@ -114,7 +114,7 @@ def main():
     else:
         logger.info(f"Starting SHACL Validation grpc Server on {args.grpc_port}")
         logger.info(f"SHACL file used for validation: {args.shacl_file}")
-        serve(graph, grpc_port=args.grpc_port, http_port=args.http_port)
+        serve(graph, shacl_file=args.shacl_file, grpc_port=args.grpc_port, http_port=args.http_port)
 
 
 if __name__ == "__main__":

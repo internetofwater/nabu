@@ -4,6 +4,9 @@
 """gRPC + HTTP server for SHACL validation service (Starlette version)."""
 
 import logging
+import multiprocessing
+import multiprocessing.connection
+import os
 import threading
 from concurrent import futures
 
@@ -47,11 +50,16 @@ class ShaclValidator(shacl_validator_pb2_grpc.ShaclValidatorServicer):
         return ValidationReply(valid=conforms, message=text)
 
 
-def serve_grpc(shacl_shape: Graph, grpc_port: int):
+def serve_grpc(shacl_shape: Graph, grpc_port: int, max_workers: int = 10):
     """Start gRPC server."""
     server = grpc.server(
-        futures.ThreadPoolExecutor(max_workers=10),
-        options=[("grpc.max_receive_message_length", MAX_MESSAGE_SIZE)],
+        futures.ThreadPoolExecutor(max_workers=max_workers),
+        options=[
+            ("grpc.max_receive_message_length", MAX_MESSAGE_SIZE),
+            # allows several processes to listen on the same port;
+            # the kernel spreads incoming connections across them
+            ("grpc.so_reuseport", 1),
+        ],
     )
     shacl_validator_pb2_grpc.add_ShaclValidatorServicer_to_server(
         ShaclValidator(shacl_shape), server
@@ -118,12 +126,58 @@ def serve_http(shacl_shape: Graph, port: int):
     uvicorn.run(app, host="0.0.0.0", port=port)
 
 
-def serve(shacl_shape: Graph, grpc_port: int, http_port: int):
+def _serve_grpc_process(shacl_file: str, grpc_port: int):
+    """Entry point for a gRPC worker process; each process loads its own copy of the shapes."""
+    logging.basicConfig(level=logging.INFO)
+    shacl_shape = Graph().parse(shacl_file)
+    # validation is CPU bound and holds the GIL, so extra threads
+    # in a process would not validate any faster
+    serve_grpc(shacl_shape, grpc_port, max_workers=1)
+
+
+def serve_grpc_processes(shacl_file: str, grpc_port: int, processes: int):
+    """Start several gRPC server processes listening on the same port.
+
+    pyshacl validation is pure Python and CPU bound, so a single process can only
+    use one core. Each process accepts its own connections, so clients should open
+    several connections to spread requests across processes.
+    Exits this process if any worker process stops so the container can be restarted.
+    """
+    # spawn instead of fork since gRPC does not support forking after it has been initialized
+    context = multiprocessing.get_context("spawn")
+    workers = [
+        context.Process(
+            target=_serve_grpc_process, args=(shacl_file, grpc_port), daemon=True
+        )
+        for _ in range(processes)
+    ]
+    for worker in workers:
+        worker.start()
+    logger.info(f"Started {processes} gRPC server processes on port {grpc_port}")
+
+    def exit_if_any_worker_stops():
+        multiprocessing.connection.wait([worker.sentinel for worker in workers])
+        logger.error("A gRPC server process stopped unexpectedly; exiting")
+        os._exit(1)
+
+    threading.Thread(target=exit_if_any_worker_stops, daemon=True).start()
+
+
+def grpc_processes_from_env() -> int:
+    """The number of gRPC server processes; defaults to one per core."""
+    return int(os.environ.get("SHACL_GRPC_PROCESSES", os.cpu_count() or 1))
+
+
+def serve(shacl_shape: Graph, shacl_file: str, grpc_port: int, http_port: int):
     """Launch both gRPC and HTTP servers."""
-    grpc_thread = threading.Thread(
-        target=serve_grpc, args=(shacl_shape, grpc_port), daemon=True
-    )
-    grpc_thread.start()
+    processes = grpc_processes_from_env()
+    if processes > 1:
+        serve_grpc_processes(shacl_file, grpc_port, processes)
+    else:
+        grpc_thread = threading.Thread(
+            target=serve_grpc, args=(shacl_shape, grpc_port), daemon=True
+        )
+        grpc_thread.start()
 
     # Run HTTP server in the main thread
     serve_http(shacl_shape, port=http_port)

@@ -566,8 +566,60 @@ func (suite *S3ClientSuite) TestStoreBulk() {
 		}
 	}
 	close(items)
-	err := suite.minioContainer.ClientWrapper.StoreBulk(items)
+	err := suite.minioContainer.ClientWrapper.StoreBulk(context.Background(), items)
 	suite.Require().NoError(err)
+}
+
+func (suite *S3ClientSuite) TestRemoveManyAndListHashes() {
+	ctx := context.Background()
+	const prefix = "removeMany/"
+	// more than the 1000 keys the S3 multi-object delete API accepts per request
+	const numItems = 2500
+
+	items := make(chan storage.BulkStorageItem, numItems)
+	contents := map[string][]byte{}
+	for i := range numItems {
+		path := prefix + fmt.Sprint(i) + ".jsonld"
+		data := []byte(fmt.Sprintf(`{"@id": "%d"}`, i))
+		contents[path] = data
+		items <- storage.BulkStorageItem{Path: path, Data: bytes.NewReader(data), ByteLength: len(data)}
+	}
+	close(items)
+	suite.Require().NoError(suite.minioContainer.ClientWrapper.StoreBulk(ctx, items))
+
+	hashes, err := suite.minioContainer.ClientWrapper.ListHashes(ctx, prefix)
+	suite.Require().NoError(err)
+	suite.Require().Len(hashes, numItems)
+	for path, data := range contents {
+		suite.Require().Equal(fmt.Sprintf("%x", md5.Sum(data)), hashes[path])
+	}
+
+	toRemove := []string{}
+	for path := range contents {
+		toRemove = append(toRemove, path)
+	}
+	suite.Require().NoError(suite.minioContainer.ClientWrapper.RemoveMany(ctx, toRemove))
+
+	hashes, err = suite.minioContainer.ClientWrapper.ListHashes(ctx, prefix)
+	suite.Require().NoError(err)
+	suite.Require().Empty(hashes)
+}
+
+func (suite *S3ClientSuite) TestDeletePrefixUsesBatchRemoval() {
+	for i := range 1500 {
+		err := suite.minioContainer.ClientWrapper.StoreWithHash("deletePrefix/sitemap1/"+fmt.Sprint(i), bytes.NewReader([]byte("data")), 4)
+		suite.Require().NoError(err)
+	}
+	err := suite.minioContainer.ClientWrapper.StoreWithHash("deletePrefix/sitemap2/keep", bytes.NewReader([]byte("data")), 4)
+	suite.Require().NoError(err)
+
+	deleted, err := storage.DeletePrefix("deletePrefix/sitemap1/", suite.minioContainer.ClientWrapper)
+	suite.Require().NoError(err)
+	suite.Require().Equal(int64(1500), deleted)
+
+	remaining, err := suite.minioContainer.ClientWrapper.ListDir("deletePrefix/")
+	suite.Require().NoError(err)
+	suite.Require().Equal(storage.Set{"deletePrefix/sitemap2/keep": {}}, remaining)
 }
 
 // Run the entire test suite
