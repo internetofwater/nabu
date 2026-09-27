@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"context"
 	"io"
 )
 
@@ -46,6 +47,9 @@ func (DiscardCrawlStorage) GetHash(string) (Md5Hash, bool, error) {
 	return "", false, nil
 }
 
-func (DiscardCrawlStorage) StoreBulk(items chan BulkStorageItem) error {
+func (DiscardCrawlStorage) StoreBulk(ctx context.Context, items chan BulkStorageItem) error {
+	// drain the channel so senders never block on a storage that discards everything
+	for range items {
+	}
 	return nil
 }

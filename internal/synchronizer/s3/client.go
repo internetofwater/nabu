@@ -6,6 +6,8 @@ package s3
 import (
 	"bufio"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -30,6 +32,8 @@ import (
 )
 
 var _ storage.CrawlStorage = &MinioClientWrapper{}
+var _ storage.BatchRemover = &MinioClientWrapper{}
+var _ storage.PrefixHashLister = &MinioClientWrapper{}
 
 // Wrapper to allow us to extend the minio client struct with new methods
 type MinioClientWrapper struct {
@@ -67,7 +71,7 @@ func NewMinioClientWrapper(mcfg config.MinioConfig) (*MinioClientWrapper, error)
 	secretAccessKey := mcfg.Secretkey
 	useSSL := mcfg.SSL
 
-	transport, err := minio.DefaultTransport(false)
+	transport, err := minio.DefaultTransport(useSSL)
 	if err != nil {
 		return nil, err
 	}
@@ -77,20 +81,20 @@ func NewMinioClientWrapper(mcfg config.MinioConfig) (*MinioClientWrapper, error)
 	transport.MaxIdleConns = 2000
 	transport.MaxIdleConnsPerHost = 2000
 
+	if mcfg.Region == "" {
+		log.Debug("Minio client created with no region set")
+	}
+
 	var minio_options = &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
-		Secure: useSSL,
+		Creds:     credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure:    useSSL,
+		Transport: transport,
+		Region:    mcfg.Region,
 	}
 
 	minioClient, err := minio.New(endpoint, minio_options)
 	if err != nil {
 		return nil, err
-	}
-
-	if mcfg.Region != "" {
-		minio_options.Region = mcfg.Region
-	} else {
-		log.Debug("Minio client created with no region set")
 	}
 
 	return &MinioClientWrapper{Client: minioClient, DefaultBucket: mcfg.Bucket, MetadataBucket: mcfg.MetadataBucket}, err
@@ -614,65 +618,107 @@ func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFil
 	}
 }
 
-func (m MinioClientWrapper) StoreBulk(items chan storage.BulkStorageItem) error {
-	eg, ctx := errgroup.WithContext(context.Background())
+func (m MinioClientWrapper) StoreBulk(ctx context.Context, items chan storage.BulkStorageItem) error {
+	eg, ctx := errgroup.WithContext(ctx)
 
-	const maxConcurrentUploads = 300
+	// sized for a large VM; the transport keeps enough idle connections
+	// open that each upload worker can reuse its connection
+	const maxConcurrentUploads = 256
 
-	semaphore := make(chan struct{}, maxConcurrentUploads)
+	var totalUploaded atomic.Int64
+	var totalUploadNanos atomic.Int64
+	var maxUploadNanos atomic.Int64
 
-	var waitTimes []time.Duration
-	var waitTimesMu sync.Mutex
-
-	for item := range items {
-		enqueuedAt := time.Now()
+	for range maxConcurrentUploads {
 		eg.Go(func() error {
-			// acquire semaphore / i.e. reduce the channel buffer by 1
-			// if the buffer is empty this goroutine will block until another
-			// goroutine releases the semaphore by increasing the buffer
-			semaphore <- struct{}{}
-
-			if ctx.Err() != nil {
-				// if the context was cancelled; i.e. another
-				// goroutine cancelled the context due to an error,
-				// then we should stop processing and return immediately
-				return ctx.Err()
+			for item := range items {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				start := time.Now()
+				if _, err := m.Client.PutObject(ctx, m.DefaultBucket, item.Path, item.Data, int64(item.ByteLength), minio.PutObjectOptions{}); err != nil {
+					return err
+				}
+				elapsed := time.Since(start).Nanoseconds()
+				totalUploaded.Add(1)
+				totalUploadNanos.Add(elapsed)
+				for {
+					currentMax := maxUploadNanos.Load()
+					if elapsed <= currentMax || maxUploadNanos.CompareAndSwap(currentMax, elapsed) {
+						break
+					}
+				}
 			}
-
-			wait := time.Since(enqueuedAt)
-			waitTimesMu.Lock()
-			waitTimes = append(waitTimes, wait)
-			waitTimesMu.Unlock()
-
-			defer func() {
-				// release semaphore upon completion;
-				// i.e. increase the channel buffer by 1 to allow another waiting goroutine to proceed
-				<-semaphore
-			}()
-
-			return m.StoreWithHash(item.Path, item.Data, item.ByteLength)
+			return nil
 		})
 	}
-	err := eg.Wait()
-
-	if err != nil {
+	if err := eg.Wait(); err != nil {
+		// drain so that the sender does not block forever on a full channel
+		go func() {
+			for range items {
+			}
+		}()
 		return err
 	}
-	var maxWait time.Duration
-	var totalWait time.Duration
-	var avgWait time.Duration
 
-	for _, wait := range waitTimes {
-		if wait > maxWait {
-			maxWait = wait
-		}
-		totalWait += wait
+	var avgUpload time.Duration
+	if uploaded := totalUploaded.Load(); uploaded > 0 {
+		avgUpload = time.Duration(totalUploadNanos.Load() / uploaded)
 	}
-	if len(waitTimes) > 0 {
-		avgWait = totalWait / time.Duration(len(waitTimes))
-	}
-
-	log.Infof("Bulk upload complete with max wait of %f seconds, avg wait time of %f  seconds using max concurrency of %d", maxWait.Seconds(), avgWait.Seconds(), maxConcurrentUploads)
+	log.Infof("Bulk upload complete; uploaded %d objects with max upload time of %f seconds, avg upload time of %f seconds using %d concurrent uploads", totalUploaded.Load(), time.Duration(maxUploadNanos.Load()).Seconds(), avgUpload.Seconds(), maxConcurrentUploads)
 
 	return nil
+}
+
+// RemoveMany removes the objects using the S3 multi-object delete API,
+// which removes up to 1000 objects per request
+func (m MinioClientWrapper) RemoveMany(ctx context.Context, paths []storage.ObjectPath) error {
+	objectsCh := make(chan minio.ObjectInfo)
+	go func() {
+		defer close(objectsCh)
+		for _, path := range paths {
+			select {
+			case objectsCh <- minio.ObjectInfo{Key: path}:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	var firstErr error
+	failed := 0
+	for removeErr := range m.Client.RemoveObjects(ctx, m.DefaultBucket, objectsCh, minio.RemoveObjectsOptions{GovernanceBypass: true}) {
+		failed++
+		if firstErr == nil {
+			firstErr = fmt.Errorf("removing %s: %w", removeErr.ObjectName, removeErr.Err)
+		}
+	}
+	if firstErr != nil {
+		return fmt.Errorf("failed to remove %d of %d objects; first error: %w", failed, len(paths), firstErr)
+	}
+	return ctx.Err()
+}
+
+// ListHashes returns the md5 of every object under the prefix using the ETags
+// returned by the listing, so no per-object request is needed.
+// Objects whose ETag is not a plain md5, such as those of multipart or
+// encrypted uploads, are returned with an empty hash
+func (m MinioClientWrapper) ListHashes(ctx context.Context, prefix S3Prefix) (map[storage.ObjectPath]storage.Md5Hash, error) {
+	hashes := make(map[storage.ObjectPath]storage.Md5Hash)
+	for object := range m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
+		if object.Err != nil {
+			return nil, object.Err
+		}
+		etag := strings.Trim(object.ETag, "\"")
+		if !isMd5Hex(etag) {
+			etag = ""
+		}
+		hashes[object.Key] = strings.ToLower(etag)
+	}
+	return hashes, nil
+}
+
+func isMd5Hex(s string) bool {
+	decoded, err := hex.DecodeString(s)
+	return err == nil && len(decoded) == md5.Size
 }

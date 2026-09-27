@@ -28,3 +28,28 @@ def test_all_invalid_cases():
         conforms, _, text = validate_jsonld(jsonld, shacl_graph)
         assert not conforms, f"SHACL Validation unexpectedly passed for {file.name}: \n{text}"
     
+
+
+def test_remote_contexts_are_fetched_once(monkeypatch):
+    import context_cache
+
+    fetched = []
+    remote_context = {"@context": {"@vocab": "https://schema.org/"}}
+
+    def fake_source_to_json(source, *args, **kwargs):
+        fetched.append(source)
+        return remote_context, None
+
+    context_cache.clear()
+    monkeypatch.setattr(context_cache, "_original_source_to_json", fake_source_to_json)
+    context_cache.install()
+
+    jsonld = '{"@context": "https://example.com/context.jsonld", "@id": "https://example.com/place", "@type": "Place", "name": "a place"}'
+    first = Graph().parse(data=jsonld, format="json-ld")
+    second = Graph().parse(data=jsonld, format="json-ld")
+
+    assert fetched == ["https://example.com/context.jsonld"]
+    assert set(first) == set(second)
+    assert len(first) == 2
+    assert remote_context == {"@context": {"@vocab": "https://schema.org/"}}, "parsing should not mutate the cached context"
+    context_cache.clear()

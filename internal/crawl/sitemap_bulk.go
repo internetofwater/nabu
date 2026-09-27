@@ -7,7 +7,9 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/md5"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,12 +23,58 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/moby/moby/pkg/stdcopy"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
+	"github.com/internetofwater/nabu/internal/protoBuild"
 	"github.com/internetofwater/nabu/pkg"
 	"golang.org/x/sync/errgroup"
 )
+
+const (
+	// the number of documents validated against SHACL at once;
+	// sized for a large VM running a multi-process SHACL validator
+	bulkShaclConcurrency = 128
+	// the number of separate gRPC connections to the SHACL validator;
+	// a multi-process validator balances by connection, so a single
+	// connection would send every request to the same process
+	bulkShaclConnections = 64
+)
+
+// a single jsonld document read from the stdout of a bulk container
+type bulkJsonldLine struct {
+	path string
+	line []byte
+}
+
+// Return the SHACL clients to use for a bulk harvest and a function that closes any connections opened here.
+// If the validator address is known, several connections are opened so requests are spread across server processes
+func bulkShaclClients(config *SitemapHarvestConfig) ([]protoBuild.ShaclValidatorClient, func(), error) {
+	if config.shaclAddress != "" {
+		conns := make([]*grpc.ClientConn, 0, bulkShaclConnections)
+		closeConns := func() {
+			for _, conn := range conns {
+				_ = conn.Close()
+			}
+		}
+		clients := make([]protoBuild.ShaclValidatorClient, 0, bulkShaclConnections)
+		for range bulkShaclConnections {
+			conn, err := newShaclGrpcConn(config.shaclAddress)
+			if err != nil {
+				closeConns()
+				return nil, func() {}, err
+			}
+			conns = append(conns, conn)
+			clients = append(clients, protoBuild.NewShaclValidatorClient(conn))
+		}
+		return clients, closeConns, nil
+	}
+	if config.grpcClient != nil && *config.grpcClient != nil {
+		return []protoBuild.ShaclValidatorClient{*config.grpcClient}, func() {}, nil
+	}
+	return nil, func() {}, nil
+}
 
 // HarvestBulkSitemap processes a bulk sitemap by pulling and running Docker images specified as sitemap URLs.
 func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, error) {
@@ -36,7 +84,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	}
 
 	if config.cleanupOutdatedJsonld {
-		log.Warn("cleanup outdated jsonld not supported currently for bulk sitemaps")
+		log.Warn("cleanup outdated jsonld is not configurable for bulk sitemaps; outdated jsonld is always removed after a successful bulk harvest")
 	}
 
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_harvest_%s", s.metadata.SitemapID))
@@ -44,8 +92,37 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 	bulkStoragePrefix := "summoned/" + s.metadata.SitemapID + "/"
 
-	if _, err := storage.DeletePrefix(bulkStoragePrefix, config.storageDestination); err != nil {
+	// If the storage can list the hash of every object under the prefix cheaply
+	// and remove objects in batches, only documents that changed are uploaded
+	// and documents no longer present are removed after a successful harvest.
+	// Otherwise everything under the prefix is removed up front and re-uploaded
+	hashLister, canListHashes := config.storageDestination.(storage.PrefixHashLister)
+	batchRemover, canBatchRemove := config.storageDestination.(storage.BatchRemover)
+	incremental := canListHashes && canBatchRemove
+
+	var existingHashes map[storage.ObjectPath]storage.Md5Hash
+	if incremental {
+		var err error
+		existingHashes, err = hashLister.ListHashes(ctx, bulkStoragePrefix)
+		if err != nil {
+			return pkg.SitemapCrawlStats{}, fmt.Errorf("failed to list pre-existing bulk data with prefix %s: %w", bulkStoragePrefix, err)
+		}
+		log.Infof("Found %d pre-existing jsonld documents with prefix %s; only changed documents will be uploaded", len(existingHashes), bulkStoragePrefix)
+	} else if _, err := storage.DeletePrefix(bulkStoragePrefix, config.storageDestination); err != nil {
 		return pkg.SitemapCrawlStats{}, fmt.Errorf("failed to delete pre-existing bulk data with prefix %s: %w", bulkStoragePrefix, err)
+	}
+
+	shaclClients, closeShaclClients, err := bulkShaclClients(config)
+	if err != nil {
+		return pkg.SitemapCrawlStats{}, err
+	}
+	defer closeShaclClients()
+
+	shaclWorkers := bulkShaclConcurrency
+	if config.exitOnShaclFailure {
+		// validate one document at a time so that the harvest stops
+		// at the first invalid document, the same as a serial harvest
+		shaclWorkers = 1
 	}
 
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
@@ -62,31 +139,133 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	validJsonldDocs := make(storage.Set)
 	validJsonldDocsMu := sync.Mutex{}
 
-	numNewlineSeparateJSONLDDocs := atomic.Int32{}
+	numNewlineSeparateJSONLDDocs := atomic.Int64{}
+	numUnchangedJSONLDDocs := atomic.Int64{}
+	exitedOnShaclFailure := atomic.Bool{}
+
+	// validate a single document; only returns an error if the harvest should stop
+	validateLine := func(ctx context.Context, shaclClient protoBuild.ShaclValidatorClient, urlLoc string, line []byte) error {
+		if shaclClient == nil {
+			return nil
+		}
+		err := validate_shacl(ctx, shaclClient, urlLoc, string(line))
+		if err == nil {
+			return nil
+		}
+		if shaclErr, ok := err.(ShaclValidationFailureError); ok {
+
+			warningMu.Lock()
+			warningStats = append(warningStats, pkg.ShaclInfo{
+				ShaclStatus:            pkg.ShaclInvalid,
+				ShaclValidationMessage: shaclErr.ShaclErrorMessage,
+				Url:                    urlLoc,
+			})
+			warningMu.Unlock()
+
+			// we don't always return here because it is non fatal
+			// and not all integrations may be compliant with our shacl shapes yet;
+			// For the time being, it is better to harvest and then have the integrator fix it
+			// after the fact; in the future there could be a strict
+			// validation mode wherein we fail fast upon shacl non-compliance
+			// however, we do allow a flag to exit and strictly fail
+			if config.exitOnShaclFailure {
+				log.Errorf("Returning early on shacl failure for %s with message %s", urlLoc, shaclErr.ShaclErrorMessage)
+				exitedOnShaclFailure.Store(true)
+				return fmt.Errorf("exiting early for %s with shacl failure %s", urlLoc, shaclErr.ShaclErrorMessage)
+			}
+		} else {
+			// if there is an other arbitrary issue with the shacl validation service, we mark it as a failure
+			// but it is non fatal; we don't want to fail the entire bulk harvest due to an issue with the shacl validation service; thus we log the error and continue on
+			msg := fmt.Sprintf("failed to communicate with shacl validation service: %v when harvesting %s", err, urlLoc)
+			log.Error(msg)
+			errorMessage := ShaclValidationFailureError{ShaclErrorMessage: msg, Url: urlLoc}
+			errorInfo := pkg.ShaclInfo{
+				ShaclStatus:            pkg.ShaclInvalid,
+				ShaclValidationMessage: errorMessage.ShaclErrorMessage,
+				Url:                    errorMessage.Url,
+			}
+			warningMu.Lock()
+			warningStats = append(warningStats, errorInfo)
+			warningMu.Unlock()
+		}
+		return nil
+	}
 
 	log.Debugf("starting bulk harvest for sitemap %s with %d container urls", s.metadata.SitemapID, len(s.URL))
+
+	// uploads use the harvest context rather than the per-container group context,
+	// so documents that were validated before a strict shacl failure are still uploaded
+	harvestCtx := ctx
 
 	var errGroupError error = nil
 	for _, url := range s.URL {
 		// by using an error group we can make it so that if any of the container processing fails, we can immediately stop the entire harvest and return an error
 		// it is easier to keep in sync compared to channels
+		// The pipeline is: container stdout reader -> shacl validation workers -> bulk upload
 		group, ctx := errgroup.WithContext(ctx)
-		group.SetLimit(2)
 
-		// channel for bulk storage
+		// documents read from the container that still need to be validated
+		validateChan := make(chan bulkJsonldLine, 1000)
+		// documents that have been validated and need to be uploaded
 		bulkUploadChan := make(chan storage.BulkStorageItem, 1000)
 
 		group.Go(func() error {
 			_, subspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_upload_%s", s.metadata.SitemapID))
-			err := config.storageDestination.StoreBulk(bulkUploadChan)
+			err := config.storageDestination.StoreBulk(harvestCtx, bulkUploadChan)
 			log.Infof("Finished uploading bulk data for %s", url.Loc)
 			subspan.End()
 			return err
 		})
 
+		var shaclWorkersDone sync.WaitGroup
+		for workerIndex := range shaclWorkers {
+			var shaclClient protoBuild.ShaclValidatorClient
+			if len(shaclClients) > 0 {
+				shaclClient = shaclClients[workerIndex%len(shaclClients)]
+			}
+			shaclWorkersDone.Add(1)
+			group.Go(func() error {
+				defer shaclWorkersDone.Done()
+				for doc := range validateChan {
+					if err := validateLine(ctx, shaclClient, url.Loc, doc.line); err != nil {
+						return err
+					}
+
+					validJsonldDocsMu.Lock()
+					validJsonldDocs.Add(doc.path)
+					validJsonldDocsMu.Unlock()
+
+					if existingHash, ok := existingHashes[doc.path]; ok {
+						sum := md5.Sum(doc.line)
+						if existingHash == hex.EncodeToString(sum[:]) {
+							numUnchangedJSONLDDocs.Add(1)
+							continue
+						}
+					}
+
+					select {
+					case bulkUploadChan <- storage.BulkStorageItem{
+						Path:       doc.path,
+						Data:       bytes.NewReader(doc.line),
+						ByteLength: len(doc.line),
+					}:
+					case <-ctx.Done():
+						return ctx.Err()
+					}
+				}
+				return nil
+			})
+		}
+
+		group.Go(func() error {
+			shaclWorkersDone.Wait()
+			close(bulkUploadChan)
+			return nil
+		})
+
 		group.Go(func() error {
 
-			defer close(bulkUploadChan)
+			defer close(validateChan)
 
 			docker_image_name := url.Loc
 
@@ -130,6 +309,14 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			}
 			log.Infof("Created container %s for image %s", creationResp.ID, docker_image_name)
 
+			// remove the container however this goroutine exits; a background
+			// context is used since ctx may already be cancelled
+			defer func() {
+				if err := dockerClient.ContainerRemove(context.Background(), creationResp.ID, container.RemoveOptions{Force: true}); err != nil {
+					log.Errorf("failed to remove container %s: %v", creationResp.ID, err)
+				}
+			}()
+
 			// attach BEFORE starting; this avoids the race where the container
 			// exits and flushes stdout before we connect
 			attachResp, err := dockerClient.ContainerAttach(ctx, creationResp.ID, container.AttachOptions{
@@ -148,6 +335,8 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			}
 
 			pipeReader, pipeWriter := io.Pipe()
+			// closing the reader unblocks the demux goroutine if we stop reading early
+			defer func() { _ = pipeReader.Close() }()
 
 			waitResponseChan, errChan := dockerClient.ContainerWait(ctx, creationResp.ID, container.WaitConditionNotRunning)
 
@@ -181,12 +370,10 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 					continue
 				}
 
-				numNewlineSeparateJSONLDDocs.Add(1)
-
-				totalDocuments := numNewlineSeparateJSONLDDocs.Load()
+				totalDocuments := numNewlineSeparateJSONLDDocs.Add(1)
 
 				if totalDocuments%5000 == 0 {
-					log.Infof("processed %d jsonld documents for %s", totalDocuments, url.Loc)
+					log.Infof("processed %d jsonld documents for %s; %d were unchanged and skipped", totalDocuments, url.Loc, numUnchangedJSONLDDocs.Load())
 					processSubspan.AddEvent(fmt.Sprintf("processed %d jsonld documents", totalDocuments))
 				}
 
@@ -205,62 +392,14 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 				encodedId := base64.StdEncoding.EncodeToString([]byte(idStr))
 
-				if config.grpcClient != nil && *config.grpcClient != nil {
-					err = validate_shacl(ctx, *config.grpcClient, url.Loc, string(line))
-					if err != nil {
-						if shaclErr, ok := err.(ShaclValidationFailureError); ok {
-
-							warningMu.Lock()
-							warningStats = append(warningStats, pkg.ShaclInfo{
-								ShaclStatus:            pkg.ShaclInvalid,
-								ShaclValidationMessage: shaclErr.ShaclErrorMessage,
-								Url:                    url.Loc,
-							})
-							warningMu.Unlock()
-
-							// we don't always return here because it is non fatal
-							// and not all integrations may be compliant with our shacl shapes yet;
-							// For the time being, it is better to harvest and then have the integrator fix it
-							// after the fact; in the future there could be a strict
-							// validation mode wherein we fail fast upon shacl non-compliance
-							// however, we do allow a flag to exit and strictly fail
-							if config.exitOnShaclFailure {
-								log.Errorf("Returning early on shacl failure for %s with message %s", url.Loc, shaclErr.ShaclErrorMessage)
-								numNewlineSeparateJSONLDDocs.Store(0) // reset count since we are exiting early and thus we have no way of knowing the actual count of sites
-								return fmt.Errorf("exiting early for %s with shacl failure %s", url.Loc, shaclErr.ShaclErrorMessage)
-							}
-						} else {
-							// if there is an other arbitrary issue with the shacl validation service, we mark it as a failure
-							// but it is non fatal; we don't want to fail the entire bulk harvest due to an issue with the shacl validation service; thus we log the error and continue on
-							msg := fmt.Sprintf("failed to communicate with shacl validation service: %v when harvesting %s", err, url.Loc)
-							log.Error(msg)
-							errorMessage := ShaclValidationFailureError{ShaclErrorMessage: msg, Url: url.Loc}
-							errorInfo := pkg.ShaclInfo{
-								ShaclStatus:            pkg.ShaclInvalid,
-								ShaclValidationMessage: errorMessage.ShaclErrorMessage,
-								Url:                    errorMessage.Url,
-							}
-							warningMu.Lock()
-							warningStats = append(warningStats, errorInfo)
-							warningMu.Unlock()
-						}
-					}
-				}
-
 				path := "summoned/" + s.metadata.SitemapID + "/" + encodedId + ".jsonld"
 
-				validJsonldDocsMu.Lock()
-				validJsonldDocs.Add(path)
-				validJsonldDocsMu.Unlock()
-
-				// we copy the line so we have unique ownership;
-				// otherwise without it the line has shared ownership between the scanner buffer and the
-				// bulk upload goroutine
-				lineCopy := append([]byte(nil), line...)
-				bulkUploadChan <- storage.BulkStorageItem{
-					Path:       path,
-					Data:       bytes.NewReader(lineCopy),
-					ByteLength: len(lineCopy),
+				// ReadBytes returns a new slice on each call, so the
+				// line can be handed off without copying
+				select {
+				case validateChan <- bulkJsonldLine{path: path, line: line}:
+				case <-ctx.Done():
+					return ctx.Err()
 				}
 			}
 
@@ -272,10 +411,6 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 					return err
 				}
 			case exitResp := <-waitResponseChan:
-				err = dockerClient.ContainerRemove(ctx, creationResp.ID, container.RemoveOptions{Force: true})
-				if err != nil {
-					log.Errorf("failed to remove container %s: %v", creationResp.ID, err)
-				}
 				if exitResp.StatusCode != 0 {
 					return fmt.Errorf("container exited with status %d", exitResp.StatusCode)
 				}
@@ -294,6 +429,30 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			break
 		}
 	}
+
+	if exitedOnShaclFailure.Load() {
+		// reset count since we are exiting early and thus we have no way of knowing the actual count of sites
+		numNewlineSeparateJSONLDDocs.Store(0)
+	}
+
+	// only remove outdated documents once every container has been harvested successfully;
+	// otherwise we would remove documents that may still be valid
+	if incremental && errGroupError == nil {
+		outdated := []storage.ObjectPath{}
+		for path := range existingHashes {
+			if !validJsonldDocs.Contains(path) {
+				outdated = append(outdated, path)
+			}
+		}
+		if len(outdated) > 0 {
+			log.Infof("Removing %d outdated jsonld documents with prefix %s", len(outdated), bulkStoragePrefix)
+			if err := batchRemover.RemoveMany(ctx, outdated); err != nil {
+				errGroupError = fmt.Errorf("failed to remove outdated bulk data with prefix %s: %w", bulkStoragePrefix, err)
+			}
+		}
+	}
+
+	log.Infof("Bulk harvest for %s read %d jsonld documents; %d were unchanged and not re-uploaded", s.metadata.SitemapID, numNewlineSeparateJSONLDDocs.Load(), numUnchangedJSONLDDocs.Load())
 
 	firstTwentyWarnings := warningStats
 	if len(warningStats) > 20 {

@@ -6,6 +6,11 @@ import pyshacl
 from rdflib import Graph, RDF, URIRef
 import requests
 
+import context_cache
+
+# every parse in this process shares fetched remote JSON-LD contexts
+context_cache.install()
+
 SCHEMA = "https://schema.org/"
 
 LOGGER = logging.getLogger(__name__)

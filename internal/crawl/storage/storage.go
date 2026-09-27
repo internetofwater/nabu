@@ -67,8 +67,22 @@ type CrawlStorage interface {
 	// Get the hash of the file
 	GetHash(ObjectPath) (hash Md5Hash, file_exists bool, err error)
 	// Store data in bulk for more efficient storage. The channel will be closed by the caller when all items have been sent.
-	// There is no ctx passed to this since anything passed to the channel is deemed to be valid JSON-LD and thus should be uploaded
-	StoreBulk(items chan BulkStorageItem) error
+	// If ctx is cancelled, StoreBulk stops uploading and returns the context error
+	StoreBulk(ctx context.Context, items chan BulkStorageItem) error
+}
+
+// BatchRemover is implemented by storage that can remove many objects
+// with fewer round trips than calling Remove on each one
+type BatchRemover interface {
+	RemoveMany(ctx context.Context, paths []ObjectPath) error
+}
+
+// PrefixHashLister is implemented by storage that can return the md5 hash
+// of every object under a prefix without a separate request per object.
+// Every object under the prefix is returned; objects whose hash is not a
+// plain md5 of their content have an empty hash
+type PrefixHashLister interface {
+	ListHashes(ctx context.Context, prefix ObjectPath) (map[ObjectPath]Md5Hash, error)
 }
 
 // DeletePrefix removes every object stored under pathInStorage. It is intended
@@ -108,6 +122,14 @@ func DeletePrefix(pathInStorage string, storage CrawlStorage) (int64, error) {
 			return 0, fmt.Errorf("unexpected path format: %s", storedPath)
 		}
 		pathsToDelete = append(pathsToDelete, storedPath[index:])
+	}
+
+	if batchRemover, ok := storage.(BatchRemover); ok {
+		if err := batchRemover.RemoveMany(context.Background(), pathsToDelete); err != nil {
+			return 0, err
+		}
+		log.Infof("Finished cleaning up pre-existing files with prefix %s; deleted %d files", pathInStorage, len(pathsToDelete))
+		return int64(len(pathsToDelete)), nil
 	}
 
 	for _, relativePath := range pathsToDelete {

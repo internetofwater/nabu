@@ -19,12 +19,13 @@ services:
       - "4317:4317"
 
   minio:
-    image: quay.io/minio/minio
+    image: cgr.dev/chainguard/minio:latest
     container_name: minio
     restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]
     healthcheck:
-      test: ["CMD-SHELL", "curl --silent --fail http://localhost:9000/minio/health/ready || exit 1"]
+      # the chainguard image has no curl; mc is included and checks the same health endpoint
+      test: ["CMD", "mc", "ready", "local"]
       interval: 10s
       timeout: 5s
       retries: 3

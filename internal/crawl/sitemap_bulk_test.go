@@ -4,16 +4,28 @@
 package crawl
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	common "github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
+	"github.com/internetofwater/nabu/internal/protoBuild"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
+	"google.golang.org/grpc"
 )
 
 func TestBulkSitemap(t *testing.T) {
@@ -214,4 +226,197 @@ func TestBulkSitemapWithShaclConnectionIssueDoesntCrash(t *testing.T) {
 	require.Equal(t, len(stats.WarningStats.ShaclWarnings), stats.WarningStats.TotalShaclFailures)
 
 	require.Equal(t, 3, stats.SuccessfulSites, "All 3 sites should be successful in strict shacl mode")
+}
+
+// build the bulk container in contextDir and return its image name
+func buildBulkTestImage(t *testing.T, contextDir string) string {
+	unique_id := uuid.New().String()
+	genericContainerReq := testcontainers.GenericContainerRequest{
+		ContainerRequest: testcontainers.ContainerRequest{
+			FromDockerfile: testcontainers.FromDockerfile{
+				Context:    contextDir,
+				Dockerfile: "Dockerfile",
+				Repo:       unique_id,
+				Tag:        "latest",
+				KeepImage:  true,
+			},
+		},
+		// just build don't run
+		Started: false,
+	}
+	container, err := testcontainers.GenericContainer(context.Background(), genericContainerReq)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = container.Terminate(context.Background())
+	})
+	return unique_id
+}
+
+// read the fixture the same way the bulk harvest reads container stdout
+// and return the storage path and exact bytes of each document
+func readBulkFixture(t *testing.T, sitemapID string) ([]string, [][]byte) {
+	file, err := os.Open("testdata/bulk_sitemap/data.txt")
+	require.NoError(t, err)
+	defer func() { _ = file.Close() }()
+
+	paths := []string{}
+	lines := [][]byte{}
+	reader := bufio.NewReader(file)
+	for {
+		line, err := reader.ReadBytes('\n')
+		if len(bytes.TrimSpace(line)) > 0 {
+			var doc map[string]any
+			require.NoError(t, json.Unmarshal(line, &doc))
+			paths = append(paths, "summoned/"+sitemapID+"/"+base64.StdEncoding.EncodeToString([]byte(doc["@id"].(string)))+".jsonld")
+			lines = append(lines, line)
+		}
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+	}
+	return paths, lines
+}
+
+// wraps local storage and records which paths were uploaded in bulk
+type countingBulkStorage struct {
+	*storage.LocalTempFSCrawlStorage
+	mu       sync.Mutex
+	uploaded []string
+}
+
+func (c *countingBulkStorage) StoreBulk(ctx context.Context, items chan storage.BulkStorageItem) error {
+	recorded := make(chan storage.BulkStorageItem)
+	go func() {
+		defer close(recorded)
+		for item := range items {
+			c.mu.Lock()
+			c.uploaded = append(c.uploaded, item.Path)
+			c.mu.Unlock()
+			recorded <- item
+		}
+	}()
+	return c.LocalTempFSCrawlStorage.StoreBulk(ctx, recorded)
+}
+
+func TestBulkSitemapOnlyUploadsChangedDocuments(t *testing.T) {
+	imageName := buildBulkTestImage(t, "./testdata/bulk_sitemap")
+
+	mockedClient := common.NewMockedClient(
+		true,
+		map[string]common.MockResponse{
+			"https://geoconnex.us/sitemap/iow/bulk": {
+				StatusCode: 200,
+				File:       "testdata/bulk_sitemap/sitemap.xml",
+			},
+		})
+
+	localStorage, err := storage.NewLocalTempFSCrawlStorage()
+	require.NoError(t, err)
+	countingStorage := &countingBulkStorage{LocalTempFSCrawlStorage: localStorage}
+
+	paths, lines := readBulkFixture(t, "test_sitemap")
+	require.Len(t, paths, 3)
+
+	// the first document is already stored and unchanged, the second is stored
+	// with outdated content, the third is new, and one document is no longer in the container output
+	require.NoError(t, localStorage.StoreWithoutServersideHash(paths[0], bytes.NewReader(lines[0])))
+	require.NoError(t, localStorage.StoreWithoutServersideHash(paths[1], bytes.NewReader([]byte("outdated"))))
+	require.NoError(t, localStorage.StoreWithoutServersideHash("summoned/test_sitemap/stale.jsonld", bytes.NewReader([]byte("stale"))))
+
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, countingStorage, SitemapMetadata{SitemapID: "test_sitemap", Loc: "https://geoconnex.us/sitemap/iow/bulk", BulkContainerImage: "test_bulk"})
+	require.NoError(t, err)
+	sitemap.URL[0].Loc = imageName
+
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, &mockShaclValidatorClient{}, false, false)
+	require.NoError(t, err)
+
+	stats, _, err := sitemap.Harvest(context.Background(), &config)
+	require.NoError(t, err)
+
+	require.ElementsMatch(t, []string{paths[1], paths[2]}, countingStorage.uploaded, "only the changed and new documents should be uploaded")
+	require.Equal(t, 3, stats.SuccessfulSites, "unchanged documents still count as successfully harvested")
+	require.Equal(t, 3, stats.SitesInSitemap)
+
+	for i, path := range paths {
+		reader, err := localStorage.Get(path)
+		require.NoError(t, err)
+		data, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		require.Equal(t, string(lines[i]), string(data))
+	}
+
+	staleExists, err := localStorage.Exists("summoned/test_sitemap/stale.jsonld")
+	require.NoError(t, err)
+	require.False(t, staleExists, "documents no longer in the container output should be removed")
+}
+
+// a shacl client that is slow to respond and records how many requests it handled at once
+type slowShaclValidatorClient struct {
+	inFlight    atomic.Int32
+	maxInFlight atomic.Int32
+}
+
+func (m *slowShaclValidatorClient) Validate(ctx context.Context, in *protoBuild.JsoldValidationRequest, opts ...grpc.CallOption) (*protoBuild.ValidationReply, error) {
+	current := m.inFlight.Add(1)
+	defer m.inFlight.Add(-1)
+	for {
+		previousMax := m.maxInFlight.Load()
+		if current <= previousMax || m.maxInFlight.CompareAndSwap(previousMax, current) {
+			break
+		}
+	}
+	time.Sleep(20 * time.Millisecond)
+	return &protoBuild.ValidationReply{Valid: true, Message: "valid"}, nil
+}
+
+func TestBulkSitemapValidatesShaclConcurrently(t *testing.T) {
+	const numDocs = 300
+
+	contextDir := t.TempDir()
+	dockerfile, err := os.ReadFile("testdata/bulk_sitemap/Dockerfile")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(contextDir, "Dockerfile"), dockerfile, 0644))
+	var data strings.Builder
+	for i := range numDocs {
+		fmt.Fprintf(&data, `{"@context":{"schema":"https://schema.org/"},"@type":"schema:Place","@id":"https://example.com/items/%d"}`+"\n", i)
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(contextDir, "data.txt"), []byte(data.String()), 0644))
+
+	imageName := buildBulkTestImage(t, contextDir)
+
+	mockedClient := common.NewMockedClient(
+		true,
+		map[string]common.MockResponse{
+			"https://geoconnex.us/sitemap/iow/bulk": {
+				StatusCode: 200,
+				File:       "testdata/bulk_sitemap/sitemap.xml",
+			},
+		})
+
+	localStorage, err := storage.NewLocalTempFSCrawlStorage()
+	require.NoError(t, err)
+
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, localStorage, SitemapMetadata{SitemapID: "test_sitemap", Loc: "https://geoconnex.us/sitemap/iow/bulk", BulkContainerImage: "test_bulk"})
+	require.NoError(t, err)
+	sitemap.URL[0].Loc = imageName
+
+	shaclClient := &slowShaclValidatorClient{}
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, shaclClient, false, false)
+	require.NoError(t, err)
+
+	start := time.Now()
+	stats, _, err := sitemap.Harvest(context.Background(), &config)
+	require.NoError(t, err)
+	elapsed := time.Since(start)
+
+	require.Equal(t, numDocs, stats.SuccessfulSites)
+	require.Zero(t, stats.WarningStats.TotalShaclFailures)
+	require.Greater(t, shaclClient.maxInFlight.Load(), int32(1), "shacl validation should run concurrently")
+	serialTime := numDocs * 20 * time.Millisecond
+	require.Less(t, elapsed, serialTime/2, "validating concurrently should be much faster than validating serially")
+
+	hashes, err := localStorage.ListHashes(context.Background(), "summoned/test_sitemap/")
+	require.NoError(t, err)
+	require.Len(t, hashes, numDocs)
 }
