@@ -5,9 +5,11 @@ package mainstems
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestPointInFlatgeobuf(t *testing.T) {
@@ -57,4 +59,31 @@ func TestInvalidWkt(t *testing.T) {
 	_, err = service.GetMainstemForWkt(context.Background(), wktWithOverlappingVertices)
 	var invalidWktErr *InvalidWktError
 	require.ErrorAs(t, err, &invalidWktErr)
+}
+
+// Ensure the service can be queried concurrently without a mutex;
+// older versions of duckdb spatial had a race condition in GDAL file system
+// registration that caused "file does not exist" errors
+// https://github.com/duckdb/duckdb-spatial/issues/728
+func TestConcurrentQueries(t *testing.T) {
+	const fgb = "./testdata/boston_catchments.fgb"
+
+	service, err := NewS3FlatgeobufMainstemService(fgb)
+	require.NoError(t, err)
+
+	var group errgroup.Group
+	group.SetLimit(20)
+	for range 500 {
+		group.Go(func() error {
+			response, err := service.GetMainstemForWkt(context.Background(), "POINT(-71.0839 42.3477)")
+			if err != nil {
+				return err
+			}
+			if response.mainstemURI != "https://reference.geoconnex.us/collections/mainstems/items/2290857" {
+				return fmt.Errorf("unexpected mainstem uri %q", response.mainstemURI)
+			}
+			return nil
+		})
+	}
+	require.NoError(t, group.Wait())
 }

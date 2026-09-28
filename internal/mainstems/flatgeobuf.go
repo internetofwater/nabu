@@ -48,18 +48,16 @@ func (s S3FlatgeobufMainstemService) GetMainstemForWkt(ctx context.Context, wkt 
 		return MainstemQueryResponse{}, fmt.Errorf("got an empty centroid result for WKT: %s", wkt)
 	}
 
-	// flatgeobuf requires opening with a bbox in duckdb
-	// in order to subset the data; by using the same
-	// value for min and max we get a specific point
+	// duckdb spatial pushes the bbox filter down into the
+	// flatgeobuf spatial index so only matching features are read;
+	// by using the same value for min and max we get a specific point
 	// and a guarantee of no overlaps
 	mainstemSQL := `
     SELECT geoconnex_url
-		FROM ST_Read(
-			?,
-			spatial_filter_box = ST_MakeBox2D(
-				ST_Point(?, ?),
-				ST_Point(?, ?)
-			)
+		FROM ST_Read(?)
+		WHERE geom && ST_MakeBox2D(
+			ST_Point(?, ?),
+			ST_Point(?, ?)
 		)
 	`
 	result := s.duckdb.QueryRow(mainstemSQL, s.mainstemFlatgeobufURI, coordinates.X, coordinates.Y, coordinates.X, coordinates.Y)
