@@ -1,10 +1,3 @@
-buildRust:
-	docker build . --file Dockerfile_rs
-
-runRust:
-	docker build . --file Dockerfile_rs --tag shacl_validator_grpc_rs && \
-	docker run --rm -it -v /tmp:/tmp shacl_validator_grpc_rs
-
 buildPython:
 	docker build . --file Dockerfile_py --tag shacl_validator_grpc_py
 
@@ -17,5 +10,4 @@ runPython:
 
 test:
 	cd shacl_validator_grpc_py && \
-	uv run pytest && \
-	cd ../shacl_validator_grpc_rs && cargo test
+	uv run pytest
