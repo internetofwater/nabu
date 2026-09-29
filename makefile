@@ -73,3 +73,6 @@ tools:
 
 build_for_debug:
 	go build -gcflags="all=-N -l" -o nabu ./cmd/nabu
+
+init_sandbox_rules:
+	sbx kit add claude-nabu ./dev-kit/
