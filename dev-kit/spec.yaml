@@ -50,6 +50,9 @@ permissions:
       - opengis.net
       - schemas.opengis.net
       - docs.opengeospatial.org
+      # ELFIE JSON-LD contexts hosted on GitHub Pages; used by crawl testdata
+      # and fetched by TestGetJsonLdFromHTML
+      - opengeospatial.github.io
 
       # Vocabularies used by the example projects and build testdata.
       - geoconnex.us
@@ -73,6 +76,9 @@ permissions:
       # docker for bulk integrations
       - docker.com
       - download.docker.com
+
+      # alternative container registries
+      - cgr.dev
 
 setup:
   install:
