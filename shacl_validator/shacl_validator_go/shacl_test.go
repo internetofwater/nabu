@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tggo/goRDFlib/shacl"
 )
 
 func loadValidator(t *testing.T) *ShaclValidator {
@@ -18,12 +17,10 @@ func loadValidator(t *testing.T) *ShaclValidator {
 
 	shapePath := filepath.Join("..", "shapes", "geoconnex.ttl")
 
-	shapeGraph, err := shacl.LoadTurtleFile(shapePath)
+	validator, err := NewShaclValidatorFromFile(shapePath)
 	require.NoError(t, err)
 
-	return &ShaclValidator{
-		shacl_shape: shapeGraph,
-	}
+	return &validator
 }
 
 func TestAllValidCases(t *testing.T) {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
+	"github.com/tggo/goRDFlib/jsonld"
 )
 
 // NewJsonldProcessor builds the JSON-LD processor and sets the options object
@@ -44,10 +45,15 @@ func NewJsonldProcessor(cache bool, contextMaps map[string]string) (*ld.JsonLdPr
 			}
 		}
 
-		// Read mapping from config file
-		cachingLoader := ld.NewCachingDocumentLoader(fallbackLoader)
-		if err := cachingLoader.PreloadWithMapping(prefixToFullFilePath); err != nil {
-			return nil, nil, err
+		// Read mapping from config file; unlike ld.CachingDocumentLoader
+		// this loader is safe to share across concurrent conversions
+		cachingLoader := jsonld.NewCachingDocumentLoader(fallbackLoader)
+		for prefix, path := range prefixToFullFilePath {
+			doc, err := loadJsonldFile(path)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to load context file %s: %w", path, err)
+			}
+			cachingLoader.AddDocument(prefix, doc)
 		}
 		options.DocumentLoader = cachingLoader
 	}
@@ -56,6 +62,16 @@ func NewJsonldProcessor(cache bool, contextMaps map[string]string) (*ld.JsonLdPr
 	options.Format = "application/nquads"  // Set to a default format. (make an option?)
 
 	return processor, options, nil
+}
+
+// parse a JSON-LD document from a file on disk
+func loadJsonldFile(path string) (any, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = file.Close() }()
+	return ld.DocumentFromReader(file)
 }
 
 func fileExists(filename string) bool {

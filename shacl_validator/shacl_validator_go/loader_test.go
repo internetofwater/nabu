@@ -5,13 +5,10 @@ package shacl_validator
 
 import (
 	"errors"
-	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/piprate/json-gold/ld"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tggo/goRDFlib/jsonld"
 	"github.com/tggo/goRDFlib/shacl"
@@ -21,12 +18,10 @@ import (
 type countingLoader struct {
 	calls atomic.Int64
 	fail  atomic.Bool
-	delay time.Duration
 }
 
 func (c *countingLoader) LoadDocument(url string) (*ld.RemoteDocument, error) {
 	c.calls.Add(1)
-	time.Sleep(c.delay)
 	if c.fail.Load() {
 		return nil, errors.New("network down")
 	}
@@ -35,54 +30,12 @@ func (c *countingLoader) LoadDocument(url string) (*ld.RemoteDocument, error) {
 	}}, nil
 }
 
-func TestCachingDocumentLoaderFetchesOnce(t *testing.T) {
-	next := &countingLoader{}
-	loader := NewCachingDocumentLoader(next)
-
-	for range 5 {
-		doc, err := loader.LoadDocument("https://example.com/context")
-		require.NoError(t, err)
-		require.Equal(t, "https://example.com/context", doc.DocumentURL)
-	}
-	require.Equal(t, int64(1), next.calls.Load())
-}
-
-func TestCachingDocumentLoaderConcurrentFetchesAreShared(t *testing.T) {
-	next := &countingLoader{delay: 50 * time.Millisecond}
-	loader := NewCachingDocumentLoader(next)
-
-	var wg sync.WaitGroup
-	for range 20 {
-		wg.Go(func() {
-			_, err := loader.LoadDocument("https://example.com/context")
-			assert.NoError(t, err)
-		})
-	}
-	wg.Wait()
-	require.Equal(t, int64(1), next.calls.Load())
-}
-
-func TestCachingDocumentLoaderDoesNotCacheFailures(t *testing.T) {
-	next := &countingLoader{}
-	next.fail.Store(true)
-	loader := NewCachingDocumentLoader(next)
-
-	_, err := loader.LoadDocument("https://example.com/context")
-	require.Error(t, err)
-
-	next.fail.Store(false)
-	_, err = loader.LoadDocument("https://example.com/context")
-	require.NoError(t, err)
-	require.Equal(t, int64(2), next.calls.Load())
-}
-
 func TestDefaultCachingDocumentLoaderPreloadsSchemaOrg(t *testing.T) {
-	loader, err := NewDefaultCachingDocumentLoader(nil)
-	require.NoError(t, err)
-	// replace the network loader so any fetch fails the test
+	// a fallback loader that fails so any network fetch fails the test
 	next := &countingLoader{}
 	next.fail.Store(true)
-	loader.next = next
+	loader, err := newSchemaOrgCachingDocumentLoader(next)
+	require.NoError(t, err)
 
 	const doc = `{"@context": "https://schema.org/", "@id": "https://example.com/1", "@type": "Place", "name": "x"}`
 	graph, err := shacl.LoadJsonLDString(doc, "", jsonld.WithDocumentLoader(loader))
@@ -98,7 +51,7 @@ func TestValidatorUsesDocumentLoader(t *testing.T) {
 	validator, err := NewGeoconnexShaclValidator()
 	require.NoError(t, err)
 	next := &countingLoader{}
-	validator.SetDocumentLoader(NewCachingDocumentLoader(next))
+	validator.SetDocumentLoader(jsonld.NewCachingDocumentLoader(next))
 
 	const doc = `{"@context": "https://example.com/context", "@id": "https://example.com/1", "@type": "Place", "name": "x"}`
 	for range 3 {
