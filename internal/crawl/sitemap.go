@@ -17,7 +17,6 @@ import (
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
-	"github.com/internetofwater/nabu/internal/protoBuild"
 	"github.com/internetofwater/nabu/pkg"
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	log "github.com/sirupsen/logrus"
@@ -64,11 +63,8 @@ type SitemapHarvestConfig struct {
 	robots *robotstxt.Group
 	// the config for http requests
 	httpClient *http.Client
-	// the config for grpc requests
-	grpcClient *protoBuild.ShaclValidatorClient
-	// the address of the shacl validator; bulk sitemaps use it to open
-	// several connections so validation can be spread across server processes
-	shaclAddress string
+	// validates harvested jsonld against the SHACL shape; nil skips validation
+	shaclValidator ShaclValidator
 	// before downloading a site, send a head request to the server
 	// to get its hash and if it already exists in storage, skip it
 	checkExistenceBeforeCrawl *atomic.Bool
@@ -90,7 +86,7 @@ type SitemapHarvestConfig struct {
 // Make a new SiteHarvestConfig with all the clients and config
 // initialized and ready to crawl a sitemap
 // this config is shared across all goroutines and thus must be thread safe
-func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclGRPCClient protoBuild.ShaclValidatorClient, exitOnShaclFailure bool, cleanupOutdatedJsonld bool) (SitemapHarvestConfig, error) {
+func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclValidator ShaclValidator, exitOnShaclFailure bool, cleanupOutdatedJsonld bool) (SitemapHarvestConfig, error) {
 
 	if sitemap.workers < 1 {
 		return SitemapHarvestConfig{}, fmt.Errorf("no workers set for sitemap %s", sitemap.metadata.SitemapID)
@@ -116,7 +112,7 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclGRP
 	return SitemapHarvestConfig{
 		robots:                    robotsTxt,
 		httpClient:                httpClient,
-		grpcClient:                &shaclGRPCClient,
+		shaclValidator:            shaclValidator,
 		storageDestination:        sitemap.storageDestination,
 		checkExistenceBeforeCrawl: &checkJsonldExistsBeforeDownloading,
 		exitOnShaclFailure:        exitOnShaclFailure,

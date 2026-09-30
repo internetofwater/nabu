@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -23,24 +24,16 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/moby/moby/pkg/stdcopy"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
-	"github.com/internetofwater/nabu/internal/protoBuild"
 	"github.com/internetofwater/nabu/pkg"
 	"golang.org/x/sync/errgroup"
 )
 
-const (
-	// the number of documents validated against SHACL at once;
-	// sized for a large VM running a multi-process SHACL validator
-	bulkShaclConcurrency = 128
-	// the number of separate gRPC connections to the SHACL validator;
-	// a multi-process validator balances by connection, so a single
-	// connection would send every request to the same process
-	bulkShaclConnections = 64
-)
+// the number of documents validated against a remote SHACL validator at once;
+// sized for a large VM running a multi-process SHACL validator
+const bulkShaclConcurrency = 128
 
 // a single jsonld document read from the stdout of a bulk container
 type bulkJsonldLine struct {
@@ -48,32 +41,18 @@ type bulkJsonldLine struct {
 	line []byte
 }
 
-// Return the SHACL clients to use for a bulk harvest and a function that closes any connections opened here.
-// If the validator address is known, several connections are opened so requests are spread across server processes
-func bulkShaclClients(config *SitemapHarvestConfig) ([]protoBuild.ShaclValidatorClient, func(), error) {
-	if config.shaclAddress != "" {
-		conns := make([]*grpc.ClientConn, 0, bulkShaclConnections)
-		closeConns := func() {
-			for _, conn := range conns {
-				_ = conn.Close()
-			}
-		}
-		clients := make([]protoBuild.ShaclValidatorClient, 0, bulkShaclConnections)
-		for range bulkShaclConnections {
-			conn, err := newShaclGrpcConn(config.shaclAddress)
-			if err != nil {
-				closeConns()
-				return nil, func() {}, err
-			}
-			conns = append(conns, conn)
-			clients = append(clients, protoBuild.NewShaclValidatorClient(conn))
-		}
-		return clients, closeConns, nil
+// The number of documents to validate at once in a bulk harvest
+func bulkShaclWorkers(config *SitemapHarvestConfig) int {
+	if config.exitOnShaclFailure {
+		// validate one document at a time so that the harvest stops
+		// at the first invalid document, the same as a serial harvest
+		return 1
 	}
-	if config.grpcClient != nil && *config.grpcClient != nil {
-		return []protoBuild.ShaclValidatorClient{*config.grpcClient}, func() {}, nil
+	if _, isLocal := config.shaclValidator.(*LocalShaclValidator); isLocal {
+		// local validation is CPU bound so more workers than cores would not be faster
+		return runtime.GOMAXPROCS(0)
 	}
-	return nil, func() {}, nil
+	return bulkShaclConcurrency
 }
 
 // HarvestBulkSitemap processes a bulk sitemap by pulling and running Docker images specified as sitemap URLs.
@@ -112,18 +91,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		return pkg.SitemapCrawlStats{}, fmt.Errorf("failed to delete pre-existing bulk data with prefix %s: %w", bulkStoragePrefix, err)
 	}
 
-	shaclClients, closeShaclClients, err := bulkShaclClients(config)
-	if err != nil {
-		return pkg.SitemapCrawlStats{}, err
-	}
-	defer closeShaclClients()
-
-	shaclWorkers := bulkShaclConcurrency
-	if config.exitOnShaclFailure {
-		// validate one document at a time so that the harvest stops
-		// at the first invalid document, the same as a serial harvest
-		shaclWorkers = 1
-	}
+	shaclWorkers := bulkShaclWorkers(config)
 
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -144,11 +112,11 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	exitedOnShaclFailure := atomic.Bool{}
 
 	// validate a single document; only returns an error if the harvest should stop
-	validateLine := func(ctx context.Context, shaclClient protoBuild.ShaclValidatorClient, urlLoc string, line []byte) error {
-		if shaclClient == nil {
+	validateLine := func(ctx context.Context, urlLoc string, line []byte) error {
+		if config.shaclValidator == nil {
 			return nil
 		}
-		err := validate_shacl(ctx, shaclClient, urlLoc, string(line))
+		err := validate_shacl(ctx, config.shaclValidator, urlLoc, string(line))
 		if err == nil {
 			return nil
 		}
@@ -218,16 +186,12 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		})
 
 		var shaclWorkersDone sync.WaitGroup
-		for workerIndex := range shaclWorkers {
-			var shaclClient protoBuild.ShaclValidatorClient
-			if len(shaclClients) > 0 {
-				shaclClient = shaclClients[workerIndex%len(shaclClients)]
-			}
+		for range shaclWorkers {
 			shaclWorkersDone.Add(1)
 			group.Go(func() error {
 				defer shaclWorkersDone.Done()
 				for doc := range validateChan {
-					if err := validateLine(ctx, shaclClient, url.Loc, doc.line); err != nil {
+					if err := validateLine(ctx, url.Loc, doc.line); err != nil {
 						return err
 					}
 

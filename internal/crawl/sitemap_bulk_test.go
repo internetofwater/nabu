@@ -70,7 +70,7 @@ func TestBulkSitemap(t *testing.T) {
 
 	sitemap.URL[0].Loc = unique_id
 
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, &mockShaclValidatorClient{}, false, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, NewGrpcShaclValidatorFromClients(&mockShaclValidatorClient{}), false, false)
 	require.NoError(t, err)
 
 	stats, _, err := sitemap.
@@ -138,7 +138,7 @@ func TestBulkSitemapWithStrictShaclMode(t *testing.T) {
 	sitemap.URL[0].Loc = unique_id
 
 	const STRICT_SHACL_MODE = true
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, &mockShaclValidatorClient{}, STRICT_SHACL_MODE, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, NewGrpcShaclValidatorFromClients(&mockShaclValidatorClient{}), STRICT_SHACL_MODE, false)
 	require.NoError(t, err)
 
 	stats, _, err := sitemap.
@@ -202,7 +202,7 @@ func TestBulkSitemapWithShaclConnectionIssueDoesntCrash(t *testing.T) {
 	sitemap.URL[0].Loc = unique_id
 
 	// this is intentionally a random invalid address to simulate a connection issue with the SHACL validator; we want to make sure this doesn't cause the harvest to fail since we want to be resilient to SHACL validator issues
-	badGrpcClient, err := NewShaclGrpcClientFromAddr("0.0.0.0:1020202")
+	badGrpcClient, err := NewGrpcShaclValidator("0.0.0.0:1020202")
 	require.NoError(t, err)
 
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, badGrpcClient, false, false)
@@ -328,7 +328,7 @@ func TestBulkSitemapOnlyUploadsChangedDocuments(t *testing.T) {
 	require.NoError(t, err)
 	sitemap.URL[0].Loc = imageName
 
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, &mockShaclValidatorClient{}, false, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, NewGrpcShaclValidatorFromClients(&mockShaclValidatorClient{}), false, false)
 	require.NoError(t, err)
 
 	stats, _, err := sitemap.Harvest(context.Background(), &config)
@@ -402,7 +402,7 @@ func TestBulkSitemapValidatesShaclConcurrently(t *testing.T) {
 	sitemap.URL[0].Loc = imageName
 
 	shaclClient := &slowShaclValidatorClient{}
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, shaclClient, false, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, NewGrpcShaclValidatorFromClients(shaclClient), false, false)
 	require.NoError(t, err)
 
 	start := time.Now()

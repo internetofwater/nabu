@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/internetofwater/nabu/shacl_validator/shapes"
+	"github.com/piprate/json-gold/ld"
 	"github.com/tggo/goRDFlib/jsonld"
 	"github.com/tggo/goRDFlib/shacl"
 )
@@ -21,6 +22,23 @@ type ShaclValidator struct {
 	shacl_shape *shacl.Graph
 	// the turtle source of the shape, kept so it can be served back to clients
 	shacl_shape_ttl string
+	// resolves remote documents such as a remote @context;
+	// if nil, json-gold's default uncached loader is used
+	document_loader ld.DocumentLoader
+}
+
+// SetDocumentLoader sets the loader used to resolve remote documents
+// such as a remote @context when parsing JSON-LD
+func (v *ShaclValidator) SetDocumentLoader(loader ld.DocumentLoader) {
+	v.document_loader = loader
+}
+
+func (v *ShaclValidator) jsonldOptions() []jsonld.Option {
+	opts := []jsonld.Option{jsonld.WithUnboundedLines()}
+	if v.document_loader != nil {
+		opts = append(opts, jsonld.WithDocumentLoader(v.document_loader))
+	}
+	return opts
 }
 
 func (v *ShaclValidator) ValidateArbitraryJsonld(input string) (shacl.ValidationReport, error) {
@@ -39,7 +57,7 @@ func (v *ShaclValidator) ValidateArbitraryJsonld(input string) (shacl.Validation
 			return shacl.ValidationReport{}, fmt.Errorf("failed to fetch URL: %s (status %d)", input, resp.StatusCode)
 		}
 
-		jsonldGraph, err := shacl.LoadJsonLD(resp.Body, "", jsonld.WithUnboundedLines())
+		jsonldGraph, err := shacl.LoadJsonLD(resp.Body, "", v.jsonldOptions()...)
 		if err != nil {
 			return shacl.ValidationReport{}, err
 		}
@@ -65,14 +83,20 @@ func NewGeoconnexShaclValidator() (ShaclValidator, error) {
 	return NewShaclValidatorFromTurtle(shapes.GeoconnexTTL)
 }
 
-// Create a validator from a SHACL shape in turtle format
+// Create a validator from a SHACL shape in turtle format.
+// Remote JSON-LD contexts are cached for the lifetime of the validator
+// and the schema.org context is preloaded
 func NewShaclValidatorFromTurtle(ttl string) (ShaclValidator, error) {
 	shape, err := shacl.LoadTurtleString(ttl, "")
 	if err != nil {
 		return ShaclValidator{}, err
 	}
+	loader, err := NewDefaultCachingDocumentLoader(nil)
+	if err != nil {
+		return ShaclValidator{}, err
+	}
 
-	return ShaclValidator{shacl_shape: shape, shacl_shape_ttl: ttl}, nil
+	return ShaclValidator{shacl_shape: shape, shacl_shape_ttl: ttl, document_loader: loader}, nil
 }
 
 // Create a validator from a SHACL shape turtle file on disk
@@ -90,7 +114,7 @@ func (v *ShaclValidator) ShapeTurtle() string {
 }
 
 func (v *ShaclValidator) ValidateJsonldString(data string) (shacl.ValidationReport, error) {
-	jsonld_shape, err := shacl.LoadJsonLDString(data, "", jsonld.WithUnboundedLines())
+	jsonld_shape, err := shacl.LoadJsonLDString(data, "", v.jsonldOptions()...)
 	if err != nil {
 		return shacl.ValidationReport{}, err
 	}

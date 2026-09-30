@@ -14,8 +14,11 @@ func (i SitemapIndex) WithStorageDestination(storageDestination storage.CrawlSto
 	return i
 }
 
-func (i SitemapIndex) WithShaclValidationConfig(shaclAddress string, exitOnShaclFailure bool) SitemapIndex {
+// Configure SHACL validation; useLocal validates in process while shaclAddress
+// sends documents to a remote gRPC validator. If neither is set validation is skipped
+func (i SitemapIndex) WithShaclValidationConfig(shaclAddress string, useLocal bool, exitOnShaclFailure bool) SitemapIndex {
 	i.shaclAddress = shaclAddress
+	i.localShaclValidation = useLocal
 	i.exitOnShaclFailure = exitOnShaclFailure
 	return i
 }
