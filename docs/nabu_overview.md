@@ -10,7 +10,8 @@ The following operations are performed by Nabu. Most can be traced using open te
     - If the remote server provides it, it checks the hash of each document
     - If the hashes are different or the document is new, Nabu downloads
     - After crawling, Nabu validates the data is JSON-LD and validates it using SHACL. Only the first N SHACL validation errors will be stored so logs aren't spammed if every site fails the same way. 
-    - Nabu communicates with an external shacl validation service over GRPC since there are no Golang SHACL validation libraries
+    - With `--shacl-local`, Nabu validates in process against the bundled Geoconnex shape using [goRDFlib](https://github.com/tggo/goRDFlib); remote JSON-LD contexts are cached for the lifetime of the process and the schema.org context is bundled. Alternatively, `--shacl-grpc-endpoint` sends documents to an external SHACL validation service over gRPC
+    - `nabu shacl serve` runs an HTTP validation service with the same `/validate` and `/shape` routes as the Python validator
     - Nabu optionally can delete stale JSON-LD files that were not overwritten or found in the latest crawl. (i.e. files that contain features which were removed from the upstream APIs)
     - At the end of a crawl, Nabu puts a crawl report JSON file into the object store. This is used as the data source for the [crawl status page](../crawl-status-page/) so we don't need to add additional cloud infrastructure (i.e. a SQL db)
 

@@ -164,8 +164,8 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 	}
 
 	// make sure the pointer itself is not nil and not empty
-	if config.grpcClient != nil && *config.grpcClient != nil {
-		err = validate_shacl(ctx, *config.grpcClient, url.Loc, string(jsonld))
+	if config.shaclValidator != nil {
+		err = validate_shacl(ctx, config.shaclValidator, url.Loc, string(jsonld))
 		if err != nil {
 			if shaclErr, ok := err.(ShaclValidationFailureError); ok {
 				result_metadata.warning = pkg.ShaclInfo{

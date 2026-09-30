@@ -36,6 +36,7 @@ type SitemapIndex struct {
 	sitemapWorkers               int                  `xml:"-"`
 	headlessChromeUrl            string               `xml:"-"`
 	shaclAddress                 string               `xml:"-"`
+	localShaclValidation         bool                 `xml:"-"`
 	outdatedJsonldCleanupEnabled bool                 `xml:"-"`
 	exitOnShaclFailure           bool                 `xml:"-"`
 }
@@ -134,6 +135,14 @@ func (i SitemapIndex) HarvestSitemaps(ctx context.Context, client *http.Client) 
 		return pkg.SitemapIndexCrawlStats{}, fmt.Errorf("sitemap workers limit is set less than 1")
 	}
 
+	shaclValidator, err := NewShaclValidatorFromConfig(i.localShaclValidation, i.shaclAddress)
+	if err != nil {
+		return pkg.SitemapIndexCrawlStats{}, err
+	}
+	if shaclValidator != nil {
+		defer func() { _ = shaclValidator.Close() }()
+	}
+
 	var group errgroup.Group
 	group.SetLimit(i.concurrentSitemaps)
 
@@ -159,16 +168,10 @@ func (i SitemapIndex) HarvestSitemaps(ctx context.Context, client *http.Client) 
 			if err != nil {
 				return err
 			}
-			shaclGRPCClient, err := NewShaclGrpcClientFromAddr(i.shaclAddress)
+			config, err := NewSitemapHarvestConfig(client, sitemap, shaclValidator, i.exitOnShaclFailure, i.outdatedJsonldCleanupEnabled)
 			if err != nil {
 				return err
 			}
-
-			config, err := NewSitemapHarvestConfig(client, sitemap, shaclGRPCClient, i.exitOnShaclFailure, i.outdatedJsonldCleanupEnabled)
-			if err != nil {
-				return err
-			}
-			config.shaclAddress = i.shaclAddress
 
 			stats, _, harvestErr := sitemap.
 				Harvest(ctx, &config)
@@ -214,17 +217,18 @@ func (i SitemapIndex) HarvestSitemap(ctx context.Context, client *http.Client, s
 			return pkg.SitemapCrawlStats{}, err
 		}
 
-		shaclGRPCClient, err := NewShaclGrpcClientFromAddr(i.shaclAddress)
+		shaclValidator, err := NewShaclValidatorFromConfig(i.localShaclValidation, i.shaclAddress)
 		if err != nil {
 			return pkg.SitemapCrawlStats{}, err
 		}
+		if shaclValidator != nil {
+			defer func() { _ = shaclValidator.Close() }()
+		}
 
-		config, err := NewSitemapHarvestConfig(client, sitemap, shaclGRPCClient, i.exitOnShaclFailure, i.outdatedJsonldCleanupEnabled)
-
+		config, err := NewSitemapHarvestConfig(client, sitemap, shaclValidator, i.exitOnShaclFailure, i.outdatedJsonldCleanupEnabled)
 		if err != nil {
 			return pkg.SitemapCrawlStats{}, err
 		}
-		config.shaclAddress = i.shaclAddress
 
 		stats, _, err := sitemap.
 			Harvest(ctx, &config)

@@ -6,11 +6,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
+	"github.com/internetofwater/nabu/pkg"
 	"github.com/minio/minio-go/v7"
 
 	"github.com/stretchr/testify/require"
@@ -129,4 +131,34 @@ func (s *NabuHarvestSuite) TearDownSuite() {
 // Run the entire test suite
 func TestS3ClientSuite(t *testing.T) {
 	suite.Run(t, new(NabuHarvestSuite))
+}
+
+func harvestTestClient() *http.Client {
+	return common.NewMockedClient(true, map[string]common.MockResponse{
+		"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {File: "testdata/stations__5.xml", StatusCode: 200},
+		"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2":   {File: "testdata/1085.jsonld", StatusCode: 200, ContentType: "application/ld+json"},
+		"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C":    {File: "testdata/1084.jsonld", StatusCode: 200, ContentType: "application/ld+json"},
+		"https://geoconnex.us/robots.txt":                      {File: "testdata/geoconnex_robots.txt", StatusCode: 200, ContentType: "application/text/plain"},
+	})
+}
+
+func TestHarvestWithLocalShacl(t *testing.T) {
+	args := "harvest --to-disk --shacl-local --sitemap-index testdata/sitemap_index.xml"
+	stats, err := NewNabuRunnerFromString(args).Run(context.Background(), harvestTestClient())
+	require.NoError(t, err)
+	require.Len(t, stats, 1)
+	require.Equal(t, 2, stats[0].SuccessfulSites)
+	// both test documents are missing a name so both should be flagged by the local validator
+	require.Len(t, stats[0].WarningStats.ShaclWarnings, 2)
+	for _, warning := range stats[0].WarningStats.ShaclWarnings {
+		// every warning must be a shacl result rather than an issue running validation
+		require.Equal(t, pkg.ShaclInvalid, warning.ShaclStatus)
+		require.NotContains(t, warning.ShaclValidationMessage, "failed to communicate")
+	}
+}
+
+func TestHarvestWithLocalAndGrpcShaclFails(t *testing.T) {
+	args := "harvest --to-disk --shacl-local --shacl-grpc-endpoint 0.0.0.0:50051 --sitemap-index testdata/sitemap_index.xml"
+	_, err := NewNabuRunnerFromString(args).Run(context.Background(), harvestTestClient())
+	require.Error(t, err)
 }
