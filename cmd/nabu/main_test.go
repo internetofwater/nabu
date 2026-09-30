@@ -80,3 +80,28 @@ func (suite *RootCliSuite) TestRootCmdWithTracing() {
 func TestRootClientSuite(t *testing.T) {
 	suite.Run(t, new(RootCliSuite))
 }
+
+func TestShaclArgs(t *testing.T) {
+	serveRunner := NewNabuRunner([]string{"shacl", "serve"})
+	require.NotNil(t, serveRunner.args.Shacl.Serve)
+	require.Equal(t, 8000, serveRunner.args.Shacl.Serve.HttpPort)
+	require.Empty(t, serveRunner.args.Shacl.Serve.ShaclFile)
+
+	serveRunner = NewNabuRunner([]string{"shacl", "serve", "--http-port", "9090", "--shacl-file", "shape.ttl"})
+	require.Equal(t, 9090, serveRunner.args.Shacl.Serve.HttpPort)
+	require.Equal(t, "shape.ttl", serveRunner.args.Shacl.Serve.ShaclFile)
+
+	validateRunner := NewNabuRunner([]string{"shacl", "validate", "data.jsonld"})
+	require.NotNil(t, validateRunner.args.Shacl.Validate)
+	require.Equal(t, "data.jsonld", validateRunner.args.Shacl.Validate.Input)
+}
+
+func TestShaclValidateCmd(t *testing.T) {
+	validFile := filepath.Join(projectpath.Root, "shacl_validator", "testdata", "valid", "rise.jsonld")
+	require.NoError(t, Shacl(context.Background(), ShaclCmd{Validate: &ShaclValidateCmd{Input: validFile}}))
+
+	invalidFile := filepath.Join(projectpath.Root, "shacl_validator", "testdata", "invalid", "no_geo.jsonld")
+	require.Error(t, Shacl(context.Background(), ShaclCmd{Validate: &ShaclValidateCmd{Input: invalidFile}}))
+
+	require.Error(t, Shacl(context.Background(), ShaclCmd{}))
+}

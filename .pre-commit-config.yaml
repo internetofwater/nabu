@@ -4,7 +4,7 @@
 minimum_pre_commit_version: "2.9.0"
 ci:
   autoupdate_schedule: monthly
-  skip: [typescript_gen_types, golang lint, gofmt, ts build, ts lint, rustfmt, clippy, cargo check, terraform_fmt, terraform_validate]
+  skip: [golang lint, gofmt, ts build, ts lint, rustfmt, clippy, cargo check, terraform_fmt, terraform_validate]
 repos:
   - repo: meta
     hooks:
@@ -46,13 +46,6 @@ repos:
         name: terraform_validate
   - repo: local
     hooks: 
-      - id: typescript_gen_types
-        name: Generate Typescript Types from go 
-        entry: tygo generate 
-        language: system
-        types: [go]
-        pass_filenames: false
-
       - id: gofmt
         name: Format go code
         entry: go fmt ./...

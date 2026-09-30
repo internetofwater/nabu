@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,8 +21,6 @@ import (
 	"github.com/internetofwater/nabu/internal/synchronizer"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 	"github.com/internetofwater/nabu/pkg"
-	shacl_validator "github.com/internetofwater/nabu/shacl_validator/shacl_validator_go"
-	"github.com/internetofwater/nabu/shacl_validator/shapes"
 
 	"github.com/alexflint/go-arg"
 	log "github.com/sirupsen/logrus"
@@ -46,18 +43,26 @@ type PullCmd struct {
 	NameFilter string `arg:"--name-filter" help:"only pull objects whose names contain this string"`
 }
 type ShaclValidateCmd struct {
-	Input      string `arg:"positional" help:"JSON-LD data to validate. Pass '-' to read from stdin."`
-	PrintShape bool   `arg:"--print-shape" help:"print the SHACL shape used for validation and exit"`
+	Input string `arg:"positional" help:"JSON-LD data to validate; either a URL, a file path, or raw JSON-LD. Pass '-' to read from stdin."`
+}
+type ShaclServeCmd struct {
+	HttpPort  int    `arg:"--http-port,env:PORT" help:"port to serve the /validate and /shape endpoints on" default:"8000"`
+	ShaclFile string `arg:"--shacl-file" help:"path to a SHACL shape in turtle format to validate against; defaults to the Geoconnex shape"`
+}
+type ShaclCmd struct {
+	Validate   *ShaclValidateCmd `arg:"subcommand:validate" help:"validate JSON-LD data against the Geoconnex SHACL shape"`
+	Serve      *ShaclServeCmd    `arg:"subcommand:serve" help:"serve an HTTP endpoint for validating JSON-LD against a SHACL shape"`
+	PrintShape bool              `arg:"--print-shape" help:"print the SHACL shape used for validation and exit"`
 }
 
 type NabuArgs struct {
 	// Subcommands that can be run
-	Release *ReleaseCmd       `arg:"subcommand:release" help:"generate an nq release graph for all objects under a specific prefix"`
-	Sync    *SyncCmd          `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`
-	Test    *TestCmd          `arg:"subcommand:test" help:"test the connection to the s3 bucket"`
-	Harvest *HarvestCmd       `arg:"subcommand:harvest" help:"harvest sitemaps and store them in the s3 bucket"`
-	Pull    *PullCmd          `arg:"subcommand:pull" help:"pull all objects under a specific prefix in the s3 bucket"`
-	Shacl   *ShaclValidateCmd `arg:"subcommand:shacl" help:"validate JSON-LD data against the Geoconnex SHACL shape"`
+	Release *ReleaseCmd `arg:"subcommand:release" help:"generate an nq release graph for all objects under a specific prefix"`
+	Sync    *SyncCmd    `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`
+	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`
+	Harvest *HarvestCmd `arg:"subcommand:harvest" help:"harvest sitemaps and store them in the s3 bucket"`
+	Pull    *PullCmd    `arg:"subcommand:pull" help:"pull all objects under a specific prefix in the s3 bucket"`
+	Shacl   *ShaclCmd   `arg:"subcommand:shacl" help:"validate JSON-LD against the Geoconnex SHACL shape or serve a validation endpoint"`
 
 	// Flags that can be set for config particular services / operations
 	config.MinioConfig
@@ -207,33 +212,7 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 	case n.args.Pull != nil:
 		return nil, synchronizerClient.S3Client.Pull(ctx, cfgStruct.Prefix, n.args.Pull.Output, n.args.Pull.NameFilter)
 	case n.args.Shacl != nil:
-
-		if n.args.Shacl.PrintShape {
-			fmt.Println(shapes.GeoconnexTTL)
-			return nil, nil
-		}
-		if n.args.Shacl.Input == "-" {
-			inputBytes, err := io.ReadAll(os.Stdin)
-			if err != nil {
-				return nil, fmt.Errorf("error reading from stdin: %w", err)
-			}
-			n.args.Shacl.Input = string(inputBytes)
-		}
-
-		report, err := ShaclValidate(n.args.Shacl.Input)
-		if err != nil {
-			return nil, err
-		}
-		if report.Conforms {
-			log.Info("Data conforms to SHACL shape")
-			return nil, nil
-		} else {
-			log.Error("Data does not conform to SHACL shape")
-			for _, result := range report.Results {
-				log.Error(shacl_validator.PrintValidationResult(result))
-			}
-			return nil, fmt.Errorf("found %d shacl validation errors", len(report.Results))
-		}
+		return nil, Shacl(ctx, *n.args.Shacl)
 	default:
 		return nil, fmt.Errorf("unknown nabu subcommand")
 	}
