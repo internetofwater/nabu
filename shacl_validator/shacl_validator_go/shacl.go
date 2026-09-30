@@ -19,7 +19,9 @@ import (
 const MissingPlaceOrDatasetTypeMessage = "SHACL Validation failed: the top level node of the jsonld must have '@type': 'schema:Place' or '@type': 'schema:Dataset'"
 
 type ShaclValidator struct {
-	shacl_shape *shacl.Graph
+	// the SHACL shape parsed once so it can be reused
+	// across validations; safe for concurrent use
+	shacl_shape *shacl.CompiledShapes
 	// the turtle source of the shape, kept so it can be served back to clients
 	shacl_shape_ttl string
 	// resolves remote documents such as a remote @context;
@@ -87,7 +89,11 @@ func NewGeoconnexShaclValidator() (ShaclValidator, error) {
 // Remote JSON-LD contexts are cached for the lifetime of the validator
 // and the schema.org context is preloaded
 func NewShaclValidatorFromTurtle(ttl string) (ShaclValidator, error) {
-	shape, err := shacl.LoadTurtleString(ttl, "")
+	shapeGraph, err := shacl.LoadTurtleString(ttl, "")
+	if err != nil {
+		return ShaclValidator{}, err
+	}
+	shape, err := shacl.CompileShapes(shapeGraph)
 	if err != nil {
 		return ShaclValidator{}, err
 	}
@@ -136,7 +142,7 @@ func (v *ShaclValidator) Validate(data *shacl.Graph) (shacl.ValidationReport, er
 		}, nil
 	}
 
-	return shacl.Validate(data, v.shacl_shape), nil
+	return v.shacl_shape.Validate(data), nil
 }
 
 func PrintValidationResult(vr shacl.ValidationResult) string {
