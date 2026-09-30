@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+	"github.com/tggo/goRDFlib/jsonld"
 )
 
 func TestCreateNewProcessor(t *testing.T) {
@@ -30,7 +30,7 @@ func TestCreateNewProcessor(t *testing.T) {
 		processor, options, err := NewJsonldProcessor(true, ctxMaps)
 		require.NoError(t, err)
 		loader := options.DocumentLoader
-		require.IsType(t, &ld.CachingDocumentLoader{}, loader)
+		require.IsType(t, &jsonld.CachingDocumentLoader{}, loader)
 		require.NotNil(t, processor)
 
 		const simpleJSONLDExample = `{
