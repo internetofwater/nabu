@@ -31,6 +31,7 @@ const (
 	ColumnJSONLD      = "jsonld"
 	ColumnURL         = "url"
 	ColumnMainstemURI = "mainstem_uri"
+	ColumnS2CellID    = "s2_cell_id"
 )
 
 var schema = arrow.NewSchema([]arrow.Field{
@@ -41,6 +42,7 @@ var schema = arrow.NewSchema([]arrow.Field{
 	{Name: ColumnJSONLD, Type: arrow.BinaryTypes.String, Nullable: false},
 	{Name: ColumnURL, Type: arrow.BinaryTypes.String, Nullable: true},
 	{Name: ColumnMainstemURI, Type: arrow.BinaryTypes.String, Nullable: true},
+	{Name: ColumnS2CellID, Type: arrow.PrimitiveTypes.Int64, Nullable: true},
 }, nil)
 
 const (
@@ -118,6 +120,12 @@ func (w *Writer) Write(f Feature) error {
 	w.builder.Field(4).(*array.StringBuilder).Append(string(f.JSONLD))
 	appendNullableString(w.builder.Field(5).(*array.StringBuilder), f.URL)
 	appendNullableString(w.builder.Field(6).(*array.StringBuilder), f.MainstemURI)
+	s2Builder := w.builder.Field(7).(*array.Int64Builder)
+	if f.S2CellID == 0 {
+		s2Builder.AppendNull()
+	} else {
+		s2Builder.Append(f.S2CellID)
+	}
 
 	w.pendingRows++
 	w.pendingBytes += len(f.JSONLD) + len(f.Geometry)

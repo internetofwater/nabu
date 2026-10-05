@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/apache/arrow-go/v18/parquet/file"
+	"github.com/golang/geo/s2"
 	"github.com/peterstace/simplefeatures/geom"
 	"github.com/stretchr/testify/require"
 )
@@ -165,4 +166,27 @@ func TestWkbGeometryType(t *testing.T) {
 	}
 	_, ok := wkbGeometryType([]byte{1})
 	require.False(t, ok)
+}
+
+func TestS2CellID(t *testing.T) {
+	feature, err := FeatureFromJsonld([]byte(wellFormedJsonld), "")
+	require.NoError(t, err)
+	cell := s2.CellID(uint64(feature.S2CellID))
+	require.True(t, cell.IsValid())
+	require.True(t, cell.IsLeaf())
+	require.InDelta(t, 40.44, cell.LatLng().Lat.Degrees(), 1e-6)
+	require.InDelta(t, -111.68, cell.LatLng().Lng.Degrees(), 1e-6)
+
+	withoutGeometry, err := FeatureFromJsonld([]byte(`{"@id": "https://example.com/2"}`), "")
+	require.NoError(t, err)
+	require.Zero(t, withoutGeometry.S2CellID)
+
+	g, err := geom.UnmarshalWKT("POINT(500000 4000000)")
+	require.NoError(t, err)
+	require.Zero(t, s2CellIDForWkb(g.AsBinary()), "projected coordinates are not longitude/latitude")
+
+	// the cell of a polygon is the cell of its centroid
+	square, err := geom.UnmarshalWKT("POLYGON((0 0, 2 0, 2 2, 0 2, 0 0))")
+	require.NoError(t, err)
+	require.Equal(t, int64(s2.CellIDFromLatLng(s2.LatLngFromDegrees(1, 1))), s2CellIDForWkb(square.AsBinary()))
 }

@@ -5,7 +5,7 @@
 
 Nabu is the central data engineering tool for [geoconnex](https://docs.geoconnex.us/). It is a CLI for
 - crawling remote JSON-LD documents from a remote sitemap and storing them in an S3 bucket as one GeoParquet file per sitemap
-    - each row contains the `@id`, `feature_name`, `feature_description`, WKB `geometry`, and the `jsonld` of a document
+    - each row contains the `@id`, `feature_name`, `feature_description`, WKB `geometry`, S2 cell id of the geometry, and the `jsonld` of a document
     - enriching documents with additional hydrologic metadata, such as adding the associated mainstem to the JSON-LD and the `mainstem_uri` column
 - preparing data for ingestion into a graph database by:
     - validating RDF data against [SHACL](https://en.wikipedia.org/wiki/SHACL) shapes

@@ -70,6 +70,7 @@ func Read(ctx context.Context, r parquet.ReaderAtSeeker, fn func(Feature) error)
 		jsonlds := record.Column(4).(*array.String)
 		urls := record.Column(5).(*array.String)
 		mainstemURIs := record.Column(6).(*array.String)
+		s2CellIDs := record.Column(7).(*array.Int64)
 		for i := range int(record.NumRows()) {
 			if err := ctx.Err(); err != nil {
 				return err
@@ -83,6 +84,9 @@ func Read(ctx context.Context, r parquet.ReaderAtSeeker, fn func(Feature) error)
 				JSONLD:      []byte(jsonlds.Value(i)),
 				URL:         strings.Clone(urls.Value(i)),
 				MainstemURI: strings.Clone(mainstemURIs.Value(i)),
+			}
+			if s2CellIDs.IsValid(i) {
+				feature.S2CellID = s2CellIDs.Value(i)
 			}
 			if geometries.IsValid(i) {
 				feature.Geometry = bytes.Clone(geometries.Value(i))
