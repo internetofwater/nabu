@@ -4,7 +4,6 @@
 package crawl
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -15,9 +14,9 @@ import (
 	"time"
 
 	common "github.com/internetofwater/nabu/internal/common"
-	hashchecks "github.com/internetofwater/nabu/internal/crawl/hash_checks"
 	"github.com/internetofwater/nabu/internal/crawl/url_info"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
+	"github.com/internetofwater/nabu/internal/parquettable"
 	"github.com/internetofwater/nabu/pkg"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/attribute"
@@ -51,8 +50,8 @@ func getJSONLD(resp *http.Response, url url_info.URL, body []byte) ([]byte, erro
 
 // the metadata for a single url harvest
 type harvestResult struct {
-	pathInStorage string
-	serverHadHash bool
+	// the harvested document; nil if it was not downloaded
+	feature       *parquettable.Feature
 	warning       pkg.ShaclInfo
 	nonFatalError pkg.UrlCrawlError
 }
@@ -70,29 +69,7 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("fetch_%s", url.Loc))
 	defer span.End()
 
-	var hash string
-	var expectedLocationInStorage string
-
 	result_metadata := harvestResult{}
-
-	if config.checkExistenceBeforeCrawl.Load() {
-		result, err := hashchecks.NewHashChecker(config.httpClient, config.storageDestination).
-			CheckIfAlreadyExists(url, sitemapId)
-		var nonFatalError pkg.UrlCrawlError
-		if errors.As(err, &nonFatalError) {
-			result_metadata.nonFatalError = nonFatalError
-			return result_metadata, nil
-		}
-		if err != nil {
-			return result_metadata, fmt.Errorf("got fatal error when checking if %s already exists: %w", url.Loc, err)
-		}
-		result_metadata.serverHadHash = result.ServerProvidedHash
-		result_metadata.pathInStorage = result.PathInStorage
-		log.Tracef("%s already exists result: %+v", url.Loc, result)
-		if result.FileAlreadyExists {
-			return result_metadata, nil
-		}
-	}
 
 	log.Tracef("fetching %s", url.Loc)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.Loc, nil)
@@ -151,16 +128,12 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 		return result_metadata, fmt.Errorf("failed to get JSON-LD from response: %w", err)
 	}
 
-	summonedPath, err := urlToStoragePath(sitemapId, url)
+	feature, err := parquettable.FeatureFromJsonld(jsonld, url.Loc)
 	if err != nil {
-		return result_metadata, fmt.Errorf("failed to get storage path: %w", err)
-	}
-	if hash != "" && expectedLocationInStorage != "" {
-		result_metadata.serverHadHash = true
-		if summonedPath != expectedLocationInStorage {
-			log.Fatalf("hashes appear to be different for %s \n %s", summonedPath, expectedLocationInStorage)
-			return result_metadata, fmt.Errorf("summonedPath %s and whereItWouldBeInBucket %s are different", summonedPath, expectedLocationInStorage)
-		}
+		log.Error(err)
+		span.SetStatus(codes.Error, err.Error())
+		result_metadata.nonFatalError = pkg.UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: err.Error()}
+		return result_metadata, nil
 	}
 
 	// make sure the pointer itself is not nil and not empty
@@ -198,8 +171,7 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 		}
 	}
 
-	// Store from the buffered copy
-	if err = config.storageDestination.StoreWithHash(summonedPath, bytes.NewReader(jsonld), len(jsonld)); err != nil {
+	if err := enrichFeature(ctx, config, &feature); err != nil {
 		return result_metadata, err
 	}
 
@@ -207,6 +179,6 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 		log.Debug("sleeping for", config.robots.CrawlDelay)
 		time.Sleep(config.robots.CrawlDelay)
 	}
-	result_metadata.pathInStorage = summonedPath
+	result_metadata.feature = &feature
 	return result_metadata, nil
 }

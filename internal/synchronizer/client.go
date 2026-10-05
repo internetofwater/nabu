@@ -29,7 +29,7 @@ type SynchronizerClient struct {
 // Create a new SynchronizerClient by directly passing in the clients
 // Mainly used for testing
 func NewSynchronizerClientFromClients(s3Client *s3.MinioClientWrapper, bucketName string, metadataBucketName string) (SynchronizerClient, error) {
-	processor, options, err := common.NewJsonldProcessor(false, nil)
+	processor, options, err := common.NewJsonldProcessor(false)
 	if err != nil {
 		return SynchronizerClient{}, err
 	}
@@ -51,7 +51,7 @@ func NewSynchronizerClientFromConfig(conf config.NabuConfig) (*SynchronizerClien
 		return nil, err
 	}
 
-	processor, options, err := common.NewJsonldProcessor(conf.Context.Cache, conf.PrefixToFileCache)
+	processor, options, err := common.NewJsonldProcessor(conf.Context.Cache)
 	if err != nil {
 		return nil, err
 	}

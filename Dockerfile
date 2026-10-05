@@ -49,8 +49,4 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY --from=go-builder /app/nabu /app/nabu
 
-# Rest stays the same
-ADD https://schema.org/version/latest/schemaorg-current-https.jsonld /app/assets/schemaorg-current-https.jsonld
-ADD https://schema.org/version/latest/schemaorg-current-http.jsonld /app/assets/schemaorg-current-http.jsonld
-
 ENTRYPOINT [ "/app/nabu" ]

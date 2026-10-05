@@ -4,7 +4,6 @@
 package storage
 
 import (
-	"context"
 	"io"
 )
 
@@ -21,9 +20,12 @@ func (DiscardCrawlStorage) StoreWithHash(string, io.Reader, int) error {
 	return nil
 }
 
-func (DiscardCrawlStorage) StoreWithoutServersideHash(string, io.Reader) error {
-	return nil
+// drain the reader so that a sender streaming through a pipe never blocks
+func (DiscardCrawlStorage) StoreWithoutServersideHash(_ string, data io.Reader) error {
+	_, err := io.Copy(io.Discard, data)
+	return err
 }
+
 func (DiscardCrawlStorage) Get(string) (io.ReadCloser, error) {
 	return nil, nil
 }
@@ -37,19 +39,4 @@ func (DiscardCrawlStorage) Remove(string) error {
 
 func (DiscardCrawlStorage) ListDir(string) (Set, error) {
 	return make(Set), nil
-}
-
-func (DiscardCrawlStorage) IsEmptyDir(ObjectPath) (bool, error) {
-	return true, nil
-}
-
-func (DiscardCrawlStorage) GetHash(string) (Md5Hash, bool, error) {
-	return "", false, nil
-}
-
-func (DiscardCrawlStorage) StoreBulk(ctx context.Context, items chan BulkStorageItem) error {
-	// drain the channel so senders never block on a storage that discards everything
-	for range items {
-	}
-	return nil
 }

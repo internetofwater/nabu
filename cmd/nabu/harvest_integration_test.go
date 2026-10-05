@@ -4,11 +4,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/internetofwater/nabu/internal/parquettable"
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/crawl"
@@ -32,7 +35,7 @@ func (s *NabuInterationSuite) TestIntegrationWithNabu() {
 	opentelemetry.InitTracer("harvest_integration_test", opentelemetry.DefaultTracingEndpoint)
 	defer opentelemetry.Shutdown()
 
-	args := fmt.Sprintf("harvest --log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
+	args := fmt.Sprintf("harvest --mainstem-metadata ../../internal/mainstems/testdata/colorado_subset.fgb --log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 
 	ctx, span := opentelemetry.NewSpanAndContextWithName("gleaner_nabu_integration_test_sync_graphs")
 	defer span.End()
@@ -56,39 +59,33 @@ func (s *NabuInterationSuite) TestIntegrationWithNabu() {
 	s.Require().NoError(err)
 
 	const pid = "https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C"
+
+	parquetData, err := client.S3Client.GetObjectAsBytes(crawl.SummonedParquetPath("iow:wqp:stations__5"))
+	s.Require().NoError(err)
+	s.Require().True(len(parquetData) > 0, "parquet file should not be empty")
+
+	rows := 0
+	err = parquettable.Read(ctx, bytes.NewReader(parquetData), func(f parquettable.Feature) error {
+		rows++
+		if f.URL == pid {
+			s.Require().Contains(string(f.JSONLD), pid, "jsonld should contain the original pid")
+		}
+		return nil
+	})
+	s.Require().NoError(err)
+	s.Require().Equal(2, rows)
+
+	nquadsArgs := fmt.Sprintf("nquads --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
+	runner := NewNabuRunnerFromString(nquadsArgs)
+	var stdout bytes.Buffer
+	runner.stdout = &stdout
+	_, err = runner.Run(ctx, mockedClient)
+	s.Require().NoError(err)
+
 	encodedPid := base64.StdEncoding.EncodeToString([]byte(pid))
 	s.Require().Equal("aHR0cHM6Ly9nZW9jb25uZXgudXMvaW93L3dxcC9CUE1XUVgtMTA4NC1XUi1DQzAxQw==", encodedPid)
-
-	summonedJsonld := "summoned/iow:wqp:stations__5" + "/" + encodedPid + ".jsonld"
-
-	jsonld_data, err := client.S3Client.GetObjectAsBytes(summonedJsonld)
-	s.Require().NoError(err)
-	s.Require().True(len(jsonld_data) > 0, "jsonld file should not be empty")
-
-	jsonld_as_string := string(jsonld_data)
-	s.Require().Contains(jsonld_as_string, pid, "jsonld file should contain the original pid")
-
-	err = client.GenerateNqRelease(ctx, crawl.SitemapMetadata{SitemapID: "summoned/iow:wqp:stations__5"}, false, "")
-	s.Require().NoError(err)
-
-	summonedPath := "graphs/latest/iow:wqp:stations__5_release.nq"
-
-	nq_data, err := client.S3Client.GetObjectAsBytes(summonedPath)
-	s.Require().NoError(err)
-	s.Require().True(len(nq_data) > 0, "nq file should not be empty")
-
-	nq_as_string := string(nq_data)
-	s.Require().Contains(nq_as_string, pid, "nq file should contain the original pid")
-	s.Require().NoError(err)
-
-	byte_sum_data, err := client.S3Client.GetObjectAsBytes(summonedPath + ".bytesum")
-	s.Require().NoError(err)
-	s.Require().True(len(byte_sum_data) > 0, "bytesum file should not be empty")
-
-	byte_sum_as_string := string(byte_sum_data)
-	// note that if the sitemap id changes for any reason, this bytesum will also change
-	s.Require().Equal("407696", byte_sum_as_string, "bytesum file should exactly match")
-	s.Require().NoError(err)
+	s.Require().Contains(stdout.String(), "<"+pid+">", "nq output should contain the original pid")
+	s.Require().Contains(stdout.String(), "<urn:iow:summoned:iow:wqp:stations__5:"+encodedPid+".jsonld>", "the graph name should be the same as in previous nq releases")
 }
 
 func (suite *NabuInterationSuite) SetupSuite() {

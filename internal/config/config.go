@@ -5,11 +5,10 @@ package config
 
 // The top level config for all nabu operations
 type NabuConfig struct {
-	Minio             MinioConfig
-	Context           ContextConfig
-	PrefixToFileCache map[string]string
-	Prefix            string
-	Trace             bool
+	Minio   MinioConfig
+	Context ContextConfig
+	Prefix  string
+	Trace   bool
 }
 
 // The config for minio/s3 operations

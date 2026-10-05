@@ -4,15 +4,7 @@
 package storage
 
 import (
-	"context"
-	"fmt"
 	"io"
-	"strings"
-	"sync"
-	"sync/atomic"
-
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 )
 
 // a path delimited by /
@@ -35,13 +27,6 @@ func (s Set) Add(key ObjectPath) {
 // A hash of a file generated from the md5 algorithm
 type Md5Hash = string
 
-// An item with associated metadata to be stored in bulk
-type BulkStorageItem struct {
-	Path       ObjectPath
-	Data       io.Reader
-	ByteLength int
-}
-
 // A storage interface that stores crawl data
 type CrawlStorage interface {
 	// Store metadata about the crawl into a named destination
@@ -51,8 +36,9 @@ type CrawlStorage interface {
 	// StoreWithServersideHash saves the contents from the reader into a named destination
 	// and guarantees that the storage provider will create a hash for it that can be retrieved
 	StoreWithHash(path ObjectPath, data io.Reader, byteLength int) error
-	// StoreWithoutServersideHash saves the contents from the reader into a named destination
-	// but does not guarantee that the storage provider will create a hash for it
+	// StoreWithoutServersideHash streams the contents from the reader into a named destination
+	// but does not guarantee that the storage provider will create a hash for it.
+	// If reading from the reader fails, the destination is left unchanged
 	StoreWithoutServersideHash(ObjectPath, io.Reader) error
 	// Get returns a reader to the stored file
 	Get(ObjectPath) (io.ReadCloser, error)
@@ -62,174 +48,4 @@ type CrawlStorage interface {
 	ListDir(ObjectPath) (Set, error)
 	// Remove removes the file
 	Remove(ObjectPath) error
-	// IsEmptyDir returns true if the directory is empty
-	IsEmptyDir(ObjectPath) (bool, error)
-	// Get the hash of the file
-	GetHash(ObjectPath) (hash Md5Hash, file_exists bool, err error)
-	// Store data in bulk for more efficient storage. The channel will be closed by the caller when all items have been sent.
-	// If ctx is cancelled, StoreBulk stops uploading and returns the context error
-	StoreBulk(ctx context.Context, items chan BulkStorageItem) error
-}
-
-// BatchRemover is implemented by storage that can remove many objects
-// with fewer round trips than calling Remove on each one
-type BatchRemover interface {
-	RemoveMany(ctx context.Context, paths []ObjectPath) error
-}
-
-// PrefixHashLister is implemented by storage that can return the md5 hash
-// of every object under a prefix without a separate request per object.
-// Every object under the prefix is returned; objects whose hash is not a
-// plain md5 of their content have an empty hash
-type PrefixHashLister interface {
-	ListHashes(ctx context.Context, prefix ObjectPath) (map[ObjectPath]Md5Hash, error)
-}
-
-// DeletePrefix removes every object stored under pathInStorage. It is intended
-// for bulk harvests, which replace the complete contents of their destination.
-func DeletePrefix(pathInStorage string, storage CrawlStorage) (int64, error) {
-	if pathInStorage == "" {
-		return 0, fmt.Errorf("path is empty")
-	}
-	if !strings.Contains(pathInStorage, "/") {
-		return 0, fmt.Errorf("path should not be just one filename but got: %s", pathInStorage)
-	}
-	if strings.HasPrefix(pathInStorage, "/") {
-		return 0, fmt.Errorf("path should not be absolute and start with / but got %s", pathInStorage)
-	}
-
-	files, err := storage.ListDir(pathInStorage)
-	if err != nil {
-		return 0, err
-	}
-
-	if len(files) == 0 {
-		log.Infof("Directory %s is empty; no files to clean up", pathInStorage)
-		return 0, nil
-	} else {
-		log.Infof("Deleting pre-existing files at prefix %s", pathInStorage)
-	}
-
-	var deleted atomic.Int64
-	eg, ctx := errgroup.WithContext(context.Background())
-	const maxConcurrency = 20
-	eg.SetLimit(maxConcurrency)
-
-	pathsToDelete := make([]string, 0, len(files))
-	for storedPath := range files {
-		index := strings.Index(storedPath, pathInStorage)
-		if index == -1 {
-			return 0, fmt.Errorf("unexpected path format: %s", storedPath)
-		}
-		pathsToDelete = append(pathsToDelete, storedPath[index:])
-	}
-
-	if batchRemover, ok := storage.(BatchRemover); ok {
-		if err := batchRemover.RemoveMany(context.Background(), pathsToDelete); err != nil {
-			return 0, err
-		}
-		log.Infof("Finished cleaning up pre-existing files with prefix %s; deleted %d files", pathInStorage, len(pathsToDelete))
-		return int64(len(pathsToDelete)), nil
-	}
-
-	for _, relativePath := range pathsToDelete {
-		eg.Go(func() error {
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-			if err := storage.Remove(relativePath); err != nil {
-				return fmt.Errorf("deleting file %s: %w", relativePath, err)
-			}
-
-			deletedSoFar := deleted.Add(1)
-			if deletedSoFar%5000 == 0 {
-				log.Infof("Deleted %d files with prefix %s", deletedSoFar, pathInStorage)
-			}
-			return nil
-		})
-	}
-
-	if err := eg.Wait(); err != nil {
-		return deleted.Load(), err
-	}
-
-	deletedTotal := deleted.Load()
-	log.Infof("Finished cleaning up pre-existing files with prefix %s; deleted %d files", pathInStorage, deletedTotal)
-	return deletedTotal, nil
-}
-
-// Given a storage path, iterate through it and remove any files that aren't in sitesToKeep
-func CleanupFiles(pathInStorage string, sitesToKeep Set, storage CrawlStorage) ([]string, error) {
-	if pathInStorage == "" {
-		return nil, fmt.Errorf("path is empty")
-	}
-	if !strings.Contains(pathInStorage, "/") {
-		return nil, fmt.Errorf("path should not be just one filename but got: %s", pathInStorage)
-	}
-	if strings.HasPrefix(pathInStorage, "/") {
-		return nil, fmt.Errorf("path should not be absolute and start with / but got %s", pathInStorage)
-	}
-	if len(sitesToKeep) == 0 {
-		return nil, fmt.Errorf("sitesToKeep is empty")
-	}
-
-	files, err := storage.ListDir(pathInStorage)
-	if err != nil {
-		log.Error(err)
-		return nil, err
-	}
-
-	var (
-		pathsDeleted []string
-		mu           sync.Mutex // protect shared slice
-	)
-
-	eg, ctx := errgroup.WithContext(context.Background())
-	const maxConcurrency = 10
-	eg.SetLimit(maxConcurrency)
-
-	exitingEarly := atomic.Bool{}
-	exitingEarly.Store(false)
-
-	for absPath := range files {
-
-		index := strings.Index(absPath, pathInStorage)
-		if index == -1 {
-			return nil, fmt.Errorf("unexpected path format: %s", absPath)
-		}
-		relativePath := absPath[index:]
-
-		if sitesToKeep.Contains(relativePath) {
-			continue
-		}
-
-		eg.Go(func() error {
-			// Check if context is already canceled due to another error
-			if ctx.Err() != nil {
-				// Only log the ctx cancell error once
-				if !exitingEarly.Load() {
-					log.Error("Context was cancelled; exiting early")
-					exitingEarly.Store(true)
-				}
-				return ctx.Err()
-			}
-
-			if err := storage.Remove(relativePath); err != nil {
-				log.Errorf("Error cleaning up outdated file %s: %v", absPath, err)
-				return err
-			}
-
-			mu.Lock()
-			pathsDeleted = append(pathsDeleted, absPath)
-			mu.Unlock()
-			return nil
-		})
-	}
-
-	if err := eg.Wait(); err != nil {
-		// At this point, all other goroutines that haven't started will be canceled
-		return pathsDeleted, err
-	}
-
-	return pathsDeleted, nil
 }

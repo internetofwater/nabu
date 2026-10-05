@@ -12,9 +12,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"sync/atomic"
 
 	"github.com/internetofwater/nabu/internal/crawl/storage"
+	"github.com/internetofwater/nabu/internal/mainstems"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/pkg"
 	log "github.com/sirupsen/logrus"
@@ -30,15 +32,15 @@ type SitemapIndex struct {
 	// the info for all the urls in the sitemap itself is in the `Sitemap` struct
 	Sitemaps []SitemapMetadata `xml:"sitemap"`
 
-	storageDestination           storage.CrawlStorage `xml:"-"`
-	concurrentSitemaps           int                  `xml:"-"`
-	specificSourceToHarvest      string               `xml:"-"`
-	sitemapWorkers               int                  `xml:"-"`
-	headlessChromeUrl            string               `xml:"-"`
-	shaclAddress                 string               `xml:"-"`
-	localShaclValidation         bool                 `xml:"-"`
-	outdatedJsonldCleanupEnabled bool                 `xml:"-"`
-	exitOnShaclFailure           bool                 `xml:"-"`
+	storageDestination      storage.CrawlStorage `xml:"-"`
+	concurrentSitemaps      int                  `xml:"-"`
+	specificSourceToHarvest string               `xml:"-"`
+	sitemapWorkers          int                  `xml:"-"`
+	headlessChromeUrl       string               `xml:"-"`
+	shaclAddress            string               `xml:"-"`
+	localShaclValidation    bool                 `xml:"-"`
+	exitOnShaclFailure      bool                 `xml:"-"`
+	mainstemFile            string               `xml:"-"`
 }
 
 // Represents the structure of <sitemap> within a <sitemapindex>
@@ -126,6 +128,33 @@ func (i SitemapIndex) GetMetadataForSitemapId(sitemapId string) (SitemapMetadata
 	return SitemapMetadata{}, fmt.Errorf("no sitemap found with id %s", sitemapId)
 }
 
+// a lazily created mainstem service so that sitemaps which
+// do not request mainstem associations never need to open the mainstem file
+type mainstemServiceGetter func() (mainstems.MainstemService, error)
+
+func (i SitemapIndex) newMainstemServiceGetter() mainstemServiceGetter {
+	return sync.OnceValues(func() (mainstems.MainstemService, error) {
+		log.Infof("Associating features with mainstems from %s", i.mainstemFile)
+		return mainstems.NewS3FlatgeobufMainstemService(i.mainstemFile)
+	})
+}
+
+// Configure the harvest of a sitemap to add a mainstem to each feature if the sitemap index requests it
+func (i SitemapIndex) setMainstemService(config *SitemapHarvestConfig, metadata SitemapMetadata, getService mainstemServiceGetter) error {
+	if !metadata.AddMainstems {
+		return nil
+	}
+	if i.mainstemFile == "" {
+		return fmt.Errorf("sitemap %s requested mainstem associations but no mainstem file was provided", metadata.SitemapID)
+	}
+	service, err := getService()
+	if err != nil {
+		return fmt.Errorf("failed to open mainstem file %s: %w", i.mainstemFile, err)
+	}
+	config.mainstemService = service
+	return nil
+}
+
 func (i SitemapIndex) HarvestSitemaps(ctx context.Context, client *http.Client) (pkg.SitemapIndexCrawlStats, error) {
 
 	if i.concurrentSitemaps < 1 {
@@ -142,6 +171,8 @@ func (i SitemapIndex) HarvestSitemaps(ctx context.Context, client *http.Client) 
 	if shaclValidator != nil {
 		defer func() { _ = shaclValidator.Close() }()
 	}
+
+	getMainstemService := i.newMainstemServiceGetter()
 
 	var group errgroup.Group
 	group.SetLimit(i.concurrentSitemaps)
@@ -168,12 +199,15 @@ func (i SitemapIndex) HarvestSitemaps(ctx context.Context, client *http.Client) 
 			if err != nil {
 				return err
 			}
-			config, err := NewSitemapHarvestConfig(client, sitemap, shaclValidator, i.exitOnShaclFailure, i.outdatedJsonldCleanupEnabled)
+			config, err := NewSitemapHarvestConfig(client, sitemap, shaclValidator, i.exitOnShaclFailure)
 			if err != nil {
 				return err
 			}
+			if err := i.setMainstemService(&config, sitemap.metadata, getMainstemService); err != nil {
+				return err
+			}
 
-			stats, _, harvestErr := sitemap.
+			stats, harvestErr := sitemap.
 				Harvest(ctx, &config)
 
 			crawlStatChan <- stats
@@ -225,12 +259,15 @@ func (i SitemapIndex) HarvestSitemap(ctx context.Context, client *http.Client, s
 			defer func() { _ = shaclValidator.Close() }()
 		}
 
-		config, err := NewSitemapHarvestConfig(client, sitemap, shaclValidator, i.exitOnShaclFailure, i.outdatedJsonldCleanupEnabled)
+		config, err := NewSitemapHarvestConfig(client, sitemap, shaclValidator, i.exitOnShaclFailure)
 		if err != nil {
 			return pkg.SitemapCrawlStats{}, err
 		}
+		if err := i.setMainstemService(&config, part, i.newMainstemServiceGetter()); err != nil {
+			return pkg.SitemapCrawlStats{}, err
+		}
 
-		stats, _, err := sitemap.
+		stats, err := sitemap.
 			Harvest(ctx, &config)
 		return stats, err
 	}

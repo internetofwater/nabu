@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/common/projectpath"
 	"github.com/internetofwater/nabu/internal/config"
-	crawl "github.com/internetofwater/nabu/internal/crawl"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/synchronizer"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
@@ -31,12 +31,7 @@ type ObjectCmd struct {
 	Object string `arg:"positional"`
 }
 type UploadCmd struct{}
-type SyncCmd struct{}
 type TestCmd struct{}
-type ReleaseCmd struct {
-	Compress             bool   `arg:"--compress" help:"compress the output graph with gzip to reduce size; the associated hash will be the hash of the gzip'd data" default:"false"`
-	MainstemMetadataFile string `arg:"--mainstem-metadata" help:"path to a mainstem file, either local or in s3/gcs, that will be used to add metadata to the release graph" default:""`
-}
 type ClearCmd struct{}
 type PullCmd struct {
 	Output     string `arg:"positional"`
@@ -57,10 +52,9 @@ type ShaclCmd struct {
 
 type NabuArgs struct {
 	// Subcommands that can be run
-	Release *ReleaseCmd `arg:"subcommand:release" help:"generate an nq release graph for all objects under a specific prefix"`
-	Sync    *SyncCmd    `arg:"subcommand:sync" help:"sync the triplestore with the s3 bucket"`
+	Nquads  *NquadsCmd  `arg:"subcommand:nquads" help:"convert the JSON-LD in harvested parquet files to N-Quads and write them to stdout"`
 	Test    *TestCmd    `arg:"subcommand:test" help:"test the connection to the s3 bucket"`
-	Harvest *HarvestCmd `arg:"subcommand:harvest" help:"harvest sitemaps and store them in the s3 bucket"`
+	Harvest *HarvestCmd `arg:"subcommand:harvest" help:"harvest sitemaps and store one parquet file of JSON-LD per sitemap in the s3 bucket"`
 	Pull    *PullCmd    `arg:"subcommand:pull" help:"pull all objects under a specific prefix in the s3 bucket"`
 	Shacl   *ShaclCmd   `arg:"subcommand:shacl" help:"validate JSON-LD against the Geoconnex SHACL shape or serve a validation endpoint"`
 
@@ -69,30 +63,30 @@ type NabuArgs struct {
 	config.ContextConfig
 
 	// Flags that can be set which affect all operations
-	LogLevel          string            `arg:"--log-level" default:"INFO"`
-	Trace             bool              `arg:"--trace" help:"enable runtime profiling and tracing for performance analysis"`
-	Prefix            string            `arg:"--prefix" help:"prefix in S3 to sync or upload against"`
-	PrefixToFileCache map[string]string `arg:"--prefixes-to-file" help:"prefix name to file mapping; used for caching"`
-	UseOtel           bool              `arg:"--use-otel"`
-	OtelEndpoint      string            `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
-	LogAsJson         bool              `arg:"--log-as-json" help:"Log in json format"`
-	WaitForDebugger   bool              `arg:"--wait-for-debugger" help:"wait for a few seconds before starting to allow time for a debugger to attach"`
-	SitemapIndex      string            `arg:"--sitemap-index" help:"url of the sitemap index to harvest from" default:"https://geoconnex.us/sitemap.xml"`
+	LogLevel        string `arg:"--log-level" default:"INFO"`
+	Trace           bool   `arg:"--trace" help:"enable runtime profiling and tracing for performance analysis"`
+	Prefix          string `arg:"--prefix" help:"prefix in S3 to sync or upload against"`
+	UseOtel         bool   `arg:"--use-otel"`
+	OtelEndpoint    string `arg:"--otel-endpoint" help:"OpenTelemetry endpoint"`
+	LogAsJson       bool   `arg:"--log-as-json" help:"Log in json format"`
+	WaitForDebugger bool   `arg:"--wait-for-debugger" help:"wait for a few seconds before starting to allow time for a debugger to attach"`
+	SitemapIndex    string `arg:"--sitemap-index" help:"url of the sitemap index to harvest from" default:"https://geoconnex.us/sitemap.xml"`
 }
 
 // ToStructuredConfig converts the args to a structured config
 // that can be used for more config isolation
 func (n NabuArgs) ToStructuredConfig() config.NabuConfig {
 	return config.NabuConfig{
-		Minio:             n.MinioConfig,
-		Context:           n.ContextConfig,
-		PrefixToFileCache: n.PrefixToFileCache,
-		Prefix:            n.Prefix,
+		Minio:   n.MinioConfig,
+		Context: n.ContextConfig,
+		Prefix:  n.Prefix,
 	}
 }
 
 type NabuRunner struct {
 	args NabuArgs
+	// where commands that output data, such as nquads, write it
+	stdout io.Writer
 }
 
 func NewNabuRunner(cliArgs []string) NabuRunner {
@@ -108,7 +102,8 @@ func NewNabuRunner(cliArgs []string) NabuRunner {
 		os.Exit(1)
 	}
 	return NabuRunner{
-		args: args,
+		args:   args,
+		stdout: os.Stdout,
 	}
 }
 
@@ -189,22 +184,8 @@ func (n NabuRunner) Run(ctx context.Context, client *http.Client) (harvestReport
 	}
 
 	switch {
-	case n.args.Release != nil:
-		sitemap_index, err := crawl.NewSitemapIndex(n.args.SitemapIndex, client)
-		if err != nil {
-			return nil, err
-		}
-		prefix_without_s3_path := strings.TrimPrefix(n.args.Prefix, "summoned/")
-		corresponding_metadata, err := sitemap_index.GetMetadataForSitemapId(prefix_without_s3_path)
-		if err != nil {
-			return nil, err
-		}
-		return nil, synchronizerClient.GenerateNqRelease(
-			ctx,
-			corresponding_metadata,
-			n.args.Release.Compress,
-			n.args.Release.MainstemMetadataFile,
-		)
+	case n.args.Nquads != nil:
+		return nil, Nquads(ctx, synchronizerClient, *n.args.Nquads, n.args.Prefix, n.stdout)
 	case n.args.Test != nil:
 		return nil, Test(ctx, synchronizerClient)
 	case n.args.Harvest != nil:

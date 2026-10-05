@@ -4,13 +4,9 @@
 package storage
 
 import (
-	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -26,8 +22,6 @@ type LocalTempFSCrawlStorage struct {
 }
 
 var _ CrawlStorage = &LocalTempFSCrawlStorage{}
-var _ BatchRemover = &LocalTempFSCrawlStorage{}
-var _ PrefixHashLister = &LocalTempFSCrawlStorage{}
 
 // NewLocalTempFSCrawlStorage creates a new storage with a temporary base directory
 func NewLocalTempFSCrawlStorage() (*LocalTempFSCrawlStorage, error) {
@@ -47,7 +41,9 @@ func (l *LocalTempFSCrawlStorage) StoreWithoutServersideHash(name string, reader
 	return l.StoreWithHash(name, reader, -1)
 }
 
-// StoreWithServersideHash saves the contents from the reader into a file named after `object`
+// StoreWithServersideHash saves the contents from the reader into a file named after `object`.
+// The data is written to a temporary file first so that a failed write never leaves a
+// partial file in place of a previous one
 func (l *LocalTempFSCrawlStorage) StoreWithHash(name string, reader io.Reader, sizeInBytes int) error {
 
 	if l.baseDir == "" {
@@ -63,14 +59,20 @@ func (l *LocalTempFSCrawlStorage) StoreWithHash(name string, reader io.Reader, s
 		return err
 	}
 
-	destFile, err := os.Create(destPath)
+	tmpFile, err := os.CreateTemp(filepath.Dir(destPath), ".tmp-"+filepath.Base(destPath)+"-*")
 	if err != nil {
 		return err
 	}
-	defer func() { _ = destFile.Close() }()
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
-	_, err = io.Copy(destFile, reader)
-	return err
+	if _, err = io.Copy(tmpFile, reader); err != nil {
+		_ = tmpFile.Close()
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpFile.Name(), destPath)
 }
 
 // Get returns a reader to the stored file
@@ -111,75 +113,4 @@ func (l *LocalTempFSCrawlStorage) ListDir(prefix string) (Set, error) {
 }
 func (l *LocalTempFSCrawlStorage) Remove(object string) error {
 	return os.Remove(filepath.Join(l.baseDir, object))
-}
-
-func (l *LocalTempFSCrawlStorage) IsEmptyDir(dir ObjectPath) (bool, error) {
-	files, err := os.ReadDir(filepath.Join(l.baseDir, dir))
-	if errors.Is(err, os.ErrNotExist) {
-		return true, nil
-	} else if err != nil {
-		return false, err
-	}
-
-	return len(files) == 0, nil
-}
-
-func (l *LocalTempFSCrawlStorage) GetHash(object string) (Md5Hash, bool, error) {
-	return "", true, nil
-}
-
-func (l *LocalTempFSCrawlStorage) StoreBulk(ctx context.Context, items chan BulkStorageItem) error {
-	for item := range items {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if err := l.StoreWithHash(item.Path, item.Data, item.ByteLength); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (l *LocalTempFSCrawlStorage) RemoveMany(ctx context.Context, paths []ObjectPath) error {
-	for _, path := range paths {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if err := l.Remove(path); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// ListHashes walks every file under the prefix and returns the md5 of its contents,
-// keyed by its path relative to the storage root
-func (l *LocalTempFSCrawlStorage) ListHashes(ctx context.Context, prefix ObjectPath) (map[ObjectPath]Md5Hash, error) {
-	hashes := make(map[ObjectPath]Md5Hash)
-	err := filepath.WalkDir(filepath.Join(l.baseDir, prefix), func(path string, entry fs.DirEntry, err error) error {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		relativePath, err := filepath.Rel(l.baseDir, path)
-		if err != nil {
-			return err
-		}
-		sum := md5.Sum(data)
-		hashes[filepath.ToSlash(relativePath)] = hex.EncodeToString(sum[:])
-		return nil
-	})
-	return hashes, err
 }

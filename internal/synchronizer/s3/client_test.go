@@ -10,15 +10,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/common/projectpath"
-	"github.com/internetofwater/nabu/internal/crawl/storage"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/stretchr/testify/require"
@@ -248,55 +245,6 @@ func (suite *S3ClientSuite) TestUploadFile() {
 
 }
 
-func (suite *S3ClientSuite) TestHashMatch() {
-
-	tmpFile, err := os.CreateTemp("", "test")
-	suite.Require().NoError(err)
-	dir := path.Dir(tmpFile.Name())
-	base := path.Base(tmpFile.Name())
-	const hash_test_prefix = "hash_test_prefix/"
-	matchesWithLocal, err := suite.minioContainer.ClientWrapper.MatchesWithLocalBytesum(hash_test_prefix, dir, base)
-	suite.Require().NoError(err)
-	suite.Require().False(matchesWithLocal)
-
-	byteSumFile, err := os.Create(tmpFile.Name() + ".bytesum")
-	suite.Require().NoError(err)
-	defer func() {
-		_ = os.Remove(byteSumFile.Name())
-	}()
-
-	dummyData := []byte("test data")
-	suite.Require().NoError(err)
-	sum := common.ByteSum(dummyData)
-
-	_, err = fmt.Fprintf(byteSumFile, "%d", sum)
-	suite.Require().NoError(err)
-
-	// upload dummy file
-	_, err = suite.minioContainer.ClientWrapper.Client.PutObject(context.Background(),
-		suite.minioContainer.ClientWrapper.DefaultBucket,
-		hash_test_prefix+base,
-		bytes.NewReader(dummyData),
-		-1,
-		minio.PutObjectOptions{},
-	)
-	suite.Require().NoError(err)
-
-	// upload hash
-	_, err = suite.minioContainer.ClientWrapper.Client.PutObject(context.Background(),
-		suite.minioContainer.ClientWrapper.DefaultBucket,
-		hash_test_prefix+base+".bytesum",
-		strings.NewReader(fmt.Sprintf("%d", sum)),
-		-1,
-		minio.PutObjectOptions{},
-	)
-
-	suite.Require().NoError(err)
-	matchesWithLocal, err = suite.minioContainer.ClientWrapper.MatchesWithLocalBytesum(hash_test_prefix, dir, base)
-	suite.Require().NoError(err)
-	suite.Require().True(matchesWithLocal)
-}
-
 // Test that the minio client conforms to the crud interface so gleaner can use it
 func (suite *S3ClientSuite) TestCRUD() {
 	testBytes := bytes.NewReader([]byte("test data"))
@@ -416,108 +364,88 @@ func (suite *S3ClientSuite) TestPull() {
 	suite.Require().NoError(err)
 }
 
-func (suite *S3ClientSuite) TestPullWithBytesums() {
-
-	// populate the minio bucket with 10 data points and their byte sums
-	const prefix = "pull_bytesum_test/"
+func (suite *S3ClientSuite) TestPullSkipsUnchangedFiles() {
+	const prefix = "pull_unchanged_test/"
 	for i := range 10 {
-		dataPoint := fmt.Sprintf("test bytesum data %d", i)
-		err := suite.minioContainer.ClientWrapper.StoreWithoutServersideHash(fmt.Sprintf("%s%d", prefix, i), bytes.NewReader([]byte(dataPoint)))
-		suite.Require().NoError(err)
-
-		byteSum := common.ByteSum([]byte(dataPoint))
-		err = suite.minioContainer.ClientWrapper.StoreWithoutServersideHash(fmt.Sprintf("%s%d.bytesum", prefix, i), bytes.NewReader([]byte(fmt.Sprintf("%d", byteSum))))
+		err := suite.minioContainer.ClientWrapper.StoreWithoutServersideHash(fmt.Sprintf("%s%d.parquet", prefix, i), strings.NewReader(fmt.Sprintf("test data %d", i)))
 		suite.Require().NoError(err)
 	}
 
-	tmpDir, err := os.MkdirTemp("", "pull-bytesum-dir-*")
-	tmpDir = tmpDir + "/"
-	suite.Require().NoError(err)
-	err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, "")
+	tmpDir := suite.T().TempDir() + "/"
+	err := suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, "")
 	suite.Require().NoError(err)
 
-	files, err := os.ReadDir(tmpDir)
-	suite.Require().NoError(err)
-
-	suite.T().Run("pull bytesum file", func(t *testing.T) {
-		pulledAByteSum := false
-		for _, file := range files {
-			if strings.HasSuffix(file.Name(), ".bytesum") {
-				pulledAByteSum = true
-				break
-			}
+	suite.T().Run("pulled files have the modified time of their object", func(t *testing.T) {
+		files, err := os.ReadDir(tmpDir)
+		require.NoError(t, err)
+		require.Len(t, files, 10, "no extra files should be created")
+		for i := range 10 {
+			stat, err := suite.minioContainer.ClientWrapper.Client.StatObject(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, fmt.Sprintf("%s%d.parquet", prefix, i), minio.StatObjectOptions{})
+			require.NoError(t, err)
+			local, err := os.Stat(fmt.Sprintf("%s%d.parquet", tmpDir, i))
+			require.NoError(t, err)
+			require.True(t, local.ModTime().Truncate(time.Second).Equal(stat.LastModified.Truncate(time.Second)))
 		}
-		suite.Require().True(pulledAByteSum)
 	})
 
-	suite.T().Run("modification time doesn't change when pulling the same data", func(t *testing.T) {
-		fileNameToStat := make(map[string]time.Time)
-		for _, file := range files {
-			// we always pull bytesums since they are used as a cache
-			// and are very small
-			if strings.HasSuffix(file.Name(), ".bytesum") {
-				continue
-			}
-			fileStat, err := file.Info()
-			suite.Require().NoError(err)
-			fileNameToStat[file.Name()] = fileStat.ModTime()
-		}
+	// replace the contents of a pulled file with a marker of the same size while keeping
+	// its modified time; if the file is downloaded again the marker is overwritten
+	markAsPulled := func(t *testing.T, name string) string {
+		info, err := os.Stat(tmpDir + name)
+		require.NoError(t, err)
+		marker := strings.Repeat("x", int(info.Size()))
+		require.NoError(t, os.WriteFile(tmpDir+name, []byte(marker), 0644))
+		require.NoError(t, os.Chtimes(tmpDir+name, time.Time{}, info.ModTime()))
+		return marker
+	}
 
+	suite.T().Run("unchanged files are not pulled again", func(t *testing.T) {
+		markers := map[string]string{}
+		for i := range 10 {
+			name := fmt.Sprintf("%d.parquet", i)
+			markers[name] = markAsPulled(t, name)
+		}
+		err := suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, "")
+		require.NoError(t, err)
+		for name, marker := range markers {
+			data, err := os.ReadFile(tmpDir + name)
+			require.NoError(t, err)
+			require.Equal(t, marker, string(data), "%s should not have been downloaded again", name)
+		}
+	})
+
+	suite.T().Run("changed files are pulled again", func(t *testing.T) {
+		// wait so the new upload has a different last modified time
 		time.Sleep(time.Second)
-
+		err := suite.minioContainer.ClientWrapper.StoreWithoutServersideHash(prefix+"0.parquet", strings.NewReader("changed"))
+		require.NoError(t, err)
+		unchangedMarker := markAsPulled(t, "1.parquet")
 		err = suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, "")
-		suite.Require().NoError(err)
+		require.NoError(t, err)
+		data, err := os.ReadFile(tmpDir + "0.parquet")
+		require.NoError(t, err)
+		require.Equal(t, "changed", string(data), "the old contents should be fully replaced")
+		data, err = os.ReadFile(tmpDir + "1.parquet")
+		require.NoError(t, err)
+		require.Equal(t, unchangedMarker, string(data), "unchanged files should not be downloaded again")
+	})
 
-		for _, file := range files {
-			if strings.HasSuffix(file.Name(), ".bytesum") {
-				continue
-			}
-			fileStat, err := file.Info()
-			suite.Require().NoError(err)
-			oldTime := fileNameToStat[file.Name()]
-			newTime := fileStat.ModTime()
-			suite.Require().Equal(oldTime, newTime, "file %s modification time changed", file.Name())
-		}
+	suite.T().Run("locally modified files are pulled again", func(t *testing.T) {
+		require.NoError(t, os.Chtimes(tmpDir+"1.parquet", time.Time{}, time.Now().Add(time.Hour)))
+		err := suite.minioContainer.ClientWrapper.Pull(context.Background(), prefix, tmpDir, "")
+		require.NoError(t, err)
+		data, err := os.ReadFile(tmpDir + "1.parquet")
+		require.NoError(t, err)
+		require.Equal(t, "test data 1", string(data))
+		stat, err := suite.minioContainer.ClientWrapper.Client.StatObject(context.Background(), suite.minioContainer.ClientWrapper.DefaultBucket, prefix+"1.parquet", minio.StatObjectOptions{})
+		require.NoError(t, err)
+		local, err := os.Stat(tmpDir + "1.parquet")
+		require.NoError(t, err)
+		require.True(t, local.ModTime().Truncate(time.Second).Equal(stat.LastModified.Truncate(time.Second)))
 	})
 
 	err = suite.minioContainer.ClientWrapper.Remove(prefix)
 	suite.Require().NoError(err)
-}
-
-func (suite *S3ClientSuite) TestCleanupOldFiles() {
-	store := suite.minioContainer.ClientWrapper
-	err := store.StoreWithoutServersideHash("summoned/sitemap1/testfile.txt", bytes.NewReader([]byte("dummy_data")))
-	suite.Require().NoError(err)
-	filesinStorage := make(storage.Set)
-
-	// make sure files that are seen are kept
-	filesinStorage.Add("summoned/sitemap1/testfile.txt")
-	cleanedUpFiles, err := storage.CleanupFiles("summoned/sitemap1", filesinStorage, store)
-	suite.Require().Len(cleanedUpFiles, 0)
-	suite.Require().NoError(err)
-	res, err := store.Exists("summoned/sitemap1/testfile.txt")
-	suite.Require().NoError(err)
-	suite.Require().True(res, "File should still exist since it was in the set")
-
-	// make sure files that are not seen are removed
-	err = store.StoreWithoutServersideHash("summoned/sitemap1/THIS_SHOULD_BE_REMOVED.txt", bytes.NewReader([]byte("dummy_data")))
-	suite.Require().NoError(err)
-	cleanedUpFiles, err = storage.CleanupFiles("summoned/sitemap1", filesinStorage, store)
-	suite.Require().NoError(err)
-	res, err = store.Exists("summoned/sitemap1/THIS_SHOULD_BE_REMOVED.txt")
-	suite.Require().NoError(err)
-	suite.Require().False(res)
-	suite.Require().Len(cleanedUpFiles, 1)
-
-	// make sure files that in a different base path are not touched
-	err = store.StoreWithoutServersideHash("summoned/sitemap2/KEEP_THIS.txt", bytes.NewReader([]byte("dummy_data")))
-	suite.Require().NoError(err)
-	cleanedUpFiles, err = storage.CleanupFiles("summoned/sitemap1", filesinStorage, store)
-	suite.Require().Len(cleanedUpFiles, 0)
-	suite.Require().NoError(err)
-	res, err = store.Exists("summoned/sitemap2/KEEP_THIS.txt")
-	suite.Require().NoError(err)
-	suite.Require().True(res)
 }
 
 func (suite *S3ClientSuite) TestIsEmpty() {
@@ -554,75 +482,63 @@ func (suite *S3ClientSuite) TestGetMD5HashServerside() {
 
 }
 
-func (suite *S3ClientSuite) TestStoreBulk() {
-	const numItems = 1000
-	items := make(chan storage.BulkStorageItem, numItems)
-	dummy_data := []byte("test data")
-	for i := range numItems {
-		items <- storage.BulkStorageItem{
-			Path:       "bulk/test" + fmt.Sprint(i) + ".txt",
-			Data:       bytes.NewReader(dummy_data),
-			ByteLength: len(dummy_data),
-		}
-	}
-	close(items)
-	err := suite.minioContainer.ClientWrapper.StoreBulk(context.Background(), items)
+func (suite *S3ClientSuite) TestFailedStreamingStoreKeepsPreviousObject() {
+	const path = "streaming/file.parquet"
+	store := suite.minioContainer.ClientWrapper
+	suite.Require().NoError(store.StoreWithoutServersideHash(path, bytes.NewReader([]byte("original"))))
+
+	pipeReader, pipeWriter := io.Pipe()
+	go func() {
+		_, _ = pipeWriter.Write([]byte("partial"))
+		pipeWriter.CloseWithError(fmt.Errorf("upstream failure"))
+	}()
+	suite.Require().Error(store.StoreWithoutServersideHash(path, pipeReader))
+
+	data, err := store.GetObjectAsBytes(path)
 	suite.Require().NoError(err)
-}
-
-func (suite *S3ClientSuite) TestRemoveManyAndListHashes() {
-	ctx := context.Background()
-	const prefix = "removeMany/"
-	// more than the 1000 keys the S3 multi-object delete API accepts per request
-	const numItems = 2500
-
-	items := make(chan storage.BulkStorageItem, numItems)
-	contents := map[string][]byte{}
-	for i := range numItems {
-		path := prefix + fmt.Sprint(i) + ".jsonld"
-		data := []byte(fmt.Sprintf(`{"@id": "%d"}`, i))
-		contents[path] = data
-		items <- storage.BulkStorageItem{Path: path, Data: bytes.NewReader(data), ByteLength: len(data)}
-	}
-	close(items)
-	suite.Require().NoError(suite.minioContainer.ClientWrapper.StoreBulk(ctx, items))
-
-	hashes, err := suite.minioContainer.ClientWrapper.ListHashes(ctx, prefix)
-	suite.Require().NoError(err)
-	suite.Require().Len(hashes, numItems)
-	for path, data := range contents {
-		suite.Require().Equal(fmt.Sprintf("%x", md5.Sum(data)), hashes[path])
-	}
-
-	toRemove := []string{}
-	for path := range contents {
-		toRemove = append(toRemove, path)
-	}
-	suite.Require().NoError(suite.minioContainer.ClientWrapper.RemoveMany(ctx, toRemove))
-
-	hashes, err = suite.minioContainer.ClientWrapper.ListHashes(ctx, prefix)
-	suite.Require().NoError(err)
-	suite.Require().Empty(hashes)
-}
-
-func (suite *S3ClientSuite) TestDeletePrefixUsesBatchRemoval() {
-	for i := range 1500 {
-		err := suite.minioContainer.ClientWrapper.StoreWithHash("deletePrefix/sitemap1/"+fmt.Sprint(i), bytes.NewReader([]byte("data")), 4)
-		suite.Require().NoError(err)
-	}
-	err := suite.minioContainer.ClientWrapper.StoreWithHash("deletePrefix/sitemap2/keep", bytes.NewReader([]byte("data")), 4)
-	suite.Require().NoError(err)
-
-	deleted, err := storage.DeletePrefix("deletePrefix/sitemap1/", suite.minioContainer.ClientWrapper)
-	suite.Require().NoError(err)
-	suite.Require().Equal(int64(1500), deleted)
-
-	remaining, err := suite.minioContainer.ClientWrapper.ListDir("deletePrefix/")
-	suite.Require().NoError(err)
-	suite.Require().Equal(storage.Set{"deletePrefix/sitemap2/keep": {}}, remaining)
+	suite.Require().Equal("original", string(data))
 }
 
 // Run the entire test suite
 func TestS3ClientSuite(t *testing.T) {
 	suite.Run(t, new(S3ClientSuite))
+}
+
+func TestIsUnchangedSincePull(t *testing.T) {
+	localFile := filepath.Join(t.TempDir(), "summoned.parquet")
+	lastModified := time.Date(2026, 10, 5, 12, 0, 0, 123_000_000, time.UTC)
+	obj := minio.ObjectInfo{Key: "summoned/summoned.parquet", Size: 4, LastModified: lastModified}
+
+	unchanged, err := isUnchangedSincePull(localFile, obj)
+	require.NoError(t, err)
+	require.False(t, unchanged, "a file that was never pulled must be pulled")
+
+	require.NoError(t, os.WriteFile(localFile, []byte("data"), 0644))
+	unchanged, err = isUnchangedSincePull(localFile, obj)
+	require.NoError(t, err)
+	require.False(t, unchanged, "a file with a different modified time must be pulled")
+
+	// some filesystems only store the time to the second
+	require.NoError(t, os.Chtimes(localFile, time.Time{}, lastModified.Truncate(time.Second)))
+	unchanged, err = isUnchangedSincePull(localFile, obj)
+	require.NoError(t, err)
+	require.True(t, unchanged)
+
+	withNewUpload := obj
+	withNewUpload.LastModified = lastModified.Add(time.Second)
+	unchanged, err = isUnchangedSincePull(localFile, withNewUpload)
+	require.NoError(t, err)
+	require.False(t, unchanged, "a newer upload must be pulled")
+
+	withDifferentSize := obj
+	withDifferentSize.Size = 5
+	unchanged, err = isUnchangedSincePull(localFile, withDifferentSize)
+	require.NoError(t, err)
+	require.False(t, unchanged, "a file of a different size must be pulled")
+
+	withoutTime := obj
+	withoutTime.LastModified = time.Time{}
+	unchanged, err = isUnchangedSincePull(localFile, withoutTime)
+	require.NoError(t, err)
+	require.False(t, unchanged, "an object without a modified time must always be pulled")
 }

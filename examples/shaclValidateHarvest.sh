@@ -28,7 +28,7 @@ sleep 3
 
 cd ../
 
-time go run ./cmd/nabu harvest --log-level DEBUG \
+time go run ./cmd/nabu harvest --mainstem-metadata "$(pwd)/shacl_validator/data/reference_catchments_and_flowlines.fgb" --log-level DEBUG \
   --sitemap-index https://pids.geoconnex.dev/sitemap.xml \
   --concurrent-sitemaps 100 --sitemap-workers 30 \
   --use-otel --source ref_dams_dams__0 --shacl-grpc-endpoint localhost:50051

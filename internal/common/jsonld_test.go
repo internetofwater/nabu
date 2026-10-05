@@ -18,16 +18,12 @@ import (
 func TestCreateNewProcessor(t *testing.T) {
 
 	t.Run("empty config returns blank processor", func(t *testing.T) {
-		_, _, err := NewJsonldProcessor(false, nil)
+		_, _, err := NewJsonldProcessor(false)
 		require.NoError(t, err)
 	})
 
 	t.Run("use full config with caching", func(t *testing.T) {
-		ctxMaps := map[string]string{
-			"https://schema.org/": "./assets/schemaorg-current-https.jsonld",
-		}
-
-		processor, options, err := NewJsonldProcessor(true, ctxMaps)
+		processor, options, err := NewJsonldProcessor(true)
 		require.NoError(t, err)
 		loader := options.DocumentLoader
 		require.IsType(t, &jsonld.CachingDocumentLoader{}, loader)
@@ -57,11 +53,7 @@ func TestCreateNewProcessor(t *testing.T) {
 }
 
 func TestJsonldWithSpaceInType(t *testing.T) {
-	ctxMaps := map[string]string{
-		"https://schema.org/": "./assets/schemaorg-current-https.jsonld",
-	}
-
-	processor, options, err := NewJsonldProcessor(true, ctxMaps)
+	processor, options, err := NewJsonldProcessor(true)
 	require.NoError(t, err)
 	data, err := os.ReadFile("testdata/jsonld_with_space_in_type.jsonld")
 	require.NoError(t, err)
@@ -102,11 +94,7 @@ func TestSelfieExample(t *testing.T) {
   ]
 }`
 
-	ctxMaps := map[string]string{
-		"https://schema.org/": "./assets/schemaorg-current-https.jsonld",
-	}
-
-	processor, options, err := NewJsonldProcessor(true, ctxMaps)
+	processor, options, err := NewJsonldProcessor(true)
 
 	require.NoError(t, err)
 	nq, err := JsonldToTriples(jsonld, processor, options)

@@ -6,11 +6,7 @@ package common
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"reflect"
-
-	"github.com/internetofwater/nabu/internal/common/projectpath"
 
 	"github.com/piprate/json-gold/ld"
 	log "github.com/sirupsen/logrus"
@@ -19,7 +15,7 @@ import (
 
 // NewJsonldProcessor builds the JSON-LD processor and sets the options object
 // for use in framing, processing and all JSON-LD actions
-func NewJsonldProcessor(cache bool, contextMaps map[string]string) (*ld.JsonLdProcessor, *ld.JsonLdOptions, error) {
+func NewJsonldProcessor(cache bool) (*ld.JsonLdProcessor, *ld.JsonLdOptions, error) {
 	processor := ld.NewJsonLdProcessor()
 	options := ld.NewJsonLdOptions("")
 
@@ -33,57 +29,15 @@ func NewJsonldProcessor(cache bool, contextMaps map[string]string) (*ld.JsonLdPr
 		clientWithRetries := NewCrawlerClient()
 		fallbackLoader := ld.NewDefaultDocumentLoader(clientWithRetries)
 
-		prefixToFullFilePath := make(map[string]string)
-
-		for prefix, file := range contextMaps {
-			// All context maps should be relative to the root of the project
-			absPath := filepath.Join(projectpath.Root, file)
-			if fileExists(absPath) {
-				prefixToFullFilePath[prefix] = absPath
-			} else {
-				return nil, nil, fmt.Errorf("context file at %s does not exist or could not be accessed", absPath)
-			}
-		}
-
-		// Read mapping from config file; unlike ld.CachingDocumentLoader
-		// this loader is safe to share across concurrent conversions
-		cachingLoader := jsonld.NewCachingDocumentLoader(fallbackLoader)
-		for prefix, path := range prefixToFullFilePath {
-			doc, err := loadJsonldFile(path)
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to load context file %s: %w", path, err)
-			}
-			cachingLoader.AddDocument(prefix, doc)
-		}
-		options.DocumentLoader = cachingLoader
+		// unlike ld.CachingDocumentLoader this loader
+		// is safe to share across concurrent conversions
+		options.DocumentLoader = jsonld.NewCachingDocumentLoader(fallbackLoader)
 	}
 
 	options.ProcessingMode = ld.JsonLd_1_1 // add mode explicitly if you need JSON-LD 1.1 features
 	options.Format = "application/nquads"  // Set to a default format. (make an option?)
 
 	return processor, options, nil
-}
-
-// parse a JSON-LD document from a file on disk
-func loadJsonldFile(path string) (any, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = file.Close() }()
-	return ld.DocumentFromReader(file)
-}
-
-func fileExists(filename string) bool {
-	info, err := os.Stat(filename)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false
-		}
-		log.Printf("error checking file existence: %v", err)
-		return false
-	}
-	return !info.IsDir()
 }
 
 func JsonldToTriples(jsonld string, processor *ld.JsonLdProcessor, options *ld.JsonLdOptions) (string, error) {
