@@ -4,13 +4,10 @@
 package mainstems
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	"html/template"
 
-	"github.com/internetofwater/nabu/internal/common"
+	"github.com/peterstace/simplefeatures/geom"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -30,18 +27,6 @@ type MainstemService interface {
 	GetMainstemForWkt(ctx context.Context, wkt string) (MainstemQueryResponse, error)
 }
 
-// A jsonld enricher adds extra information to jsonld
-// such as the associated mainstem
-type JsonldEnricher struct {
-	service MainstemService
-}
-
-func NewJsonldEnricher(service MainstemService) *JsonldEnricher {
-	return &JsonldEnricher{
-		service: service,
-	}
-}
-
 // An error type representing that the client
 // tried to pass an invalid WKT string to the mainstem service
 type InvalidWktError struct {
@@ -52,105 +37,29 @@ func (e *InvalidWktError) Error() string {
 	return e.message
 }
 
-// Given a jsonld, add mainstem information to it
-func (j *JsonldEnricher) AddMainstemInfo(ctx context.Context, serializedJsonLd map[string]any) (newJsonld []byte, addedMainstem bool, err error) {
-
-	wkt, ok := common.GetWktFromJsonld(serializedJsonLd)
-	if !ok {
-		// if there is no geometry, there is no way to attach a mainstem
-		// and thus we can just return the original jsonld without any error
-		// since some jsonld may not have a geometry (i.e. from provenance data)
-		log.Warn("no geometry found in jsonld; skipping adding mainstem info")
-		asBytes, err := json.Marshal(serializedJsonLd)
-		return asBytes, false, err
+// Get the uri of the mainstem associated with a WKB geometry. An empty string is returned
+// without an error if there is no geometry, the geometry is invalid, or there is no associated mainstem
+func GetMainstemURIForWkb(ctx context.Context, service MainstemService, wkb []byte) (string, error) {
+	if len(wkb) == 0 {
+		return "", nil
 	}
-
-	const hyfPrefix = "https://www.opengis.net/def/schema/hy_features/hyf/"
-	newJsonldAsMap, err := common.AddKeyToJsonLDContext(serializedJsonLd,
-		"hyf", hyfPrefix)
+	geometry, err := geom.UnmarshalWKB(wkb, geom.NoValidate{})
 	if err != nil {
-		return nil, false, err
+		log.Errorf("Could not parse WKB geometry to find its mainstem: %v", err)
+		return "", nil
 	}
-
-	mainstemResponse, err := j.service.GetMainstemForWkt(ctx, wkt)
-	var e *InvalidWktError
-	if errors.As(err, &e) {
-		idValue := newJsonldAsMap["@id"]
-		log.Errorf("Invalid WKT provided to mainstem addition for jsonld with @id %s: %v", idValue, err)
-		newJson, err := json.Marshal(newJsonldAsMap)
-		return newJson, false, err
+	wkt := geometry.AsText()
+	response, err := service.GetMainstemForWkt(ctx, wkt)
+	var invalidWktErr *InvalidWktError
+	if errors.As(err, &invalidWktErr) {
+		log.Errorf("Invalid geometry %s could not be associated with a mainstem: %v", wkt, err)
+		return "", nil
 	} else if err != nil {
-		return nil, false, err
+		return "", err
 	}
-
-	if !mainstemResponse.foundAssociatedMainstem {
+	if !response.foundAssociatedMainstem {
 		log.Debugf("no mainstem found for %s", wkt)
-		newJson, err := json.Marshal(newJsonldAsMap)
-		return newJson, false, err
+		return "", nil
 	}
-
-	newJsonldAsMap, err = AddMainstemToJsonLD(newJsonldAsMap, mainstemResponse.mainstemURI)
-	if err != nil {
-		return nil, false, err
-	}
-	jsonldMap, err := json.Marshal(newJsonldAsMap)
-	if err != nil {
-		return nil, false, err
-	}
-	return jsonldMap, true, err
-}
-
-func AddMainstemToJsonLD(jsonldMap map[string]any, mainstemURI string) (map[string]any, error) {
-	if mainstemURI == "" {
-		return nil, errors.New("mainstem URI is empty")
-	}
-
-	if _, ok := jsonldMap["hyf:referencedPosition"]; ok {
-		// Mainstem already present
-		return jsonldMap, nil
-	}
-
-	jsonldMap, err := common.AddKeyToJsonLDContext(jsonldMap,
-		"hyf", "https://www.opengis.net/def/schema/hy_features/hyf/",
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Template with mainstem URI placeholder
-	const referencedPositionTemplate = `
-	{
-		"hyf:referencedPosition": [
-			{
-				"hyf:HY_IndirectPosition": {
-					"hyf:distanceDescription": {
-						"hyf:HY_DistanceDescription": "upstream"
-					},
-					"hyf:linearElement": {"@id": "{{.MainstemURI}}"}
-				}
-			}
-		]
-	}`
-
-	tmpl, err := template.New("referencedPosition").Parse(referencedPositionTemplate)
-	if err != nil {
-		return nil, err
-	}
-
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, map[string]string{
-		"MainstemURI": mainstemURI,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var referencedPosition any
-	err = json.Unmarshal(buf.Bytes(), &referencedPosition)
-	if err != nil {
-		return nil, err
-	}
-
-	jsonldMap["hyf:referencedPosition"] = referencedPosition.(map[string]any)["hyf:referencedPosition"]
-	return jsonldMap, nil
+	return response.mainstemURI, nil
 }

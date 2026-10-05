@@ -4,20 +4,17 @@
 package crawl
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/internetofwater/nabu/internal/parquettable"
+	"github.com/internetofwater/nabu/pkg"
 
 	"github.com/google/uuid"
 	common "github.com/internetofwater/nabu/internal/common"
@@ -62,34 +59,28 @@ func TestBulkSitemap(t *testing.T) {
 
 	storage, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
-	err = storage.StoreWithoutServersideHash("summoned/test_sitemap/stale.jsonld", bytes.NewReader([]byte("stale")))
-	require.NoError(t, err)
 
 	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test_sitemap", Loc: "https://geoconnex.us/sitemap/iow/bulk", BulkContainerImage: "test_bulk"})
 	require.NoError(t, err)
 
 	sitemap.URL[0].Loc = unique_id
 
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, NewGrpcShaclValidatorFromClients(&mockShaclValidatorClient{}), false, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, NewGrpcShaclValidatorFromClients(&mockShaclValidatorClient{}), false)
 	require.NoError(t, err)
 
-	stats, _, err := sitemap.
+	stats, err := sitemap.
 		Harvest(context.Background(), &config)
 	require.NoError(t, err)
 
 	require.Equal(t, 3, stats.SitesInSitemap)
-	hasFiles, err := storage.ListDir("/summoned/test_sitemap/")
-	require.NoError(t, err)
-	require.Equal(t, len(hasFiles), 3)
-	staleExists, err := storage.Exists("summoned/test_sitemap/stale.jsonld")
-	require.NoError(t, err)
-	require.False(t, staleExists)
+	features := readBulkFeatures(t, storage, "test_sitemap")
+	require.Len(t, features, 3)
 
-	reader, err := storage.Get("/summoned/test_sitemap/aHR0cHM6Ly9hcGkud3dkaC5pbnRlcm5ldG9md2F0ZXIuYXBwL2NvbGxlY3Rpb25zL25vYWEtcmZjL2l0ZW1zL0FGUFUx.jsonld")
-	require.NoError(t, err, "Failed to get the data; the id for the jsonld should be stable and consistent")
-	dataAsStr, err := io.ReadAll(reader)
-	require.NoError(t, err)
-	require.Contains(t, string(dataAsStr), `American Fork - American Fork  Nr  Up Pwrplnt  Abv`)
+	feature := features["https://api.wwdh.internetofwater.app/collections/noaa-rfc/items/AFPU1"]
+	require.Contains(t, string(feature.JSONLD), `American Fork - American Fork  Nr  Up Pwrplnt  Abv`)
+	require.Equal(t, `American Fork - American Fork  Nr  Up Pwrplnt  Abv`, feature.Name)
+	require.NotEmpty(t, feature.Geometry)
+	require.Equal(t, unique_id, feature.URL, "the url of a bulk document is the container it came from")
 
 	require.Equal(t, 1, stats.WarningStats.TotalShaclFailures)
 	require.Equal(t, len(stats.WarningStats.ShaclWarnings), stats.WarningStats.TotalShaclFailures)
@@ -138,22 +129,16 @@ func TestBulkSitemapWithStrictShaclMode(t *testing.T) {
 	sitemap.URL[0].Loc = unique_id
 
 	const STRICT_SHACL_MODE = true
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, NewGrpcShaclValidatorFromClients(&mockShaclValidatorClient{}), STRICT_SHACL_MODE, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, NewGrpcShaclValidatorFromClients(&mockShaclValidatorClient{}), STRICT_SHACL_MODE)
 	require.NoError(t, err)
 
-	stats, _, err := sitemap.
+	stats, err := sitemap.
 		Harvest(context.Background(), &config)
 	require.ErrorContains(t, err, "with shacl failure invalid jsonld content")
 
-	hasFiles, err := storage.ListDir("/summoned/test_sitemap/")
+	exists, err := storage.Exists(SummonedParquetPath("test_sitemap"))
 	require.NoError(t, err)
-	require.Equal(t, len(hasFiles), 1)
-
-	reader, err := storage.Get("/summoned/test_sitemap/aHR0cHM6Ly9hcGkud3dkaC5pbnRlcm5ldG9md2F0ZXIuYXBwL2NvbGxlY3Rpb25zL25vYWEtcmZjL2l0ZW1zL0FGUFUx.jsonld")
-	require.NoError(t, err)
-	dataAsStr, err := io.ReadAll(reader)
-	require.NoError(t, err)
-	require.Contains(t, string(dataAsStr), `American Fork - American Fork  Nr  Up Pwrplnt  Abv`)
+	require.False(t, exists, "a partial harvest should never be stored")
 
 	require.Equal(t, 1, stats.WarningStats.TotalShaclFailures)
 	require.Equal(t, len(stats.WarningStats.ShaclWarnings), stats.WarningStats.TotalShaclFailures)
@@ -205,22 +190,16 @@ func TestBulkSitemapWithShaclConnectionIssueDoesntCrash(t *testing.T) {
 	badGrpcClient, err := NewGrpcShaclValidator("0.0.0.0:1020202")
 	require.NoError(t, err)
 
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, badGrpcClient, false, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, badGrpcClient, false)
 	require.NoError(t, err)
 
-	stats, _, err := sitemap.
+	stats, err := sitemap.
 		Harvest(context.Background(), &config)
 	require.NoError(t, err)
 
-	hasFiles, err := storage.ListDir("/summoned/test_sitemap/")
-	require.NoError(t, err)
-	require.Equal(t, len(hasFiles), 3, "There should be 3 files since all three sites should be harvested successfully even if there are SHACL validation issues")
-
-	reader, err := storage.Get("/summoned/test_sitemap/aHR0cHM6Ly9hcGkud3dkaC5pbnRlcm5ldG9md2F0ZXIuYXBwL2NvbGxlY3Rpb25zL25vYWEtcmZjL2l0ZW1zL0FGUFUx.jsonld")
-	require.NoError(t, err)
-	dataAsStr, err := io.ReadAll(reader)
-	require.NoError(t, err)
-	require.Contains(t, string(dataAsStr), `American Fork - American Fork  Nr  Up Pwrplnt  Abv`)
+	features := readBulkFeatures(t, storage, "test_sitemap")
+	require.Len(t, features, 3, "There should be 3 documents since all three sites should be harvested successfully even if there are SHACL validation issues")
+	require.Contains(t, string(features["https://api.wwdh.internetofwater.app/collections/noaa-rfc/items/AFPU1"].JSONLD), `American Fork - American Fork  Nr  Up Pwrplnt  Abv`)
 
 	require.Equal(t, 3, stats.WarningStats.TotalShaclFailures, "All 3 features should have had SHACL validation failures since the SHACL client couldn't connect, but this shouldn't cause the harvest to fail")
 	require.Equal(t, len(stats.WarningStats.ShaclWarnings), stats.WarningStats.TotalShaclFailures)
@@ -252,56 +231,30 @@ func buildBulkTestImage(t *testing.T, contextDir string) string {
 	return unique_id
 }
 
-// read the fixture the same way the bulk harvest reads container stdout
-// and return the storage path and exact bytes of each document
-func readBulkFixture(t *testing.T, sitemapID string) ([]string, [][]byte) {
-	file, err := os.Open("testdata/bulk_sitemap/data.txt")
+// read every feature in the parquet file for a sitemap keyed by @id
+func readBulkFeatures(t *testing.T, store storage.CrawlStorage, sitemapId string) map[string]parquettable.Feature {
+	features := map[string]parquettable.Feature{}
+	exists, err := readStoredFeatures(context.Background(), store, SummonedParquetPath(sitemapId), func(f parquettable.Feature) error {
+		require.NotContains(t, features, f.ID, "each @id should only be in the parquet file once")
+		features[f.ID] = f
+		return nil
+	})
 	require.NoError(t, err)
-	defer func() { _ = file.Close() }()
-
-	paths := []string{}
-	lines := [][]byte{}
-	reader := bufio.NewReader(file)
-	for {
-		line, err := reader.ReadBytes('\n')
-		if len(bytes.TrimSpace(line)) > 0 {
-			var doc map[string]any
-			require.NoError(t, json.Unmarshal(line, &doc))
-			paths = append(paths, "summoned/"+sitemapID+"/"+base64.StdEncoding.EncodeToString([]byte(doc["@id"].(string)))+".jsonld")
-			lines = append(lines, line)
-		}
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-	}
-	return paths, lines
+	require.True(t, exists, "the parquet file for the sitemap should exist")
+	return features
 }
 
-// wraps local storage and records which paths were uploaded in bulk
-type countingBulkStorage struct {
-	*storage.LocalTempFSCrawlStorage
-	mu       sync.Mutex
-	uploaded []string
+// build a bulk container image that outputs the given lines
+func buildBulkTestImageWithData(t *testing.T, lines []string) string {
+	contextDir := t.TempDir()
+	dockerfile, err := os.ReadFile("testdata/bulk_sitemap/Dockerfile")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(contextDir, "Dockerfile"), dockerfile, 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(contextDir, "data.txt"), []byte(strings.Join(lines, "\n")+"\n"), 0644))
+	return buildBulkTestImage(t, contextDir)
 }
 
-func (c *countingBulkStorage) StoreBulk(ctx context.Context, items chan storage.BulkStorageItem) error {
-	recorded := make(chan storage.BulkStorageItem)
-	go func() {
-		defer close(recorded)
-		for item := range items {
-			c.mu.Lock()
-			c.uploaded = append(c.uploaded, item.Path)
-			c.mu.Unlock()
-			recorded <- item
-		}
-	}()
-	return c.LocalTempFSCrawlStorage.StoreBulk(ctx, recorded)
-}
-
-func TestBulkSitemapOnlyUploadsChangedDocuments(t *testing.T) {
-	imageName := buildBulkTestImage(t, "./testdata/bulk_sitemap")
-
+func TestBulkSitemapReplacesPreviousHarvestAndSkipsDuplicates(t *testing.T) {
 	mockedClient := common.NewMockedClient(
 		true,
 		map[string]common.MockResponse{
@@ -313,42 +266,34 @@ func TestBulkSitemapOnlyUploadsChangedDocuments(t *testing.T) {
 
 	localStorage, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
-	countingStorage := &countingBulkStorage{LocalTempFSCrawlStorage: localStorage}
 
-	paths, lines := readBulkFixture(t, "test_sitemap")
-	require.Len(t, paths, 3)
-
-	// the first document is already stored and unchanged, the second is stored
-	// with outdated content, the third is new, and one document is no longer in the container output
-	require.NoError(t, localStorage.StoreWithoutServersideHash(paths[0], bytes.NewReader(lines[0])))
-	require.NoError(t, localStorage.StoreWithoutServersideHash(paths[1], bytes.NewReader([]byte("outdated"))))
-	require.NoError(t, localStorage.StoreWithoutServersideHash("summoned/test_sitemap/stale.jsonld", bytes.NewReader([]byte("stale"))))
-
-	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, countingStorage, SitemapMetadata{SitemapID: "test_sitemap", Loc: "https://geoconnex.us/sitemap/iow/bulk", BulkContainerImage: "test_bulk"})
-	require.NoError(t, err)
-	sitemap.URL[0].Loc = imageName
-
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, NewGrpcShaclValidatorFromClients(&mockShaclValidatorClient{}), false, false)
-	require.NoError(t, err)
-
-	stats, _, err := sitemap.Harvest(context.Background(), &config)
-	require.NoError(t, err)
-
-	require.ElementsMatch(t, []string{paths[1], paths[2]}, countingStorage.uploaded, "only the changed and new documents should be uploaded")
-	require.Equal(t, 3, stats.SuccessfulSites, "unchanged documents still count as successfully harvested")
-	require.Equal(t, 3, stats.SitesInSitemap)
-
-	for i, path := range paths {
-		reader, err := localStorage.Get(path)
+	harvest := func(imageName string) pkg.SitemapCrawlStats {
+		sitemap, err := NewSitemap(context.Background(), mockedClient, 1, localStorage, SitemapMetadata{SitemapID: "test_sitemap", Loc: "https://geoconnex.us/sitemap/iow/bulk", BulkContainerImage: "test_bulk"})
 		require.NoError(t, err)
-		data, err := io.ReadAll(reader)
+		sitemap.URL[0].Loc = imageName
+		config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false)
 		require.NoError(t, err)
-		require.Equal(t, string(lines[i]), string(data))
+		stats, err := sitemap.Harvest(context.Background(), &config)
+		require.NoError(t, err)
+		return stats
 	}
 
-	staleExists, err := localStorage.Exists("summoned/test_sitemap/stale.jsonld")
-	require.NoError(t, err)
-	require.False(t, staleExists, "documents no longer in the container output should be removed")
+	harvest(buildBulkTestImage(t, "./testdata/bulk_sitemap"))
+	require.Len(t, readBulkFeatures(t, localStorage, "test_sitemap"), 3)
+
+	stats := harvest(buildBulkTestImageWithData(t, []string{
+		`{"@id": "https://example.com/a", "https://schema.org/name": "first"}`,
+		`{"@id": "https://example.com/b"}`,
+		`{"@id": "https://example.com/a", "https://schema.org/name": "duplicate"}`,
+	}))
+	require.Equal(t, 3, stats.SitesInSitemap)
+	require.Equal(t, 2, stats.SuccessfulSites, "documents with a duplicate @id should not be counted twice")
+
+	features := readBulkFeatures(t, localStorage, "test_sitemap")
+	require.Len(t, features, 2, "documents from the previous harvest that are no longer in the container output should be removed")
+	// documents are processed concurrently so which duplicate is kept is not deterministic
+	require.Contains(t, []string{"first", "duplicate"}, features["https://example.com/a"].Name)
+	require.Contains(t, features, "https://example.com/b")
 }
 
 // a shacl client that is slow to respond and records how many requests it handled at once
@@ -402,11 +347,11 @@ func TestBulkSitemapValidatesShaclConcurrently(t *testing.T) {
 	sitemap.URL[0].Loc = imageName
 
 	shaclClient := &slowShaclValidatorClient{}
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, NewGrpcShaclValidatorFromClients(shaclClient), false, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, NewGrpcShaclValidatorFromClients(shaclClient), false)
 	require.NoError(t, err)
 
 	start := time.Now()
-	stats, _, err := sitemap.Harvest(context.Background(), &config)
+	stats, err := sitemap.Harvest(context.Background(), &config)
 	require.NoError(t, err)
 	elapsed := time.Since(start)
 
@@ -416,7 +361,5 @@ func TestBulkSitemapValidatesShaclConcurrently(t *testing.T) {
 	serialTime := numDocs * 20 * time.Millisecond
 	require.Less(t, elapsed, serialTime/2, "validating concurrently should be much faster than validating serially")
 
-	hashes, err := localStorage.ListHashes(context.Background(), "summoned/test_sitemap/")
-	require.NoError(t, err)
-	require.Len(t, hashes, numDocs)
+	require.Len(t, readBulkFeatures(t, localStorage, "test_sitemap"), numDocs)
 }

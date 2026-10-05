@@ -7,10 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/md5"
-	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"runtime"
@@ -27,6 +24,7 @@ import (
 
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
+	"github.com/internetofwater/nabu/internal/parquettable"
 	"github.com/internetofwater/nabu/pkg"
 	"golang.org/x/sync/errgroup"
 )
@@ -34,12 +32,6 @@ import (
 // the number of documents validated against a remote SHACL validator at once;
 // sized for a large VM running a multi-process SHACL validator
 const bulkShaclConcurrency = 128
-
-// a single jsonld document read from the stdout of a bulk container
-type bulkJsonldLine struct {
-	path string
-	line []byte
-}
 
 // The number of documents to validate at once in a bulk harvest
 func bulkShaclWorkers(config *SitemapHarvestConfig) int {
@@ -62,34 +54,11 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		log.Warn("Bulk sitemaps do not allow for specifying workers, using default worker count")
 	}
 
-	if config.cleanupOutdatedJsonld {
-		log.Warn("cleanup outdated jsonld is not configurable for bulk sitemaps; outdated jsonld is always removed after a successful bulk harvest")
-	}
-
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_harvest_%s", s.metadata.SitemapID))
 	defer span.End()
 
-	bulkStoragePrefix := "summoned/" + s.metadata.SitemapID + "/"
-
-	// If the storage can list the hash of every object under the prefix cheaply
-	// and remove objects in batches, only documents that changed are uploaded
-	// and documents no longer present are removed after a successful harvest.
-	// Otherwise everything under the prefix is removed up front and re-uploaded
-	hashLister, canListHashes := config.storageDestination.(storage.PrefixHashLister)
-	batchRemover, canBatchRemove := config.storageDestination.(storage.BatchRemover)
-	incremental := canListHashes && canBatchRemove
-
-	var existingHashes map[storage.ObjectPath]storage.Md5Hash
-	if incremental {
-		var err error
-		existingHashes, err = hashLister.ListHashes(ctx, bulkStoragePrefix)
-		if err != nil {
-			return pkg.SitemapCrawlStats{}, fmt.Errorf("failed to list pre-existing bulk data with prefix %s: %w", bulkStoragePrefix, err)
-		}
-		log.Infof("Found %d pre-existing jsonld documents with prefix %s; only changed documents will be uploaded", len(existingHashes), bulkStoragePrefix)
-	} else if _, err := storage.DeletePrefix(bulkStoragePrefix, config.storageDestination); err != nil {
-		return pkg.SitemapCrawlStats{}, fmt.Errorf("failed to delete pre-existing bulk data with prefix %s: %w", bulkStoragePrefix, err)
-	}
+	// every bulk harvest replaces the complete contents of the sitemap's parquet file
+	parquetPath := SummonedParquetPath(s.metadata.SitemapID)
 
 	shaclWorkers := bulkShaclWorkers(config)
 
@@ -104,11 +73,13 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	var warningStats []pkg.ShaclInfo
 	var warningMu = sync.Mutex{}
 
+	// the @id of every document added to the parquet file; since documents are processed
+	// concurrently, only one of the documents with the same @id is kept but which one is not deterministic
 	validJsonldDocs := make(storage.Set)
 	validJsonldDocsMu := sync.Mutex{}
 
 	numNewlineSeparateJSONLDDocs := atomic.Int64{}
-	numUnchangedJSONLDDocs := atomic.Int64{}
+	numDuplicateJSONLDDocs := atomic.Int64{}
 	exitedOnShaclFailure := atomic.Bool{}
 
 	// validate a single document; only returns an error if the harvest should stop
@@ -161,71 +132,61 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 	log.Debugf("starting bulk harvest for sitemap %s with %d container urls", s.metadata.SitemapID, len(s.URL))
 
-	// uploads use the harvest context rather than the per-container group context,
-	// so documents that were validated before a strict shacl failure are still uploaded
-	harvestCtx := ctx
+	sink, err := newParquetSink(config.storageDestination, parquetPath)
+	if err != nil {
+		return pkg.SitemapCrawlStats{}, err
+	}
 
 	var errGroupError error = nil
 	for _, url := range s.URL {
 		// by using an error group we can make it so that if any of the container processing fails, we can immediately stop the entire harvest and return an error
 		// it is easier to keep in sync compared to channels
-		// The pipeline is: container stdout reader -> shacl validation workers -> bulk upload
+		// The pipeline is: container stdout reader -> shacl validation workers -> parquet file
 		group, ctx := errgroup.WithContext(ctx)
 
 		// documents read from the container that still need to be validated
-		validateChan := make(chan bulkJsonldLine, 1000)
-		// documents that have been validated and need to be uploaded
-		bulkUploadChan := make(chan storage.BulkStorageItem, 1000)
+		validateChan := make(chan []byte, 1000)
 
-		group.Go(func() error {
-			_, subspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_upload_%s", s.metadata.SitemapID))
-			err := config.storageDestination.StoreBulk(harvestCtx, bulkUploadChan)
-			log.Infof("Finished uploading bulk data for %s", url.Loc)
-			subspan.End()
-			return err
-		})
-
-		var shaclWorkersDone sync.WaitGroup
 		for range shaclWorkers {
-			shaclWorkersDone.Add(1)
 			group.Go(func() error {
-				defer shaclWorkersDone.Done()
-				for doc := range validateChan {
-					if err := validateLine(ctx, url.Loc, doc.line); err != nil {
+				for line := range validateChan {
+					feature, err := parquettable.FeatureFromJsonld(line, url.Loc)
+					if err != nil {
+						return fmt.Errorf("error unmarshaling line as JSON-LD from container logs: %w with data %s", err, string(line))
+					}
+					if feature.ID == "" {
+						log.Errorf("missing or invalid @id in JSON-LD for %s", string(line))
+						// this is a fatal error since there is no way to data the error to a specific identifier
+						// without an id; thus we return a fatal error
+						return fmt.Errorf("missing or invalid @id in JSON-LD: %s", string(line))
+					}
+
+					if err := validateLine(ctx, url.Loc, line); err != nil {
 						return err
 					}
 
 					validJsonldDocsMu.Lock()
-					validJsonldDocs.Add(doc.path)
+					duplicate := validJsonldDocs.Contains(feature.ID)
+					validJsonldDocs.Add(feature.ID)
 					validJsonldDocsMu.Unlock()
-
-					if existingHash, ok := existingHashes[doc.path]; ok {
-						sum := md5.Sum(doc.line)
-						if existingHash == hex.EncodeToString(sum[:]) {
-							numUnchangedJSONLDDocs.Add(1)
-							continue
+					if duplicate {
+						if numDuplicateJSONLDDocs.Add(1) <= 20 {
+							log.Warnf("Skipping document with duplicate @id %s from %s", feature.ID, url.Loc)
 						}
+						continue
 					}
 
-					select {
-					case bulkUploadChan <- storage.BulkStorageItem{
-						Path:       doc.path,
-						Data:       bytes.NewReader(doc.line),
-						ByteLength: len(doc.line),
-					}:
-					case <-ctx.Done():
-						return ctx.Err()
+					if err := enrichFeature(ctx, config, &feature); err != nil {
+						return err
+					}
+
+					if err := sink.Add(feature); err != nil {
+						return err
 					}
 				}
 				return nil
 			})
 		}
-
-		group.Go(func() error {
-			shaclWorkersDone.Wait()
-			close(bulkUploadChan)
-			return nil
-		})
 
 		group.Go(func() error {
 
@@ -337,31 +298,14 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				totalDocuments := numNewlineSeparateJSONLDDocs.Add(1)
 
 				if totalDocuments%5000 == 0 {
-					log.Infof("processed %d jsonld documents for %s; %d were unchanged and skipped", totalDocuments, url.Loc, numUnchangedJSONLDDocs.Load())
+					log.Infof("processed %d jsonld documents for %s", totalDocuments, url.Loc)
 					processSubspan.AddEvent(fmt.Sprintf("processed %d jsonld documents", totalDocuments))
 				}
-
-				var jsonObj map[string]any
-				if err := json.Unmarshal(line, &jsonObj); err != nil {
-					return fmt.Errorf("error unmarshaling line as JSON-LD from container logs: %w with data %s", err, string(line))
-				}
-
-				idStr, ok := jsonObj["@id"].(string)
-				if !ok {
-					log.Errorf("missing or invalid @id in JSON-LD for %s", string(line))
-					// this is a fatal error since there is no way to data the error to a specific identifier
-					// without an id; thus we return a fatal error
-					return fmt.Errorf("missing or invalid @id in JSON-LD: %s", string(line))
-				}
-
-				encodedId := base64.StdEncoding.EncodeToString([]byte(idStr))
-
-				path := "summoned/" + s.metadata.SitemapID + "/" + encodedId + ".jsonld"
 
 				// ReadBytes returns a new slice on each call, so the
 				// line can be handed off without copying
 				select {
-				case validateChan <- bulkJsonldLine{path: path, line: line}:
+				case validateChan <- bytes.TrimRight(line, "\r\n"):
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -384,7 +328,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 		// if any of the goroutines in the group failed, we want to return that error and stop loop
 		// from harvesting any bulk container
-		log.Info("Waiting for uploads to finish")
+		log.Info("Waiting for documents to finish processing")
 		err := group.Wait()
 		span.AddEvent("finished waiting on work group")
 		if err != nil {
@@ -399,24 +343,19 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		numNewlineSeparateJSONLDDocs.Store(0)
 	}
 
-	// only remove outdated documents once every container has been harvested successfully;
-	// otherwise we would remove documents that may still be valid
-	if incremental && errGroupError == nil {
-		outdated := []storage.ObjectPath{}
-		for path := range existingHashes {
-			if !validJsonldDocs.Contains(path) {
-				outdated = append(outdated, path)
-			}
-		}
-		if len(outdated) > 0 {
-			log.Infof("Removing %d outdated jsonld documents with prefix %s", len(outdated), bulkStoragePrefix)
-			if err := batchRemover.RemoveMany(ctx, outdated); err != nil {
-				errGroupError = fmt.Errorf("failed to remove outdated bulk data with prefix %s: %w", bulkStoragePrefix, err)
-			}
-		}
+	// only replace the previous parquet file once every container has been harvested successfully;
+	// otherwise we would replace documents that may still be valid with a partial harvest
+	if errGroupError != nil {
+		sink.Abort(errGroupError)
+	} else if rows, err := sink.Commit(); errors.Is(err, errNoFeaturesHarvested) {
+		log.Warnf("Keeping the previous %s since no documents were harvested from sitemap %s", parquetPath, s.metadata.SitemapID)
+	} else if err != nil {
+		errGroupError = err
+	} else {
+		log.Infof("Wrote %d jsonld documents to %s", rows, parquetPath)
 	}
 
-	log.Infof("Bulk harvest for %s read %d jsonld documents; %d were unchanged and not re-uploaded", s.metadata.SitemapID, numNewlineSeparateJSONLDDocs.Load(), numUnchangedJSONLDDocs.Load())
+	log.Infof("Bulk harvest for %s read %d jsonld documents; %d had a duplicate @id and were skipped", s.metadata.SitemapID, numNewlineSeparateJSONLDDocs.Load(), numDuplicateJSONLDDocs.Load())
 
 	firstTwentyWarnings := warningStats
 	if len(warningStats) > 20 {

@@ -23,11 +23,6 @@ func (i SitemapIndex) WithShaclValidationConfig(shaclAddress string, useLocal bo
 	return i
 }
 
-func (i SitemapIndex) WithOutdatedJsonldCleanup(enabled bool) SitemapIndex {
-	i.outdatedJsonldCleanupEnabled = enabled
-	return i
-}
-
 func (i SitemapIndex) WithConcurrencyConfig(concurrentSitemaps int, sitemapWorkers int) SitemapIndex {
 	// Make sure concurrency is at least 1
 	// otherwise go will block indefinitely
@@ -56,5 +51,12 @@ func (i SitemapIndex) WithSpecifiedSourceFilter(sourceToHarvest string) SitemapI
 
 func (i SitemapIndex) WithHeadlessChromeUrl(url string) SitemapIndex {
 	i.headlessChromeUrl = url
+	return i
+}
+
+// Set the flatgeobuf file, either local or remote, used to associate features
+// with mainstems for sitemaps that request it in the sitemap index
+func (i SitemapIndex) WithMainstemFile(mainstemFile string) SitemapIndex {
+	i.mainstemFile = mainstemFile
 	return i
 }

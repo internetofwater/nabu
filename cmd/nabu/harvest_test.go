@@ -24,7 +24,7 @@ func NewNabuRunnerFromString(args string) NabuRunner {
 }
 
 func (s *NabuHarvestSuite) TestHarvestToS3() {
-	args := fmt.Sprintf("harvest --log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
+	args := fmt.Sprintf("harvest --mainstem-metadata ../../internal/mainstems/testdata/colorado_subset.fgb --log-level DEBUG --sitemap-index https://geoconnex.us/sitemap.xml --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
 		"https://geoconnex.us/sitemap.xml":                     {File: "testdata/sitemap_index.xml", StatusCode: 200},
 		"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {File: "testdata/stations__5.xml", StatusCode: 200},
@@ -36,8 +36,9 @@ func (s *NabuHarvestSuite) TestHarvestToS3() {
 	s.Require().NoError(err)
 	objs, err := s.minioContainer.ClientWrapper.ObjectList(context.Background(), "summoned/")
 	s.Require().NoError(err)
-	// two jsonld objects
-	s.Require().Len(objs, 2)
+	// one parquet file containing both jsonld documents
+	s.Require().Len(objs, 1)
+	s.Require().Equal("summoned/iow:wqp:stations__5.parquet", objs[0].Key)
 
 	// access all the objects in the metadata bucket and make sure they exist
 	buckets, err := s.minioContainer.ClientWrapper.Client.ListBuckets(context.Background())
@@ -68,7 +69,7 @@ func (s *NabuHarvestSuite) TestHarvestToS3() {
 }
 
 func (s *NabuHarvestSuite) TestHarvestWithSourceSpecified() {
-	args := fmt.Sprintf("harvest --log-level DEBUG --sitemap-index testdata/sitemap_index.xml --source iow:wqp:stations__5 --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
+	args := fmt.Sprintf("harvest --mainstem-metadata ../../internal/mainstems/testdata/colorado_subset.fgb --log-level DEBUG --sitemap-index testdata/sitemap_index.xml --source iow:wqp:stations__5 --address %s --port %d --bucket %s", s.minioContainer.Hostname, s.minioContainer.APIPort, s.minioContainer.ClientWrapper.DefaultBucket)
 
 	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
 		"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {File: "testdata/stations__5.xml", StatusCode: 200},
@@ -82,7 +83,7 @@ func (s *NabuHarvestSuite) TestHarvestWithSourceSpecified() {
 }
 
 func (s *NabuHarvestSuite) TestHarvestToDisk() {
-	args := "harvest --log-level DEBUG --to-disk --sitemap-index testdata/sitemap_index.xml"
+	args := "harvest --mainstem-metadata ../../internal/mainstems/testdata/colorado_subset.fgb --log-level DEBUG --to-disk --sitemap-index testdata/sitemap_index.xml"
 	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
 		"https://geoconnex.us/sitemap.xml":                     {File: "testdata/sitemap_index.xml", StatusCode: 200},
 		"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {File: "testdata/stations__5.xml", StatusCode: 200},
@@ -95,7 +96,7 @@ func (s *NabuHarvestSuite) TestHarvestToDisk() {
 }
 
 func (s *NabuHarvestSuite) TestBadFileType() {
-	args := "harvest --sitemap-index https://geoconnex.us/sitemap.xml --source SELFIE:ids__0 --log-level DEBUG --to-disk"
+	args := "harvest --mainstem-metadata ../../internal/mainstems/testdata/colorado_subset.fgb --sitemap-index https://geoconnex.us/sitemap.xml --source SELFIE:ids__0 --log-level DEBUG --to-disk"
 	mockedClient := common.NewMockedClient(true, map[string]common.MockResponse{
 		"https://geoconnex.us/sitemap.xml":                           {File: "testdata/sitemap_index_selfie.xml", StatusCode: 200},
 		"https://geoconnex.us/sitemap/SELFIE/SELFIE_ids__0.xml":      {File: "testdata/SELFIE_ids__0.xml", StatusCode: 200},
@@ -143,7 +144,7 @@ func harvestTestClient() *http.Client {
 }
 
 func TestHarvestWithLocalShacl(t *testing.T) {
-	args := "harvest --to-disk --shacl-local --sitemap-index testdata/sitemap_index.xml"
+	args := "harvest --mainstem-metadata ../../internal/mainstems/testdata/colorado_subset.fgb --to-disk --shacl-local --sitemap-index testdata/sitemap_index.xml"
 	stats, err := NewNabuRunnerFromString(args).Run(context.Background(), harvestTestClient())
 	require.NoError(t, err)
 	require.Len(t, stats, 1)
@@ -158,7 +159,21 @@ func TestHarvestWithLocalShacl(t *testing.T) {
 }
 
 func TestHarvestWithLocalAndGrpcShaclFails(t *testing.T) {
-	args := "harvest --to-disk --shacl-local --shacl-grpc-endpoint 0.0.0.0:50051 --sitemap-index testdata/sitemap_index.xml"
+	args := "harvest --mainstem-metadata ../../internal/mainstems/testdata/colorado_subset.fgb --to-disk --shacl-local --shacl-grpc-endpoint 0.0.0.0:50051 --sitemap-index testdata/sitemap_index.xml"
 	_, err := NewNabuRunnerFromString(args).Run(context.Background(), harvestTestClient())
 	require.Error(t, err)
+}
+
+func TestHarvestMainstemFileIsOptional(t *testing.T) {
+	t.Run("not providing a mainstem file is an error if a sitemap requests mainstems", func(t *testing.T) {
+		// this sitemap index sets add_associated_mainstems
+		args := "harvest --to-disk --sitemap-index testdata/sitemap_index.xml"
+		_, err := NewNabuRunnerFromString(args).Run(context.Background(), harvestTestClient())
+		require.ErrorContains(t, err, "but no mainstem file was provided")
+	})
+	t.Run("a mainstem file that does not exist is an error", func(t *testing.T) {
+		args := "harvest --to-disk --mainstem-metadata does_not_exist.fgb --sitemap-index testdata/sitemap_index.xml"
+		_, err := NewNabuRunnerFromString(args).Run(context.Background(), harvestTestClient())
+		require.ErrorContains(t, err, "does not exist locally")
+	})
 }

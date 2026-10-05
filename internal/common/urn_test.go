@@ -77,11 +77,7 @@ func TestSkolemize(t *testing.T) {
 }
 
 func TestE2ESkolemizeJsonld(t *testing.T) {
-	ctxMaps := map[string]string{
-		"https://schema.org/": "./assets/schemaorg-current-https.jsonld",
-	}
-
-	processor, options, err := NewJsonldProcessor(true, ctxMaps)
+	processor, options, err := NewJsonldProcessor(true)
 	require.NoError(t, err)
 	loader := options.DocumentLoader
 	require.IsType(t, &jsonld.CachingDocumentLoader{}, loader)

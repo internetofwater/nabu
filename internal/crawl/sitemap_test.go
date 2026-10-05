@@ -4,26 +4,27 @@
 package crawl
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"os"
-	"strings"
+	"path/filepath"
 	"testing"
 	"time"
 
 	common "github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
-	"github.com/internetofwater/nabu/internal/crawl/url_info"
+	"github.com/internetofwater/nabu/internal/parquettable"
+	"github.com/internetofwater/nabu/pkg"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestNamesAreBase64(t *testing.T) {
-	mocks := map[string]common.MockResponse{
+// the default mocks for the test sitemap with three sites
+func sitemapMocks() map[string]common.MockResponse {
+	return map[string]common.MockResponse{
 		"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {
 			StatusCode: 200,
 			File:       "testdata/sitemap.xml",
@@ -49,33 +50,58 @@ func TestNamesAreBase64(t *testing.T) {
 			ContentType: "application/text/plain",
 		},
 	}
-	mockedClient := common.NewMockedClient(
-		true, mocks,
-	)
+}
 
-	storage, err := storage.NewLocalTempFSCrawlStorage()
+// harvest the test sitemap with the given mocks into the storage
+func harvestTestSitemap(t *testing.T, mocks map[string]common.MockResponse, store storage.CrawlStorage) (pkg.SitemapCrawlStats, error) {
+	mockedClient := common.NewMockedClient(true, mocks)
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, store, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
 	require.NoError(t, err)
-	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", SitemapID: "test"})
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false)
 	require.NoError(t, err)
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, false)
+	return sitemap.Harvest(context.Background(), &config)
+}
+
+// read every feature in the parquet file for a sitemap keyed by the url it was harvested from
+func readHarvestedFeatures(t *testing.T, store storage.CrawlStorage, sitemapId string) map[string]parquettable.Feature {
+	features := map[string]parquettable.Feature{}
+	exists, err := readStoredFeatures(context.Background(), store, SummonedParquetPath(sitemapId), func(f parquettable.Feature) error {
+		require.NotContains(t, features, f.URL, "each url should only be in the parquet file once")
+		features[f.URL] = f
+		return nil
+	})
+	require.NoError(t, err)
+	require.True(t, exists, "the parquet file for the sitemap should exist")
+	return features
+}
+
+func readFile(t *testing.T, path string) []byte {
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return data
+}
+
+func TestHarvestWritesOneParquetFile(t *testing.T) {
+	store, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
 
-	_, _, err = sitemap.
-		Harvest(context.Background(), &config)
+	_, err = harvestTestSitemap(t, sitemapMocks(), store)
 	require.NoError(t, err)
 
-	const root = ""
-	storageItems, err := storage.ListDir(root)
+	summoned, err := store.ListDir("summoned")
 	require.NoError(t, err)
-	require.Equal(t, len(storageItems), 2, "There are 3 mocks so there is a list of length 2. Thus there should also be a storage items of list length 2")
-	for item := range mocks {
-		if strings.HasSuffix(item, ".jsonld") {
-			url := url_info.NewUrlFromString(item)
-			path, err := urlToStoragePath(sitemap.metadata.SitemapID, url)
-			require.NoError(t, err)
-			require.Contains(t, storageItems, path)
+	require.Len(t, summoned, 1, "there should only be one parquet file for the sitemap and no individual jsonld files")
+
+	features := readHarvestedFeatures(t, store, "test")
+	require.Len(t, features, 3)
+	for url, mock := range sitemapMocks() {
+		if mock.ContentType != "application/ld+json" {
+			continue
 		}
+		require.Contains(t, features, url)
+		require.Equal(t, readFile(t, mock.File), features[url].JSONLD, "the jsonld should be stored exactly as it was harvested")
 	}
+	require.Equal(t, "Eufaula", features["https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C"].Name)
 }
 
 func TestHarvestSitemap(t *testing.T) {
@@ -115,10 +141,10 @@ func TestHarvestSitemap(t *testing.T) {
 	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
 	require.NoError(t, err)
 
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false)
 	require.NoError(t, err)
 
-	results, _, err := sitemap.
+	results, err := sitemap.
 		Harvest(context.Background(), &config)
 	require.NoError(t, err)
 
@@ -138,201 +164,116 @@ func TestHarvestSitemap(t *testing.T) {
 }
 
 func TestHarvestTwiceOverridesFile(t *testing.T) {
-
 	const urlToHarvestDifferently = "https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C"
-	mocks := map[string]common.MockResponse{
-		"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {
-			StatusCode: 200,
-			File:       "testdata/sitemap.xml",
-		},
-		urlToHarvestDifferently: {
-			StatusCode:  200,
-			File:        "testdata/reference_feature.jsonld",
-			ContentType: "application/ld+json",
-		},
-		"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2": {
-			StatusCode:  200,
-			File:        "testdata/reference_feature_2.jsonld",
-			ContentType: "application/ld+json",
-		},
-		"https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A": {
-			StatusCode:  200,
-			File:        "testdata/reference_feature_3.jsonld",
-			ContentType: "application/ld+json",
-		},
-		"https://geoconnex.us/robots.txt": {
-			StatusCode:  200,
-			File:        "testdata/geoconnex_robots.txt",
-			ContentType: "application/text/plain",
-		},
-	}
-	mockedClient := common.NewMockedClient(
-		true,
-		mocks,
-	)
 
-	storage, err := storage.NewLocalTempFSCrawlStorage()
-	require.NoError(t, err)
-	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
-	require.NoError(t, err)
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, false)
+	store, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
 
-	_, _, err = sitemap.
-		Harvest(context.Background(), &config)
+	mocks := sitemapMocks()
+	_, err = harvestTestSitemap(t, mocks, store)
 	require.NoError(t, err)
+	require.Equal(t, readFile(t, "testdata/reference_feature.jsonld"), readHarvestedFeatures(t, store, "test")[urlToHarvestDifferently].JSONLD)
 
-	pathInStorage, err := urlToStoragePath(sitemap.metadata.SitemapID, url_info.NewUrlFromString(urlToHarvestDifferently))
-	require.NoError(t, err)
-	dataInStorage, err := storage.Get(pathInStorage)
-	require.NoError(t, err)
-	dataInStorageAsBytes, err := io.ReadAll(dataInStorage)
-	require.NoError(t, err)
-
-	mockedContent, err := os.Open("testdata/reference_feature.jsonld")
-	require.NoError(t, err)
-	mockedContentAsBytes, err := io.ReadAll(mockedContent)
-	require.NoError(t, err)
-	require.Equal(t, dataInStorageAsBytes, mockedContentAsBytes)
-
-	/*
-		Once we have assured that the file is in the storage, we try
-		harvesting it again but this time with a different content
-		to make sure the the file is overwritten
-	*/
-
+	// harvest again with different content to make sure the document is replaced
 	mocks[urlToHarvestDifferently] = common.MockResponse{
-		StatusCode: 200,
-		// new content
+		StatusCode:  200,
 		File:        "testdata/reference_feature_2.jsonld",
 		ContentType: "application/ld+json",
 	}
-	mockClientWithReplacedContent := common.NewMockedClient(true, mocks)
-	sitemap, err = NewSitemap(context.Background(), mockClientWithReplacedContent, 1, storage, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
-	require.NoError(t, err)
-	stats, _, err := sitemap.
-		Harvest(context.Background(), &config)
+	stats, err := harvestTestSitemap(t, mocks, store)
 	require.NoError(t, err)
 
 	require.Equal(t, stats.SuccessfulSites, 3)
 	require.Len(t, stats.CrawlFailures, 0, "If we harvest the same content again and there is no bad status code, there should be no failures")
 
-	dataInStorage, err = storage.Get(pathInStorage)
-	require.NoError(t, err)
-	dataInStorageAsBytes, err = io.ReadAll(dataInStorage)
-	require.NoError(t, err)
-	mockedContent, err = os.Open("testdata/reference_feature_2.jsonld")
-	require.NoError(t, err)
-	mockedContentAsBytes, err = io.ReadAll(mockedContent)
-	require.NoError(t, err)
-	require.Equal(t, dataInStorageAsBytes, mockedContentAsBytes, "The file should have been overwritten and contain the new content")
+	features := readHarvestedFeatures(t, store, "test")
+	require.Len(t, features, 3)
+	require.Equal(t, readFile(t, "testdata/reference_feature_2.jsonld"), features[urlToHarvestDifferently].JSONLD, "The document should have been replaced with the new content")
 }
 
-func TestHarvestSitemapWithCleanup(t *testing.T) {
-
-	mockedClient := common.NewMockedClient(
-		true,
-		map[string]common.MockResponse{
-			"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {
-				StatusCode: 200,
-				File:       "testdata/sitemap.xml",
-			},
-			"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C": {
-				StatusCode:  200,
-				File:        "testdata/reference_feature.jsonld",
-				ContentType: "application/ld+json",
-			},
-			"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2": {
-				StatusCode:  200,
-				File:        "testdata/reference_feature_2.jsonld",
-				ContentType: "application/ld+json",
-			},
-			"https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A": {
-				StatusCode:  200,
-				File:        "testdata/reference_feature_3.jsonld",
-				ContentType: "application/ld+json",
-			},
-			"https://geoconnex.us/robots.txt": {
-				StatusCode:  200,
-				File:        "testdata/geoconnex_robots.txt",
-				ContentType: "application/text/plain",
-			},
-		})
-
-	storage, err := storage.NewLocalTempFSCrawlStorage()
-	require.NoError(t, err)
-	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", SitemapID: "test"})
+func TestHarvestLeavesOutDocumentsForFailingSites(t *testing.T) {
+	store, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
 
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, true)
+	stats, err := harvestTestSitemap(t, sitemapMocks(), store)
 	require.NoError(t, err)
-
-	// store three files in the storage that are not part of the sitemap
-	// thus we want these to be cleaned up
-	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.metadata.SitemapID+"/testfile.txt", bytes.NewReader([]byte("dummy_data")))
-	require.NoError(t, err)
-	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.metadata.SitemapID+"/testfile2.txt", bytes.NewReader([]byte("dummy_data")))
-	require.NoError(t, err)
-	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.metadata.SitemapID+"/testfile3.txt", bytes.NewReader([]byte("dummy_data")))
-	require.NoError(t, err)
-
-	stats, cleanedUpFiles, err := sitemap.
-		Harvest(context.Background(), &config)
-	require.NoError(t, err)
-	require.Len(t, cleanedUpFiles, 3, "THere should be 3 files cleaned up, representing the 3 testfiles.txt that were manually added")
-
 	require.Len(t, stats.CrawlFailures, 0)
 	require.Equal(t, stats.SuccessfulSites, 3)
 	require.Len(t, stats.WarningStats.ShaclWarnings, 0)
 
-	mockedClientWithErrors := common.NewMockedClient(
-		true,
-		map[string]common.MockResponse{
-			"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {
-				StatusCode: 200,
-				File:       "testdata/sitemap.xml",
-			},
-			"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C": {
-				StatusCode:  404,
-				File:        "testdata/reference_feature.jsonld",
-				ContentType: "application/ld+json",
-			},
-			"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2": {
-				StatusCode:  404,
-				File:        "testdata/reference_feature_2.jsonld",
-				ContentType: "application/ld+json",
-			},
-			"https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A": {
-				StatusCode:  200,
-				File:        "testdata/reference_feature_3.jsonld",
-				ContentType: "application/ld+json",
-			},
-			"https://geoconnex.us/robots.txt": {
-				StatusCode:  200,
-				File:        "testdata/geoconnex_robots.txt",
-				ContentType: "application/text/plain",
-			},
-		})
+	mocksWithErrors := sitemapMocks()
+	for _, url := range []string{"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C", "https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2"} {
+		mock := mocksWithErrors[url]
+		mock.StatusCode = 404
+		mocksWithErrors[url] = mock
+	}
 
-	// store a file that is not in the sitemap
-	err = storage.StoreWithoutServersideHash("summoned/"+sitemap.metadata.SitemapID+"/dummy.txt", bytes.NewReader([]byte("dummy_data")))
+	stats, err = harvestTestSitemap(t, mocksWithErrors, store)
 	require.NoError(t, err)
-
-	sitemap, err = NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
-	require.NoError(t, err)
-
-	config, err = NewSitemapHarvestConfig(mockedClientWithErrors, sitemap, nil, false, true)
-	require.NoError(t, err)
-
-	stats, cleanedUpFiles, err = sitemap.
-		Harvest(context.Background(), &config)
-	require.NoError(t, err)
-	require.Len(t, cleanedUpFiles, 1, "There should be 1 file cleaned up, representing dummy.txt; the other sites which 404d but are in the sitemap should stay in case they are temporarily failing")
-
 	require.Len(t, stats.CrawlFailures, 2, "Two sites had 404 errors")
 	require.Equal(t, stats.SuccessfulSites, 1, "Only one site had a successful response")
-	require.Len(t, stats.WarningStats.ShaclWarnings, 0)
 	require.Equal(t, 3, stats.SitesInSitemap, "All 3 sites should be in the sitemap")
+
+	features := readHarvestedFeatures(t, store, "test")
+	require.Len(t, features, 1, "the parquet file should only contain the documents fetched in the most recent harvest")
+	require.Contains(t, features, "https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A")
+}
+
+func TestHarvestKeepsPreviousFileIfNoDocumentsSucceed(t *testing.T) {
+	store, err := storage.NewLocalTempFSCrawlStorage()
+	require.NoError(t, err)
+
+	_, err = harvestTestSitemap(t, sitemapMocks(), store)
+	require.NoError(t, err)
+	previousHarvest := readHarvestedFeatures(t, store, "test")
+
+	// every url fails but there are fewer failures than are needed to assume the sitemap is down
+	allFailing := sitemapMocks()
+	for url, mock := range allFailing {
+		if mock.ContentType == "application/ld+json" {
+			mock.StatusCode = 404
+			allFailing[url] = mock
+		}
+	}
+	stats, err := harvestTestSitemap(t, allFailing, store)
+	require.NoError(t, err, "failing urls are not fatal")
+	require.Len(t, stats.CrawlFailures, 3)
+	require.Zero(t, stats.SuccessfulSites)
+	require.Equal(t, previousHarvest, readHarvestedFeatures(t, store, "test"), "an empty harvest should not replace the previous file")
+
+	t.Run("no file is created if the first harvest has no documents", func(t *testing.T) {
+		emptyStore, err := storage.NewLocalTempFSCrawlStorage()
+		require.NoError(t, err)
+		_, err = harvestTestSitemap(t, allFailing, emptyStore)
+		require.NoError(t, err)
+		exists, err := emptyStore.Exists(SummonedParquetPath("test"))
+		require.NoError(t, err)
+		require.False(t, exists)
+	})
+}
+
+func TestHarvestRemovesDocumentsNoLongerInSitemap(t *testing.T) {
+	store, err := storage.NewLocalTempFSCrawlStorage()
+	require.NoError(t, err)
+
+	_, err = harvestTestSitemap(t, sitemapMocks(), store)
+	require.NoError(t, err)
+
+	smallerSitemap := filepath.Join(t.TempDir(), "sitemap.xml")
+	err = os.WriteFile(smallerSitemap, []byte(`<?xml version='1.0' encoding='utf-8'?>
+<ns0:urlset xmlns:ns0="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url><loc>https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A</loc></url>
+</ns0:urlset>`), 0644)
+	require.NoError(t, err)
+	mocks := sitemapMocks()
+	mocks["https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"] = common.MockResponse{StatusCode: 200, File: smallerSitemap}
+
+	_, err = harvestTestSitemap(t, mocks, store)
+	require.NoError(t, err)
+
+	features := readHarvestedFeatures(t, store, "test")
+	require.Len(t, features, 1)
+	require.Contains(t, features, "https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A")
 }
 
 func TestErrorGroupCtxCancelling(t *testing.T) {
@@ -363,54 +304,31 @@ func TestErrorGroupCtxCancelling(t *testing.T) {
 }
 
 func TestHarvestSitemapThatIsDown(t *testing.T) {
-
-	mockedClient := common.NewMockedClient(
-		true,
-		map[string]common.MockResponse{
-			"https://geoconnex.us/sitemap/iow/wqp/stations__5.xml": {
-				StatusCode: 200,
-				File:       "testdata/sitemap.xml",
-			},
-			"https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C": {
-				StatusCode:  500,
-				File:        "testdata/reference_feature.jsonld",
-				ContentType: "application/ld+json",
-			},
-			"https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2": {
-				StatusCode:  500,
-				File:        "testdata/reference_feature_2.jsonld",
-				ContentType: "application/ld+json",
-			},
-			"https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A": {
-				StatusCode:  500,
-				File:        "testdata/reference_feature_3.jsonld",
-				ContentType: "application/ld+json",
-			},
-			"https://geoconnex.us/robots.txt": {
-				StatusCode:  200,
-				File:        "testdata/geoconnex_robots.txt",
-				ContentType: "application/text/plain",
-			},
-		})
-
-	storage, err := storage.NewLocalTempFSCrawlStorage()
+	store, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
 
-	const preexisting_file = "test_file_that_shouldnt_be_removed"
-	err = storage.StoreWithoutServersideHash(preexisting_file, bytes.NewReader([]byte("dummy_data")))
+	_, err = harvestTestSitemap(t, sitemapMocks(), store)
+	require.NoError(t, err)
+	previousHarvest := readHarvestedFeatures(t, store, "test")
+
+	mocks := sitemapMocks()
+	for url, mock := range mocks {
+		if mock.ContentType == "application/ld+json" {
+			mock.StatusCode = 500
+			mocks[url] = mock
+		}
+	}
+	mockedClient := common.NewMockedClient(true, mocks)
+
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, store, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
 	require.NoError(t, err)
 
-	require.NoError(t, err)
-	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
-	require.NoError(t, err)
-
-	const cleanupOldJsonld = true
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false, cleanupOldJsonld)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false)
 	require.NoError(t, err)
 
 	config.failedSitesToAssumeDatasetDown = 1
 
-	stats, _, err := sitemap.
+	stats, err := sitemap.
 		Harvest(context.Background(), &config)
 	var downErr *SitemapAppearsDownError
 	require.ErrorAs(t, err, &downErr)
@@ -421,9 +339,7 @@ func TestHarvestSitemapThatIsDown(t *testing.T) {
 	require.Equal(t, stats.SuccessfulSites, 0)
 	require.Equal(t, stats.SitesInSitemap, 3)
 
-	exists, err := storage.Exists(preexisting_file)
-	require.NoError(t, err)
-	require.True(t, exists, "The preexisting file should not have been removed; cleanup only runs after successful harvest and the sitemap was down; prompting an early exit")
+	require.Equal(t, previousHarvest, readHarvestedFeatures(t, store, "test"), "The previous harvest should be kept as is since the sitemap was down; prompting an early exit")
 }
 
 func TestShaclConnectionIssueDoesntCauseFailure(t *testing.T) {
@@ -467,10 +383,10 @@ func TestShaclConnectionIssueDoesntCauseFailure(t *testing.T) {
 	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
 	require.NoError(t, err)
 
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, badGrpcClient, false, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, badGrpcClient, false)
 	require.NoError(t, err)
 
-	stats, _, err := sitemap.
+	stats, err := sitemap.
 		Harvest(context.Background(), &config)
 	require.NoError(t, err)
 

@@ -31,6 +31,12 @@ type MockResponse struct {
 	Timeout bool
 }
 
+func (m MockResponse) header() http.Header {
+	return http.Header{
+		"Content-Type": []string{m.ContentType},
+	}
+}
+
 type MockTransport struct {
 	// Deny requests that are not mocked
 	denyReqNotMocked bool
@@ -54,9 +60,7 @@ func (m *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: associatedMock.StatusCode,
 				Body:       io.NopCloser(strings.NewReader(associatedMock.Body)),
-				Header: http.Header{
-					"Content-Type": []string{associatedMock.ContentType},
-				},
+				Header:     associatedMock.header(),
 			}, nil
 		} else {
 			mockedContent, err := os.Open(associatedMock.File)
@@ -66,9 +70,7 @@ func (m *MockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: associatedMock.StatusCode,
 				Body:       mockedContent,
-				Header: http.Header{
-					"Content-Type": []string{associatedMock.ContentType},
-				},
+				Header:     associatedMock.header(),
 			}, nil
 		}
 

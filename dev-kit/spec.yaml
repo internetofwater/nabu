@@ -53,6 +53,7 @@ permissions:
       # ELFIE JSON-LD contexts hosted on GitHub Pages; used by crawl testdata
       # and fetched by TestGetJsonLdFromHTML
       - opengeospatial.github.io
+      - json-ld.org
 
       # Vocabularies used by the example projects and build testdata.
       - geoconnex.us

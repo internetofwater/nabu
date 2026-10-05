@@ -22,6 +22,7 @@
     <loc>https://pids.geoconnex.dev/sitemap/cdss/co_gages__0.xml</loc>
     <lastmod>2024-05-21T11:13:22Z</lastmod>
     <geoconnex:sitemap_id>cdss:co_gages__0</geoconnex:sitemap_id>
+    <geoconnex:add_associated_mainstems>True</geoconnex:add_associated_mainstems>
 </sitemap><sitemap>
     <loc>https://pids.geoconnex.dev/sitemap/nmwdi/st/nmwdi-st__0.xml</loc>
     <lastmod>2021-11-04T21:45:51Z</lastmod>

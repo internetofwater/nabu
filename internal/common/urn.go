@@ -108,11 +108,7 @@ func Skolemization(nq string) (string, error) {
 		// we want to use a deterministic hash for
 		// skolemization so that the same triples have the
 		// same skolemized iri even if they are present in
-		// the file in a different order; this allows for
-		// a more consistent hash checks on the entire file
-		// i.e. when we take the bytesum hash of the entire
-		// file, consistent iris will allow for a consistent
-		// bytesum hash of the entire file
+		// the file in a different order
 		hashOfAllTriplesWithTheSameBlankNode := fmt.Sprintf("%x", hash.Sum(nil))
 		iri := fmt.Sprintf("<https://docs.geoconnex.us/nqhash/%s>", hashOfAllTriplesWithTheSameBlankNode)
 

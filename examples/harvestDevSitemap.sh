@@ -8,6 +8,6 @@ cd "$(dirname "$0")" && docker compose up -d
 
 cd ../
 
-time go run ./cmd/nabu harvest --log-level DEBUG --sitemap-index https://pids.geoconnex.dev/sitemap.xml  --concurrent-sitemaps 10 --sitemap-workers 1000 --use-otel
+time go run ./cmd/nabu harvest --mainstem-metadata "$(pwd)/shacl_validator/data/reference_catchments_and_flowlines.fgb" --log-level DEBUG --sitemap-index https://pids.geoconnex.dev/sitemap.xml  --concurrent-sitemaps 10 --sitemap-workers 1000 --use-otel
 
 open http://localhost:16686

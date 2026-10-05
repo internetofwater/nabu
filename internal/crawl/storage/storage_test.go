@@ -5,6 +5,7 @@ package storage
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"path"
 	"testing"
@@ -33,14 +34,36 @@ func TestGleanerTempFSCrawlStorage(t *testing.T) {
 	exists, err := storage.Exists("testfile.txt")
 	require.NoError(t, err)
 	require.True(t, exists)
+}
 
-	isEmpty, err := storage.IsEmptyDir("dummy_nonexistent_directory/")
-	require.NoError(t, err)
-	require.True(t, isEmpty)
+// a reader that returns some data and then fails
+type failingReader struct{ sent bool }
 
-	isEmpty, err = storage.IsEmptyDir("")
+func (r *failingReader) Read(p []byte) (int, error) {
+	if r.sent {
+		return 0, errors.New("upstream failure")
+	}
+	r.sent = true
+	return copy(p, "partial"), nil
+}
+
+func TestFailedStoreKeepsPreviousFile(t *testing.T) {
+	storage, err := NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
-	require.False(t, isEmpty)
+
+	require.NoError(t, storage.StoreWithoutServersideHash("dir/file.parquet", bytes.NewReader([]byte("original"))))
+	require.Error(t, storage.StoreWithoutServersideHash("dir/file.parquet", &failingReader{}))
+
+	reader, err := storage.Get("dir/file.parquet")
+	require.NoError(t, err)
+	defer func() { _ = reader.Close() }()
+	data, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	require.Equal(t, "original", string(data))
+
+	set, err := storage.ListDir("dir")
+	require.NoError(t, err)
+	require.Len(t, set, 1, "no temporary files should be left behind")
 }
 
 func TestSet(t *testing.T) {
@@ -71,74 +94,4 @@ func TestListDir(t *testing.T) {
 		require.True(t, isAbs, "ListDir paths should be absolute")
 		require.Contains(t, item, "/testfile.txt")
 	}
-}
-
-func TestCleanupOutdatedJsonld(t *testing.T) {
-	storage, err := NewLocalTempFSCrawlStorage()
-	// setup
-	require.NoError(t, err)
-	err = storage.StoreWithoutServersideHash("summoned/sitemap1/testfile.txt", bytes.NewReader([]byte("dummy_data")))
-	require.NoError(t, err)
-	filesinStorage := make(Set)
-
-	// "make sure files that are seen are kept"
-	filesinStorage.Add("summoned/sitemap1/testfile.txt")
-	_, err = CleanupFiles("summoned/sitemap1", filesinStorage, storage)
-	require.NoError(t, err)
-	res, err := storage.Exists("summoned/sitemap1/testfile.txt")
-	require.NoError(t, err)
-	require.True(t, res, "File should still exist since it was in the set")
-
-	// "make sure files that are not seen are removed"
-	err = storage.StoreWithoutServersideHash("summoned/sitemap1/THIS_SHOULD_BE_REMOVED.txt", bytes.NewReader([]byte("dummy_data")))
-	require.NoError(t, err)
-	_, err = CleanupFiles("summoned/sitemap1", filesinStorage, storage)
-	require.NoError(t, err)
-	res, err = storage.Exists("summoned/sitemap1/THIS_SHOULD_BE_REMOVED.txt")
-	require.NoError(t, err)
-	require.False(t, res)
-
-	// make sure files that in a different path are not touched", func(t *testing.T)
-	err = storage.StoreWithoutServersideHash("summoned/sitemap2/KEEP_THIS.txt", bytes.NewReader([]byte("dummy_data")))
-	require.NoError(t, err)
-	_, err = CleanupFiles("summoned/sitemap1", filesinStorage, storage)
-	require.NoError(t, err)
-	res, err = storage.Exists("summoned/sitemap2/KEEP_THIS.txt")
-	require.NoError(t, err)
-	require.True(t, res)
-}
-
-func TestDeletePrefix(t *testing.T) {
-	storage, err := NewLocalTempFSCrawlStorage()
-	require.NoError(t, err)
-
-	for _, object := range []string{
-		"summoned/sitemap1/first.jsonld",
-		"summoned/sitemap1/second.jsonld",
-		"summoned/sitemap2/keep.jsonld",
-	} {
-		err = storage.StoreWithoutServersideHash(object, bytes.NewReader([]byte("dummy_data")))
-		require.NoError(t, err)
-	}
-
-	deleted, err := DeletePrefix("summoned/sitemap1/", storage)
-	require.NoError(t, err)
-	require.Equal(t, int64(2), deleted)
-
-	for _, object := range []string{
-		"summoned/sitemap1/first.jsonld",
-		"summoned/sitemap1/second.jsonld",
-	} {
-		exists, err := storage.Exists(object)
-		require.NoError(t, err)
-		require.False(t, exists)
-	}
-
-	exists, err := storage.Exists("summoned/sitemap2/keep.jsonld")
-	require.NoError(t, err)
-	require.True(t, exists)
-
-	deleted, err = DeletePrefix("summoned/does-not-exist/", storage)
-	require.NoError(t, err)
-	require.Zero(t, deleted)
 }

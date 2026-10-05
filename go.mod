@@ -4,7 +4,9 @@ go 1.26
 
 require (
 	github.com/alexflint/go-arg v1.5.1
+	github.com/apache/arrow-go/v18 v18.5.1
 	github.com/duckdb/duckdb-go/v2 v2.10505.0
+	github.com/golang/geo v0.0.0-20260928092222-7d12f68cfadb
 	github.com/minio/minio-go/v7 v7.0.94
 	github.com/moby/moby v28.5.2+incompatible
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4
@@ -29,7 +31,8 @@ require (
 require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect
-	github.com/apache/arrow-go/v18 v18.5.1 // indirect
+	github.com/andybalholm/brotli v1.2.0 // indirect
+	github.com/apache/thrift v0.22.0 // indirect
 	github.com/cayleygraph/quad v1.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -44,7 +47,11 @@ require (
 	github.com/duckdb/duckdb-go-bindings/lib/windows-amd64 v0.10505.0 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
+	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/flatbuffers v25.12.19+incompatible // indirect
+	github.com/klauspost/asmfmt v1.3.2 // indirect
+	github.com/minio/asm2plan9s v0.0.0-20200509001527-cdd76441f9d8 // indirect
+	github.com/minio/c2goasm v0.0.0-20190812172519-36a3d3bbc4f3 // indirect
 	github.com/minio/crc64nvme v1.0.2 // indirect
 	github.com/moby/go-archive v0.1.0 // indirect
 	github.com/moby/sys/atomicwriter v0.1.0 // indirect

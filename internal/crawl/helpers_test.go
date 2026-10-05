@@ -4,10 +4,13 @@
 package crawl
 
 import (
+	"context"
 	"os"
 	"testing"
 
 	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/crawl/storage"
+	"github.com/internetofwater/nabu/internal/parquettable"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -95,7 +98,7 @@ func TestGetJsonLdFromHTML(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, jsonld, "https://opengeospatial.github.io/ELFIE/contexts/elfie-2/hy_features.jsonld")
 
-		processor, options, err := common.NewJsonldProcessor(true, make(map[string]string))
+		processor, options, err := common.NewJsonldProcessor(true)
 		require.NoError(t, err)
 		_, err = common.JsonldToTriples(jsonld, processor, options)
 		require.NoError(t, err)
@@ -144,4 +147,23 @@ func TestSitemapStatusTracker(t *testing.T) {
 	require.False(t, tracker2.AppearsDown())
 	tracker2.AddSiteFailure()
 	require.False(t, tracker2.AppearsDown())
+}
+
+// Stream every feature in the parquet file at path in storage to fn;
+// returns false if there is no such file
+func readStoredFeatures(ctx context.Context, destination storage.CrawlStorage, path storage.ObjectPath, fn func(parquettable.Feature) error) (bool, error) {
+	exists, err := destination.Exists(path)
+	if err != nil || !exists {
+		return false, err
+	}
+	stored, err := destination.Get(path)
+	if err != nil {
+		return true, err
+	}
+	defer func() { _ = stored.Close() }()
+	readerAtSeeker, err := parquettable.AsReaderAtSeeker(stored)
+	if err != nil {
+		return true, err
+	}
+	return true, parquettable.Read(ctx, readerAtSeeker, fn)
 }

@@ -6,14 +6,11 @@ package s3
 import (
 	"bufio"
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -32,8 +29,6 @@ import (
 )
 
 var _ storage.CrawlStorage = &MinioClientWrapper{}
-var _ storage.BatchRemover = &MinioClientWrapper{}
-var _ storage.PrefixHashLister = &MinioClientWrapper{}
 
 // Wrapper to allow us to extend the minio client struct with new methods
 type MinioClientWrapper struct {
@@ -259,8 +254,15 @@ func (m MinioClientWrapper) StoreWithHash(path S3Prefix, data io.Reader, sizeInB
 	return err
 }
 
+// The size of each part when streaming an object of unknown size; minio buffers
+// one part in memory at a time and otherwise defaults to over 500MiB per part.
+// With the maximum of 10000 parts this allows objects of up to ~160GiB
+const streamingPartSize = 16 * 1024 * 1024
+
+// Stream data of unknown size into the bucket using a multipart upload. If reading from
+// the reader fails, the multipart upload is aborted and any existing object is left unchanged
 func (m MinioClientWrapper) StoreWithoutServersideHash(path S3Prefix, data io.Reader) error {
-	_, err := m.Client.PutObject(context.Background(), m.DefaultBucket, path, data, -1, minio.PutObjectOptions{})
+	_, err := m.Client.PutObject(context.Background(), m.DefaultBucket, path, data, -1, minio.PutObjectOptions{PartSize: streamingPartSize})
 	return err
 }
 
@@ -286,82 +288,22 @@ func (m MinioClientWrapper) Get(path S3Prefix) (io.ReadCloser, error) {
 	return m.Client.GetObject(context.Background(), m.DefaultBucket, path, minio.GetObjectOptions{})
 }
 
-// Return true if the file with the specified name in the bucket has the same bytesum as the local file of the same name
-func (m MinioClientWrapper) MatchesWithLocalBytesum(remotePrefix S3Prefix, localDir string, name string) (bool, error) {
-
-	if !strings.HasSuffix(remotePrefix, "/") {
-		return false, fmt.Errorf("prefix %s is arbitrary and must end with /", remotePrefix)
-	}
-
-	prefixForHash := remotePrefix + name + ".bytesum"
-	log.Debugf("Checking remote file hash at %s", prefixForHash)
-	remoteHashFile, err := m.Client.GetObject(context.Background(), m.DefaultBucket, prefixForHash, minio.StatObjectOptions{})
+// Return true if the local file was pulled from the object and thus does not need to be
+// pulled again. Pulled files are given the last modified time of their object, so a file
+// with the same size and modified time is from the same upload. Times are compared to the
+// second since not all sources of the time and filesystems have more precision than that
+func isUnchangedSincePull(localFile string, obj minio.ObjectInfo) (bool, error) {
+	stat, err := os.Stat(localFile)
 	if err != nil {
-		return false, nil
-	}
-	remoteHash, err := io.ReadAll(remoteHashFile)
-	if err != nil {
-		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
-			log.Debugf("Remote file bytesum %s does not exist", prefixForHash)
+		if os.IsNotExist(err) {
 			return false, nil
 		}
 		return false, err
 	}
-
-	localHashFile := localDir + "/" + name + ".bytesum"
-	log.Debugf("Checking local file bytesum at %s", localHashFile)
-	localHashValue, err := os.ReadFile(localHashFile)
-	if os.IsNotExist(err) {
+	if obj.LastModified.IsZero() {
 		return false, nil
 	}
-	if err != nil {
-		return false, err
-	}
-	return string(remoteHash) == string(localHashValue), nil
-
-}
-
-// pull all bytesums from the bucket to disk
-func (m MinioClientWrapper) pullAllByteSums(ctx context.Context, prefix S3Prefix, outputDir string) error {
-	byteSumChan := m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true})
-
-	for byteSum := range byteSumChan {
-		if byteSum.Err != nil {
-			return byteSum.Err
-		}
-
-		if !strings.HasSuffix(byteSum.Key, ".bytesum") {
-			continue
-		}
-
-		fileName := path.Base(byteSum.Key)
-
-		file, err := os.OpenFile(filepath.Join(outputDir, fileName), os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := file.Close(); err != nil {
-				log.Error(err)
-			}
-		}()
-
-		ob, err := m.Client.GetObject(ctx, m.DefaultBucket, byteSum.Key, minio.GetObjectOptions{})
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := ob.Close(); err != nil {
-				log.Error(err)
-			}
-		}()
-
-		_, err = io.Copy(file, ob)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return stat.Size() == obj.Size && stat.ModTime().Truncate(time.Second).Equal(obj.LastModified.Truncate(time.Second)), nil
 }
 
 func (m MinioClientWrapper) Exists(path S3Prefix) (bool, error) {
@@ -421,7 +363,7 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 			return fmt.Errorf("error when pulling files, %s", obj.Err)
 		}
 
-		if strings.HasSuffix(obj.Key, "prov.nq") || strings.HasSuffix(obj.Key, ".sha256") || strings.HasSuffix(obj.Key, ".bytesum") {
+		if strings.HasSuffix(obj.Key, "prov.nq") || strings.HasSuffix(obj.Key, ".sha256") {
 			// skip adding metadata like prov graphs or sha hashes into the concatenated file
 			continue
 		}
@@ -440,13 +382,15 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 			// want to have to make nested dirs to store the files
 			fileName := path.Base(obj.Key)
 
-			isPresent, err := m.MatchesWithLocalBytesum(prefix, outputDir, fileName)
+			fullLocalPath := path.Join(outputDir, fileName)
+
+			unchanged, err := isUnchangedSincePull(fullLocalPath, obj)
 			if err != nil {
 				log.Errorf("Error checking if file %s exists locally: %v", fileName, err)
 				return err
 			}
-			if isPresent {
-				log.Warnf("File %s already exists locally, skipping download", fileName)
+			if unchanged {
+				log.Infof("Skipping download of %s since %s has the same size and modified time", obj.Key, fullLocalPath)
 				return nil
 			}
 			log.Infof("Downloading %s of size %0.5fMB", obj.Key, megabytes)
@@ -460,20 +404,18 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 				}
 			}()
 
-			fullLocalPath := path.Join(outputDir, fileName)
-
-			file, err := os.OpenFile(fullLocalPath, os.O_CREATE|os.O_WRONLY, 0644)
+			file, err := os.OpenFile(fullLocalPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 			if err != nil {
 				return err
 			}
-			defer func() {
-				if err := file.Close(); err != nil {
-					log.Error(err)
-				}
-			}()
-
-			_, err = io.Copy(file, ob)
-			if err != nil {
+			_, copyErr := io.Copy(file, ob)
+			closeErr := file.Close()
+			if err := errors.Join(copyErr, closeErr); err != nil {
+				return err
+			}
+			// the modified time is only set once the download is complete so that
+			// an interrupted download is not mistaken as unchanged on the next pull
+			if err := os.Chtimes(fullLocalPath, time.Time{}, obj.LastModified); err != nil {
 				return err
 			}
 
@@ -490,16 +432,6 @@ func (m MinioClientWrapper) PullSeparateFilesToDir(ctx context.Context, prefix S
 		return err
 	}
 	log.Infof("Finished Downloading %d files to %s with total size: %0.5fMB", cumulativeDownloadedFiles.Load(), outputDir, cumulativeDownloadedMegabytes)
-
-	log.Info("Pulling bytesums for hash checks")
-	// pull all bytesums after all files have been downloaded; otherwise if we were
-	// to do it in parallel with the file download it would have a race condition
-	// in which we are updating the local hashes while simultaneously checking whether
-	// or not to download the file based on that hash
-	if err := m.pullAllByteSums(ctx, prefix, outputDir); err != nil {
-		return err
-	}
-	log.Info("Finished downloading all bytesums")
 
 	return nil
 }
@@ -616,109 +548,4 @@ func (m MinioClientWrapper) Pull(ctx context.Context, prefix S3Prefix, outputFil
 		}
 		return m.PullAndConcat(ctx, prefix, outputFileOrDir)
 	}
-}
-
-func (m MinioClientWrapper) StoreBulk(ctx context.Context, items chan storage.BulkStorageItem) error {
-	eg, ctx := errgroup.WithContext(ctx)
-
-	// sized for a large VM; the transport keeps enough idle connections
-	// open that each upload worker can reuse its connection
-	const maxConcurrentUploads = 256
-
-	var totalUploaded atomic.Int64
-	var totalUploadNanos atomic.Int64
-	var maxUploadNanos atomic.Int64
-
-	for range maxConcurrentUploads {
-		eg.Go(func() error {
-			for item := range items {
-				if err := ctx.Err(); err != nil {
-					return err
-				}
-				start := time.Now()
-				if _, err := m.Client.PutObject(ctx, m.DefaultBucket, item.Path, item.Data, int64(item.ByteLength), minio.PutObjectOptions{}); err != nil {
-					return err
-				}
-				elapsed := time.Since(start).Nanoseconds()
-				totalUploaded.Add(1)
-				totalUploadNanos.Add(elapsed)
-				for {
-					currentMax := maxUploadNanos.Load()
-					if elapsed <= currentMax || maxUploadNanos.CompareAndSwap(currentMax, elapsed) {
-						break
-					}
-				}
-			}
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		// drain so that the sender does not block forever on a full channel
-		go func() {
-			for range items {
-			}
-		}()
-		return err
-	}
-
-	var avgUpload time.Duration
-	if uploaded := totalUploaded.Load(); uploaded > 0 {
-		avgUpload = time.Duration(totalUploadNanos.Load() / uploaded)
-	}
-	log.Infof("Bulk upload complete; uploaded %d objects with max upload time of %f seconds, avg upload time of %f seconds using %d concurrent uploads", totalUploaded.Load(), time.Duration(maxUploadNanos.Load()).Seconds(), avgUpload.Seconds(), maxConcurrentUploads)
-
-	return nil
-}
-
-// RemoveMany removes the objects using the S3 multi-object delete API,
-// which removes up to 1000 objects per request
-func (m MinioClientWrapper) RemoveMany(ctx context.Context, paths []storage.ObjectPath) error {
-	objectsCh := make(chan minio.ObjectInfo)
-	go func() {
-		defer close(objectsCh)
-		for _, path := range paths {
-			select {
-			case objectsCh <- minio.ObjectInfo{Key: path}:
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	var firstErr error
-	failed := 0
-	for removeErr := range m.Client.RemoveObjects(ctx, m.DefaultBucket, objectsCh, minio.RemoveObjectsOptions{GovernanceBypass: true}) {
-		failed++
-		if firstErr == nil {
-			firstErr = fmt.Errorf("removing %s: %w", removeErr.ObjectName, removeErr.Err)
-		}
-	}
-	if firstErr != nil {
-		return fmt.Errorf("failed to remove %d of %d objects; first error: %w", failed, len(paths), firstErr)
-	}
-	return ctx.Err()
-}
-
-// ListHashes returns the md5 of every object under the prefix using the ETags
-// returned by the listing, so no per-object request is needed.
-// Objects whose ETag is not a plain md5, such as those of multipart or
-// encrypted uploads, are returned with an empty hash
-func (m MinioClientWrapper) ListHashes(ctx context.Context, prefix S3Prefix) (map[storage.ObjectPath]storage.Md5Hash, error) {
-	hashes := make(map[storage.ObjectPath]storage.Md5Hash)
-	for object := range m.Client.ListObjects(ctx, m.DefaultBucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
-		if object.Err != nil {
-			return nil, object.Err
-		}
-		etag := strings.Trim(object.ETag, "\"")
-		if !isMd5Hex(etag) {
-			etag = ""
-		}
-		hashes[object.Key] = strings.ToLower(etag)
-	}
-	return hashes, nil
-}
-
-func isMd5Hex(s string) bool {
-	decoded, err := hex.DecodeString(s)
-	return err == nil && len(decoded) == md5.Size
 }
