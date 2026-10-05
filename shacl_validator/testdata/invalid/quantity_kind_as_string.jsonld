@@ -79,7 +79,7 @@
             "propertyID": "https://www.wikidata.org/wiki/Q8737769",
             "url": "https://en.wikipedia.org/wiki/Discharge_(hydrology)",
             "unitText": "cubic feet per second",
-            "qudt:hasQuantityKind": {"@id": "qudt-quantkinds:VolumeFlowRate"},
+            "qudt:hasQuantityKind": "qudt-quantkinds:VolumeFlowRate",
             "unitCode": "qudt-units:FT3-PER-SEC",
             "measurementTechnique": "observation",
             "measurementMethod": {

@@ -51,12 +51,12 @@ ex:ProviderShape a sh:NodeShape ;
     ] 
 .
 
-ex:PublisherShape a sh:NodeShape ; 
-    sh:targetClass schema:publisher ;
-
+ex:PublisherShape a sh:NodeShape ;
+    # there is no target since schema:publisher is a property rather than a class;
+    # this shape is applied to the objects of schema:publisher through sh:node in ex:DatasetShape
     rdfs:comment "Represents the person or organization that is publishing or hosting the dataset, not necessarily who originally created it" ;
 
-    # Require that provider is either an Organization or Person
+    # Require that publisher is either an Organization or Person
     sh:or (
         [ sh:class schema:Organization ]
         [ sh:class schema:Person ]
@@ -206,7 +206,12 @@ ex:VariableShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path <http://qudt.org/schema/qudt/hasQuantityKind> ;
-        sh:datatype xsd:string ;
+        # hasQuantityKind is an object property so its value must be the IRI of a
+        # qudt:QuantityKind; sh:class cannot be used since documents do not include the
+        # type of the quantity kind, so the IRI is checked against the QUDT vocabulary instead
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^http://qudt.org/vocab/quantitykind/" ;
+        sh:message "qudt:hasQuantityKind must be the IRI of a quantity kind in the QUDT vocabulary at http://qudt.org/vocab/quantitykind/, i.e. {\"@id\": \"http://qudt.org/vocab/quantitykind/VolumeFlowRate\"}, not a string"
     ] ;
     sh:property [
         sh:path schema:unitCode ;
