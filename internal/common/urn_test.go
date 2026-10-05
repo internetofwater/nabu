@@ -4,8 +4,7 @@
 package common
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -39,41 +38,39 @@ func TestMakeUrn(t *testing.T) {
 	})
 }
 
-func TestSkolemize(t *testing.T) {
+func TestJsonldToNquads(t *testing.T) {
+	processor, options, err := NewJsonldProcessor(false)
+	require.NoError(t, err)
 
-	t.Run("empty nq does nothing", func(t *testing.T) {
-		// TODO check do we want an empty nq to error?
-		output, err := Skolemization("")
-		require.NoError(t, err)
-		require.Empty(t, output)
+	t.Run("invalid json returns a syntax error", func(t *testing.T) {
+		_, err := JsonldToNquads([]byte("{"), "urn:test:graph", processor, options)
+		var syntaxErr *json.SyntaxError
+		require.ErrorAs(t, err, &syntaxErr)
 	})
 
-	t.Run("full nq with no replacements", func(t *testing.T) {
-		const nq = "<https://urn.io/xid/genid/1> <https://urn.io/xid/genid/2> <https://urn.io/xid/genid/3> ."
-		output, err := Skolemization(nq)
-		require.NoError(t, err)
-		require.Equal(t, nq, output)
+	t.Run("document with no triples is an error", func(t *testing.T) {
+		_, err := JsonldToNquads([]byte(`{}`), "urn:test:graph", processor, options)
+		require.Error(t, err)
 	})
 
-	t.Run("full nq with one replacement", func(t *testing.T) {
-		const emptyNode = "_:"
-		const nonEmptyNodes = "<https://urn.io/xid/genid/2> <https://urn.io/xid/genid/3> ."
-		nq := emptyNode + " " + nonEmptyNodes
-
-		output, err := Skolemization(nq)
+	t.Run("triples without blank nodes are unchanged and put in the graph", func(t *testing.T) {
+		const doc = `{"@id": "https://example.com/1", "https://schema.org/name": "a \"quoted\" name"}`
+		output, err := JsonldToNquads([]byte(doc), "urn:test:graph", processor, options)
 		require.NoError(t, err)
-		require.Contains(t, output, nonEmptyNodes)
-		require.NotContains(t, output, emptyNode)
-
-		hash := sha256.New()
-		split := strings.Split(output, " ")
-		hash.Write([]byte(split[1]))
-		hash.Write([]byte(split[2]))
-		hashResult := hex.EncodeToString(hash.Sum(nil))
-		require.Equal(t, hashResult, "0adc62bdb95a47b9d52d8dff5e78957b1da6448e7d43fad18a4d8f9b1ccc032c")
-		require.Contains(t, output, hashResult)
+		require.Equal(t, `<https://example.com/1> <https://schema.org/name> "a \"quoted\" name" <urn:test:graph> .`+"\n", output)
 	})
 
+	t.Run("blank nodes are replaced with an IRI that does not depend on the order of the document", func(t *testing.T) {
+		const doc = `{"@id": "https://example.com/1", "https://schema.org/geo": {"https://schema.org/latitude": 1, "https://schema.org/longitude": 2}}`
+		const reordered = `{"https://schema.org/geo": {"https://schema.org/longitude": 2, "https://schema.org/latitude": 1}, "@id": "https://example.com/1"}`
+		output, err := JsonldToNquads([]byte(doc), "urn:test:graph", processor, options)
+		require.NoError(t, err)
+		require.NotContains(t, output, "_:")
+		require.Contains(t, output, "<"+skolemNamespace)
+		reorderedOutput, err := JsonldToNquads([]byte(reordered), "urn:test:graph", processor, options)
+		require.NoError(t, err)
+		require.ElementsMatch(t, strings.Split(output, "\n"), strings.Split(reorderedOutput, "\n"))
+	})
 }
 
 func TestE2ESkolemizeJsonld(t *testing.T) {
@@ -85,13 +82,9 @@ func TestE2ESkolemizeJsonld(t *testing.T) {
 
 	testJsonld, err := os.ReadFile("testdata/gage_jsonld.jsonld")
 	require.NoError(t, err)
-	triples, err := JsonldToTriples(string(testJsonld), processor, options)
-	require.NoError(t, err)
-	require.NotEmpty(t, triples)
-	skolemized, err := Skolemization(triples)
+	skolemized, err := JsonldToNquads(testJsonld, "urn:test:graph", processor, options)
 	require.NoError(t, err)
 	require.NotEmpty(t, skolemized)
-
 	// find a line with schema.org/longitude
 	lines := strings.Split(skolemized, "\n")
 	var longitudeLine string

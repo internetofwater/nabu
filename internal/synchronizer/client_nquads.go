@@ -200,34 +200,20 @@ func graphUrnForFeature(sitemapId string, feature parquettable.Feature) (string,
 
 // Convert a single document to N-Quads; returns an empty string if the document should be skipped
 func (synchronizer *SynchronizerClient) featureToNquads(feature parquettable.Feature, source *NquadsSource) (string, error) {
-	jsonld := feature.JSONLD
-	triples, err := common.JsonldToTriples(string(jsonld), synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
+	graphURN, err := graphUrnForFeature(source.SitemapID, feature)
+	if err != nil {
+		return "", err
+	}
+
+	// documents are written together so blank nodes are skolemized to be globally unique
+	nquads, err := common.JsonldToNquads(feature.JSONLD, graphURN, synchronizer.jsonldProcessor, synchronizer.jsonldOptions)
 	if err != nil {
 		var syntaxErr *json.SyntaxError
 		if errors.As(err, &syntaxErr) {
 			log.Errorf("JSON syntax error when parsing; this is a sign that JSON-LD document %s from %s was invalid or corrupted at byte offset %d: %v", feature.ID, source.location, syntaxErr.Offset, syntaxErr)
 			return "", nil
 		}
-		return "", fmt.Errorf("error when transforming JSON-LD document %s from %s to RDF: %w", feature.ID, source.location, err)
+		return "", fmt.Errorf("error when transforming JSON-LD document %s from %s to N-Quads: %w", feature.ID, source.location, err)
 	}
-	if len(triples) == 0 {
-		return "", fmt.Errorf("jsonld to nq conversion returned empty string for %s from %s with data %s", feature.ID, source.location, string(jsonld))
-	}
-
-	// documents are written together so blank nodes must be made globally unique
-	skolemizedTriples, err := common.Skolemization(triples)
-	if err != nil {
-		return "", fmt.Errorf("skolemization error for %s: %w", feature.ID, err)
-	}
-
-	graphURN, err := graphUrnForFeature(source.SitemapID, feature)
-	if err != nil {
-		return "", err
-	}
-
-	nquad, err := common.NtToNq(skolemizedTriples, graphURN)
-	if err != nil {
-		return "", fmt.Errorf("error converting %s with urn '%s' to nq: %w", feature.ID, graphURN, err)
-	}
-	return nquad, nil
+	return nquads, nil
 }
