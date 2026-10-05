@@ -161,11 +161,20 @@ func (t *RetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return nil, &MaxRetryError{Err: message}
 }
 
+// the max number of idle connections kept open to a single host; this is above
+// the number of concurrent requests a harvest makes to one host so connections
+// are reused instead of being closed and reopened with a new TLS handshake
+const maxIdleConnsPerHost = 1024
+
 // An http transport optimized for long-lived connections
 func newLongLivedHttpTransport() http.RoundTripper {
+	dialer := &net.Dialer{Timeout: 30 * time.Second}
 	return &http.Transport{
-		MaxIdleConns:          0,
-		MaxIdleConnsPerHost:   0,
+		// 0 means no limit on the total number of idle connections
+		MaxIdleConns: 0,
+		// unlike MaxIdleConns, 0 does not mean no limit but rather
+		// http.DefaultMaxIdleConnsPerHost which is only 2
+		MaxIdleConnsPerHost:   maxIdleConnsPerHost,
 		MaxConnsPerHost:       0,
 		IdleConnTimeout:       120 * time.Second,
 		TLSHandshakeTimeout:   20 * time.Second,
@@ -177,7 +186,8 @@ func newLongLivedHttpTransport() http.RoundTripper {
 			if span != nil {
 				span.AddEvent("HTTP connection")
 			}
-			return net.DialTimeout(network, addr, 30*time.Second)
+			// dialing with the context stops connecting if the request is cancelled
+			return dialer.DialContext(ctx, network, addr)
 		},
 	}
 }

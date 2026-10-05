@@ -61,9 +61,9 @@ func TestJsonldWithSpaceInType(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, triples)
 	require.Contains(t, triples, "Extensometer well")
-	quads, err := NtToNq(triples, "urn:test")
+	quads, err := JsonldToNquads(data, "urn:test", processor, options)
 	require.NoError(t, err)
-	require.NotContains(t, quads, "Extensometer well")
+	require.NotContains(t, quads, "Extensometer well", "triples with an IRI containing a space cannot be written as N-Quads")
 	require.NotEmpty(t, quads)
 }
 
