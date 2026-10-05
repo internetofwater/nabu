@@ -61,7 +61,7 @@
             "propertyID": "http://vocabulary.odm2.org/variablename/waterUsePublicSupply/",
             "url": "http://vocabulary.odm2.org/variablename/waterUsePublicSupply/",
             "unitText": "million gallons per day",
-            "qudt:hasQuantityKind": "qudt-quantkinds:VolumeFlowRate",
+            "qudt:hasQuantityKind": {"@id": "qudt-quantkinds:VolumeFlowRate"},
             "unitCode": "http://his.cuahsi.org/mastercvreg/edit_cv11.aspx?tbl=Units&id=1125579048",
             "measurementTechnique": "observation",
             "measurementMethod": {
@@ -77,7 +77,7 @@
             "propertyID": "http://vocabulary.odm2.org/variablename/waterUsePublicSupply/",
             "url": "http://vocabulary.odm2.org/variablename/waterUsePublicSupply/",
             "unitText": "million gallons per day",
-            "qudt:hasQuantityKind": "qudt-quantkinds:VolumeFlowRate",
+            "qudt:hasQuantityKind": {"@id": "qudt-quantkinds:VolumeFlowRate"},
             "unitCode": "http://his.cuahsi.org/mastercvreg/edit_cv11.aspx?tbl=Units&id=1125579048",
             "measurementTechnique": "observation",
             "measurementMethod": {
