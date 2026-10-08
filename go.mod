@@ -6,7 +6,6 @@ require (
 	github.com/alexflint/go-arg v1.5.1
 	github.com/apache/arrow-go/v18 v18.5.1
 	github.com/duckdb/duckdb-go/v2 v2.10505.0
-	github.com/golang/geo v0.0.0-20260928092222-7d12f68cfadb
 	github.com/minio/minio-go/v7 v7.0.94
 	github.com/moby/moby v28.5.2+incompatible
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4

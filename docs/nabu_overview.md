@@ -15,7 +15,6 @@ The following operations are performed by Nabu. Most can be traced using open te
         - `jsonld`: the harvested JSON-LD document along with any enrichments added by Nabu, such as the associated mainstem
         - `url`: the url in the sitemap the document was harvested from (for bulk sitemaps, the container image)
         - `mainstem_uri`: the uri of the mainstem associated with the geometry; only set for sitemaps that request `add_associated_mainstems` in the sitemap index
-        - `s2_cell_id`: the leaf (level 30) [S2 cell](https://s2geometry.io/devguide/s2cell_hierarchy) id of the centroid of the geometry, stored as a signed 64 bit integer like BigQuery's `S2_CELLIDFROMPOINT`; useful for sorting, partitioning, and spatial joins. Coarser cells can be derived from it, and it is null if there is no geometry or the coordinates are not longitude/latitude
     - If the harvest of a sitemap fails, or no documents in it could be harvested, the upload is aborted and the previous parquet file is kept as is
     - If a site fails on an error code that is non fatal and nabu will retry the http request. After multiple retries if the site still fails, Nabu will record the error and continue.
     - After crawling, Nabu validates the data is JSON-LD and validates it using SHACL. Only the first N SHACL validation errors will be stored so logs aren't spammed if every site fails the same way. 
