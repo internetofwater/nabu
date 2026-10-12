@@ -139,6 +139,11 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				exitedOnShaclFailure.Store(true)
 				return fmt.Errorf("exiting early for %s with shacl failure %s", urlLoc, shaclErr.ShaclErrorMessage)
 			}
+		} else if ctx.Err() != nil {
+			// the harvest was cancelled so the validation failed because of the cancellation
+			// and not the shacl validation service; stop the worker instead of logging
+			// a failure for every document still waiting to be validated
+			return ctx.Err()
 		} else {
 			// if there is an other arbitrary issue with the shacl validation service, we mark it as a failure
 			// but it is non fatal; we don't want to fail the entire bulk harvest due to an issue with the shacl validation service; thus we log the error and continue on
@@ -173,6 +178,11 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 		// documents read from the container that still need to be validated
 		validateChan := make(chan []byte, 1000)
+
+		// stderr is not part of the data stream; it is only kept so that
+		// the reason a container failed can be logged next to the error
+		// that stopped the harvest, whichever goroutine returned it
+		stderr := &stderrTail{}
 
 		for range shaclWorkers {
 			group.Go(func() error {
@@ -215,25 +225,11 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			})
 		}
 
-		group.Go(func() (err error) {
+		group.Go(func() error {
 
 			defer close(validateChan)
 
 			docker_image_name := url.Loc
-
-			// stderr is not part of the data stream; it is only kept so that
-			// the reason a container failed can be seen in the harvest logs
-			stderr := &stderrTail{}
-			defer func() {
-				if err == nil {
-					return
-				}
-				if output := strings.TrimSpace(stderr.String()); output != "" {
-					log.Errorf("bulk harvest of container %s failed with %v; the end of its stderr was:\n%s", docker_image_name, err, output)
-				} else {
-					log.Errorf("bulk harvest of container %s failed with %v; it wrote nothing to stderr", docker_image_name, err)
-				}
-			}()
 
 			if strings.Contains(docker_image_name, "/") {
 
@@ -373,7 +369,11 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		err := group.Wait()
 		span.AddEvent("finished waiting on work group")
 		if err != nil {
-			log.Errorf("error in bulk harvest for %s: %v", url.Loc, err)
+			if output := strings.TrimSpace(stderr.String()); output != "" {
+				log.Errorf("error in bulk harvest for %s: %v; the end of its stderr was:\n%s", url.Loc, err, output)
+			} else {
+				log.Errorf("error in bulk harvest for %s: %v; it wrote nothing to stderr", url.Loc, err)
+			}
 			errGroupError = err
 			break
 		}
