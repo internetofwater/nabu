@@ -12,10 +12,6 @@ var _ CrawlStorage = DiscardCrawlStorage{}
 // DiscardCrawlStorage is a CrawlStorage that stores nothing and is useful for testing
 type DiscardCrawlStorage struct{}
 
-func (DiscardCrawlStorage) StoreMetadata(string, io.Reader) error {
-	return nil
-}
-
 func (DiscardCrawlStorage) StoreWithHash(string, io.Reader, int) error {
 	return nil
 }

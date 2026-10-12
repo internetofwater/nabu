@@ -29,10 +29,6 @@ type Md5Hash = string
 
 // A storage interface that stores crawl data
 type CrawlStorage interface {
-	// Store metadata about the crawl into a named destination
-	// This may be in a different place than normal storage since it is intended to be
-	// read publicly and drive UIs
-	StoreMetadata(ObjectPath, io.Reader) error
 	// StoreWithServersideHash saves the contents from the reader into a named destination
 	// and guarantees that the storage provider will create a hash for it that can be retrieved
 	StoreWithHash(path ObjectPath, data io.Reader, byteLength int) error

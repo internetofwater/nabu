@@ -4,10 +4,8 @@
 package pkg
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 )
 
 // The status of the shacl validation
@@ -67,8 +65,9 @@ type WarningReport struct {
 	// we may abbreviate our shacl messages to reduce
 	// verbosity
 	TotalShaclFailures int
-	// Warnings about sites that were harvested
-	ShaclWarnings []ShaclInfo
+	// Warnings about sites that were harvested; only a
+	// subset of them are kept to keep the report small
+	ShaclWarnings []ShaclInfo `json:",omitempty"`
 }
 
 // Crawl stats for a particular sitemap
@@ -78,8 +77,12 @@ type SitemapCrawlStats struct {
 	// This allows a client to inspect the sitemap
 	// without needing to keep it all in this payload
 	SitemapSourceLink string
-	// Metadata about why a sitemap failed to be harvested
-	CrawlFailures []UrlCrawlError
+	// Metadata about why a sitemap failed to be harvested; only
+	// a subset of them are kept to keep the report small
+	CrawlFailures []UrlCrawlError `json:",omitempty"`
+	// The number of sites that failed to be crawled; this may be
+	// greater than the number of failures in CrawlFailures
+	TotalCrawlFailures int
 	// Metadata about shacl validation warnings
 	WarningStats WarningReport
 	// The number of seconds it took to crawl the sitemap
@@ -96,14 +99,6 @@ type SitemapCrawlStats struct {
 	// An API specified in a given sitemap is assumed to be down if the first ~20 sites
 	// all failed without a single successful harvest
 	DatasetDown bool
-}
-
-// Serialize the sitemap crawl stats to json
-// and return the result as an io.Reader
-func (s SitemapCrawlStats) ToJsonIoReader() (io.Reader, error) {
-	buf := new(bytes.Buffer)
-	err := json.NewEncoder(buf).Encode(s)
-	return buf, err
 }
 
 // A sitemap index is just a list of sitemaps and thus

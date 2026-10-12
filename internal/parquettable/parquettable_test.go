@@ -136,6 +136,28 @@ func TestWriteThenRead(t *testing.T) {
 	require.Equal(t, withoutGeometry, read[total-1])
 }
 
+func TestKeyValueMetadata(t *testing.T) {
+	var buf bytes.Buffer
+	writer, err := NewWriter(&buf)
+	require.NoError(t, err)
+	require.Error(t, writer.SetKeyValueMetadata(geoMetadataKey, "{}"), "the geo key is reserved")
+	require.NoError(t, writer.SetKeyValueMetadata("stats", `{"rows": 0}`))
+	require.NoError(t, writer.Close())
+
+	value, ok, err := ReadKeyValueMetadata(bytes.NewReader(buf.Bytes()), "stats")
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, `{"rows": 0}`, value)
+
+	_, ok, err = ReadKeyValueMetadata(bytes.NewReader(buf.Bytes()), "missing")
+	require.NoError(t, err)
+	require.False(t, ok)
+
+	_, ok, err = ReadKeyValueMetadata(bytes.NewReader(buf.Bytes()), geoMetadataKey)
+	require.NoError(t, err)
+	require.True(t, ok, "the geo metadata should still be written")
+}
+
 func TestReadEmptyFile(t *testing.T) {
 	var buf bytes.Buffer
 	writer, err := NewWriter(&buf)

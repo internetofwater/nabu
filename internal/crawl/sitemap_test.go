@@ -5,9 +5,7 @@ package crawl
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -150,17 +148,12 @@ func TestHarvestSitemap(t *testing.T) {
 
 	require.Equal(t, results.SuccessfulSites, 3)
 
-	// ensure that the stats are uploaded to the storage dir
-	data, err := storage.Get("metadata/sitemaps/test.json")
-	require.NoError(t, err)
-	statsAsBytes, err := io.ReadAll(data)
-	require.NoError(t, err)
-	var statsAsJson map[string]interface{}
-	err = json.Unmarshal(statsAsBytes, &statsAsJson)
-	require.NoError(t, err)
-	require.Equal(t, statsAsJson["SitemapSourceLink"], "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml")
-	require.Equal(t, statsAsJson["SitemapName"], "test")
-	require.Equal(t, statsAsJson["DatasetDown"], false)
+	// ensure that the stats are stored in the footer of the parquet file
+	stats := readStoredCrawlStats(t, storage, "test")
+	require.Equal(t, "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", stats.SitemapSourceLink)
+	require.Equal(t, "test", stats.SitemapName)
+	require.Equal(t, 3, stats.SuccessfulSites)
+	require.False(t, stats.DatasetDown)
 }
 
 func TestHarvestTwiceOverridesFile(t *testing.T) {
@@ -212,6 +205,8 @@ func TestHarvestLeavesOutDocumentsForFailingSites(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, stats.CrawlFailures, 2, "Two sites had 404 errors")
 	require.Equal(t, stats.SuccessfulSites, 1, "Only one site had a successful response")
+	require.Equal(t, 2, stats.TotalCrawlFailures)
+	require.Equal(t, 2, readStoredCrawlStats(t, store, "test").TotalCrawlFailures, "the stats of the latest harvest should be in the footer")
 	require.Equal(t, 3, stats.SitesInSitemap, "All 3 sites should be in the sitemap")
 
 	features := readHarvestedFeatures(t, store, "test")

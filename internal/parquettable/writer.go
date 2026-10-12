@@ -46,6 +46,9 @@ var schema = arrow.NewSchema([]arrow.Field{
 	// {Name: ColumnS2CellID, Type: arrow.PrimitiveTypes.Int64, Nullable: true},
 }, nil)
 
+// The footer metadata key that marks the file as GeoParquet
+const geoMetadataKey = "geo"
+
 const (
 	// the max number of rows in a row group; this bounds the memory
 	// needed for both writing and streaming the file back in
@@ -149,6 +152,15 @@ func (w *Writer) flush() error {
 	return w.fileWriter.Write(record)
 }
 
+// SetKeyValueMetadata adds a key/value pair to the footer metadata of the file;
+// it must be called before Close. The "geo" key is reserved for the GeoParquet metadata
+func (w *Writer) SetKeyValueMetadata(key, value string) error {
+	if key == geoMetadataKey {
+		return fmt.Errorf("the %q footer metadata key is reserved for GeoParquet", geoMetadataKey)
+	}
+	return w.fileWriter.AppendKeyValueMetadata(key, value)
+}
+
 // The number of features written so far
 func (w *Writer) Rows() int {
 	return w.totalRows
@@ -165,7 +177,7 @@ func (w *Writer) Close() error {
 	if err != nil {
 		return err
 	}
-	if err := w.fileWriter.AppendKeyValueMetadata("geo", geoMetadata); err != nil {
+	if err := w.fileWriter.AppendKeyValueMetadata(geoMetadataKey, geoMetadata); err != nil {
 		return err
 	}
 	return w.fileWriter.Close()

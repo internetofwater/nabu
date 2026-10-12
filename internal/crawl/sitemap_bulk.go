@@ -97,8 +97,18 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 	start := time.Now()
 
+	// only a subset of the shacl warnings are kept to keep the report small
 	var warningStats []pkg.ShaclInfo
 	var warningMu = sync.Mutex{}
+	totalShaclFailures := atomic.Int64{}
+	addWarning := func(warning pkg.ShaclInfo) {
+		if totalShaclFailures.Add(1) > int64(config.maxShaclErrorsToStore) {
+			return
+		}
+		warningMu.Lock()
+		warningStats = append(warningStats, warning)
+		warningMu.Unlock()
+	}
 
 	// the @id of every document added to the parquet file; since documents are processed
 	// concurrently, only one of the documents with the same @id is kept but which one is not deterministic
@@ -120,13 +130,11 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		}
 		if shaclErr, ok := err.(ShaclValidationFailureError); ok {
 
-			warningMu.Lock()
-			warningStats = append(warningStats, pkg.ShaclInfo{
+			addWarning(pkg.ShaclInfo{
 				ShaclStatus:            pkg.ShaclInvalid,
 				ShaclValidationMessage: shaclErr.ShaclErrorMessage,
 				Url:                    urlLoc,
 			})
-			warningMu.Unlock()
 
 			// we don't always return here because it is non fatal
 			// and not all integrations may be compliant with our shacl shapes yet;
@@ -155,9 +163,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				ShaclValidationMessage: errorMessage.ShaclErrorMessage,
 				Url:                    errorMessage.Url,
 			}
-			warningMu.Lock()
-			warningStats = append(warningStats, errorInfo)
-			warningMu.Unlock()
+			addWarning(errorInfo)
 		}
 		return nil
 	}
@@ -384,11 +390,28 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		numNewlineSeparateJSONLDDocs.Store(0)
 	}
 
+	// the stats are made before the parquet file is finished since they are stored in its footer
+	stats := pkg.SitemapCrawlStats{
+		SitemapSourceLink:  s.metadata.Loc,
+		SitemapName:        s.metadata.SitemapID,
+		SitemapDescription: s.metadata.DatasetDescription,
+		WarningStats: pkg.WarningReport{
+			TotalShaclFailures: int(totalShaclFailures.Load()),
+			ShaclWarnings:      warningStats,
+		},
+		SecondsToComplete: time.Since(start).Seconds(),
+		SuccessfulSites:   len(validJsonldDocs),
+		SitesInSitemap:    int(numNewlineSeparateJSONLDDocs.Load()),
+		// since bulk sitemaps are run via docker images,
+		// we don't have the ability to propagate per-site crawl errors
+		CrawlFailures: []pkg.UrlCrawlError{},
+	}
+
 	// only replace the previous parquet file once every container has been harvested successfully;
 	// otherwise we would replace documents that may still be valid with a partial harvest
 	if errGroupError != nil {
 		sink.Abort(errGroupError)
-	} else if rows, err := sink.Commit(); errors.Is(err, errNoFeaturesHarvested) {
+	} else if rows, err := sink.Commit(stats); errors.Is(err, errNoFeaturesHarvested) {
 		log.Warnf("Keeping the previous %s since no documents were harvested from sitemap %s", parquetPath, s.metadata.SitemapID)
 	} else if err != nil {
 		errGroupError = err
@@ -398,25 +421,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 	log.Infof("Bulk harvest for %s read %d jsonld documents; %d had a duplicate @id and were skipped", s.metadata.SitemapID, numNewlineSeparateJSONLDDocs.Load(), numDuplicateJSONLDDocs.Load())
 
-	firstTwentyWarnings := warningStats
-	if len(warningStats) > 20 {
-		firstTwentyWarnings = warningStats[:20]
-	}
-	stats := pkg.SitemapCrawlStats{
-		SitemapSourceLink:  s.metadata.Loc,
-		SitemapName:        s.metadata.SitemapID,
-		SitemapDescription: s.metadata.DatasetDescription,
-		WarningStats: pkg.WarningReport{
-			TotalShaclFailures: len(warningStats),
-			ShaclWarnings:      firstTwentyWarnings,
-		},
-		SecondsToComplete: time.Since(start).Seconds(),
-		SuccessfulSites:   len(validJsonldDocs),
-		SitesInSitemap:    int(numNewlineSeparateJSONLDDocs.Load()),
-		// since bulk sitemaps are run via docker images,
-		// we don't have the ability to propagate per-site crawl errors
-		CrawlFailures: []pkg.UrlCrawlError{},
-	}
+	stats.SecondsToComplete = time.Since(start).Seconds()
 
 	return stats, errGroupError
 }
