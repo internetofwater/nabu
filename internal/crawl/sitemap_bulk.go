@@ -74,6 +74,25 @@ func (t *stderrTail) String() string {
 	return string(t.data)
 }
 
+// the number of bytes of a document included in an error about it; documents
+// with large geometries can be many megabytes and would otherwise bury the error
+const bulkDocPreviewBytes = 512
+
+// the start of a document to include in an error or log message about it
+func docPreview(doc []byte) string {
+	if len(doc) <= bulkDocPreviewBytes {
+		return string(doc)
+	}
+	return fmt.Sprintf("%s... (truncated, %d bytes total)", doc[:bulkDocPreviewBytes], len(doc))
+}
+
+// a line of a bulk container's stdout along with its 1-based
+// line number so a document that fails can be found in the output
+type bulkLine struct {
+	number int64
+	data   []byte
+}
+
 // HarvestBulkSitemap processes a bulk sitemap by pulling and running Docker images specified as sitemap URLs.
 func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, error) {
 
@@ -183,47 +202,53 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		group, ctx := errgroup.WithContext(ctx)
 
 		// documents read from the container that still need to be validated
-		validateChan := make(chan []byte, 1000)
+		validateChan := make(chan bulkLine, 1000)
 
 		// stderr is not part of the data stream; it is only kept so that
 		// the reason a container failed can be logged next to the error
 		// that stopped the harvest, whichever goroutine returned it
 		stderr := &stderrTail{}
 
+		// parse, validate, and store a single document; only returns an error if the harvest should stop
+		processLine := func(line bulkLine) error {
+			feature, err := parquettable.FeatureFromJsonld(line.data, url.Loc)
+			if err != nil {
+				return fmt.Errorf("line %d of the output of %s is not valid JSON-LD: %w; the line starts with: %s", line.number, url.Loc, err, docPreview(line.data))
+			}
+			if feature.ID == "" {
+				// this is fatal since without an @id there is no way
+				// to tie the document or its errors to a specific identifier
+				return fmt.Errorf("line %d of the output of %s has a missing or invalid @id; the line starts with: %s", line.number, url.Loc, docPreview(line.data))
+			}
+
+			if err := validateLine(ctx, url.Loc, line.data); err != nil {
+				return err
+			}
+
+			validJsonldDocsMu.Lock()
+			duplicate := validJsonldDocs.Contains(feature.ID)
+			validJsonldDocs.Add(feature.ID)
+			validJsonldDocsMu.Unlock()
+			if duplicate {
+				if numDuplicateJSONLDDocs.Add(1) <= 20 {
+					log.Warnf("Skipping document with duplicate @id %s from %s", feature.ID, url.Loc)
+				}
+				return nil
+			}
+
+			if err := enrichFeature(ctx, config, &feature); err != nil {
+				return fmt.Errorf("line %d of the output of %s with @id %s: %w", line.number, url.Loc, feature.ID, err)
+			}
+			if err := sink.Add(feature); err != nil {
+				return fmt.Errorf("failed to write line %d of the output of %s with @id %s to %s: %w", line.number, url.Loc, feature.ID, parquetPath, err)
+			}
+			return nil
+		}
+
 		for range shaclWorkers {
 			group.Go(func() error {
 				for line := range validateChan {
-					feature, err := parquettable.FeatureFromJsonld(line, url.Loc)
-					if err != nil {
-						return fmt.Errorf("error unmarshaling line as JSON-LD from container logs: %w with data %s", err, string(line))
-					}
-					if feature.ID == "" {
-						log.Errorf("missing or invalid @id in JSON-LD for %s", string(line))
-						// this is a fatal error since there is no way to data the error to a specific identifier
-						// without an id; thus we return a fatal error
-						return fmt.Errorf("missing or invalid @id in JSON-LD: %s", string(line))
-					}
-
-					if err := validateLine(ctx, url.Loc, line); err != nil {
-						return err
-					}
-
-					validJsonldDocsMu.Lock()
-					duplicate := validJsonldDocs.Contains(feature.ID)
-					validJsonldDocs.Add(feature.ID)
-					validJsonldDocsMu.Unlock()
-					if duplicate {
-						if numDuplicateJSONLDDocs.Add(1) <= 20 {
-							log.Warnf("Skipping document with duplicate @id %s from %s", feature.ID, url.Loc)
-						}
-						continue
-					}
-
-					if err := enrichFeature(ctx, config, &feature); err != nil {
-						return err
-					}
-
-					if err := sink.Add(feature); err != nil {
+					if err := processLine(line); err != nil {
 						return err
 					}
 				}
@@ -311,17 +336,24 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			// demux the multiplexed stdout stream
 			go func() {
 				_, err := stdcopy.StdCopy(pipeWriter, stderr, attachResp.Reader)
-				if err != nil {
-					log.Errorf("error demuxing container attach stream: %v", err)
+				if errors.Is(err, io.ErrClosedPipe) {
+					// the reader below stopped early because the harvest is failing;
+					// this is only a symptom so the error that stopped the harvest is the one reported
+					log.Debugf("stopped demuxing the output of %s since the harvest stopped reading it", docker_image_name)
+				} else if err != nil {
+					log.Errorf("error demuxing the output of container %s: %v", docker_image_name, err)
 				}
-				_ = pipeWriter.Close()
+				// pass any error on to the reader so the output is not mistaken as complete
+				_ = pipeWriter.CloseWithError(err)
 			}()
 			reader := bufio.NewReader(pipeReader)
 			_, processSubspan := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("process_bulk_jsonld_%s", s.metadata.SitemapID))
 			defer processSubspan.End()
 			foundEOF := false
+			var lineNumber int64
 			for !foundEOF {
 				line, err := reader.ReadBytes('\n')
+				lineNumber++
 				if err != nil {
 					if err == io.EOF {
 						// if we've reached EOF, we need to mark it as such,
@@ -330,7 +362,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 						// and then exit gracefully
 						foundEOF = true
 					} else {
-						return fmt.Errorf("error reading line from pipe in bulk sitemap harvest: %w", err)
+						return fmt.Errorf("error reading line %d of the output of %s: %w", lineNumber, url.Loc, err)
 					}
 				}
 				if len(bytes.TrimSpace(line)) == 0 {
@@ -348,7 +380,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				// ReadBytes returns a new slice on each call, so the
 				// line can be handed off without copying
 				select {
-				case validateChan <- bytes.TrimRight(line, "\r\n"):
+				case validateChan <- bulkLine{number: lineNumber, data: bytes.TrimRight(line, "\r\n")}:
 				case <-ctx.Done():
 					return ctx.Err()
 				}
