@@ -77,7 +77,7 @@ func (s S3FlatgeobufMainstemService) GetMainstemForWkt(ctx context.Context, wkt 
 	point := geometry.Centroid()
 	coordinates, isNonEmpty := point.Coordinates()
 	if !isNonEmpty {
-		return MainstemQueryResponse{}, fmt.Errorf("got an empty centroid result for WKT: %s", wkt)
+		return MainstemQueryResponse{}, fmt.Errorf("got an empty centroid result for WKT: %s", wktForLog(wkt))
 	}
 
 	// the rtree index narrows the search to the catchments whose bounding box contains
@@ -94,7 +94,7 @@ func (s S3FlatgeobufMainstemService) GetMainstemForWkt(ctx context.Context, wkt 
 	if errors.Is(err, sql.ErrNoRows) {
 		return MainstemQueryResponse{foundAssociatedMainstem: false, mainstemURI: ""}, nil
 	} else if err != nil {
-		return MainstemQueryResponse{}, fmt.Errorf("mainstem query failed for %s: %w", wkt, err)
+		return MainstemQueryResponse{}, fmt.Errorf("mainstem query failed for %s: %w", wktForLog(wkt), err)
 	}
 	return MainstemQueryResponse{
 		foundAssociatedMainstem: true,

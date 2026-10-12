@@ -6,6 +6,7 @@ package mainstems
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/peterstace/simplefeatures/geom"
 	log "github.com/sirupsen/logrus"
@@ -37,6 +38,19 @@ func (e *InvalidWktError) Error() string {
 	return e.message
 }
 
+// the largest WKT geometry that will be included in a log or error message;
+// log collectors split very long lines into multiple log entries, so larger
+// geometries are omitted entirely instead
+const maxLoggedWktBytes = 2048
+
+// describe a WKT geometry for a log or error message, omitting it if it is too large
+func wktForLog(wkt string) string {
+	if len(wkt) <= maxLoggedWktBytes {
+		return wkt
+	}
+	return fmt.Sprintf("<geometry omitted, %d bytes of WKT>", len(wkt))
+}
+
 // Get the uri of the mainstem associated with a WKB geometry. An empty string is returned
 // without an error if there is no geometry, the geometry is invalid, or there is no associated mainstem
 func GetMainstemURIForWkb(ctx context.Context, service MainstemService, wkb []byte) (string, error) {
@@ -52,13 +66,13 @@ func GetMainstemURIForWkb(ctx context.Context, service MainstemService, wkb []by
 	response, err := service.GetMainstemForWkt(ctx, wkt)
 	var invalidWktErr *InvalidWktError
 	if errors.As(err, &invalidWktErr) {
-		log.Errorf("Invalid geometry %s could not be associated with a mainstem: %v", wkt, err)
+		log.Errorf("Invalid geometry %s could not be associated with a mainstem: %v", wktForLog(wkt), err)
 		return "", nil
 	} else if err != nil {
 		return "", err
 	}
 	if !response.foundAssociatedMainstem {
-		log.Debugf("no mainstem found for %s", wkt)
+		log.Debugf("no mainstem found for %s", wktForLog(wkt))
 		return "", nil
 	}
 	return response.mainstemURI, nil
