@@ -6,6 +6,7 @@ package mainstems
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/peterstace/simplefeatures/geom"
@@ -108,4 +109,14 @@ func TestGetMainstemURIForWkb(t *testing.T) {
 	uri, err = GetMainstemURIForWkb(context.Background(), service, invalid.AsBinary())
 	require.NoError(t, err, "invalid geometries should not be a fatal error")
 	require.Empty(t, uri)
+}
+
+func TestWktForLog(t *testing.T) {
+	small := "POINT(1 2)"
+	require.Equal(t, small, wktForLog(small))
+
+	huge := "LINESTRING(" + strings.Repeat("1 2,", maxLoggedWktBytes) + "1 2)"
+	logged := wktForLog(huge)
+	require.NotContains(t, logged, "LINESTRING", "huge geometries should be omitted entirely")
+	require.Contains(t, logged, fmt.Sprint(len(huge)))
 }
