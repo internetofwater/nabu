@@ -47,6 +47,33 @@ func bulkShaclWorkers(config *SitemapHarvestConfig) int {
 	return bulkShaclConcurrency
 }
 
+// the number of bytes of a bulk container's stderr kept to log if the harvest of it fails
+const bulkStderrTailBytes = 64 * 1024
+
+// stderrTail keeps the last bytes written to it so that the stderr of a
+// bulk container can be logged if it fails; writes never block or fail
+// so that it cannot interfere with demuxing the stdout data stream
+type stderrTail struct {
+	mu   sync.Mutex
+	data []byte
+}
+
+func (t *stderrTail) Write(p []byte) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.data = append(t.data, p...)
+	if overflow := len(t.data) - bulkStderrTailBytes; overflow > 0 {
+		t.data = t.data[overflow:]
+	}
+	return len(p), nil
+}
+
+func (t *stderrTail) String() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return string(t.data)
+}
+
 // HarvestBulkSitemap processes a bulk sitemap by pulling and running Docker images specified as sitemap URLs.
 func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvestConfig) (pkg.SitemapCrawlStats, error) {
 
@@ -188,11 +215,25 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			})
 		}
 
-		group.Go(func() error {
+		group.Go(func() (err error) {
 
 			defer close(validateChan)
 
 			docker_image_name := url.Loc
+
+			// stderr is not part of the data stream; it is only kept so that
+			// the reason a container failed can be seen in the harvest logs
+			stderr := &stderrTail{}
+			defer func() {
+				if err == nil {
+					return
+				}
+				if output := strings.TrimSpace(stderr.String()); output != "" {
+					log.Errorf("bulk harvest of container %s failed with %v; the end of its stderr was:\n%s", docker_image_name, err, output)
+				} else {
+					log.Errorf("bulk harvest of container %s failed with %v; it wrote nothing to stderr", docker_image_name, err)
+				}
+			}()
 
 			if strings.Contains(docker_image_name, "/") {
 
@@ -247,7 +288,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			attachResp, err := dockerClient.ContainerAttach(ctx, creationResp.ID, container.AttachOptions{
 				Stream: true,
 				Stdout: true,
-				Stderr: false,
+				Stderr: true,
 			})
 			if err != nil {
 				return err
@@ -267,7 +308,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 			// demux the multiplexed stdout stream
 			go func() {
-				_, err := stdcopy.StdCopy(pipeWriter, io.Discard, attachResp.Reader)
+				_, err := stdcopy.StdCopy(pipeWriter, stderr, attachResp.Reader)
 				if err != nil {
 					log.Errorf("error demuxing container attach stream: %v", err)
 				}

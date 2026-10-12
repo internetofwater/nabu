@@ -20,6 +20,7 @@ import (
 	common "github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/protoBuild"
+	logrustest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"google.golang.org/grpc"
@@ -362,4 +363,41 @@ func TestBulkSitemapValidatesShaclConcurrently(t *testing.T) {
 	require.Less(t, elapsed, serialTime/2, "validating concurrently should be much faster than validating serially")
 
 	require.Len(t, readBulkFeatures(t, localStorage, "test_sitemap"), numDocs)
+}
+
+func TestBulkSitemapLogsStderrOfFailedContainer(t *testing.T) {
+	imageName := buildBulkTestImage(t, "./testdata/bulk_sitemap_failing")
+
+	mockedClient := common.NewMockedClient(
+		true,
+		map[string]common.MockResponse{
+			"https://geoconnex.us/sitemap/iow/bulk": {
+				StatusCode: 200,
+				File:       "testdata/bulk_sitemap/sitemap.xml",
+			},
+		})
+
+	store, err := storage.NewLocalTempFSCrawlStorage()
+	require.NoError(t, err)
+
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, store, SitemapMetadata{SitemapID: "test_sitemap", Loc: "https://geoconnex.us/sitemap/iow/bulk", BulkContainerImage: "test_bulk"})
+	require.NoError(t, err)
+	sitemap.URL[0].Loc = imageName
+
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false)
+	require.NoError(t, err)
+
+	hook := logrustest.NewGlobal()
+	defer hook.Reset()
+
+	_, err = sitemap.Harvest(context.Background(), &config)
+	require.ErrorContains(t, err, "container exited with status 1")
+
+	foundStderr := false
+	for _, entry := range hook.AllEntries() {
+		if strings.Contains(entry.Message, "Traceback: failed to download the source data") {
+			foundStderr = true
+		}
+	}
+	require.True(t, foundStderr, "the stderr of the failed container should be logged")
 }
