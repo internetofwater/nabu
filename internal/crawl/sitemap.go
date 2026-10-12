@@ -74,6 +74,8 @@ type SitemapHarvestConfig struct {
 	// shacl errors can be quite verbose and often very duplicative;
 	// this is the maximum of them to store in the crawl report
 	maxShaclErrorsToStore int
+	// the maximum number of non fatal crawl errors to store in the crawl report
+	maxCrawlFailuresToStore int
 	// the number of failed sites in a row before we exit
 	// and assume the sitemap is down
 	failedSitesToAssumeDatasetDown int
@@ -146,6 +148,8 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclVal
 		// currently hard coded. could be configurable in the future
 		maxShaclErrorsToStore: 20,
 		// currently hard coded. could be configurable in the future
+		maxCrawlFailuresToStore: 20,
+		// currently hard coded. could be configurable in the future
 		failedSitesToAssumeDatasetDown: 20,
 	}, nil
 }
@@ -178,16 +182,6 @@ func (s *Sitemap) Harvest(ctx context.Context, config *SitemapHarvestConfig) (pk
 	}
 	if err != nil {
 		log.Errorf("Error harvesting sitemap %s: %s", s.metadata.SitemapID, err)
-		return stats, err
-	}
-
-	asJson, err := stats.ToJsonIoReader()
-	if err != nil {
-		return pkg.SitemapCrawlStats{}, err
-	}
-	err = s.storageDestination.StoreMetadata(fmt.Sprintf("metadata/sitemaps/%s.json", s.metadata.SitemapID), asJson)
-	if err != nil {
-		return pkg.SitemapCrawlStats{}, err
 	}
 	return stats, err
 }
@@ -225,6 +219,7 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 	totalSitesContacted := atomic.Int64{}
 
 	sitesWithShaclFailures := atomic.Int32{}
+	sitesWithCrawlFailures := atomic.Int32{}
 
 	for _, url := range s.URL {
 		group.Go(func() error {
@@ -245,9 +240,12 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 			totalSitesContacted.Store((totalSitesContacted.Add(1)))
 
 			if !result_metadata.nonFatalError.IsNil() {
-				s.errorMu.Lock()
-				s.nonFatalErrors = append(s.nonFatalErrors, result_metadata.nonFatalError)
-				s.errorMu.Unlock()
+				// only a subset of the failures are kept to keep the report small
+				if sitesWithCrawlFailures.Add(1) <= int32(config.maxCrawlFailuresToStore) {
+					s.errorMu.Lock()
+					s.nonFatalErrors = append(s.nonFatalErrors, result_metadata.nonFatalError)
+					s.errorMu.Unlock()
+				}
 				sitemapStatusTracker.AddSiteFailure()
 			} else {
 				sitemapStatusTracker.AddSiteSuccess()
@@ -305,8 +303,9 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 			TotalShaclFailures: int(sitesWithShaclFailures.Load()),
 			ShaclWarnings:      s.warnings,
 		},
-		CrawlFailures: s.nonFatalErrors,
-		DatasetDown:   sitemapStatusTracker.AppearsDown(),
+		CrawlFailures:      s.nonFatalErrors,
+		TotalCrawlFailures: int(sitesWithCrawlFailures.Load()),
+		DatasetDown:        sitemapStatusTracker.AppearsDown(),
 	}
 
 	if err != nil {
@@ -316,7 +315,7 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 		return stats, err
 	}
 
-	rows, err := sink.Commit()
+	rows, err := sink.Commit(stats)
 	if errors.Is(err, errNoFeaturesHarvested) {
 		log.Warnf("Keeping the previous %s since no documents were harvested from sitemap %s", parquetPath, s.metadata.SitemapID)
 		return stats, nil

@@ -5,12 +5,14 @@ package crawl
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"testing"
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/parquettable"
+	"github.com/internetofwater/nabu/pkg"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -166,4 +168,19 @@ func readStoredFeatures(ctx context.Context, destination storage.CrawlStorage, p
 		return true, err
 	}
 	return true, parquettable.Read(ctx, readerAtSeeker, fn)
+}
+
+// read the crawl stats stored in the footer of the parquet file for a sitemap
+func readStoredCrawlStats(t *testing.T, destination storage.CrawlStorage, sitemapId string) pkg.SitemapCrawlStats {
+	stored, err := destination.Get(SummonedParquetPath(sitemapId))
+	require.NoError(t, err)
+	defer func() { _ = stored.Close() }()
+	readerAtSeeker, err := parquettable.AsReaderAtSeeker(stored)
+	require.NoError(t, err)
+	statsJson, ok, err := parquettable.ReadKeyValueMetadata(readerAtSeeker, CrawlStatsMetadataKey)
+	require.NoError(t, err)
+	require.True(t, ok, "the parquet file should have the crawl stats in its footer")
+	var stats pkg.SitemapCrawlStats
+	require.NoError(t, json.Unmarshal([]byte(statsJson), &stats))
+	return stats
 }

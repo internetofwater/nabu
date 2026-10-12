@@ -30,6 +30,21 @@ func AsReaderAtSeeker(r io.Reader) (parquet.ReaderAtSeeker, error) {
 	return bytes.NewReader(data), nil
 }
 
+// ReadKeyValueMetadata returns the value of a key in the footer metadata of a parquet
+// file; only the footer is read, not the rows. ok is false if the key is not set
+func ReadKeyValueMetadata(r parquet.ReaderAtSeeker, key string) (value string, ok bool, err error) {
+	parquetReader, err := file.NewParquetReader(r)
+	if err != nil {
+		return "", false, err
+	}
+	defer func() { _ = parquetReader.Close() }()
+	found := parquetReader.MetaData().KeyValueMetadata().FindValue(key)
+	if found == nil {
+		return "", false, nil
+	}
+	return *found, true, nil
+}
+
 // Read streams every feature in a parquet file to fn, one row group at a time
 func Read(ctx context.Context, r parquet.ReaderAtSeeker, fn func(Feature) error) error {
 	parquetReader, err := file.NewParquetReader(r)

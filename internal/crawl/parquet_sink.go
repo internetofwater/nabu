@@ -4,6 +4,7 @@
 package crawl
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/parquettable"
+	"github.com/internetofwater/nabu/pkg"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -19,6 +21,10 @@ import (
 func SummonedParquetPath(sitemapId string) storage.ObjectPath {
 	return fmt.Sprintf("summoned/%s.parquet", sitemapId)
 }
+
+// The footer metadata key of a summoned parquet file holding the
+// crawl stats, as JSON, of the harvest that wrote the file
+const CrawlStatsMetadataKey = "nabu_crawl_stats"
 
 // parquetSink streams features from many goroutines into a single parquet file
 // that is uploaded to storage as it is written. Nothing replaces the previous file
@@ -74,9 +80,10 @@ func (p *parquetSink) Add(feature parquettable.Feature) error {
 	return p.writer.Write(feature)
 }
 
-// Finish the parquet file and wait for the upload to complete; returns the number of rows written.
-// If no features were added, the upload is aborted and errNoFeaturesHarvested is returned
-func (p *parquetSink) Commit() (int, error) {
+// Finish the parquet file with the crawl stats in its footer and wait for the upload to complete;
+// returns the number of rows written. If no features were added, the upload is aborted
+// and errNoFeaturesHarvested is returned
+func (p *parquetSink) Commit(stats pkg.SitemapCrawlStats) (int, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.finished {
@@ -85,6 +92,15 @@ func (p *parquetSink) Commit() (int, error) {
 	if p.writer.Rows() == 0 {
 		p.abort(errNoFeaturesHarvested)
 		return 0, errNoFeaturesHarvested
+	}
+	statsJson, err := json.Marshal(stats)
+	if err != nil {
+		p.abort(err)
+		return 0, fmt.Errorf("failed to serialize the crawl stats for %s: %w", p.path, err)
+	}
+	if err := p.writer.SetKeyValueMetadata(CrawlStatsMetadataKey, string(statsJson)); err != nil {
+		p.abort(err)
+		return 0, err
 	}
 	p.finished = true
 	if err := p.writer.Close(); err != nil {

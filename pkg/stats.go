@@ -67,8 +67,9 @@ type WarningReport struct {
 	// we may abbreviate our shacl messages to reduce
 	// verbosity
 	TotalShaclFailures int
-	// Warnings about sites that were harvested
-	ShaclWarnings []ShaclInfo
+	// Warnings about sites that were harvested; only a
+	// subset of them are kept to keep the report small
+	ShaclWarnings []ShaclInfo `json:",omitempty"`
 }
 
 // Crawl stats for a particular sitemap
@@ -78,8 +79,12 @@ type SitemapCrawlStats struct {
 	// This allows a client to inspect the sitemap
 	// without needing to keep it all in this payload
 	SitemapSourceLink string
-	// Metadata about why a sitemap failed to be harvested
-	CrawlFailures []UrlCrawlError
+	// Metadata about why a sitemap failed to be harvested; only
+	// a subset of them are kept to keep the report small
+	CrawlFailures []UrlCrawlError `json:",omitempty"`
+	// The number of sites that failed to be crawled; this may be
+	// greater than the number of failures in CrawlFailures
+	TotalCrawlFailures int
 	// Metadata about shacl validation warnings
 	WarningStats WarningReport
 	// The number of seconds it took to crawl the sitemap
