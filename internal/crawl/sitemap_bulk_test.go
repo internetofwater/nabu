@@ -6,6 +6,7 @@ package crawl
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -400,4 +401,46 @@ func TestBulkSitemapLogsStderrOfFailedContainer(t *testing.T) {
 		}
 	}
 	require.True(t, foundStderr, "the stderr of the failed container should be logged")
+}
+
+func TestBulkSitemapReportsTheLineOfAnInvalidDocument(t *testing.T) {
+	// a large document without an @id followed by enough documents that the
+	// container is still writing its output when the harvest stops
+	largeDocWithoutId := fmt.Sprintf(`{"@context": {"@vocab": "https://schema.org/"}, "name": "%s"}`, strings.Repeat("a", 100_000))
+	lines := []string{`{"@id": "https://example.com/1", "@context": {"@vocab": "https://schema.org/"}}`, largeDocWithoutId}
+	for i := range 5000 {
+		lines = append(lines, fmt.Sprintf(`{"@id": "https://example.com/after/%d", "@context": {"@vocab": "https://schema.org/"}}`, i))
+	}
+	imageName := buildBulkTestImageWithData(t, lines)
+
+	mockedClient := common.NewMockedClient(
+		true,
+		map[string]common.MockResponse{
+			"https://geoconnex.us/sitemap/iow/bulk": {
+				StatusCode: 200,
+				File:       "testdata/bulk_sitemap/sitemap.xml",
+			},
+		})
+
+	store, err := storage.NewLocalTempFSCrawlStorage()
+	require.NoError(t, err)
+
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, store, SitemapMetadata{SitemapID: "test_sitemap", Loc: "https://geoconnex.us/sitemap/iow/bulk", BulkContainerImage: "test_bulk"})
+	require.NoError(t, err)
+	sitemap.URL[0].Loc = imageName
+
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false)
+	require.NoError(t, err)
+
+	hook := logrustest.NewGlobal()
+	defer hook.Reset()
+
+	_, err = sitemap.Harvest(context.Background(), &config)
+	require.ErrorContains(t, err, "line 2 of the output of "+imageName+" has a missing or invalid @id")
+	require.ErrorContains(t, err, "truncated")
+	require.Less(t, len(err.Error()), 2*bulkDocPreviewBytes, "the error should not contain the whole document")
+
+	for _, entry := range hook.AllEntries() {
+		require.NotContains(t, entry.Message, io.ErrClosedPipe.Error(), "stopping the harvest early should not be logged as a separate error")
+	}
 }
