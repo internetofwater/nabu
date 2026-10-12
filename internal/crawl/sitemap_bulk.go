@@ -398,6 +398,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 					return fmt.Errorf("container exited with status %d", exitResp.StatusCode)
 				}
 			}
+			log.Infof("container for %s exited successfully; waiting for the %d queued documents to be validated and written", url.Loc, len(validateChan))
 			return nil
 		})
 
@@ -415,6 +416,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 			errGroupError = err
 			break
 		}
+		log.Infof("Finished processing all documents from %s", url.Loc)
 	}
 
 	if exitedOnShaclFailure.Load() {

@@ -96,7 +96,7 @@ func addMainstemToFeature(ctx context.Context, config *SitemapHarvestConfig, fea
 	if config.mainstemService == nil {
 		return nil
 	}
-	mainstemURI, err := mainstems.GetMainstemURIForWkb(ctx, config.mainstemService, feature.Geometry)
+	mainstemURI, err := mainstems.GetMainstemURIForWkb(ctx, config.mainstemService, feature.ID, feature.Geometry)
 	if err != nil {
 		return fmt.Errorf("failed to get the mainstem for the document harvested from %s: %w", feature.URL, err)
 	}

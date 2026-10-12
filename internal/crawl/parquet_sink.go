@@ -104,6 +104,7 @@ func (p *parquetSink) Commit(stats pkg.SitemapCrawlStats) (int, error) {
 	}
 	p.finished = true
 	defer removeTempFile(p.tmpFile)
+	log.Infof("Finishing the parquet file for %s with %d rows", p.path, p.writer.Rows())
 	if err := p.writer.Close(); err != nil {
 		return 0, fmt.Errorf("failed to finish temporary file %s: %w", p.tmpFile.Name(), err)
 	}

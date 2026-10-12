@@ -52,27 +52,28 @@ func wktForLog(wkt string) string {
 }
 
 // Get the uri of the mainstem associated with a WKB geometry. An empty string is returned
-// without an error if there is no geometry, the geometry is invalid, or there is no associated mainstem
-func GetMainstemURIForWkb(ctx context.Context, service MainstemService, wkb []byte) (string, error) {
+// without an error if there is no geometry, the geometry is invalid, or there is no associated mainstem.
+// The featureID identifies the feature the geometry belongs to in log messages
+func GetMainstemURIForWkb(ctx context.Context, service MainstemService, featureID string, wkb []byte) (string, error) {
 	if len(wkb) == 0 {
 		return "", nil
 	}
 	geometry, err := geom.UnmarshalWKB(wkb, geom.NoValidate{})
 	if err != nil {
-		log.Errorf("Could not parse WKB geometry to find its mainstem: %v", err)
+		log.Errorf("Could not parse the WKB geometry of %s to find its mainstem: %v", featureID, err)
 		return "", nil
 	}
 	wkt := geometry.AsText()
 	response, err := service.GetMainstemForWkt(ctx, wkt)
 	var invalidWktErr *InvalidWktError
 	if errors.As(err, &invalidWktErr) {
-		log.Errorf("Invalid geometry %s could not be associated with a mainstem: %v", wktForLog(wkt), err)
+		log.Errorf("Invalid geometry %s of %s could not be associated with a mainstem: %v", wktForLog(wkt), featureID, err)
 		return "", nil
 	} else if err != nil {
 		return "", err
 	}
 	if !response.foundAssociatedMainstem {
-		log.Debugf("no mainstem found for %s", wktForLog(wkt))
+		log.Debugf("no mainstem found for %s with geometry %s", featureID, wktForLog(wkt))
 		return "", nil
 	}
 	return response.mainstemURI, nil

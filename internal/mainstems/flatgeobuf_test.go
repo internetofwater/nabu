@@ -96,17 +96,17 @@ func TestGetMainstemURIForWkb(t *testing.T) {
 
 	point, err := geom.UnmarshalWKT("POINT(-71.0839 42.3477)")
 	require.NoError(t, err)
-	uri, err := GetMainstemURIForWkb(context.Background(), service, point.AsBinary())
+	uri, err := GetMainstemURIForWkb(context.Background(), service, "test", point.AsBinary())
 	require.NoError(t, err)
 	require.Equal(t, "https://reference.geoconnex.us/collections/mainstems/items/2290857", uri)
 
-	uri, err = GetMainstemURIForWkb(context.Background(), service, nil)
+	uri, err = GetMainstemURIForWkb(context.Background(), service, "test", nil)
 	require.NoError(t, err)
 	require.Empty(t, uri, "features without a geometry have no mainstem")
 
 	invalid, err := geom.UnmarshalWKT("POLYGON((0 0, 2 2, 2 0, 0 2, 0 0))", geom.NoValidate{})
 	require.NoError(t, err)
-	uri, err = GetMainstemURIForWkb(context.Background(), service, invalid.AsBinary())
+	uri, err = GetMainstemURIForWkb(context.Background(), service, "test", invalid.AsBinary())
 	require.NoError(t, err, "invalid geometries should not be a fatal error")
 	require.Empty(t, uri)
 }
