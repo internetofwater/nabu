@@ -32,11 +32,6 @@ func NewLocalTempFSCrawlStorage() (*LocalTempFSCrawlStorage, error) {
 	return &LocalTempFSCrawlStorage{baseDir: dir}, nil
 }
 
-// Storing metadata locally is the same as storing data
-func (l *LocalTempFSCrawlStorage) StoreMetadata(name string, reader io.Reader) error {
-	return l.StoreWithHash(name, reader, -1)
-}
-
 func (l *LocalTempFSCrawlStorage) StoreWithoutServersideHash(name string, reader io.Reader) error {
 	return l.StoreWithHash(name, reader, -1)
 }

@@ -5,15 +5,17 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/internetofwater/nabu/internal/common"
+	"github.com/internetofwater/nabu/internal/crawl"
+	"github.com/internetofwater/nabu/internal/parquettable"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 	"github.com/internetofwater/nabu/pkg"
-	"github.com/minio/minio-go/v7"
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -40,32 +42,19 @@ func (s *NabuHarvestSuite) TestHarvestToS3() {
 	s.Require().Len(objs, 1)
 	s.Require().Equal("summoned/iow:wqp:stations__5.parquet", objs[0].Key)
 
-	// access all the objects in the metadata bucket and make sure they exist
-	buckets, err := s.minioContainer.ClientWrapper.Client.ListBuckets(context.Background())
-	require.NoError(s.T(), err)
-	const harvestBucketAndMetadataBucket = 2
-	require.Len(s.T(), buckets, harvestBucketAndMetadataBucket)
-
-	var metadataBucket minio.BucketInfo
-	found := false
-	for _, bucket := range buckets {
-		if bucket.Name != s.minioContainer.ClientWrapper.MetadataBucket {
-			continue
-		}
-
-		metadataBucket = bucket
-		found = true
-	}
-	require.True(s.T(), found)
-	objChan := s.minioContainer.ClientWrapper.Client.ListObjects(context.Background(), metadataBucket.Name, minio.ListObjectsOptions{Recursive: true})
-	items := 0
-	for obj := range objChan {
-		require.NoError(s.T(), obj.Err)
-		require.NotEmpty(s.T(), obj.Key)
-		items++
-	}
-	const OneSitemapSoOneMetadataObject = 1
-	require.Equal(s.T(), OneSitemapSoOneMetadataObject, items)
+	// the crawl stats are stored in the footer of the parquet file
+	stored, err := s.minioContainer.ClientWrapper.Get(objs[0].Key)
+	s.Require().NoError(err)
+	defer func() { _ = stored.Close() }()
+	readerAtSeeker, err := parquettable.AsReaderAtSeeker(stored)
+	s.Require().NoError(err)
+	statsJson, ok, err := parquettable.ReadKeyValueMetadata(readerAtSeeker, crawl.CrawlStatsMetadataKey)
+	s.Require().NoError(err)
+	s.Require().True(ok, "the parquet file should have the crawl stats in its footer")
+	var stats pkg.SitemapCrawlStats
+	s.Require().NoError(json.Unmarshal([]byte(statsJson), &stats))
+	s.Require().Equal("iow:wqp:stations__5", stats.SitemapName)
+	s.Require().Equal(2, stats.SuccessfulSites)
 }
 
 func (s *NabuHarvestSuite) TestHarvestWithSourceSpecified() {

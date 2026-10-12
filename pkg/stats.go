@@ -4,10 +4,8 @@
 package pkg
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 )
 
 // The status of the shacl validation
@@ -101,14 +99,6 @@ type SitemapCrawlStats struct {
 	// An API specified in a given sitemap is assumed to be down if the first ~20 sites
 	// all failed without a single successful harvest
 	DatasetDown bool
-}
-
-// Serialize the sitemap crawl stats to json
-// and return the result as an io.Reader
-func (s SitemapCrawlStats) ToJsonIoReader() (io.Reader, error) {
-	buf := new(bytes.Buffer)
-	err := json.NewEncoder(buf).Encode(s)
-	return buf, err
 }
 
 // A sitemap index is just a list of sitemaps and thus

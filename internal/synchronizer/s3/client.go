@@ -266,11 +266,6 @@ func (m MinioClientWrapper) StoreWithoutServersideHash(path S3Prefix, data io.Re
 	return err
 }
 
-func (m MinioClientWrapper) StoreMetadata(path S3Prefix, data io.Reader) error {
-	_, err := m.Client.PutObject(context.Background(), m.MetadataBucket, path, data, -1, minio.PutObjectOptions{})
-	return err
-}
-
 func (m MinioClientWrapper) ListDir(path S3Prefix) (storage.Set, error) {
 	objs, err := m.ObjectList(context.Background(), path)
 	if err != nil {
