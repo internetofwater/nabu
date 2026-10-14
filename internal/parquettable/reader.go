@@ -63,6 +63,11 @@ func Read(ctx context.Context, r parquet.ReaderAtSeeker, fn func(Feature) error)
 	}
 	columnIndices := make([]int, 0, len(schema.Fields()))
 	for _, field := range schema.Fields() {
+		// the bbox is derived from the geometry so it is not read back; this
+		// also allows reading files written before the bbox column was added
+		if field.Name == ColumnBbox {
+			continue
+		}
 		indices := fileSchema.FieldIndices(field.Name)
 		if len(indices) != 1 || !arrow.TypeEqual(fileSchema.Field(indices[0]).Type, field.Type) {
 			return schemaMismatchError(fileSchema)

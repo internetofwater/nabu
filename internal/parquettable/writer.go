@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"slices"
 
 	"github.com/apache/arrow-go/v18/arrow"
@@ -20,6 +21,7 @@ import (
 	"github.com/apache/arrow-go/v18/parquet"
 	"github.com/apache/arrow-go/v18/parquet/compress"
 	"github.com/apache/arrow-go/v18/parquet/pqarrow"
+	"github.com/peterstace/simplefeatures/geom"
 )
 
 // Column names in the parquet file
@@ -31,6 +33,10 @@ const (
 	ColumnJSONLD      = "jsonld"
 	ColumnURL         = "url"
 	ColumnMainstemURI = "mainstem_uri"
+	// the GeoParquet bbox covering of the geometry; it is derived from the
+	// geometry when written so that readers can filter row groups by their
+	// column statistics without decoding the WKB
+	ColumnBbox = "bbox"
 	// TODO: S2 cell ids are disabled until the approach is finalized
 	// ColumnS2CellID    = "s2_cell_id"
 )
@@ -44,7 +50,17 @@ var schema = arrow.NewSchema([]arrow.Field{
 	{Name: ColumnURL, Type: arrow.BinaryTypes.String, Nullable: true},
 	{Name: ColumnMainstemURI, Type: arrow.BinaryTypes.String, Nullable: true},
 	// {Name: ColumnS2CellID, Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+	{Name: ColumnBbox, Type: bboxType, Nullable: true},
 }, nil)
+
+// The field names of the bbox struct are fixed by the GeoParquet spec; doubles are
+// used since floats would need to be rounded outward to still cover the geometry
+var bboxType = arrow.StructOf(
+	arrow.Field{Name: "xmin", Type: arrow.PrimitiveTypes.Float64},
+	arrow.Field{Name: "ymin", Type: arrow.PrimitiveTypes.Float64},
+	arrow.Field{Name: "xmax", Type: arrow.PrimitiveTypes.Float64},
+	arrow.Field{Name: "ymax", Type: arrow.PrimitiveTypes.Float64},
+)
 
 // The footer metadata key that marks the file as GeoParquet
 const geoMetadataKey = "geo"
@@ -68,6 +84,8 @@ type Writer struct {
 	// set if a geometry has a type that GeoParquet does not name, in
 	// which case the geometry types of the file are left unspecified
 	unnamedGeometryType bool
+	// the bbox of every geometry in the file; empty if there are none
+	fileBbox geom.Envelope
 }
 
 // NewWriter creates a writer that streams a parquet file to w
@@ -121,6 +139,7 @@ func (w *Writer) Write(f Feature) error {
 			w.unnamedGeometryType = true
 		}
 	}
+	w.appendBbox(f.Geometry)
 	w.builder.Field(4).(*array.StringBuilder).Append(string(f.JSONLD))
 	appendNullableString(w.builder.Field(5).(*array.StringBuilder), f.URL)
 	appendNullableString(w.builder.Field(6).(*array.StringBuilder), f.MainstemURI)
@@ -138,6 +157,46 @@ func (w *Writer) Write(f Feature) error {
 		return w.flush()
 	}
 	return nil
+}
+
+// Append the bbox of a WKB geometry; it is null if there is no geometry or it is empty
+func (w *Writer) appendBbox(wkb []byte) {
+	bboxBuilder := w.builder.Field(7).(*array.StructBuilder)
+	envelope, ok := wkbEnvelope(wkb)
+	if !ok {
+		bboxBuilder.AppendNull()
+		return
+	}
+	minXY, maxXY, _ := envelope.MinMaxXYs()
+	bboxBuilder.Append(true)
+	for i, value := range []float64{minXY.X, minXY.Y, maxXY.X, maxXY.Y} {
+		bboxBuilder.FieldBuilder(i).(*array.Float64Builder).Append(value)
+	}
+	w.fileBbox = w.fileBbox.ExpandToIncludeEnvelope(envelope)
+}
+
+// Get the envelope of a WKB geometry; ok is false if there is no
+// geometry, it cannot be parsed, or it has no finite coordinates
+func wkbEnvelope(wkb []byte) (envelope geom.Envelope, ok bool) {
+	if len(wkb) == 0 {
+		return geom.Envelope{}, false
+	}
+	// the geometry was already validated when converted from WKT
+	geometry, err := geom.UnmarshalWKB(wkb, geom.NoValidate{})
+	if err != nil {
+		return geom.Envelope{}, false
+	}
+	envelope = geometry.Envelope()
+	minXY, maxXY, ok := envelope.MinMaxXYs()
+	if !ok {
+		return geom.Envelope{}, false
+	}
+	for _, value := range []float64{minXY.X, minXY.Y, maxXY.X, maxXY.Y} {
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			return geom.Envelope{}, false
+		}
+	}
+	return envelope, true
 }
 
 // write all buffered features as a row group
@@ -194,14 +253,27 @@ func (w *Writer) geoParquetMetadata() (string, error) {
 		}
 	}
 	slices.Sort(geometryTypes)
+	geometryColumn := map[string]any{
+		"encoding":       "WKB",
+		"geometry_types": geometryTypes,
+		"covering": map[string]any{
+			"bbox": map[string]any{
+				"xmin": []string{ColumnBbox, "xmin"},
+				"ymin": []string{ColumnBbox, "ymin"},
+				"xmax": []string{ColumnBbox, "xmax"},
+				"ymax": []string{ColumnBbox, "ymax"},
+			},
+		},
+	}
+	// the file bbox is optional and is left out when there are no geometries
+	if minXY, maxXY, ok := w.fileBbox.MinMaxXYs(); ok {
+		geometryColumn["bbox"] = []float64{minXY.X, minXY.Y, maxXY.X, maxXY.Y}
+	}
 	metadata := map[string]any{
 		"version":        "1.1.0",
 		"primary_column": ColumnGeometry,
 		"columns": map[string]any{
-			ColumnGeometry: map[string]any{
-				"encoding":       "WKB",
-				"geometry_types": geometryTypes,
-			},
+			ColumnGeometry: geometryColumn,
 		},
 	}
 	asJson, err := json.Marshal(metadata)
