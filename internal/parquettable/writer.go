@@ -101,6 +101,15 @@ func NewWriter(w io.Writer) (*Writer, error) {
 		parquet.WithStatsFor(ColumnGeometry, false),
 		parquet.WithMaxRowGroupLength(maxRowsPerRowGroup),
 		parquet.WithCreatedBy("nabu"),
+		// arrow-go marks the root schema node as repeated by default. The parquet
+		// spec says the root's repetition should be ignored, and pyarrow, duckdb, and
+		// arrow-go do ignore it, but hyparquet (used by browser based viewers like the
+		// portolan STAC browser) counts it as a repetition level. It then decodes
+		// repetition levels that were never written and reads every page at the wrong
+		// offset. Flat columns silently decode as mostly null, and the nested bbox struct
+		// fails with "Offset is outside the bounds of the DataView". Marking the root as
+		// required matches what pyarrow writes and is read correctly everywhere
+		parquet.WithRootRepetition(parquet.Repetitions.Required),
 	)
 	// pqarrow closes writers that implement io.Closer; the caller owns w so it is hidden
 	writerWithoutClose := struct{ io.Writer }{w}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
+	"github.com/apache/arrow-go/v18/parquet"
 	"github.com/apache/arrow-go/v18/parquet/file"
 	"github.com/apache/arrow-go/v18/parquet/pqarrow"
 	// "github.com/golang/geo/s2"
@@ -202,6 +203,21 @@ func TestBboxColumn(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(geoMetadata), &geo))
 	geometryColumn := geo["columns"].(map[string]any)[ColumnGeometry].(map[string]any)
 	require.Equal(t, []any{-5.0, -1.0, 2.0, 10.0}, geometryColumn["bbox"], "the file bbox should cover every geometry")
+}
+
+func TestRootIsNotRepeated(t *testing.T) {
+	var buf bytes.Buffer
+	writer, err := NewWriter(&buf)
+	require.NoError(t, err)
+	require.NoError(t, writer.Write(Feature{JSONLD: []byte("{}")}))
+	require.NoError(t, writer.Close())
+
+	parquetReader, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+	// some readers such as hyparquet count a repeated root as a repetition
+	// level and then fail to decode the bbox struct
+	require.Equal(t, parquet.Repetitions.Required, parquetReader.MetaData().Schema.Root().RepetitionType())
+	require.NoError(t, parquetReader.Close())
 }
 
 func TestNoFileBboxWithoutGeometries(t *testing.T) {
