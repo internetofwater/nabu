@@ -9,7 +9,10 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/apache/arrow-go/v18/arrow/array"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/apache/arrow-go/v18/parquet/file"
+	"github.com/apache/arrow-go/v18/parquet/pqarrow"
 	// "github.com/golang/geo/s2"
 	"github.com/peterstace/simplefeatures/geom"
 	"github.com/stretchr/testify/require"
@@ -121,7 +124,15 @@ func TestWriteThenRead(t *testing.T) {
 	var geo map[string]any
 	require.NoError(t, json.Unmarshal([]byte(*geoMetadata), &geo))
 	require.Equal(t, ColumnGeometry, geo["primary_column"])
-	require.Equal(t, []any{"Point"}, geo["columns"].(map[string]any)[ColumnGeometry].(map[string]any)["geometry_types"])
+	geometryColumn := geo["columns"].(map[string]any)[ColumnGeometry].(map[string]any)
+	require.Equal(t, []any{"Point"}, geometryColumn["geometry_types"])
+	require.Equal(t, []any{-111.68, 40.44, -111.68, 40.44}, geometryColumn["bbox"])
+	require.Equal(t, map[string]any{
+		"xmin": []any{ColumnBbox, "xmin"},
+		"ymin": []any{ColumnBbox, "ymin"},
+		"xmax": []any{ColumnBbox, "xmax"},
+		"ymax": []any{ColumnBbox, "ymax"},
+	}, geometryColumn["covering"].(map[string]any)["bbox"])
 	require.NoError(t, parquetReader.Close())
 
 	read := []Feature{}
@@ -134,6 +145,78 @@ func TestWriteThenRead(t *testing.T) {
 	require.Equal(t, withGeometry, read[0])
 	require.Equal(t, withoutGeometry, read[1])
 	require.Equal(t, withoutGeometry, read[total-1])
+}
+
+// Read the bbox column of a parquet file; rows without a bbox are nil
+func readBboxes(t *testing.T, data []byte) [][4]float64 {
+	t.Helper()
+	parquetReader, err := file.NewParquetReader(bytes.NewReader(data))
+	require.NoError(t, err)
+	arrowReader, err := pqarrow.NewFileReader(parquetReader, pqarrow.ArrowReadProperties{}, memory.DefaultAllocator)
+	require.NoError(t, err)
+	table, err := arrowReader.ReadTable(context.Background())
+	require.NoError(t, err)
+	defer table.Release()
+
+	index := table.Schema().FieldIndices(ColumnBbox)
+	require.Len(t, index, 1)
+	bboxes := [][4]float64{}
+	for _, chunk := range table.Column(index[0]).Data().Chunks() {
+		structs := chunk.(*array.Struct)
+		for i := range structs.Len() {
+			if structs.IsNull(i) {
+				bboxes = append(bboxes, [4]float64{})
+				continue
+			}
+			var bbox [4]float64
+			for j := range bbox {
+				bbox[j] = structs.Field(j).(*array.Float64).Value(i)
+			}
+			bboxes = append(bboxes, bbox)
+		}
+	}
+	return bboxes
+}
+
+func TestBboxColumn(t *testing.T) {
+	var buf bytes.Buffer
+	writer, err := NewWriter(&buf)
+	require.NoError(t, err)
+	for _, wkt := range []string{"POLYGON((0 0, 2 0, 2 3, 0 3, 0 0))", "", "POINT EMPTY", "LINESTRING(-5 -1, 1 10)"} {
+		feature := Feature{JSONLD: []byte("{}")}
+		if wkt != "" {
+			g, err := geom.UnmarshalWKT(wkt)
+			require.NoError(t, err)
+			feature.Geometry = g.AsBinary()
+		}
+		require.NoError(t, writer.Write(feature))
+	}
+	require.NoError(t, writer.Close())
+
+	require.Equal(t, [][4]float64{{0, 0, 2, 3}, {}, {}, {-5, -1, 1, 10}}, readBboxes(t, buf.Bytes()), "rows without a non empty geometry should have a null bbox")
+
+	geoMetadata, ok, err := ReadKeyValueMetadata(bytes.NewReader(buf.Bytes()), geoMetadataKey)
+	require.NoError(t, err)
+	require.True(t, ok)
+	var geo map[string]any
+	require.NoError(t, json.Unmarshal([]byte(geoMetadata), &geo))
+	geometryColumn := geo["columns"].(map[string]any)[ColumnGeometry].(map[string]any)
+	require.Equal(t, []any{-5.0, -1.0, 2.0, 10.0}, geometryColumn["bbox"], "the file bbox should cover every geometry")
+}
+
+func TestNoFileBboxWithoutGeometries(t *testing.T) {
+	var buf bytes.Buffer
+	writer, err := NewWriter(&buf)
+	require.NoError(t, err)
+	require.NoError(t, writer.Write(Feature{JSONLD: []byte("{}")}))
+	require.NoError(t, writer.Close())
+
+	geoMetadata, ok, err := ReadKeyValueMetadata(bytes.NewReader(buf.Bytes()), geoMetadataKey)
+	require.NoError(t, err)
+	require.True(t, ok)
+	var geo map[string]any
+	require.NoError(t, json.Unmarshal([]byte(geoMetadata), &geo))
+	require.NotContains(t, geo["columns"].(map[string]any)[ColumnGeometry], "bbox")
 }
 
 func TestKeyValueMetadata(t *testing.T) {
