@@ -19,6 +19,18 @@ import (
 // level 11 cells are about 20 km² on average
 const Level = 11
 
+// The largest area in km² of the longitude/latitude bounding box of a geometry that is
+// associated with cells; larger geometries, such as a polygon of an entire country, would
+// add tens of thousands of cells to the document while saying little about where it is
+const MaxBoundingBoxAreaKm2 = 1_000_000
+
+// The mean radius of the earth in km, used to convert areas on the unit sphere to km²
+const earthRadiusKm = 6371.0088
+
+// ErrGeometryTooLarge is returned when the bounding box of a
+// geometry is larger than MaxBoundingBoxAreaKm2
+var ErrGeometryTooLarge = errors.New("geometry is too large to associate with S2 cells")
+
 // CellsForWkb returns the S2 cells of level Level that intersect a WKB geometry with
 // longitude/latitude coordinates. The cells are condensed by replacing any four sibling
 // cells with their parent, so the result may also contain coarser cells; every level
@@ -43,9 +55,10 @@ type CellRelation struct {
 
 // CellRelationsForWkb returns the same cells as CellsForWkb along with the spatial relation
 // of the geometry to each one. The relation is sfWithin if the geometry only intersects that
-// cell, sfContains if a polygon of the geometry contains the cell, and sfOverlaps if the geometry
-// only has polygons and crosses the edge of the cell. Any other relation, such as a line crossing
-// the cell, has no property in the CGS spatiotemporal ontology so the generic spatialRelation is used
+// cell, sfContains if a polygon of the geometry contains the cell, sfOverlaps if the geometry
+// only has polygons and crosses the edge of the cell, and sfCrosses if the geometry only has
+// points and lines and is partly outside the cell. A geometry that mixes polygons with points or
+// lines has no single dimension to compare to the cell, so the generic spatialRelation is used
 func CellRelationsForWkb(wkb []byte) (relations []CellRelation, err error) {
 	defer recoverFromS2Panic(&err)
 	regions, err := regionsForWkb(wkb)
@@ -61,6 +74,7 @@ func CellRelationsForWkb(wkb []byte) (relations []CellRelation, err error) {
 		}
 	}
 	onlyPolygons := len(polygons) == len(regions)
+	noPolygons := len(polygons) == 0
 
 	relations = make([]CellRelation, 0, len(cells))
 	for _, cell := range cells {
@@ -79,6 +93,10 @@ func CellRelationsForWkb(wkb []byte) (relations []CellRelation, err error) {
 			relation = SfContainsIRI
 		case onlyPolygons:
 			relation = SfOverlapsIRI
+		case noPolygons:
+			// points and lines have a lower dimension than the cell, so a geometry of
+			// them that is partly inside and partly outside the cell crosses it
+			relation = SfCrossesIRI
 		default:
 			relation = SpatialRelationIRI
 		}
@@ -100,6 +118,7 @@ func regionsForWkb(wkb []byte) ([]s2.Region, error) {
 		return nil, err
 	}
 	regions := []s2.Region{}
+	bound := s2.EmptyRect()
 	for _, part := range geometry.Dump() {
 		region, err := regionForGeometry(part)
 		if err != nil {
@@ -107,7 +126,12 @@ func regionsForWkb(wkb []byte) ([]s2.Region, error) {
 		}
 		if region != nil {
 			regions = append(regions, region)
+			bound = bound.Union(region.RectBound())
 		}
+	}
+	// checked before computing the covering since that is the expensive part for large geometries
+	if areaKm2 := bound.Area() * earthRadiusKm * earthRadiusKm; areaKm2 > MaxBoundingBoxAreaKm2 {
+		return nil, fmt.Errorf("%w: its bounding box is %.0f km² which is more than the limit of %d km²", ErrGeometryTooLarge, areaKm2, MaxBoundingBoxAreaKm2)
 	}
 	return regions, nil
 }

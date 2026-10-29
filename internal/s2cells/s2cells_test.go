@@ -117,9 +117,9 @@ func TestCellsForLineString(t *testing.T) {
 }
 
 func TestCellsForMultiGeometries(t *testing.T) {
-	cells, err := CellsForWkb(wkbFromWkt(t, "GEOMETRYCOLLECTION(POINT(10 10), MULTIPOINT((10 10), (-20 -20)), LINESTRING(1 1, 1.01 1.01))"))
+	cells, err := CellsForWkb(wkbFromWkt(t, "GEOMETRYCOLLECTION(POINT(-105 40), MULTIPOINT((-104 39), (-106 41)), LINESTRING(-105.5 39.5, -105.49 39.51))"))
 	require.NoError(t, err)
-	for _, lngLat := range [][2]float64{{10, 10}, {-20, -20}, {1, 1}, {1.01, 1.01}} {
+	for _, lngLat := range [][2]float64{{-105, 40}, {-104, 39}, {-106, 41}, {-105.5, 39.5}, {-105.49, 39.51}} {
 		require.True(t, cells.ContainsCellID(s2.CellIDFromLatLng(s2.LatLngFromDegrees(lngLat[1], lngLat[0]))))
 	}
 }
@@ -131,12 +131,16 @@ func TestCellsForDegenerateGeometries(t *testing.T) {
 		"LINESTRING(1 1, 1 1)",
 		// a polygon without any area only intersects the cells of its boundary
 		"POLYGON((1 1, 2 2, 1 1))",
-		// self intersecting polygons are common in upstream data
-		"POLYGON((0 0, 1 1, 1 0, 0 1, 0 0))",
 	} {
 		_, err := CellsForWkb(wkbFromWkt(t, wkt))
 		require.NoError(t, err, wkt)
 	}
+	// self intersecting polygons are common in upstream data; s2 cannot tell which side of
+	// a bowtie is the inside and treats it as covering the whole world, so the size limit
+	// keeps it from being associated with every cell instead of panicking or hanging
+	_, err := CellsForWkb(wkbFromWkt(t, "POLYGON((0 0, 1 1, 1 0, 0 1, 0 0))"))
+	require.ErrorIs(t, err, ErrGeometryTooLarge)
+
 	cells, err := CellsForWkb(wkbFromWkt(t, "POINT EMPTY"))
 	require.NoError(t, err)
 	require.Empty(t, cells)
@@ -166,6 +170,27 @@ func countRelations(byCell map[s2.CellID]string) map[string]int {
 		counts[relation]++
 	}
 	return counts
+}
+
+func TestGeometrySizeLimit(t *testing.T) {
+	t.Run("a polygon the size of the contiguous US has no cells", func(t *testing.T) {
+		wkb := wkbFromWkt(t, "POLYGON((-125 24, -66 24, -66 49, -125 49, -125 24))")
+		_, err := CellsForWkb(wkb)
+		require.ErrorIs(t, err, ErrGeometryTooLarge)
+		_, err = CellRelationsForWkb(wkb)
+		require.ErrorIs(t, err, ErrGeometryTooLarge)
+	})
+
+	t.Run("points spread across the US have no cells", func(t *testing.T) {
+		_, err := CellsForWkb(wkbFromWkt(t, "MULTIPOINT((-122 47), (-80 25))"))
+		require.ErrorIs(t, err, ErrGeometryTooLarge)
+	})
+
+	t.Run("a polygon the size of a state has cells", func(t *testing.T) {
+		cells, err := CellsForWkb(wkbFromWkt(t, "POLYGON((-109 37, -102 37, -102 41, -109 41, -109 37))"))
+		require.NoError(t, err)
+		require.NotEmpty(t, cells)
+	})
 }
 
 func TestCellRelations(t *testing.T) {
@@ -198,10 +223,14 @@ func TestCellRelations(t *testing.T) {
 		require.Equal(t, SfOverlapsIRI, byCell[corner])
 	})
 
-	t.Run("a line crossing cells has no more specific relation than spatialRelation", func(t *testing.T) {
+	t.Run("a line through several cells crosses them", func(t *testing.T) {
 		byCell := relationsByCell(t, "LINESTRING(-105 40, -104.5 40.2)")
 		require.Greater(t, len(byCell), 1)
-		require.Equal(t, map[string]int{SpatialRelationIRI: len(byCell)}, countRelations(byCell))
+		require.Equal(t, map[string]int{SfCrossesIRI: len(byCell)}, countRelations(byCell))
+	})
+
+	t.Run("a line inside a single cell is within it", func(t *testing.T) {
+		require.Equal(t, map[string]int{SfWithinIRI: 1}, countRelations(relationsByCell(t, "LINESTRING(-111.68 40.44, -111.6801 40.4401)")))
 	})
 
 	t.Run("a polygon still contains cells when the geometry also has a line", func(t *testing.T) {
@@ -209,10 +238,11 @@ func TestCellRelations(t *testing.T) {
 		require.Positive(t, counts[SfContainsIRI])
 		require.Positive(t, counts[SpatialRelationIRI], "edge cells of the polygon and the line are only known to intersect the geometry")
 		require.Zero(t, counts[SfOverlapsIRI], "the line does not have the same dimension as the cells so the geometry cannot overlap them")
+		require.Zero(t, counts[SfCrossesIRI], "the polygon has the same dimension as the cells so the geometry cannot cross them")
 	})
 
-	t.Run("points in different cells are not within any of them", func(t *testing.T) {
-		require.Equal(t, map[string]int{SpatialRelationIRI: 2}, countRelations(relationsByCell(t, "MULTIPOINT((10 10), (-20 -20))")))
+	t.Run("points in different cells cross each of them", func(t *testing.T) {
+		require.Equal(t, map[string]int{SfCrossesIRI: 2}, countRelations(relationsByCell(t, "MULTIPOINT((-105 40), (-104 39))")))
 	})
 
 	t.Run("errors are the same as for the cells", func(t *testing.T) {

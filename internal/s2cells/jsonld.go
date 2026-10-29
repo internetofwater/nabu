@@ -29,6 +29,7 @@ const (
 	SfWithinIRI        = SpatiotemporalNamespace + "sfWithin"
 	SfOverlapsIRI      = SpatiotemporalNamespace + "sfOverlaps"
 	SfEqualsIRI        = SpatiotemporalNamespace + "sfEquals"
+	SfCrossesIRI       = SpatiotemporalNamespace + "sfCrosses"
 	cellIDIRI          = kwgOntologyNamespace + "cellID"
 	xsdIntegerIRI      = "http://www.w3.org/2001/XMLSchema#integer"
 )
