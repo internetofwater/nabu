@@ -15,7 +15,7 @@ mkdir -p /tmp/nquads
 
 # stream the harvested parquet file to n-quads; this could instead be piped directly into a graph database
 time go run "$(pwd)/cmd/nabu" nquads \
-  --prefix summoned/ref:gages.parquet \
+  --prefix summoned/rdf/ref:gages.parquet \
   --sitemap-index https://pids.geoconnex.dev/sitemap.xml \
   --log-level DEBUG \
   --use-otel > /tmp/nquads/ref_gages.nq

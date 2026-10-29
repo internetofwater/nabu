@@ -38,12 +38,13 @@ func (s *NabuHarvestSuite) TestHarvestToS3() {
 	s.Require().NoError(err)
 	objs, err := s.minioContainer.ClientWrapper.ObjectList(context.Background(), "summoned/")
 	s.Require().NoError(err)
-	// one parquet file containing both jsonld documents
-	s.Require().Len(objs, 1)
-	s.Require().Equal("summoned/iow:wqp:stations__5.parquet", objs[0].Key)
+	// one structured and one RDF parquet file containing both jsonld documents
+	s.Require().Len(objs, 2)
+	keys := []string{objs[0].Key, objs[1].Key}
+	s.Require().ElementsMatch([]string{"summoned/structured/iow:wqp:stations__5.parquet", "summoned/rdf/iow:wqp:stations__5.parquet"}, keys)
 
-	// the crawl stats are stored in the footer of the parquet file
-	stored, err := s.minioContainer.ClientWrapper.Get(objs[0].Key)
+	// the crawl stats are stored in the footer of the parquet files
+	stored, err := s.minioContainer.ClientWrapper.Get(crawl.SummonedStructuredParquetPath("iow:wqp:stations__5"))
 	s.Require().NoError(err)
 	defer func() { _ = stored.Close() }()
 	readerAtSeeker, err := parquettable.AsReaderAtSeeker(stored)

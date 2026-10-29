@@ -10,9 +10,9 @@ import (
 	"github.com/internetofwater/nabu/internal/synchronizer"
 )
 
-// Command to convert the JSON-LD documents in harvested parquet files to N-Quads
+// Command to convert the JSON-LD documents in harvested RDF parquet files to N-Quads
 type NquadsCmd struct {
-	Files []string `arg:"positional" help:"local parquet files to convert; if none are given, every parquet file under --prefix (default summoned/) in the s3 bucket is converted"`
+	Files []string `arg:"positional" help:"local RDF parquet files to convert; if none are given, every parquet file under --prefix (default summoned/rdf/) in the s3 bucket is converted"`
 }
 
 // Write the N-Quads for every JSON-LD document in the parquet files to out
@@ -24,7 +24,7 @@ func Nquads(ctx context.Context, synchronizerClient *synchronizer.SynchronizerCl
 		}
 	} else {
 		if prefix == "" {
-			prefix = "summoned/"
+			prefix = "summoned/rdf/"
 		}
 		var err error
 		sources, err = synchronizerClient.NewS3NquadsSources(ctx, prefix)

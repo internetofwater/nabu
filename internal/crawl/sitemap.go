@@ -19,6 +19,7 @@ import (
 	"github.com/internetofwater/nabu/internal/mainstems"
 	"github.com/internetofwater/nabu/internal/opentelemetry"
 	"github.com/internetofwater/nabu/internal/parquettable"
+	"github.com/internetofwater/nabu/internal/s2cells"
 	"github.com/internetofwater/nabu/pkg"
 	sitemap "github.com/oxffaa/gopher-parse-sitemap"
 	log "github.com/sirupsen/logrus"
@@ -82,23 +83,29 @@ type SitemapHarvestConfig struct {
 	// associates each feature with a mainstem; nil if the
 	// sitemap did not request mainstem associations
 	mainstemService mainstems.MainstemService
+	// associate each feature with the S2 cells its geometry intersects
+	addS2Cells bool
 }
 
 // Add extra information to a harvested feature. Enrichments are written into the JSON-LD
 // so that they are kept when it is converted to RDF, and may also be put in their own
-// column so they can be used without parsing the JSON-LD
-func enrichFeature(ctx context.Context, config *SitemapHarvestConfig, feature *parquettable.Feature) error {
-	return addMainstemToFeature(ctx, config, feature)
+// column so they can be used without parsing the JSON-LD. The source is where the
+// feature was harvested from and is only used in messages
+func enrichFeature(ctx context.Context, config *SitemapHarvestConfig, feature *parquettable.Feature, source string) error {
+	if err := addMainstemToFeature(ctx, config, feature, source); err != nil {
+		return err
+	}
+	return addS2CellsToFeature(config, feature, source)
 }
 
 // Add the mainstem associated with the geometry of a feature if the sitemap requested mainstem associations
-func addMainstemToFeature(ctx context.Context, config *SitemapHarvestConfig, feature *parquettable.Feature) error {
+func addMainstemToFeature(ctx context.Context, config *SitemapHarvestConfig, feature *parquettable.Feature, source string) error {
 	if config.mainstemService == nil {
 		return nil
 	}
 	mainstemURI, err := mainstems.GetMainstemURIForWkb(ctx, config.mainstemService, feature.ID, feature.Geometry)
 	if err != nil {
-		return fmt.Errorf("failed to get the mainstem for the document harvested from %s: %w", feature.URL, err)
+		return fmt.Errorf("failed to get the mainstem for the document harvested from %s: %w", source, err)
 	}
 	if mainstemURI == "" {
 		return nil
@@ -106,10 +113,33 @@ func addMainstemToFeature(ctx context.Context, config *SitemapHarvestConfig, fea
 	feature.MainstemURI = mainstemURI
 	enriched, err := mainstems.AddMainstemToJsonld(feature.JSONLD, mainstemURI)
 	if errors.Is(err, mainstems.ErrCannotAddMainstem) {
-		log.Warnf("Only adding the mainstem for %s to the %s column: %v", feature.URL, parquettable.ColumnMainstemURI, err)
+		log.Warnf("Only adding the mainstem for %s to the %s column: %v", source, parquettable.ColumnMainstemURI, err)
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("failed to add the mainstem to the JSON-LD harvested from %s: %w", feature.URL, err)
+		return fmt.Errorf("failed to add the mainstem to the JSON-LD harvested from %s: %w", source, err)
+	}
+	feature.JSONLD = enriched
+	return nil
+}
+
+// Add the S2 cells that the geometry of a feature intersects to its JSON-LD if the sitemap requested
+// S2 associations. Geometries that cannot be associated with cells, such as those that do not use
+// longitude/latitude coordinates, are not a reason to fail the harvest so the feature is kept without cells
+func addS2CellsToFeature(config *SitemapHarvestConfig, feature *parquettable.Feature, source string) error {
+	if !config.addS2Cells || len(feature.Geometry) == 0 {
+		return nil
+	}
+	relations, err := s2cells.CellRelationsForWkb(feature.Geometry)
+	if err != nil {
+		log.Warnf("Not adding S2 cells to the document harvested from %s: %v", source, err)
+		return nil
+	}
+	enriched, err := s2cells.AddCellsToJsonld(feature.JSONLD, relations)
+	if errors.Is(err, s2cells.ErrCannotAddCells) {
+		log.Warnf("Not adding S2 cells to the document harvested from %s: %v", source, err)
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to add S2 cells to the JSON-LD harvested from %s: %w", source, err)
 	}
 	feature.JSONLD = enriched
 	return nil
@@ -145,6 +175,7 @@ func NewSitemapHarvestConfig(httpClient *http.Client, sitemap *Sitemap, shaclVal
 		storageDestination: sitemap.storageDestination,
 		exitOnShaclFailure: exitOnShaclFailure,
 		workers:            sitemap.workers,
+		addS2Cells:         sitemap.metadata.AddS2,
 		// currently hard coded. could be configurable in the future
 		maxShaclErrorsToStore: 20,
 		// currently hard coded. could be configurable in the future
@@ -200,8 +231,7 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 	start := time.Now()
 	log.Infof("Harvesting sitemap %s with %d urls", s.metadata.SitemapID, len(s.URL))
 
-	parquetPath := SummonedParquetPath(s.metadata.SitemapID)
-	sink, err := newParquetSink(s.storageDestination, parquetPath)
+	sink, err := newSitemapParquetSink(s.storageDestination, s.metadata.SitemapID)
 	if err != nil {
 		return pkg.SitemapCrawlStats{}, err
 	}
@@ -280,7 +310,7 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 				sitesMu.Unlock()
 
 				if err := sink.Add(*result_metadata.feature); err != nil {
-					return fmt.Errorf("failed to add %s to %s: %w", url.Loc, parquetPath, err)
+					return fmt.Errorf("failed to add %s to the parquet files of %s: %w", url.Loc, s.metadata.SitemapID, err)
 				}
 			}
 			if math.Mod(float64(totalSitesContacted.Load()), 500) == 0 {
@@ -317,7 +347,7 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 
 	rows, err := sink.Commit(stats)
 	if errors.Is(err, errNoFeaturesHarvested) {
-		log.Warnf("Keeping the previous %s since no documents were harvested from sitemap %s", parquetPath, s.metadata.SitemapID)
+		log.Warnf("Keeping the previous parquet files since no documents were harvested from sitemap %s", s.metadata.SitemapID)
 		return stats, nil
 	} else if err != nil {
 		return stats, err
@@ -325,7 +355,7 @@ func (s *Sitemap) HarvestPIDsSitemap(ctx context.Context, config *SitemapHarvest
 
 	stats.SecondsToComplete = time.Since(start).Seconds()
 
-	log.Infof("Finished crawling sitemap %s in %f seconds; wrote %d documents to %s", s.metadata.SitemapID, stats.SecondsToComplete, rows, parquetPath)
+	log.Infof("Finished crawling sitemap %s in %f seconds; wrote %d documents", s.metadata.SitemapID, stats.SecondsToComplete, rows)
 
 	log.Infof("Sitemap %s had %d harvested urls, %d non fatal crawl errors, and %d shacl issues", s.metadata.SitemapID, stats.SuccessfulSites, len(stats.CrawlFailures), stats.WarningStats.TotalShaclFailures)
 

@@ -4,6 +4,7 @@
 package crawl
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -14,6 +15,7 @@ import (
 	common "github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/parquettable"
+	"github.com/internetofwater/nabu/internal/s2cells"
 	"github.com/internetofwater/nabu/pkg"
 	"golang.org/x/sync/errgroup"
 
@@ -52,25 +54,38 @@ func sitemapMocks() map[string]common.MockResponse {
 
 // harvest the test sitemap with the given mocks into the storage
 func harvestTestSitemap(t *testing.T, mocks map[string]common.MockResponse, store storage.CrawlStorage) (pkg.SitemapCrawlStats, error) {
+	return harvestTestSitemapWithMetadata(t, mocks, store, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
+}
+
+func harvestTestSitemapWithMetadata(t *testing.T, mocks map[string]common.MockResponse, store storage.CrawlStorage, metadata SitemapMetadata) (pkg.SitemapCrawlStats, error) {
 	mockedClient := common.NewMockedClient(true, mocks)
-	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, store, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
+	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, store, metadata)
 	require.NoError(t, err)
 	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, nil, false)
 	require.NoError(t, err)
 	return sitemap.Harvest(context.Background(), &config)
 }
 
-// read every feature in the parquet file for a sitemap keyed by the url it was harvested from
-func readHarvestedFeatures(t *testing.T, store storage.CrawlStorage, sitemapId string) map[string]parquettable.Feature {
-	features := map[string]parquettable.Feature{}
-	exists, err := readStoredFeatures(context.Background(), store, SummonedParquetPath(sitemapId), func(f parquettable.Feature) error {
-		require.NotContains(t, features, f.URL, "each url should only be in the parquet file once")
-		features[f.URL] = f
-		return nil
-	})
+// read every feature in the parquet files for a sitemap
+func readHarvestedFeatures(t *testing.T, store storage.CrawlStorage, sitemapId string) []parquettable.Feature {
+	features, exists, err := readStoredFeatures(context.Background(), store, sitemapId)
 	require.NoError(t, err)
-	require.True(t, exists, "the parquet file for the sitemap should exist")
+	require.True(t, exists, "the parquet files for the sitemap should exist")
 	return features
+}
+
+// the features whose JSON-LD is the contents of the given file; the url a feature was
+// harvested from is not stored and some test documents do not have an @id, so the
+// harvested JSON-LD is how a test identifies which mocked document a feature came from
+func featuresFromFile(t *testing.T, features []parquettable.Feature, path string) []parquettable.Feature {
+	expected := readFile(t, path)
+	matching := []parquettable.Feature{}
+	for _, feature := range features {
+		if bytes.Equal(feature.JSONLD, expected) {
+			matching = append(matching, feature)
+		}
+	}
+	return matching
 }
 
 func readFile(t *testing.T, path string) []byte {
@@ -86,20 +101,74 @@ func TestHarvestWritesOneParquetFile(t *testing.T) {
 	_, err = harvestTestSitemap(t, sitemapMocks(), store)
 	require.NoError(t, err)
 
-	summoned, err := store.ListDir("summoned")
-	require.NoError(t, err)
-	require.Len(t, summoned, 1, "there should only be one parquet file for the sitemap and no individual jsonld files")
+	for _, dir := range []string{"summoned/structured", "summoned/rdf"} {
+		files, err := store.ListDir(dir)
+		require.NoError(t, err)
+		require.Len(t, files, 1, "there should only be one parquet file of each kind for the sitemap and no individual jsonld files")
+	}
 
 	features := readHarvestedFeatures(t, store, "test")
 	require.Len(t, features, 3)
-	for url, mock := range sitemapMocks() {
+	for _, mock := range sitemapMocks() {
 		if mock.ContentType != "application/ld+json" {
 			continue
 		}
-		require.Contains(t, features, url)
-		require.Equal(t, readFile(t, mock.File), features[url].JSONLD, "the jsonld should be stored exactly as it was harvested")
+		require.Len(t, featuresFromFile(t, features, mock.File), 1, "the jsonld should be stored exactly as it was harvested")
 	}
-	require.Equal(t, "Eufaula", features["https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C"].Name)
+	require.Equal(t, "Eufaula", featuresFromFile(t, features, "testdata/reference_feature.jsonld")[0].Name)
+}
+
+func TestHarvestFallsBackToUrlWithoutAnId(t *testing.T) {
+	store, err := storage.NewLocalTempFSCrawlStorage()
+	require.NoError(t, err)
+	_, err = harvestTestSitemap(t, sitemapMocks(), store)
+	require.NoError(t, err)
+	features := readHarvestedFeatures(t, store, "test")
+
+	withId := featuresFromFile(t, features, "testdata/reference_feature.jsonld")
+	require.Len(t, withId, 1)
+	require.Equal(t, "https://geoconnex.us/ref/places/0124568", withId[0].ID, "the @id should be used when the document has one")
+
+	withoutId := featuresFromFile(t, features, "testdata/reference_feature_2.jsonld")
+	require.Len(t, withoutId, 1)
+	require.Equal(t, "https://geoconnex.us/iow/wqp/BPMWQX-1085-WR-CC01C2", withoutId[0].ID, "documents without an @id should be identified by the url they were crawled from")
+}
+
+func TestHarvestAddsS2Cells(t *testing.T) {
+	store, err := storage.NewLocalTempFSCrawlStorage()
+	require.NoError(t, err)
+
+	_, err = harvestTestSitemapWithMetadata(t, sitemapMocks(), store, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml", AddS2: true})
+	require.NoError(t, err)
+
+	features := readHarvestedFeatures(t, store, "test")
+	require.Len(t, features, 3)
+	withGeometry := 0
+	for _, feature := range features {
+		if len(feature.Geometry) == 0 {
+			require.NotContains(t, string(feature.JSONLD), s2cells.SpatiotemporalNamespace, "features without a geometry have no S2 cells")
+			continue
+		}
+		withGeometry++
+		relations, err := s2cells.CellRelationsForWkb(feature.Geometry)
+		require.NoError(t, err)
+		require.NotEmpty(t, relations)
+		for _, relation := range relations {
+			require.Contains(t, string(feature.JSONLD), s2cells.CellIRI(relation.Cell), "every S2 cell the geometry intersects should be in the jsonld")
+			require.Contains(t, string(feature.JSONLD), relation.Relation)
+		}
+	}
+	require.Positive(t, withGeometry)
+
+	t.Run("cells are only added when the sitemap requests them", func(t *testing.T) {
+		withoutS2, err := storage.NewLocalTempFSCrawlStorage()
+		require.NoError(t, err)
+		_, err = harvestTestSitemap(t, sitemapMocks(), withoutS2)
+		require.NoError(t, err)
+		for _, feature := range readHarvestedFeatures(t, withoutS2, "test") {
+			require.NotContains(t, string(feature.JSONLD), s2cells.SpatiotemporalNamespace)
+		}
+	})
 }
 
 func TestHarvestSitemap(t *testing.T) {
@@ -165,7 +234,7 @@ func TestHarvestTwiceOverridesFile(t *testing.T) {
 	mocks := sitemapMocks()
 	_, err = harvestTestSitemap(t, mocks, store)
 	require.NoError(t, err)
-	require.Equal(t, readFile(t, "testdata/reference_feature.jsonld"), readHarvestedFeatures(t, store, "test")[urlToHarvestDifferently].JSONLD)
+	require.Len(t, featuresFromFile(t, readHarvestedFeatures(t, store, "test"), "testdata/reference_feature.jsonld"), 1)
 
 	// harvest again with different content to make sure the document is replaced
 	mocks[urlToHarvestDifferently] = common.MockResponse{
@@ -181,7 +250,8 @@ func TestHarvestTwiceOverridesFile(t *testing.T) {
 
 	features := readHarvestedFeatures(t, store, "test")
 	require.Len(t, features, 3)
-	require.Equal(t, readFile(t, "testdata/reference_feature_2.jsonld"), features[urlToHarvestDifferently].JSONLD, "The document should have been replaced with the new content")
+	require.Empty(t, featuresFromFile(t, features, "testdata/reference_feature.jsonld"), "The document should have been replaced with the new content")
+	require.Len(t, featuresFromFile(t, features, "testdata/reference_feature_2.jsonld"), 2, "both urls should now have the same content")
 }
 
 func TestHarvestLeavesOutDocumentsForFailingSites(t *testing.T) {
@@ -210,8 +280,8 @@ func TestHarvestLeavesOutDocumentsForFailingSites(t *testing.T) {
 	require.Equal(t, 3, stats.SitesInSitemap, "All 3 sites should be in the sitemap")
 
 	features := readHarvestedFeatures(t, store, "test")
-	require.Len(t, features, 1, "the parquet file should only contain the documents fetched in the most recent harvest")
-	require.Contains(t, features, "https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A")
+	require.Len(t, features, 1, "the parquet files should only contain the documents fetched in the most recent harvest")
+	require.Len(t, featuresFromFile(t, features, sitemapMocks()["https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A"].File), 1)
 }
 
 func TestHarvestKeepsPreviousFileIfNoDocumentsSucceed(t *testing.T) {
@@ -241,9 +311,11 @@ func TestHarvestKeepsPreviousFileIfNoDocumentsSucceed(t *testing.T) {
 		require.NoError(t, err)
 		_, err = harvestTestSitemap(t, allFailing, emptyStore)
 		require.NoError(t, err)
-		exists, err := emptyStore.Exists(SummonedParquetPath("test"))
-		require.NoError(t, err)
-		require.False(t, exists)
+		for _, path := range []string{SummonedStructuredParquetPath("test"), SummonedRDFParquetPath("test")} {
+			exists, err := emptyStore.Exists(path)
+			require.NoError(t, err)
+			require.False(t, exists)
+		}
 	})
 }
 
@@ -268,7 +340,7 @@ func TestHarvestRemovesDocumentsNoLongerInSitemap(t *testing.T) {
 
 	features := readHarvestedFeatures(t, store, "test")
 	require.Len(t, features, 1)
-	require.Contains(t, features, "https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A")
+	require.Len(t, featuresFromFile(t, features, sitemapMocks()["https://geoconnex.us/iow/wqp/BPMWQX-1086-WR-CC02A"].File), 1)
 }
 
 func TestErrorGroupCtxCancelling(t *testing.T) {

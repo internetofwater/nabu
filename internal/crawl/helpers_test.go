@@ -6,9 +6,11 @@ package crawl
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 
+	"github.com/apache/arrow-go/v18/parquet"
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
 	"github.com/internetofwater/nabu/internal/parquettable"
@@ -151,9 +153,8 @@ func TestSitemapStatusTracker(t *testing.T) {
 	require.False(t, tracker2.AppearsDown())
 }
 
-// Stream every feature in the parquet file at path in storage to fn;
-// returns false if there is no such file
-func readStoredFeatures(ctx context.Context, destination storage.CrawlStorage, path storage.ObjectPath, fn func(parquettable.Feature) error) (bool, error) {
+// Read a parquet file in storage; returns false if it does not exist
+func readStoredParquet(ctx context.Context, destination storage.CrawlStorage, path storage.ObjectPath, read func(context.Context, parquet.ReaderAtSeeker, func(parquettable.Feature) error) error, fn func(parquettable.Feature) error) (bool, error) {
 	exists, err := destination.Exists(path)
 	if err != nil || !exists {
 		return false, err
@@ -167,20 +168,52 @@ func readStoredFeatures(ctx context.Context, destination storage.CrawlStorage, p
 	if err != nil {
 		return true, err
 	}
-	return true, parquettable.Read(ctx, readerAtSeeker, fn)
+	return true, read(ctx, readerAtSeeker, fn)
 }
 
-// read the crawl stats stored in the footer of the parquet file for a sitemap
+// Read every feature harvested from a sitemap in the order they were written by combining
+// the rows of its structured and RDF parquet files; returns false if the files do not exist
+func readStoredFeatures(ctx context.Context, destination storage.CrawlStorage, sitemapId string) ([]parquettable.Feature, bool, error) {
+	features := []parquettable.Feature{}
+	structuredExists, err := readStoredParquet(ctx, destination, SummonedStructuredParquetPath(sitemapId), parquettable.ReadStructured, func(f parquettable.Feature) error {
+		features = append(features, f)
+		return nil
+	})
+	if err != nil {
+		return nil, structuredExists, err
+	}
+	row := 0
+	rdfExists, err := readStoredParquet(ctx, destination, SummonedRDFParquetPath(sitemapId), parquettable.ReadRDF, func(f parquettable.Feature) error {
+		if row >= len(features) || features[row].ID != f.ID {
+			return fmt.Errorf("row %d of the RDF file with @id %s does not match the structured file", row, f.ID)
+		}
+		features[row].JSONLD = f.JSONLD
+		row++
+		return nil
+	})
+	if err != nil {
+		return nil, rdfExists, err
+	}
+	if structuredExists != rdfExists || row != len(features) {
+		return nil, rdfExists, fmt.Errorf("the structured and RDF files of %s do not have the same rows", sitemapId)
+	}
+	return features, rdfExists, nil
+}
+
+// read the crawl stats stored in the footers of the parquet files for a sitemap
 func readStoredCrawlStats(t *testing.T, destination storage.CrawlStorage, sitemapId string) pkg.SitemapCrawlStats {
-	stored, err := destination.Get(SummonedParquetPath(sitemapId))
-	require.NoError(t, err)
-	defer func() { _ = stored.Close() }()
-	readerAtSeeker, err := parquettable.AsReaderAtSeeker(stored)
-	require.NoError(t, err)
-	statsJson, ok, err := parquettable.ReadKeyValueMetadata(readerAtSeeker, CrawlStatsMetadataKey)
-	require.NoError(t, err)
-	require.True(t, ok, "the parquet file should have the crawl stats in its footer")
 	var stats pkg.SitemapCrawlStats
-	require.NoError(t, json.Unmarshal([]byte(statsJson), &stats))
+	for _, path := range []storage.ObjectPath{SummonedStructuredParquetPath(sitemapId), SummonedRDFParquetPath(sitemapId)} {
+		stored, err := destination.Get(path)
+		require.NoError(t, err)
+		readerAtSeeker, err := parquettable.AsReaderAtSeeker(stored)
+		require.NoError(t, err)
+		statsJson, ok, err := parquettable.ReadKeyValueMetadata(readerAtSeeker, CrawlStatsMetadataKey)
+		_ = stored.Close()
+		require.NoError(t, err)
+		require.True(t, ok, "every parquet file should have the crawl stats in its footer")
+		stats = pkg.SitemapCrawlStats{}
+		require.NoError(t, json.Unmarshal([]byte(statsJson), &stats))
+	}
 	return stats
 }

@@ -10,7 +10,6 @@ import (
 
 	"github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
-	"github.com/internetofwater/nabu/internal/parquettable"
 	"github.com/internetofwater/nabu/internal/synchronizer/s3"
 
 	"github.com/stretchr/testify/assert"
@@ -40,6 +39,7 @@ func TestParseSitemapIndex(t *testing.T) {
 	require.NotEmpty(t, indexHarvester.Sitemaps[0].DatasetDescription)
 	require.NotEmpty(t, indexHarvester.Sitemaps[0].DocumentationLink)
 	require.NotEmpty(t, indexHarvester.Sitemaps[0].AddMainstems)
+	require.True(t, indexHarvester.Sitemaps[0].AddS2)
 	require.NotEmpty(t, indexHarvester.Sitemaps[0].ContactEmail)
 
 	for _, url := range indexHarvester.GetUrlList() {
@@ -128,16 +128,12 @@ func TestHarvestSitemapIndex(t *testing.T) {
 	require.NoError(t, errs)
 	numObjs, err := container.ClientWrapper.NumberOfMatchingObjects([]string{""})
 	require.NoError(t, err)
-	require.Equal(t, 1, numObjs, "all documents in the sitemap should be stored in a single parquet file")
+	require.Equal(t, 2, numObjs, "all documents in the sitemap should be stored in a single structured and a single RDF parquet file")
 
-	rows := 0
-	exists, err := readStoredFeatures(context.Background(), container.ClientWrapper, SummonedParquetPath("test"), func(parquettable.Feature) error {
-		rows++
-		return nil
-	})
+	features, exists, err := readStoredFeatures(context.Background(), container.ClientWrapper, "test")
 	require.NoError(t, err)
 	require.True(t, exists)
-	require.Equal(t, 3, rows)
+	require.Len(t, features, 3)
 }
 
 func TestSitemapInsteadOfSitemapIndex(t *testing.T) {

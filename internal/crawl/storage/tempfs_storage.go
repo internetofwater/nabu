@@ -67,7 +67,12 @@ func (l *LocalTempFSCrawlStorage) StoreWithHash(name string, reader io.Reader, s
 	if err := tmpFile.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmpFile.Name(), destPath)
+	if err := os.Rename(tmpFile.Name(), destPath); err != nil {
+		return err
+	}
+	// the base directory is random so the full path is needed to find the file
+	log.Infof("Saved %s to disk at %s", name, destPath)
+	return nil
 }
 
 // Get returns a reader to the stored file

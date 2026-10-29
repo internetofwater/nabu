@@ -28,7 +28,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// A parquet file of harvested JSON-LD documents to convert to N-Quads
+// An RDF parquet file of harvested JSON-LD documents to convert to N-Quads
 type NquadsSource struct {
 	// the id of the sitemap the documents were harvested from
 	SitemapID string
@@ -55,7 +55,8 @@ func NewLocalNquadsSource(filePath string) NquadsSource {
 	}
 }
 
-// Create a source for every parquet file under the prefix in the s3 bucket
+// Create a source for every parquet file under the prefix in the s3 bucket;
+// the prefix should only contain RDF parquet files, i.e. summoned/rdf/
 func (synchronizer *SynchronizerClient) NewS3NquadsSources(ctx context.Context, prefix string) ([]NquadsSource, error) {
 	objects, err := synchronizer.S3Client.ObjectList(ctx, prefix)
 	if err != nil {
@@ -169,7 +170,7 @@ func (synchronizer *SynchronizerClient) readSource(ctx context.Context, source *
 	}
 	defer func() { _ = closer.Close() }()
 
-	err = parquettable.Read(ctx, reader, func(feature parquettable.Feature) error {
+	err = parquettable.ReadRDF(ctx, reader, func(feature parquettable.Feature) error {
 		select {
 		case jobs <- nquadsJob{feature: feature, source: source}:
 			return nil
@@ -187,9 +188,6 @@ func (synchronizer *SynchronizerClient) readSource(ctx context.Context, source *
 // that the graph would have had in previous nq releases
 func graphUrnForFeature(sitemapId string, feature parquettable.Feature) (string, error) {
 	identifier := feature.ID
-	if identifier == "" {
-		identifier = feature.URL
-	}
 	if identifier == "" {
 		sum := md5.Sum(feature.JSONLD)
 		identifier = hex.EncodeToString(sum[:])

@@ -60,14 +60,14 @@ func (s *NabuInterationSuite) TestIntegrationWithNabu() {
 
 	const pid = "https://geoconnex.us/iow/wqp/BPMWQX-1084-WR-CC01C"
 
-	parquetData, err := client.S3Client.GetObjectAsBytes(crawl.SummonedParquetPath("iow:wqp:stations__5"))
+	parquetData, err := client.S3Client.GetObjectAsBytes(crawl.SummonedRDFParquetPath("iow:wqp:stations__5"))
 	s.Require().NoError(err)
 	s.Require().True(len(parquetData) > 0, "parquet file should not be empty")
 
 	rows := 0
-	err = parquettable.Read(ctx, bytes.NewReader(parquetData), func(f parquettable.Feature) error {
+	err = parquettable.ReadRDF(ctx, bytes.NewReader(parquetData), func(f parquettable.Feature) error {
 		rows++
-		if f.URL == pid {
+		if f.ID == pid {
 			s.Require().Contains(string(f.JSONLD), pid, "jsonld should contain the original pid")
 		}
 		return nil

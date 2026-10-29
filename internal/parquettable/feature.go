@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	// "github.com/golang/geo/s2"
 	"github.com/peterstace/simplefeatures/geom"
 	log "github.com/sirupsen/logrus"
 )
@@ -23,10 +22,12 @@ const (
 	insecureSchemaOrgNS = "http://schema.org/"
 )
 
-// A single harvested JSON-LD document along with the
-// tabular fields that were extracted from it
+// A single harvested JSON-LD document along with the tabular fields that were
+// extracted from it. The JSON-LD is stored in the RDF file and the other fields
+// in the structured file; the @id is stored in both so that they can be joined
 type Feature struct {
-	// the @id of the top level node in the document
+	// the @id of the top level node in the document; this is the canonical
+	// identifier of the feature, as opposed to the url it was harvested from
 	ID string
 	// the value of schema:name
 	Name string
@@ -34,31 +35,26 @@ type Feature struct {
 	Description string
 	// the geosparql WKT geometry converted to WKB
 	Geometry []byte
-	// the JSON-LD document; this is the harvested source document
-	// along with any enrichments, such as the associated mainstem
+	// the JSON-LD document; this is the harvested source document along
+	// with any enrichments, such as the associated mainstem and S2 cells
 	JSONLD []byte
-	// the url in the sitemap that the document was harvested from
-	URL string
 	// the uri of the mainstem associated with the geometry, i.e.
-	// https://geoconnex.us/ref/mainstems/1; this is not part of the
-	// JSON-LD and is only set for sitemaps that request mainstem associations
+	// https://geoconnex.us/ref/mainstems/1; this is only set
+	// for sitemaps that request mainstem associations
 	MainstemURI string
-	// TODO: S2 cell ids are disabled until the approach is finalized
-	// the S2 cell id of the centroid of the geometry at the leaf level as a signed
-	// integer, matching BigQuery's S2_CELLIDFROMPOINT; 0 if there is no geometry
-	// S2CellID int64
 }
 
 // FeatureFromJsonld extracts the tabular fields from a JSON-LD document. It returns
 // an error only if the document is not valid JSON; missing fields or an
-// unparsable geometry are left empty since they are not required to be present
-func FeatureFromJsonld(jsonld []byte, url string) (Feature, error) {
+// unparsable geometry are left empty since they are not required to be present.
+// The source is where the document was harvested from and is only used in messages
+func FeatureFromJsonld(jsonld []byte, source string) (Feature, error) {
 	var doc any
 	if err := json.Unmarshal(jsonld, &doc); err != nil {
-		return Feature{}, fmt.Errorf("JSON-LD harvested from %s is not valid JSON: %w", url, err)
+		return Feature{}, fmt.Errorf("JSON-LD harvested from %s is not valid JSON: %w", source, err)
 	}
 
-	feature := Feature{JSONLD: jsonld, URL: url}
+	feature := Feature{JSONLD: jsonld}
 
 	node, ctx := topLevelNode(doc)
 	if node == nil {
@@ -82,11 +78,10 @@ func FeatureFromJsonld(jsonld []byte, url string) (Feature, error) {
 			}
 			wkb, err := wktToWkb(wkt)
 			if err != nil {
-				log.Warnf("could not parse WKT geometry for %s; leaving its geometry empty: %v", url, err)
+				log.Warnf("could not parse WKT geometry for %s; leaving its geometry empty: %v", source, err)
 				continue
 			}
 			feature.Geometry = wkb
-			// feature.S2CellID = s2CellIDForWkb(wkb)
 		}
 	}
 	return feature, nil
@@ -296,23 +291,3 @@ func wktToWkb(wkt string) ([]byte, error) {
 	}
 	return geometry.AsBinary(), nil
 }
-
-// TODO: S2 cell ids are disabled until the approach is finalized
-// Get the leaf S2 cell id of the centroid of a WKB geometry with longitude/latitude
-// coordinates; 0, which is never a valid cell id, is returned if there is no such cell
-// func s2CellIDForWkb(wkb []byte) int64 {
-// 	geometry, err := geom.UnmarshalWKB(wkb, geom.NoValidate{})
-// 	if err != nil {
-// 		return 0
-// 	}
-// 	centroid, ok := geometry.Centroid().XY()
-// 	if !ok {
-// 		return 0
-// 	}
-// 	// coordinates outside of these ranges are not longitude/latitude
-// 	if centroid.X < -180 || centroid.X > 180 || centroid.Y < -90 || centroid.Y > 90 {
-// 		return 0
-// 	}
-// 	cellID := s2.CellIDFromLatLng(s2.LatLngFromDegrees(centroid.Y, centroid.X))
-// 	return int64(cellID)
-// }

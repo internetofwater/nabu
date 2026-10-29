@@ -135,6 +135,10 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 		result_metadata.nonFatalError = pkg.UrlCrawlError{Url: url.Loc, Status: resp.StatusCode, Message: err.Error()}
 		return result_metadata, nil
 	}
+	// the url is not stored, so without an @id it is the only way to identify the document
+	if feature.ID == "" {
+		feature.ID = url.Loc
+	}
 
 	// make sure the pointer itself is not nil and not empty
 	if config.shaclValidator != nil {
@@ -171,7 +175,7 @@ func harvestOnePID(ctx context.Context, sitemapId string, url url_info.URL, conf
 		}
 	}
 
-	if err := enrichFeature(ctx, config, &feature); err != nil {
+	if err := enrichFeature(ctx, config, &feature, url.Loc); err != nil {
 		return result_metadata, err
 	}
 

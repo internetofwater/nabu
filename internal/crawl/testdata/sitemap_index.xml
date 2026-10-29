@@ -12,6 +12,7 @@
         <geoconnex:sitemap_id>iow:wqp:stations__5</geoconnex:sitemap_id>
         <geoconnex:max_request_concurrency>5</geoconnex:max_request_concurrency>
         <geoconnex:add_associated_mainstems>True</geoconnex:add_associated_mainstems>
+        <geoconnex:add_s2>True</geoconnex:add_s2>
         <geoconnex:contact_email>bwebb@lincolninst.edu</geoconnex:contact_email>
         <geoconnex:dataset_description>The proxied version of Water Quality Portal into a
             standardized OGC API Features endpoint</geoconnex:dataset_description>

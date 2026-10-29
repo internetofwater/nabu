@@ -42,7 +42,7 @@
             "program": "${workspaceFolder}/cmd/nabu",
             "args": [
                 "--prefix",
-                "summoned/ref_dams_dams__0.parquet",
+                "summoned/rdf/ref_dams_dams__0.parquet",
                 "nquads"
             ]
         },

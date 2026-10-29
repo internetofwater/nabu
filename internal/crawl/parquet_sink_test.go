@@ -4,6 +4,7 @@
 package crawl
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -37,11 +38,21 @@ func newRecordingStorage(t *testing.T) *recordingStorage {
 	return &recordingStorage{CrawlStorage: local}
 }
 
+// the names of the temporary files of a sink
+func tempFileNames(sink *parquetSink) []string {
+	names := []string{}
+	for _, file := range sink.files {
+		names = append(names, file.tmpFile.Name())
+	}
+	return names
+}
+
 func TestParquetSinkOnlyUploadsOnCommit(t *testing.T) {
 	store := newRecordingStorage(t)
-	sink, err := newParquetSink(store, "summoned/test.parquet")
+	sink, err := newSitemapParquetSink(store, "test")
 	require.NoError(t, err)
-	tmpName := sink.tmpFile.Name()
+	tmpNames := tempFileNames(sink)
+	require.Len(t, tmpNames, 2)
 
 	for _, id := range []string{"https://example.com/1", "https://example.com/2"} {
 		require.NoError(t, sink.Add(parquettable.Feature{ID: id, JSONLD: []byte(`{"@id":"` + id + `"}`)}))
@@ -53,30 +64,34 @@ func TestParquetSinkOnlyUploadsOnCommit(t *testing.T) {
 	rows, err := sink.Commit(pkg.SitemapCrawlStats{SitemapName: "test"})
 	require.NoError(t, err)
 	require.Equal(t, 2, rows)
-	require.Equal(t, 1, store.uploads)
+	require.Equal(t, 2, store.uploads, "both the structured and RDF files should be uploaded")
 
-	reader, err := store.Get("summoned/test.parquet")
+	features, exists, err := readStoredFeatures(context.Background(), store, "test")
 	require.NoError(t, err)
-	defer func() { _ = reader.Close() }()
-	data, err := io.ReadAll(reader)
-	require.NoError(t, err)
-	require.Equal(t, "PAR1", string(data[len(data)-4:]))
+	require.True(t, exists)
+	require.Len(t, features, 2)
+	require.Equal(t, "https://example.com/1", features[0].ID)
+	require.Equal(t, `{"@id":"https://example.com/1"}`, string(features[0].JSONLD))
 
-	_, err = os.Stat(tmpName)
-	require.True(t, errors.Is(err, os.ErrNotExist), "the temporary file should be removed after the upload")
+	for _, tmpName := range tmpNames {
+		_, err = os.Stat(tmpName)
+		require.True(t, errors.Is(err, os.ErrNotExist), "the temporary files should be removed after the upload")
+	}
 }
 
 func TestParquetSinkAbortDoesNotUpload(t *testing.T) {
 	store := newRecordingStorage(t)
-	sink, err := newParquetSink(store, "summoned/test.parquet")
+	sink, err := newSitemapParquetSink(store, "test")
 	require.NoError(t, err)
-	tmpName := sink.tmpFile.Name()
+	tmpNames := tempFileNames(sink)
 
 	require.NoError(t, sink.Add(parquettable.Feature{ID: "https://example.com/1", JSONLD: []byte(`{}`)}))
 	sink.Abort(errors.New("harvest failed"))
 
 	require.Zero(t, store.uploads)
 	require.Error(t, sink.Add(parquettable.Feature{ID: "https://example.com/2", JSONLD: []byte(`{}`)}))
-	_, err = os.Stat(tmpName)
-	require.True(t, errors.Is(err, os.ErrNotExist), "the temporary file should be removed after an abort")
+	for _, tmpName := range tmpNames {
+		_, err = os.Stat(tmpName)
+		require.True(t, errors.Is(err, os.ErrNotExist), "the temporary files should be removed after an abort")
+	}
 }

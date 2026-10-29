@@ -15,7 +15,7 @@ mkdir -p /tmp/nquads
 
 # stream the harvested parquet file to n-quads; this could instead be piped directly into a graph database
 time go run "$(pwd)/cmd/nabu" nquads \
-  --prefix summoned/wwdh:usace:access_to_water.parquet \
+  --prefix summoned/rdf/wwdh:usace:access_to_water.parquet \
   --sitemap-index https://geoconnex.us/sitemap.xml \
   --log-level DEBUG \
   --use-otel > /tmp/nquads/wwdh_usace_access_to_water.nq
