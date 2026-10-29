@@ -82,7 +82,6 @@ func TestBulkSitemap(t *testing.T) {
 	require.Contains(t, string(feature.JSONLD), `American Fork - American Fork  Nr  Up Pwrplnt  Abv`)
 	require.Equal(t, `American Fork - American Fork  Nr  Up Pwrplnt  Abv`, feature.Name)
 	require.NotEmpty(t, feature.Geometry)
-	require.Equal(t, unique_id, feature.URL, "the url of a bulk document is the container it came from")
 
 	require.Equal(t, 1, stats.WarningStats.TotalShaclFailures)
 	require.Equal(t, len(stats.WarningStats.ShaclWarnings), stats.WarningStats.TotalShaclFailures)
@@ -138,9 +137,11 @@ func TestBulkSitemapWithStrictShaclMode(t *testing.T) {
 		Harvest(context.Background(), &config)
 	require.ErrorContains(t, err, "with shacl failure invalid jsonld content")
 
-	exists, err := storage.Exists(SummonedParquetPath("test_sitemap"))
-	require.NoError(t, err)
-	require.False(t, exists, "a partial harvest should never be stored")
+	for _, path := range []string{SummonedStructuredParquetPath("test_sitemap"), SummonedRDFParquetPath("test_sitemap")} {
+		exists, err := storage.Exists(path)
+		require.NoError(t, err)
+		require.False(t, exists, "a partial harvest should never be stored")
+	}
 
 	require.Equal(t, 1, stats.WarningStats.TotalShaclFailures)
 	require.Equal(t, len(stats.WarningStats.ShaclWarnings), stats.WarningStats.TotalShaclFailures)
@@ -233,16 +234,16 @@ func buildBulkTestImage(t *testing.T, contextDir string) string {
 	return unique_id
 }
 
-// read every feature in the parquet file for a sitemap keyed by @id
+// read every feature in the parquet files for a sitemap keyed by @id
 func readBulkFeatures(t *testing.T, store storage.CrawlStorage, sitemapId string) map[string]parquettable.Feature {
-	features := map[string]parquettable.Feature{}
-	exists, err := readStoredFeatures(context.Background(), store, SummonedParquetPath(sitemapId), func(f parquettable.Feature) error {
-		require.NotContains(t, features, f.ID, "each @id should only be in the parquet file once")
-		features[f.ID] = f
-		return nil
-	})
+	stored, exists, err := readStoredFeatures(context.Background(), store, sitemapId)
 	require.NoError(t, err)
-	require.True(t, exists, "the parquet file for the sitemap should exist")
+	require.True(t, exists, "the parquet files for the sitemap should exist")
+	features := map[string]parquettable.Feature{}
+	for _, f := range stored {
+		require.NotContains(t, features, f.ID, "each @id should only be in the parquet files once")
+		features[f.ID] = f
+	}
 	return features
 }
 

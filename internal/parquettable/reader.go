@@ -45,8 +45,9 @@ func ReadKeyValueMetadata(r parquet.ReaderAtSeeker, key string) (value string, o
 	return *found, true, nil
 }
 
-// Read streams every feature in a parquet file to fn, one row group at a time
-func Read(ctx context.Context, r parquet.ReaderAtSeeker, fn func(Feature) error) error {
+// Stream every row in a parquet file to fn, one row group at a time. Only the columns of
+// the expected schema that are not skipped are read, in the order of the expected schema
+func readTable(ctx context.Context, r parquet.ReaderAtSeeker, expected *arrow.Schema, skip func(arrow.Field) bool, fn func(record arrow.RecordBatch, row int) error) error {
 	parquetReader, err := file.NewParquetReader(r)
 	if err != nil {
 		return err
@@ -61,16 +62,14 @@ func Read(ctx context.Context, r parquet.ReaderAtSeeker, fn func(Feature) error)
 	if err != nil {
 		return err
 	}
-	columnIndices := make([]int, 0, len(schema.Fields()))
-	for _, field := range schema.Fields() {
-		// the bbox is derived from the geometry so it is not read back; this
-		// also allows reading files written before the bbox column was added
-		if field.Name == ColumnBbox {
+	columnIndices := make([]int, 0, len(expected.Fields()))
+	for _, field := range expected.Fields() {
+		if skip(field) {
 			continue
 		}
 		indices := fileSchema.FieldIndices(field.Name)
 		if len(indices) != 1 || !arrow.TypeEqual(fileSchema.Field(indices[0]).Type, field.Type) {
-			return schemaMismatchError(fileSchema)
+			return schemaMismatchError(expected, fileSchema)
 		}
 		columnIndices = append(columnIndices, indices[0])
 	}
@@ -83,38 +82,49 @@ func Read(ctx context.Context, r parquet.ReaderAtSeeker, fn func(Feature) error)
 
 	for recordReader.Next() {
 		record := recordReader.RecordBatch()
-		ids := record.Column(0).(*array.String)
-		names := record.Column(1).(*array.String)
-		descriptions := record.Column(2).(*array.String)
-		geometries := record.Column(3).(*array.Binary)
-		jsonlds := record.Column(4).(*array.String)
-		urls := record.Column(5).(*array.String)
-		mainstemURIs := record.Column(6).(*array.String)
-		// s2CellIDs := record.Column(7).(*array.Int64)
 		for i := range int(record.NumRows()) {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			// arrow strings reference buffers that are released after the
-			// batch, so every value is copied before being handed off
-			feature := Feature{
-				ID:          strings.Clone(ids.Value(i)),
-				Name:        strings.Clone(names.Value(i)),
-				Description: strings.Clone(descriptions.Value(i)),
-				JSONLD:      []byte(jsonlds.Value(i)),
-				URL:         strings.Clone(urls.Value(i)),
-				MainstemURI: strings.Clone(mainstemURIs.Value(i)),
-			}
-			// if s2CellIDs.IsValid(i) {
-			// 	feature.S2CellID = s2CellIDs.Value(i)
-			// }
-			if geometries.IsValid(i) {
-				feature.Geometry = bytes.Clone(geometries.Value(i))
-			}
-			if err := fn(feature); err != nil {
+			if err := fn(record, i); err != nil {
 				return err
 			}
 		}
 	}
 	return recordReader.Err()
+}
+
+// ReadStructured streams every feature in a structured parquet file to fn;
+// the features only have the fields stored in the structured file
+func ReadStructured(ctx context.Context, r parquet.ReaderAtSeeker, fn func(Feature) error) error {
+	// the bbox is derived from the geometry so it is not read back
+	skipBbox := func(field arrow.Field) bool { return field.Name == ColumnBbox }
+	return readTable(ctx, r, structuredSchema, skipBbox, func(record arrow.RecordBatch, i int) error {
+		geometries := record.Column(3).(*array.Binary)
+		// arrow strings reference buffers that are released after the
+		// batch, so every value is copied before being handed off
+		feature := Feature{
+			ID:          strings.Clone(record.Column(0).(*array.String).Value(i)),
+			Name:        strings.Clone(record.Column(1).(*array.String).Value(i)),
+			Description: strings.Clone(record.Column(2).(*array.String).Value(i)),
+			MainstemURI: strings.Clone(record.Column(4).(*array.String).Value(i)),
+		}
+		if geometries.IsValid(i) {
+			feature.Geometry = bytes.Clone(geometries.Value(i))
+		}
+		return fn(feature)
+	})
+}
+
+// ReadRDF streams every feature in an RDF parquet file to fn;
+// the features only have their ID and JSON-LD set
+func ReadRDF(ctx context.Context, r parquet.ReaderAtSeeker, fn func(Feature) error) error {
+	readAll := func(arrow.Field) bool { return false }
+	return readTable(ctx, r, rdfSchema, readAll, func(record arrow.RecordBatch, i int) error {
+		return fn(Feature{
+			// arrow strings reference buffers that are released after the batch so they are copied
+			ID:     strings.Clone(record.Column(0).(*array.String).Value(i)),
+			JSONLD: []byte(record.Column(1).(*array.String).Value(i)),
+		})
+	})
 }

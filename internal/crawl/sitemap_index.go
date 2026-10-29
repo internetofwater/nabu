@@ -41,6 +41,7 @@ type SitemapIndex struct {
 	localShaclValidation    bool                 `xml:"-"`
 	exitOnShaclFailure      bool                 `xml:"-"`
 	mainstemFile            string               `xml:"-"`
+	forceS2                 bool                 `xml:"-"`
 }
 
 // Represents the structure of <sitemap> within a <sitemapindex>
@@ -52,6 +53,7 @@ type SitemapMetadata struct {
 	DatasetDescription string `xml:"https://geoconnex.us dataset_description"`
 	DocumentationLink  string `xml:"https://geoconnex.us dataset_documentation_link"`
 	AddMainstems       bool   `xml:"https://geoconnex.us add_associated_mainstems"`
+	AddS2              bool   `xml:"https://geoconnex.us add_s2"`
 	ContactEmail       string `xml:"https://geoconnex.us contact_email"`
 	BulkContainerImage string `xml:"https://geoconnex.us bulk_container_image"`
 }
@@ -206,6 +208,7 @@ func (i SitemapIndex) HarvestSitemaps(ctx context.Context, client *http.Client) 
 			if err := i.setMainstemService(&config, sitemap.metadata, getMainstemService); err != nil {
 				return err
 			}
+			config.addS2Cells = config.addS2Cells || i.forceS2
 
 			stats, harvestErr := sitemap.
 				Harvest(ctx, &config)
@@ -266,6 +269,7 @@ func (i SitemapIndex) HarvestSitemap(ctx context.Context, client *http.Client, s
 		if err := i.setMainstemService(&config, part, i.newMainstemServiceGetter()); err != nil {
 			return pkg.SitemapCrawlStats{}, err
 		}
+		config.addS2Cells = config.addS2Cells || i.forceS2
 
 		stats, err := sitemap.
 			Harvest(ctx, &config)

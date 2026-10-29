@@ -103,9 +103,6 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	ctx, span := opentelemetry.SubSpanFromCtxWithName(ctx, fmt.Sprintf("bulk_harvest_%s", s.metadata.SitemapID))
 	defer span.End()
 
-	// every bulk harvest replaces the complete contents of the sitemap's parquet file
-	parquetPath := SummonedParquetPath(s.metadata.SitemapID)
-
 	shaclWorkers := bulkShaclWorkers(config)
 
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
@@ -129,7 +126,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		warningMu.Unlock()
 	}
 
-	// the @id of every document added to the parquet file; since documents are processed
+	// the @id of every document added to the parquet files; since documents are processed
 	// concurrently, only one of the documents with the same @id is kept but which one is not deterministic
 	validJsonldDocs := make(storage.Set)
 	validJsonldDocsMu := sync.Mutex{}
@@ -189,7 +186,8 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 
 	log.Debugf("starting bulk harvest for sitemap %s with %d container urls", s.metadata.SitemapID, len(s.URL))
 
-	sink, err := newParquetSink(config.storageDestination, parquetPath)
+	// every bulk harvest replaces the complete contents of the sitemap's parquet files
+	sink, err := newSitemapParquetSink(config.storageDestination, s.metadata.SitemapID)
 	if err != nil {
 		return pkg.SitemapCrawlStats{}, err
 	}
@@ -198,7 +196,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 	for _, url := range s.URL {
 		// by using an error group we can make it so that if any of the container processing fails, we can immediately stop the entire harvest and return an error
 		// it is easier to keep in sync compared to channels
-		// The pipeline is: container stdout reader -> shacl validation workers -> parquet file
+		// The pipeline is: container stdout reader -> shacl validation workers -> parquet files
 		group, ctx := errgroup.WithContext(ctx)
 
 		// documents read from the container that still need to be validated
@@ -236,11 +234,11 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 				return nil
 			}
 
-			if err := enrichFeature(ctx, config, &feature); err != nil {
+			if err := enrichFeature(ctx, config, &feature, url.Loc); err != nil {
 				return fmt.Errorf("line %d of the output of %s with @id %s: %w", line.number, url.Loc, feature.ID, err)
 			}
 			if err := sink.Add(feature); err != nil {
-				return fmt.Errorf("failed to write line %d of the output of %s with @id %s to %s: %w", line.number, url.Loc, feature.ID, parquetPath, err)
+				return fmt.Errorf("failed to write line %d of the output of %s with @id %s to the parquet files: %w", line.number, url.Loc, feature.ID, err)
 			}
 			return nil
 		}
@@ -424,7 +422,7 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		numNewlineSeparateJSONLDDocs.Store(0)
 	}
 
-	// the stats are made before the parquet file is finished since they are stored in its footer
+	// the stats are made before the parquet files are finished since they are stored in their footers
 	stats := pkg.SitemapCrawlStats{
 		SitemapSourceLink:  s.metadata.Loc,
 		SitemapName:        s.metadata.SitemapID,
@@ -441,16 +439,16 @@ func (s *Sitemap) HarvestBulkSitemap(ctx context.Context, config *SitemapHarvest
 		CrawlFailures: []pkg.UrlCrawlError{},
 	}
 
-	// only replace the previous parquet file once every container has been harvested successfully;
+	// only replace the previous parquet files once every container has been harvested successfully;
 	// otherwise we would replace documents that may still be valid with a partial harvest
 	if errGroupError != nil {
 		sink.Abort(errGroupError)
 	} else if rows, err := sink.Commit(stats); errors.Is(err, errNoFeaturesHarvested) {
-		log.Warnf("Keeping the previous %s since no documents were harvested from sitemap %s", parquetPath, s.metadata.SitemapID)
+		log.Warnf("Keeping the previous parquet files since no documents were harvested from sitemap %s", s.metadata.SitemapID)
 	} else if err != nil {
 		errGroupError = err
 	} else {
-		log.Infof("Wrote %d jsonld documents to %s", rows, parquetPath)
+		log.Infof("Wrote %d jsonld documents to the parquet files of %s", rows, s.metadata.SitemapID)
 	}
 
 	log.Infof("Bulk harvest for %s read %d jsonld documents; %d had a duplicate @id and were skipped", s.metadata.SitemapID, numNewlineSeparateJSONLDDocs.Load(), numDuplicateJSONLDDocs.Load())

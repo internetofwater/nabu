@@ -133,17 +133,16 @@ func (suite *SynchronizerClientSuite) TestNquads() {
 
 	const haydItcoGraph = "<urn:iow:summoned:cdss:co_gages__0:aHR0cHM6Ly9waWRzLmdlb2Nvbm5leC5kZXYvY2Rzcy9nYWdlcy9IQVlESVRDTw==.jsonld>"
 
-	sources, err := suite.client.NewS3NquadsSources(context.Background(), "summoned/")
+	sources, err := suite.client.NewS3NquadsSources(context.Background(), "summoned/rdf/")
 	require.NoError(t, err)
 	require.Len(t, sources, 1)
 	require.Equal(t, source, sources[0].SitemapID)
 
 	t.Run("mainstems are put in the mainstem_uri column", func(t *testing.T) {
-		reader, closer, err := sources[0].open(context.Background())
+		structured, err := suite.client.S3Client.GetObjectAsBytes(crawl.SummonedStructuredParquetPath(source))
 		require.NoError(t, err)
-		defer func() { _ = closer.Close() }()
 		mainstemsByID := map[string]string{}
-		err = parquettable.Read(context.Background(), reader, func(f parquettable.Feature) error {
+		err = parquettable.ReadStructured(context.Background(), bytes.NewReader(structured), func(f parquettable.Feature) error {
 			mainstemsByID[f.ID] = f.MainstemURI
 			return nil
 		})
@@ -163,12 +162,20 @@ func (suite *SynchronizerClientSuite) TestNquads() {
 		require.Regexp(t, `<https://www.opengis.net/def/schema/hy_features/hyf/linearElement> <https://geoconnex.us/ref/mainstems/2597141> `+regexp.QuoteMeta(basmoucoGraph)+` \.`, output.String())
 	})
 
+	t.Run("S2 cells added during harvest are in the nquads", func(t *testing.T) {
+		var output bytes.Buffer
+		err := suite.client.WriteNquads(context.Background(), &output, sources)
+		require.NoError(t, err)
+		const basmoucoGraph = "<urn:iow:summoned:cdss:co_gages__0:aHR0cHM6Ly9waWRzLmdlb2Nvbm5leC5kZXYvY2Rzcy9nYWdlcy9CQVNNT1VDTw==.jsonld>"
+		require.Regexp(t, `<https://pids.geoconnex.dev/cdss/gages/BASMOUCO> <https://w3id.org/cgs/ontology/core/spatiotemporal/sfWithin> <http://stko-kwg.geog.ucsb.edu/lod/resource/s2.level11.\d+> `+regexp.QuoteMeta(basmoucoGraph)+` \.`, output.String())
+	})
+
 	t.Run("documents from a local file are named after the file", func(t *testing.T) {
 		const doc = `{"@id": "https://example.com/local", "https://schema.org/name": "local"}`
 		localParquet := filepath.Join(t.TempDir(), "local.parquet")
 		file, err := os.Create(localParquet)
 		require.NoError(t, err)
-		writer, err := parquettable.NewWriter(file)
+		writer, err := parquettable.NewRDFWriter(file)
 		require.NoError(t, err)
 		feature, err := parquettable.FeatureFromJsonld([]byte(doc), "")
 		require.NoError(t, err)

@@ -54,6 +54,12 @@ func (i SitemapIndex) WithHeadlessChromeUrl(url string) SitemapIndex {
 	return i
 }
 
+// Add S2 cells to every harvested sitemap, even those that do not request it in the sitemap index
+func (i SitemapIndex) WithForceS2(forceS2 bool) SitemapIndex {
+	i.forceS2 = forceS2
+	return i
+}
+
 // Set the flatgeobuf file, either local or remote, used to associate features
 // with mainstems for sitemaps that request it in the sitemap index
 func (i SitemapIndex) WithMainstemFile(mainstemFile string) SitemapIndex {

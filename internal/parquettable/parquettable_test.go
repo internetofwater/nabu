@@ -14,7 +14,6 @@ import (
 	"github.com/apache/arrow-go/v18/parquet"
 	"github.com/apache/arrow-go/v18/parquet/file"
 	"github.com/apache/arrow-go/v18/parquet/pqarrow"
-	// "github.com/golang/geo/s2"
 	"github.com/peterstace/simplefeatures/geom"
 	"github.com/stretchr/testify/require"
 )
@@ -44,7 +43,6 @@ func TestFeatureFromJsonldWithPrefixes(t *testing.T) {
 	require.Equal(t, "https://geoconnex.us/ref/gages/1", feature.ID)
 	require.Equal(t, "Gage 1", feature.Name)
 	require.Equal(t, "A stream gage", feature.Description)
-	require.Equal(t, "https://example.com/1", feature.URL)
 	require.Equal(t, wellFormedJsonld, string(feature.JSONLD), "the source document must be stored losslessly")
 	requireWkt(t, "POINT(-111.68 40.44)", feature.Geometry)
 }
@@ -95,8 +93,10 @@ func TestFeatureFromJsonldMissingFields(t *testing.T) {
 }
 
 func TestWriteThenRead(t *testing.T) {
-	var buf bytes.Buffer
-	writer, err := NewWriter(&buf)
+	var structured, rdf bytes.Buffer
+	structuredWriter, err := NewStructuredWriter(&structured)
+	require.NoError(t, err)
+	rdfWriter, err := NewRDFWriter(&rdf)
 	require.NoError(t, err)
 
 	withGeometry, err := FeatureFromJsonld([]byte(wellFormedJsonld), "https://example.com/1")
@@ -108,16 +108,19 @@ func TestWriteThenRead(t *testing.T) {
 	// write enough rows to span multiple row groups
 	const total = maxRowsPerRowGroup + 10
 	for i := range total {
+		feature := withoutGeometry
 		if i%2 == 0 {
-			require.NoError(t, writer.Write(withGeometry))
-		} else {
-			require.NoError(t, writer.Write(withoutGeometry))
+			feature = withGeometry
 		}
+		require.NoError(t, structuredWriter.Write(feature))
+		require.NoError(t, rdfWriter.Write(feature))
 	}
-	require.Equal(t, total, writer.Rows())
-	require.NoError(t, writer.Close())
+	require.Equal(t, total, structuredWriter.Rows())
+	require.Equal(t, total, rdfWriter.Rows())
+	require.NoError(t, structuredWriter.Close())
+	require.NoError(t, rdfWriter.Close())
 
-	parquetReader, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	parquetReader, err := file.NewParquetReader(bytes.NewReader(structured.Bytes()))
 	require.NoError(t, err)
 	require.Equal(t, 2, parquetReader.NumRowGroups())
 	geoMetadata := parquetReader.MetaData().KeyValueMetadata().FindValue("geo")
@@ -136,16 +139,75 @@ func TestWriteThenRead(t *testing.T) {
 	}, geometryColumn["covering"].(map[string]any)["bbox"])
 	require.NoError(t, parquetReader.Close())
 
-	read := []Feature{}
-	err = Read(context.Background(), bytes.NewReader(buf.Bytes()), func(f Feature) error {
-		read = append(read, f)
+	readStructured := []Feature{}
+	err = ReadStructured(context.Background(), bytes.NewReader(structured.Bytes()), func(f Feature) error {
+		readStructured = append(readStructured, f)
 		return nil
 	})
 	require.NoError(t, err)
-	require.Len(t, read, total)
-	require.Equal(t, withGeometry, read[0])
-	require.Equal(t, withoutGeometry, read[1])
-	require.Equal(t, withoutGeometry, read[total-1])
+	require.Len(t, readStructured, total)
+	structuredOnly := func(f Feature) Feature {
+		f.JSONLD = nil
+		return f
+	}
+	require.Equal(t, structuredOnly(withGeometry), readStructured[0], "the structured file should not have the jsonld")
+	require.Equal(t, structuredOnly(withoutGeometry), readStructured[1])
+	require.Equal(t, structuredOnly(withoutGeometry), readStructured[total-1])
+
+	readRDF := []Feature{}
+	err = ReadRDF(context.Background(), bytes.NewReader(rdf.Bytes()), func(f Feature) error {
+		readRDF = append(readRDF, f)
+		return nil
+	})
+	require.NoError(t, err)
+	require.Len(t, readRDF, total)
+	require.Equal(t, Feature{ID: withGeometry.ID, JSONLD: withGeometry.JSONLD}, readRDF[0])
+	require.Equal(t, Feature{ID: withoutGeometry.ID, JSONLD: withoutGeometry.JSONLD}, readRDF[total-1])
+}
+
+// Get the names of the columns in a parquet file
+func columnNames(t *testing.T, data []byte) []string {
+	t.Helper()
+	parquetReader, err := file.NewParquetReader(bytes.NewReader(data))
+	require.NoError(t, err)
+	defer func() { _ = parquetReader.Close() }()
+	names := []string{}
+	for i := range parquetReader.MetaData().Schema.Root().NumFields() {
+		names = append(names, parquetReader.MetaData().Schema.Root().Field(i).Name())
+	}
+	return names
+}
+
+func TestColumns(t *testing.T) {
+	var structured, rdf bytes.Buffer
+	structuredWriter, err := NewStructuredWriter(&structured)
+	require.NoError(t, err)
+	rdfWriter, err := NewRDFWriter(&rdf)
+	require.NoError(t, err)
+	require.NoError(t, structuredWriter.Close())
+	require.NoError(t, rdfWriter.Close())
+
+	require.Equal(t, []string{"@id", "feature_name", "feature_description", "geometry", "mainstem_uri", "bbox"}, columnNames(t, structured.Bytes()))
+	require.Equal(t, []string{"id", "jsonld"}, columnNames(t, rdf.Bytes()))
+}
+
+func TestIdBloomFilter(t *testing.T) {
+	var buf bytes.Buffer
+	writer, err := NewRDFWriter(&buf)
+	require.NoError(t, err)
+	require.NoError(t, writer.Write(Feature{ID: "https://example.com/1", JSONLD: []byte("{}")}))
+	require.NoError(t, writer.Close())
+
+	parquetReader, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+	defer func() { _ = parquetReader.Close() }()
+	bloomFilters := parquetReader.GetBloomFilterReader()
+	rowGroup, err := bloomFilters.RowGroup(0)
+	require.NoError(t, err)
+	filter, err := rowGroup.GetColumnBloomFilter(0)
+	require.NoError(t, err)
+	require.NotNil(t, filter, "the id column should have a bloom filter for fast lookups")
+	require.True(t, filter.CheckHash(filter.Hasher().Sum64([]byte("https://example.com/1"))))
 }
 
 // Read the bbox column of a parquet file; rows without a bbox are nil
@@ -181,10 +243,10 @@ func readBboxes(t *testing.T, data []byte) [][4]float64 {
 
 func TestBboxColumn(t *testing.T) {
 	var buf bytes.Buffer
-	writer, err := NewWriter(&buf)
+	writer, err := NewStructuredWriter(&buf)
 	require.NoError(t, err)
 	for _, wkt := range []string{"POLYGON((0 0, 2 0, 2 3, 0 3, 0 0))", "", "POINT EMPTY", "LINESTRING(-5 -1, 1 10)"} {
-		feature := Feature{JSONLD: []byte("{}")}
+		feature := Feature{}
 		if wkt != "" {
 			g, err := geom.UnmarshalWKT(wkt)
 			require.NoError(t, err)
@@ -207,9 +269,9 @@ func TestBboxColumn(t *testing.T) {
 
 func TestRootIsNotRepeated(t *testing.T) {
 	var buf bytes.Buffer
-	writer, err := NewWriter(&buf)
+	writer, err := NewStructuredWriter(&buf)
 	require.NoError(t, err)
-	require.NoError(t, writer.Write(Feature{JSONLD: []byte("{}")}))
+	require.NoError(t, writer.Write(Feature{}))
 	require.NoError(t, writer.Close())
 
 	parquetReader, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
@@ -222,9 +284,9 @@ func TestRootIsNotRepeated(t *testing.T) {
 
 func TestNoFileBboxWithoutGeometries(t *testing.T) {
 	var buf bytes.Buffer
-	writer, err := NewWriter(&buf)
+	writer, err := NewStructuredWriter(&buf)
 	require.NoError(t, err)
-	require.NoError(t, writer.Write(Feature{JSONLD: []byte("{}")}))
+	require.NoError(t, writer.Write(Feature{}))
 	require.NoError(t, writer.Close())
 
 	geoMetadata, ok, err := ReadKeyValueMetadata(bytes.NewReader(buf.Bytes()), geoMetadataKey)
@@ -237,7 +299,7 @@ func TestNoFileBboxWithoutGeometries(t *testing.T) {
 
 func TestKeyValueMetadata(t *testing.T) {
 	var buf bytes.Buffer
-	writer, err := NewWriter(&buf)
+	writer, err := NewStructuredWriter(&buf)
 	require.NoError(t, err)
 	require.Error(t, writer.SetKeyValueMetadata(geoMetadataKey, "{}"), "the geo key is reserved")
 	require.NoError(t, writer.SetKeyValueMetadata("stats", `{"rows": 0}`))
@@ -259,12 +321,12 @@ func TestKeyValueMetadata(t *testing.T) {
 
 func TestReadEmptyFile(t *testing.T) {
 	var buf bytes.Buffer
-	writer, err := NewWriter(&buf)
+	writer, err := NewStructuredWriter(&buf)
 	require.NoError(t, err)
 	require.NoError(t, writer.Close())
 
 	rows := 0
-	err = Read(context.Background(), bytes.NewReader(buf.Bytes()), func(f Feature) error {
+	err = ReadStructured(context.Background(), bytes.NewReader(buf.Bytes()), func(f Feature) error {
 		rows++
 		return nil
 	})
@@ -288,27 +350,3 @@ func TestWkbGeometryType(t *testing.T) {
 	_, ok := wkbGeometryType([]byte{1})
 	require.False(t, ok)
 }
-
-// TODO: S2 cell ids are disabled until the approach is finalized
-// func TestS2CellID(t *testing.T) {
-// 	feature, err := FeatureFromJsonld([]byte(wellFormedJsonld), "")
-// 	require.NoError(t, err)
-// 	cell := s2.CellID(uint64(feature.S2CellID))
-// 	require.True(t, cell.IsValid())
-// 	require.True(t, cell.IsLeaf())
-// 	require.InDelta(t, 40.44, cell.LatLng().Lat.Degrees(), 1e-6)
-// 	require.InDelta(t, -111.68, cell.LatLng().Lng.Degrees(), 1e-6)
-//
-// 	withoutGeometry, err := FeatureFromJsonld([]byte(`{"@id": "https://example.com/2"}`), "")
-// 	require.NoError(t, err)
-// 	require.Zero(t, withoutGeometry.S2CellID)
-//
-// 	g, err := geom.UnmarshalWKT("POINT(500000 4000000)")
-// 	require.NoError(t, err)
-// 	require.Zero(t, s2CellIDForWkb(g.AsBinary()), "projected coordinates are not longitude/latitude")
-//
-// 	// the cell of a polygon is the cell of its centroid
-// 	square, err := geom.UnmarshalWKT("POLYGON((0 0, 2 0, 2 2, 0 2, 0 0))")
-// 	require.NoError(t, err)
-// 	require.Equal(t, int64(s2.CellIDFromLatLng(s2.LatLngFromDegrees(1, 1))), s2CellIDForWkb(square.AsBinary()))
-// }
