@@ -82,26 +82,3 @@ repos:
         language: system
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false # build handles files itself
-
-      - id: rustfmt
-        name: rustfmt
-        entry: bash -c "cd shacl_validator/shacl_validator_grpc_rs && cargo fmt --all -- "
-        language: system
-        types: [rust]
-        pass_filenames: false # cargo fmt handles files itself
-
-      - id: cargo check 
-        name: cargo check
-        # check everything compiles
-        entry: bash -c "cd shacl_validator/shacl_validator_grpc_rs && cargo check --examples --locked --all-features --tests --benches  --bins  --workspace"
-        language: system
-        types: [rust]
-        pass_filenames: false  # cargo check handles files itself
-
-      - id: clippy
-        name: clippy
-        # lint the entire project with warnings
-        entry: bash -c "cd shacl_validator/shacl_validator_grpc_rs && cargo clippy --benches --examples --tests --no-deps --no-default-features -- -D warnings"
-        language: system
-        types: [rust]
-        pass_filenames: false # cargo clippy handles files itself

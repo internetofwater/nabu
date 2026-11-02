@@ -148,12 +148,6 @@ func TestHarvestWithLocalShacl(t *testing.T) {
 	}
 }
 
-func TestHarvestWithLocalAndGrpcShaclFails(t *testing.T) {
-	args := "harvest --mainstem-metadata ../../internal/mainstems/testdata/colorado_subset.fgb --to-disk --shacl-local --shacl-grpc-endpoint 0.0.0.0:50051 --sitemap-index testdata/sitemap_index.xml"
-	_, err := NewNabuRunnerFromString(args).Run(context.Background(), harvestTestClient())
-	require.Error(t, err)
-}
-
 func TestHarvestMainstemFileIsOptional(t *testing.T) {
 	t.Run("not providing a mainstem file is an error if a sitemap requests mainstems", func(t *testing.T) {
 		// this sitemap index sets add_associated_mainstems

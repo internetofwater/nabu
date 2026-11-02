@@ -14,10 +14,9 @@ func (i SitemapIndex) WithStorageDestination(storageDestination storage.CrawlSto
 	return i
 }
 
-// Configure SHACL validation; useLocal validates in process while shaclAddress
-// sends documents to a remote gRPC validator. If neither is set validation is skipped
-func (i SitemapIndex) WithShaclValidationConfig(shaclAddress string, useLocal bool, exitOnShaclFailure bool) SitemapIndex {
-	i.shaclAddress = shaclAddress
+// Configure SHACL validation; useLocal validates in process against the
+// bundled Geoconnex shape. If it is not set validation is skipped
+func (i SitemapIndex) WithShaclValidationConfig(useLocal bool, exitOnShaclFailure bool) SitemapIndex {
 	i.localShaclValidation = useLocal
 	i.exitOnShaclFailure = exitOnShaclFailure
 	return i
