@@ -15,8 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// The largest request body accepted by /validate; matches the
-// max message size of the python gRPC server
+// The largest request body accepted by /validate
 const MaxRequestBodySize = 32 * 1024 * 1024 // 32 MB
 
 // The response body of a successful /validate request

@@ -37,7 +37,6 @@ type SitemapIndex struct {
 	specificSourceToHarvest string               `xml:"-"`
 	sitemapWorkers          int                  `xml:"-"`
 	headlessChromeUrl       string               `xml:"-"`
-	shaclAddress            string               `xml:"-"`
 	localShaclValidation    bool                 `xml:"-"`
 	exitOnShaclFailure      bool                 `xml:"-"`
 	mainstemFile            string               `xml:"-"`
@@ -166,7 +165,7 @@ func (i SitemapIndex) HarvestSitemaps(ctx context.Context, client *http.Client) 
 		return pkg.SitemapIndexCrawlStats{}, fmt.Errorf("sitemap workers limit is set less than 1")
 	}
 
-	shaclValidator, err := NewShaclValidatorFromConfig(i.localShaclValidation, i.shaclAddress)
+	shaclValidator, err := NewShaclValidatorFromConfig(i.localShaclValidation)
 	if err != nil {
 		return pkg.SitemapIndexCrawlStats{}, err
 	}
@@ -254,7 +253,7 @@ func (i SitemapIndex) HarvestSitemap(ctx context.Context, client *http.Client, s
 			return pkg.SitemapCrawlStats{}, err
 		}
 
-		shaclValidator, err := NewShaclValidatorFromConfig(i.localShaclValidation, i.shaclAddress)
+		shaclValidator, err := NewShaclValidatorFromConfig(i.localShaclValidation)
 		if err != nil {
 			return pkg.SitemapCrawlStats{}, err
 		}
