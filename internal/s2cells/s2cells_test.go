@@ -274,6 +274,7 @@ func TestAddCellsToJsonld(t *testing.T) {
 		node := relations[0].(map[string]any)
 		require.Equal(t, CellIRI(cell), node["@id"])
 		require.Equal(t, "http://stko-kwg.geog.ucsb.edu/lod/ontology/S2Cell_Level11", node["@type"])
+		require.Len(t, node, 2, "a cell is only described by its IRI and type")
 	})
 
 	t.Run("the cells are converted to rdf with the S2 vocabulary", func(t *testing.T) {
@@ -287,7 +288,7 @@ func TestAddCellsToJsonld(t *testing.T) {
 		require.True(t, strings.HasPrefix(CellIRI(cell), "http://stko-kwg.geog.ucsb.edu/lod/resource/s2.level11."))
 		require.Contains(t, nquads, "<https://example.com/1> <https://w3id.org/cgs/ontology/core/spatiotemporal/sfWithin> "+cellIRI)
 		require.Contains(t, nquads, cellIRI+" <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://stko-kwg.geog.ucsb.edu/lod/ontology/S2Cell_Level11>")
-		require.Contains(t, nquads, cellIRI+` <http://stko-kwg.geog.ucsb.edu/lod/ontology/cellID> "`+strings.TrimPrefix(CellIRI(cell), "http://stko-kwg.geog.ucsb.edu/lod/resource/s2.level11.")+`"^^<http://www.w3.org/2001/XMLSchema#integer>`)
+		require.NotContains(t, nquads, "http://stko-kwg.geog.ucsb.edu/lod/ontology/cellID", "the cell id is only in the IRI")
 	})
 
 	t.Run("existing spatial relations are kept", func(t *testing.T) {
