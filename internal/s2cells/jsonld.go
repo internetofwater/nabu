@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/golang/geo/s2"
 )
@@ -30,8 +29,6 @@ const (
 	SfOverlapsIRI      = SpatiotemporalNamespace + "sfOverlaps"
 	SfEqualsIRI        = SpatiotemporalNamespace + "sfEquals"
 	SfCrossesIRI       = SpatiotemporalNamespace + "sfCrosses"
-	cellIDIRI          = kwgOntologyNamespace + "cellID"
-	xsdIntegerIRI      = "http://www.w3.org/2001/XMLSchema#integer"
 )
 
 // ErrCannotAddCells is returned when the shape of a JSON-LD document
@@ -49,12 +46,6 @@ func cellNode(cell s2.CellID) map[string]any {
 	return map[string]any{
 		"@id":   CellIRI(cell),
 		"@type": fmt.Sprintf("%sS2Cell_Level%d", kwgOntologyNamespace, cell.Level()),
-		// cell ids are unsigned 64 bit integers which cannot be represented exactly by JSON
-		// numbers in most parsers, so the integer is written as a typed string literal
-		cellIDIRI: map[string]any{
-			"@value": strconv.FormatUint(uint64(cell), 10),
-			"@type":  xsdIntegerIRI,
-		},
 	}
 }
 
