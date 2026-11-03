@@ -1,1 +1,0 @@
-This directory holds the build protobuf code for the shacl validator grpc client. It should not be edited

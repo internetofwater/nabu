@@ -443,14 +443,10 @@ func TestShaclConnectionIssueDoesntCauseFailure(t *testing.T) {
 	storage, err := storage.NewLocalTempFSCrawlStorage()
 	require.NoError(t, err)
 
-	// this is intentionally a random invalid address to simulate a connection issue with the SHACL validator; we want to make sure this doesn't cause the harvest to fail since we want to be resilient to SHACL validator issues
-	badGrpcClient, err := NewGrpcShaclValidator("0.0.0.0:1020202")
-	require.NoError(t, err)
-
 	sitemap, err := NewSitemap(context.Background(), mockedClient, 1, storage, SitemapMetadata{SitemapID: "test", Loc: "https://geoconnex.us/sitemap/iow/wqp/stations__5.xml"})
 	require.NoError(t, err)
 
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, badGrpcClient, false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, &erroringShaclValidator{}, false)
 	require.NoError(t, err)
 
 	stats, err := sitemap.

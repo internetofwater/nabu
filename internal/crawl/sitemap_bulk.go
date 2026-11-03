@@ -29,10 +29,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// the number of documents validated against a remote SHACL validator at once;
-// sized for a large VM running a multi-process SHACL validator
-const bulkShaclConcurrency = 128
-
 // The number of documents to validate at once in a bulk harvest
 func bulkShaclWorkers(config *SitemapHarvestConfig) int {
 	if config.exitOnShaclFailure {
@@ -40,11 +36,8 @@ func bulkShaclWorkers(config *SitemapHarvestConfig) int {
 		// at the first invalid document, the same as a serial harvest
 		return 1
 	}
-	if _, isLocal := config.shaclValidator.(*LocalShaclValidator); isLocal {
-		// local validation is CPU bound so more workers than cores would not be faster
-		return runtime.GOMAXPROCS(0)
-	}
-	return bulkShaclConcurrency
+	// validation is CPU bound so more workers than cores would not be faster
+	return runtime.GOMAXPROCS(0)
 }
 
 // the number of bytes of a bulk container's stderr kept to log if the harvest of it fails

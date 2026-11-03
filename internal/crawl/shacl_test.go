@@ -5,89 +5,56 @@ package crawl
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 
 	"github.com/internetofwater/nabu/internal/common/projectpath"
-	"github.com/internetofwater/nabu/internal/protoBuild"
 	"github.com/internetofwater/nabu/pkg"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 )
 
-// a mock SHACL validator client for testing
-type mockShaclValidatorClient struct{}
+// a mock SHACL validator for testing
+type mockShaclValidator struct{}
 
-func (m *mockShaclValidatorClient) Validate(ctx context.Context, in *protoBuild.JsoldValidationRequest, opts ...grpc.CallOption) (*protoBuild.ValidationReply, error) {
+func (m *mockShaclValidator) Validate(ctx context.Context, jsonld string) (bool, string, error) {
 	// for testing purposes, any jsonld missing the @context block is invalid
 	// in the future you could extend this to do more complex validation
-	if !strings.Contains(string(in.Jsonld), "@context") {
-		return &protoBuild.ValidationReply{
-			Valid:   false,
-			Message: "invalid jsonld content",
-		}, nil
+	if !strings.Contains(jsonld, "@context") {
+		return false, "invalid jsonld content", nil
 	}
-	return &protoBuild.ValidationReply{
-		Valid:   true,
-		Message: "valid",
-	}, nil
+	return true, "valid", nil
 }
 
-var _ protoBuild.ShaclValidatorClient = &mockShaclValidatorClient{}
-
-func TestNewGrpcShaclValidator(t *testing.T) {
-	validator, err := NewGrpcShaclValidator("0.0.0.0:50051")
-	require.NoError(t, err)
-	require.Len(t, validator.clients, shaclGrpcConnections)
-	require.NoError(t, validator.Close())
+func (m *mockShaclValidator) Close() error {
+	return nil
 }
 
-func TestNewGrpcShaclValidatorFromBlankAddr(t *testing.T) {
-	_, err := NewGrpcShaclValidator("")
-	require.Error(t, err)
+var _ ShaclValidator = &mockShaclValidator{}
+
+// a mock SHACL validator that always fails to perform validation
+type erroringShaclValidator struct{}
+
+func (m *erroringShaclValidator) Validate(ctx context.Context, jsonld string) (bool, string, error) {
+	return false, "", errors.New("failed to communicate with the shacl validator")
+}
+
+func (m *erroringShaclValidator) Close() error {
+	return nil
 }
 
 func TestNewShaclValidatorFromConfig(t *testing.T) {
-	validator, err := NewShaclValidatorFromConfig(false, "")
+	validator, err := NewShaclValidatorFromConfig(false)
 	require.NoError(t, err)
 	require.Nil(t, validator, "no validator should be created if validation is not configured")
 
-	validator, err = NewShaclValidatorFromConfig(true, "")
+	validator, err = NewShaclValidatorFromConfig(true)
 	require.NoError(t, err)
 	require.IsType(t, &LocalShaclValidator{}, validator)
-
-	validator, err = NewShaclValidatorFromConfig(false, "0.0.0.0:50051")
-	require.NoError(t, err)
-	require.IsType(t, &GrpcShaclValidator{}, validator)
-	require.NoError(t, validator.Close())
-
-	_, err = NewShaclValidatorFromConfig(true, "0.0.0.0:50051")
-	require.Error(t, err, "local and grpc validation are mutually exclusive")
-}
-
-func TestGrpcShaclValidatorSpreadsRequests(t *testing.T) {
-	first, second := &countingShaclValidatorClient{}, &countingShaclValidatorClient{}
-	validator := NewGrpcShaclValidatorFromClients(first, second)
-	for range 10 {
-		_, _, err := validator.Validate(context.Background(), `{"@context": {}}`)
-		require.NoError(t, err)
-	}
-	require.Equal(t, int64(5), first.calls.Load())
-	require.Equal(t, int64(5), second.calls.Load())
-}
-
-type countingShaclValidatorClient struct {
-	calls atomic.Int64
-}
-
-func (c *countingShaclValidatorClient) Validate(ctx context.Context, in *protoBuild.JsoldValidationRequest, opts ...grpc.CallOption) (*protoBuild.ValidationReply, error) {
-	c.calls.Add(1)
-	return &protoBuild.ValidationReply{Valid: true}, nil
 }
 
 func readShaclTestdata(t *testing.T, path ...string) string {

@@ -20,11 +20,9 @@ import (
 	"github.com/google/uuid"
 	common "github.com/internetofwater/nabu/internal/common"
 	"github.com/internetofwater/nabu/internal/crawl/storage"
-	"github.com/internetofwater/nabu/internal/protoBuild"
 	logrustest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
-	"google.golang.org/grpc"
 )
 
 func TestBulkSitemap(t *testing.T) {
@@ -67,7 +65,7 @@ func TestBulkSitemap(t *testing.T) {
 
 	sitemap.URL[0].Loc = unique_id
 
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, NewGrpcShaclValidatorFromClients(&mockShaclValidatorClient{}), false)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, &mockShaclValidator{}, false)
 	require.NoError(t, err)
 
 	stats, err := sitemap.
@@ -130,7 +128,7 @@ func TestBulkSitemapWithStrictShaclMode(t *testing.T) {
 	sitemap.URL[0].Loc = unique_id
 
 	const STRICT_SHACL_MODE = true
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, NewGrpcShaclValidatorFromClients(&mockShaclValidatorClient{}), STRICT_SHACL_MODE)
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, &mockShaclValidator{}, STRICT_SHACL_MODE)
 	require.NoError(t, err)
 
 	stats, err := sitemap.
@@ -189,11 +187,8 @@ func TestBulkSitemapWithShaclConnectionIssueDoesntCrash(t *testing.T) {
 
 	sitemap.URL[0].Loc = unique_id
 
-	// this is intentionally a random invalid address to simulate a connection issue with the SHACL validator; we want to make sure this doesn't cause the harvest to fail since we want to be resilient to SHACL validator issues
-	badGrpcClient, err := NewGrpcShaclValidator("0.0.0.0:1020202")
-	require.NoError(t, err)
-
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, badGrpcClient, false)
+	// simulate an issue with the SHACL validator; we want to make sure this doesn't cause the harvest to fail since we want to be resilient to SHACL validator issues
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, &erroringShaclValidator{}, false)
 	require.NoError(t, err)
 
 	stats, err := sitemap.
@@ -299,13 +294,13 @@ func TestBulkSitemapReplacesPreviousHarvestAndSkipsDuplicates(t *testing.T) {
 	require.Contains(t, features, "https://example.com/b")
 }
 
-// a shacl client that is slow to respond and records how many requests it handled at once
-type slowShaclValidatorClient struct {
+// a shacl validator that is slow to respond and records how many requests it handled at once
+type slowShaclValidator struct {
 	inFlight    atomic.Int32
 	maxInFlight atomic.Int32
 }
 
-func (m *slowShaclValidatorClient) Validate(ctx context.Context, in *protoBuild.JsoldValidationRequest, opts ...grpc.CallOption) (*protoBuild.ValidationReply, error) {
+func (m *slowShaclValidator) Validate(ctx context.Context, jsonld string) (bool, string, error) {
 	current := m.inFlight.Add(1)
 	defer m.inFlight.Add(-1)
 	for {
@@ -315,7 +310,11 @@ func (m *slowShaclValidatorClient) Validate(ctx context.Context, in *protoBuild.
 		}
 	}
 	time.Sleep(20 * time.Millisecond)
-	return &protoBuild.ValidationReply{Valid: true, Message: "valid"}, nil
+	return true, "valid", nil
+}
+
+func (m *slowShaclValidator) Close() error {
+	return nil
 }
 
 func TestBulkSitemapValidatesShaclConcurrently(t *testing.T) {
@@ -349,8 +348,8 @@ func TestBulkSitemapValidatesShaclConcurrently(t *testing.T) {
 	require.NoError(t, err)
 	sitemap.URL[0].Loc = imageName
 
-	shaclClient := &slowShaclValidatorClient{}
-	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, NewGrpcShaclValidatorFromClients(shaclClient), false)
+	shaclClient := &slowShaclValidator{}
+	config, err := NewSitemapHarvestConfig(mockedClient, sitemap, shaclClient, false)
 	require.NoError(t, err)
 
 	start := time.Now()
